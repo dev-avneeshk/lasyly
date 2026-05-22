@@ -1,0 +1,250 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  vulnerability-scan:
+    name: Vulnerability Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (fail on CVSS >= 7.0)
+        run: |
+          # npm audit --audit-level=high fails on vulnerabilities with CVSS >= 7.0
+          # If the audit service is unavailable, npm audit returns exit code 1 with an error message
+          # We capture output to distinguish between "vulns found" and "service unavailable"
+          set +e
+          AUDIT_OUTPUT=$(npm audit --audit-level=high 2>&1)
+          AUDIT_EXIT=$?
+          set -e
+
+          echo "$AUDIT_OUTPUT"
+
+          # Check if the audit service was unavailable
+          if echo "$AUDIT_OUTPUT" | grep -qi "ECONNREFUSED\|ENOTFOUND\|ETIMEDOUT\|request to.*failed\|registry.*unavailable\|503 Service Unavailable"; then
+            echo "::error::Vulnerability scanning service is unavailable. Failing build as dependency verification could not be completed."
+            exit 1
+          fi
+
+          # If audit found vulnerabilities at high/critical level, fail
+          if [ $AUDIT_EXIT -ne 0 ]; then
+            echo "::error::npm audit found vulnerabilities with CVSS >= 7.0. See output above for details."
+            exit 1
+          fi
+
+          echo "✓ No high/critical vulnerabilities found."
+
+  lockfile-validation:
+    name: Lockfile Pinning Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate lockfile has no range operators
+        run: |
+          # Check package.json dependencies for range operators (^, ~, >=, *)
+          # Production dependencies must be pinned to exact versions
+          echo "Checking package.json for range operators in production dependencies..."
+
+          VIOLATIONS=""
+
+          # Check dependencies in package.json for range operators
+          if [ -f "package.json" ]; then
+            # Extract dependency versions and check for range operators
+            DEPS_WITH_RANGES=$(node -e "
+              const pkg = require('./package.json');
+              const deps = pkg.dependencies || {};
+              const violations = [];
+              for (const [name, version] of Object.entries(deps)) {
+                if (/[\^~*]|>=/.test(version)) {
+                  violations.push(name + '@' + version);
+                }
+              }
+              if (violations.length > 0) {
+                console.log(violations.join('\n'));
+              }
+            ")
+
+            if [ -n "$DEPS_WITH_RANGES" ]; then
+              VIOLATIONS="$DEPS_WITH_RANGES"
+            fi
+          fi
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Production dependencies contain range operators (^, ~, >=, *). All production dependencies must be pinned to exact versions."
+            echo ""
+            echo "Violations found:"
+            echo "$VIOLATIONS"
+            echo ""
+            echo "Fix by removing range operators from package.json dependency versions."
+            exit 1
+          fi
+
+          echo "✓ All production dependencies are pinned to exact versions."
+
+  sri-check:
+    name: Subresource Integrity Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for SRI hashes on external scripts and stylesheets
+        run: |
+          # Find all HTML, JSX, TSX files that may load external resources
+          echo "Scanning for externally-loaded scripts and stylesheets without SRI hashes..."
+
+          VIOLATIONS=""
+
+          # Search for <script src="http..."> or <link href="http..."> without integrity attribute
+          # Check HTML files
+          while IFS= read -r -d '' file; do
+            # Find script tags with external src (http/https) missing integrity
+            SCRIPT_VIOLATIONS=$(grep -n '<script[^>]*src=["'"'"']https\?://' "$file" | grep -v 'integrity=' || true)
+            if [ -n "$SCRIPT_VIOLATIONS" ]; then
+              VIOLATIONS="${VIOLATIONS}${file}:\n${SCRIPT_VIOLATIONS}\n\n"
+            fi
+
+            # Find link[rel=stylesheet] tags with external href missing integrity
+            LINK_VIOLATIONS=$(grep -n '<link[^>]*href=["'"'"']https\?://' "$file" | grep -v 'integrity=' || true)
+            if [ -n "$LINK_VIOLATIONS" ]; then
+              VIOLATIONS="${VIOLATIONS}${file}:\n${LINK_VIOLATIONS}\n\n"
+            fi
+          done < <(find . -type f \( -name "*.html" -o -name "*.htm" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.js" -o -name "*.ts" \) -not -path "*/node_modules/*" -not -path "*/.next/*" -print0)
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::External scripts or stylesheets found without Subresource Integrity (SRI) hashes."
+            echo ""
+            echo "Violations:"
+            echo -e "$VIOLATIONS"
+            echo ""
+            echo "Add integrity=\"sha384-...\" attribute to all externally-loaded scripts and stylesheets."
+            exit 1
+          fi
+
+          echo "✓ All externally-loaded scripts and stylesheets have SRI hashes (or none found)."
+
+  unmaintained-packages:
+    name: Unmaintained Package Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Flag unmaintained packages with known vulnerabilities
+        run: |
+          # Check for packages with no release in 12 months AND known vulnerabilities
+          node -e "
+          const { execSync } = require('child_process');
+          const pkg = require('./package.json');
+          const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+          const warnings = [];
+          const twelveMonthsAgo = new Date();
+          twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+          // Get audit data
+          let auditData = {};
+          try {
+            const auditOutput = execSync('npm audit --json 2>/dev/null || true', { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+            if (auditOutput.trim()) {
+              auditData = JSON.parse(auditOutput);
+            }
+          } catch (e) {
+            // If audit fails, we still check for stale packages
+          }
+
+          // Get set of vulnerable package names
+          const vulnerablePackages = new Set();
+          if (auditData.vulnerabilities) {
+            Object.keys(auditData.vulnerabilities).forEach(name => vulnerablePackages.add(name));
+          }
+
+          // Check each dependency for last publish date
+          for (const [name] of Object.entries(allDeps)) {
+            try {
+              const info = execSync('npm view ' + name + ' time --json 2>/dev/null', { encoding: 'utf8', timeout: 15000 });
+              const times = JSON.parse(info);
+              const versions = Object.keys(times).filter(k => k !== 'created' && k !== 'modified');
+              if (versions.length === 0) continue;
+
+              const lastVersion = versions[versions.length - 1];
+              const lastRelease = new Date(times[lastVersion]);
+
+              if (lastRelease < twelveMonthsAgo && vulnerablePackages.has(name)) {
+                warnings.push(name + ' (last release: ' + lastRelease.toISOString().split('T')[0] + ', has known vulnerabilities) - recommend replacement or removal');
+              }
+            } catch (e) {
+              // Skip packages we can't query
+            }
+          }
+
+          if (warnings.length > 0) {
+            console.log('::warning::Unmaintained packages with known vulnerabilities detected:');
+            warnings.forEach(w => console.log('  ⚠ ' + w));
+            // This is a warning, not a hard failure
+            process.exit(0);
+          } else {
+            console.log('✓ No unmaintained packages with known vulnerabilities found.');
+          }
+          "
+
+  unused-dependencies:
+    name: Unused Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for unused production dependencies via static analysis
+        run: |
+          # Use depcheck for static analysis of unused dependencies
+          npx depcheck --json --ignores="@types/*,eslint-config-*,@tailwindcss/*,tailwindcss,postcss,typescript" . | node -e "
+          const fs = require('fs');
+          let input = '';
+          process.stdin.on('data', chunk => input += chunk);
+          process.stdin.on('end', () => {
+            try {
+              const result = JSON.parse(input);
+              const unused = result.dependencies || [];
+
+              if (unused.length > 0) {
+                console.log('::error::Unused production dependencies detected via static analysis:');
+                unused.forEach(dep => console.log('  ✗ ' + dep));
+                console.log('');
+                console.log('Remove unused dependencies or add them to the ignore list if they are used implicitly.');
+                process.exit(1);
+              } else {
+                console.log('✓ No unused production dependencies found.');
+              }
+            } catch (e) {
+              console.log('::error::Failed to parse depcheck output: ' + e.message);
+              process.exit(1);
+            }
+          });
+          "

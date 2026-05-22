@@ -1,0 +1,197 @@
+name: Scrape Sports Data
+
+on:
+  schedule:
+    # Run every 12 hours (midnight and noon UTC)
+    - cron: '0 0,12 * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  scrape-news:
+    name: ESPN News (Hourly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Create .env.local for scraper
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+
+      - name: Scrape ESPN news
+        run: python scripts/scrape_espn_news.py
+        timeout-minutes: 10
+
+      - name: Upload scraper logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: espn-news-logs
+          path: scripts/logs/espn_news_scraper.log
+          retention-days: 3
+
+  scrape-nba:
+    name: NBA Scraper (Daily + Backfill)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+        working-directory: .
+
+      - name: Create .env.local for scraper
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+
+      - name: Run NBA scraper (daily mode)
+        run: python scripts/scrape_nba.py daily --delay 3
+        timeout-minutes: 45
+
+      - name: Backfill missing box scores
+        run: python scripts/scrape_nba.py boxscores-only --limit 20 --delay 3
+        timeout-minutes: 30
+
+      - name: Scrape ALL team stats (team + opponent, all tables)
+        run: python scripts/scrape_team_stats.py --delay 3
+        timeout-minutes: 15
+
+      - name: Scrape ALL player season stats (6 pages, regular + playoffs)
+        run: python scripts/scrape_player_stats.py --delay 3
+        timeout-minutes: 15
+
+      - name: Upload scraper logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-scraper-logs
+          path: |
+            scripts/nba_scraper.log
+            scripts/team_stats_scraper.log
+            scripts/player_stats_scraper.log
+          retention-days: 7
+
+  scrape-tennis:
+    name: Tennis Scraper (Active Tournaments)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+        working-directory: .
+
+      - name: Create .env.local for scraper
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+
+      - name: Discover active tournaments
+        id: discover
+        run: |
+          TOURNAMENTS=$(python scripts/discover_tournaments.py 2>/dev/null || echo "")
+          if [ -z "$TOURNAMENTS" ]; then
+            echo "No active tournaments found, skipping tennis scrape"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found tournaments:"
+            echo "$TOURNAMENTS"
+            # Save to file for the next step
+            echo "$TOURNAMENTS" > /tmp/tournaments.txt
+            echo "found=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Scrape each tournament
+        if: steps.discover.outputs.found == 'true'
+        run: |
+          while IFS= read -r url; do
+            if [ -n "$url" ]; then
+              echo "=========================================="
+              echo "Scraping: $url"
+              echo "=========================================="
+              python scripts/scrape_tennis.py daily --tournament "$url" --delay 3 --limit 30 || true
+              echo ""
+              sleep 5
+            fi
+          done < /tmp/tournaments.txt
+
+      - name: Upload scraper logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennis-scraper-logs
+          path: scripts/logs/
+          retention-days: 7
+
+  scrape-espn:
+    name: ESPN All Sports (Soccer, NFL, NHL, Tennis, F1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+        working-directory: .
+
+      - name: Create .env.local for scraper
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+
+      - name: ESPN daily scores + standings refresh
+        run: python scripts/scrape_espn.py daily --delay 1
+        timeout-minutes: 15
+
+      - name: ESPN teams refresh (weekly data, runs fast)
+        run: python scripts/scrape_espn.py teams --delay 1
+        timeout-minutes: 10
+
+      - name: ESPN player stats for recent completed games
+        run: |
+          python scripts/scrape_espn.py stats --league nhl --delay 1 --limit 20
+          python scripts/scrape_espn.py stats --delay 1 --limit 40
+        timeout-minutes: 30
+
+      - name: Upload ESPN scraper logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: espn-scraper-logs
+          path: scripts/logs/espn_scraper.log
+          retention-days: 7
