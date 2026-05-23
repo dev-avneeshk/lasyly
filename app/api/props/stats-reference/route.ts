@@ -208,6 +208,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
     .select(`
       player_name,
       team,
+      opponent,
       position,
       minutes,
       pts,
@@ -734,6 +735,27 @@ function buildCheatSheetValues(
  * Builds per-game breakdown data for charts (assists, FGM/FGA, OREB/DREB, 3PM/3PA).
  * Returns the last 15 games in chronological order (oldest first).
  */
+/** Maps full team names (as stored in nba_games) to 3-letter abbreviations */
+const TEAM_NAME_TO_ABBR: Record<string, string> = {
+  "Atlanta Hawks": "ATL", "Boston Celtics": "BOS", "Brooklyn Nets": "BKN",
+  "Charlotte Hornets": "CHA", "Chicago Bulls": "CHI", "Cleveland Cavaliers": "CLE",
+  "Dallas Mavericks": "DAL", "Denver Nuggets": "DEN", "Detroit Pistons": "DET",
+  "Golden State Warriors": "GSW", "Houston Rockets": "HOU", "Indiana Pacers": "IND",
+  "LA Clippers": "LAC", "LA Lakers": "LAL", "Memphis Grizzlies": "MEM",
+  "Miami Heat": "MIA", "Milwaukee Bucks": "MIL", "Minnesota Timberwolves": "MIN",
+  "New Orleans Pelicans": "NOP", "New York Knicks": "NYK", "Oklahoma City Thunder": "OKC",
+  "Orlando Magic": "ORL", "Philadelphia 76ers": "PHI", "Phoenix Suns": "PHX",
+  "Portland Trail Blazers": "POR", "Sacramento Kings": "SAC", "San Antonio Spurs": "SAS",
+  "Toronto Raptors": "TOR", "Utah Jazz": "UTA", "Washington Wizards": "WAS",
+}
+
+/** Convert a full team name to its 3-letter abbreviation, or return the input if already short */
+function toAbbr(name: string): string {
+  if (!name) return name
+  if (name.length <= 3) return name.toUpperCase()
+  return TEAM_NAME_TO_ABBR[name] ?? name
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildGameBreakdown(games: any[]) {
   // games are ordered most recent first — reverse for chronological display
@@ -741,13 +763,16 @@ function buildGameBreakdown(games: any[]) {
 
   return slice.map((g) => {
     const gameDate = g.nba_games?.game_date ?? null
-    // Derive the actual opponent from home_team/away_team, fallback to player's own team
-    const playerTeam = g.team ?? ""
-    const homeTeam = g.nba_games?.home_team ?? ""
-    const awayTeam = g.nba_games?.away_team ?? ""
-    const opponent = homeTeam && awayTeam
-      ? (playerTeam === homeTeam ? awayTeam : homeTeam)
-      : playerTeam
+    // Use the opponent column directly — stored as 3-letter abbreviation in nba_player_stats
+    const opponent = (g.opponent ?? "").toUpperCase() || (() => {
+      // Fallback: derive from home/away team names if opponent column is missing
+      const playerTeamAbbr = (g.team ?? "").toUpperCase()
+      const homeTeamAbbr = toAbbr(g.nba_games?.home_team ?? "")
+      const awayTeamAbbr = toAbbr(g.nba_games?.away_team ?? "")
+      return homeTeamAbbr && awayTeamAbbr
+        ? (playerTeamAbbr === homeTeamAbbr ? awayTeamAbbr : homeTeamAbbr)
+        : playerTeamAbbr
+    })()
     const fg = Number(g.fg) || 0
     const fga = Number(g.fga) || 0
     const tp = Number(g.tp) || 0

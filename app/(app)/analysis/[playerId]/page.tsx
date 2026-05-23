@@ -1150,7 +1150,7 @@ export default function PlayerDashboardPage() {
               <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip content={({ active, payload }) => {
+                <Tooltip cursor={false} content={({ active, payload }) => {
                   if (!active || !payload?.length) return null
                   const d = payload[0].payload
                   return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.ast} AST</span> <span className="text-[var(--color-text-muted)]">vs {d.opponent}</span></div>
@@ -1176,7 +1176,7 @@ export default function PlayerDashboardPage() {
               <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip content={({ active, payload }) => {
+                <Tooltip cursor={false} content={({ active, payload }) => {
                   if (!active || !payload?.length) return null
                   const d = payload[0].payload
                   return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.fg}/{d.fga} FG</span> <span className="text-[var(--color-text-muted)]">({d.fga > 0 ? ((d.fg / d.fga) * 100).toFixed(0) : 0}%)</span></div>
@@ -1207,7 +1207,7 @@ export default function PlayerDashboardPage() {
               <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip content={({ active, payload }) => {
+                <Tooltip cursor={false} content={({ active, payload }) => {
                   if (!active || !payload?.length) return null
                   const d = payload[0].payload
                   return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.orb} OREB · {d.drb} DREB</span></div>
@@ -1240,7 +1240,7 @@ export default function PlayerDashboardPage() {
               <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip content={({ active, payload }) => {
+                <Tooltip cursor={false} content={({ active, payload }) => {
                   if (!active || !payload?.length) return null
                   const d = payload[0].payload
                   return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.tp}/{d.tpa} 3PT</span> <span className="text-[var(--color-text-muted)]">({d.tpa > 0 ? ((d.tp / d.tpa) * 100).toFixed(0) : 0}%)</span></div>
