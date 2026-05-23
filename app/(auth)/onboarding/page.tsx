@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Camera, Check, AlertCircle, TrendingUp, Users, Zap } from "lucide-react"
@@ -36,6 +36,8 @@ const INTENTS = [
 export default function OnboardingPage() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
+  const searchParams = useSearchParams()
+  const isPendingEmail = searchParams.get("pending") === "email"
 
   const [step, setStep] = useState(1) // 1: Intent, 2: Profile, 3: Sports
   const [accountType, setAccountType] = useState<string | null>(null)
@@ -142,6 +144,26 @@ export default function OnboardingPage() {
 
   return (
     <div className="w-full">
+      {/* Email confirmation pending state */}
+      {isPendingEmail && (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 rounded-full bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/30 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-[var(--color-lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">Check your email</h2>
+          <p className="text-[var(--color-text-muted)] mb-2">
+            We sent a confirmation link to your email address.
+          </p>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Click the link in the email to confirm your account and complete setup.
+          </p>
+        </div>
+      )}
+
+      {/* Normal onboarding flow */}
+      {!isPendingEmail && <>
       {/* Progress indicator */}
       <div className="flex gap-2 mb-8">
         {[1, 2, 3].map((s) => (
@@ -318,6 +340,7 @@ export default function OnboardingPage() {
           </Button>
         </div>
       )}
+      </>}
     </div>
   )
 }

@@ -89,9 +89,16 @@ export default function SignupPage() {
       return
     }
 
-    // Create the profile row server-side (admin client bypasses RLS so
-    // this works even when email confirmation is enabled and the user
-    // doesn't have an active session yet).
+    // If email confirmation is enabled, data.session will be null and
+    // the user row isn't committed to auth.users yet — we can't create
+    // the profile until after they confirm. Send them to a holding page.
+    if (!data.session) {
+      window.location.href = "/onboarding?pending=email"
+      return
+    }
+
+    // Email confirmation is disabled — user is live immediately.
+    // Create the profile row server-side (admin client bypasses RLS).
     const profileRes = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
