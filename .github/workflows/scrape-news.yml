@@ -1,8 +1,8 @@
-name: Scrape ESPN News (Hourly)
+name: Scrape ESPN News (Every 30 min)
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '*/30 * * * *'  # Every 30 minutes
   workflow_dispatch:
 
 jobs:
@@ -36,6 +36,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: espn-news-logs
+          name: espn-news-logs-${{ github.run_number }}
           path: scripts/logs/espn_news_scraper.log
-          retention-days: 3
+          retention-days: 1

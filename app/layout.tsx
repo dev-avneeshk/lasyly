@@ -3,6 +3,7 @@ import { Playfair_Display, Libre_Baskerville, Source_Sans_3 } from "next/font/go
 import "./globals.css";
 import "@/lib/env"; // Validate environment variables at startup
 import CookieConsent from "@/components/CookieConsent";
+import { connection } from "next/server";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -52,11 +53,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Force dynamic rendering so Next.js reads the per-request CSP nonce
+  // from proxy and stamps it on all <script> tags it injects.
+  await connection();
   return (
     <html lang="en" className={`h-full antialiased ${playfair.variable} ${libreBaskerville.variable} ${sourceSans.variable}`}>
       <head>

@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -10,7 +9,6 @@ import { createClient } from "@/lib/supabase/client"
 import { isSupabaseConfigured, supabaseConfigError } from "@/lib/supabase/config"
 
 export default function SignupPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
@@ -91,8 +89,7 @@ export default function SignupPage() {
       }
     }
 
-    router.push("/explore")
-    router.refresh()
+    window.location.href = "/explore"
   }
 
   return (

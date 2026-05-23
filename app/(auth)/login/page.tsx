@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -10,10 +10,11 @@ import { createClient } from "@/lib/supabase/client"
 import { isSupabaseConfigured, supabaseConfigError } from "@/lib/supabase/config"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirect") || "/explore"
 
   const handleGoogleLogin = async () => {
     setIsLoading(true)
@@ -28,7 +29,7 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/explore`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     })
 
@@ -70,8 +71,12 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/explore")
-    router.refresh()
+    // Use a hard navigation instead of router.push so the browser sends the
+    // freshly-set session cookies on the very first request to /explore.
+    // router.push fires before @supabase/ssr has flushed all cookie writes,
+    // which causes the middleware to see an empty session and redirect back
+    // to /login.
+    window.location.href = redirectTo
   }
 
   const handleGuestLogin = async () => {
@@ -88,8 +93,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/explore")
-    router.refresh()
+    window.location.href = redirectTo
   }
 
   return (

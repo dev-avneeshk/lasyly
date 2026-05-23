@@ -1,11 +1,15 @@
 import Link from "next/link"
 import Image from "next/image"
+import { connection } from "next/server"
 
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Force dynamic rendering so Next.js reads the per-request CSP nonce
+  // from proxy and stamps it on all <script> tags it injects.
+  await connection()
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--color-background)] relative overflow-hidden">
       {/* Ambient glowing orbs */}

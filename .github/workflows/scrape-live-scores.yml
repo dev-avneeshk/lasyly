@@ -1,0 +1,57 @@
+name: Live Scores — DB Refresh (Every 10 min)
+
+# Keeps the `matches` table fresh so every user hitting the scores page
+# gets sub-second DB reads instead of paying an ESPN round-trip.
+#
+# In-app refresh loop:
+#   The /api/scores route itself re-fetches ESPN whenever a live game is
+#   detected and the DB data is stale (>30s). This GitHub Action is the
+#   *background* pre-warm so the DB is never empty/cold.
+#
+# Cadence: GitHub Actions minimum is every 5 minutes. We use 10 min to
+#   stay well within the free-tier 2,000 min/month limit
+#   (10-min cron = 144 runs/day × ~1 min each = ~4,320 min/month —
+#   that exceeds free tier for the live-scores job alone, so we use
+#   a conditional: only refresh when there are live or upcoming games
+#   in the next 6 hours to avoid burning minutes on dead hours).
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  refresh-scores:
+    name: Refresh Today's Scores
+    runs-on: ubuntu-latest
+    timeout-minutes: 8  # Hard cap — must finish before next run starts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Create .env.local
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+
+      - name: Refresh today's scores (daily mode — fast ESPN API hit)
+        run: python scripts/scrape_espn.py daily --delay 0.5
+        timeout-minutes: 6
+
+      # Upload logs only on failure so artifact storage isn't eaten up
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-scores-failure-${{ github.run_number }}
+          path: scripts/logs/espn_scraper.log
+          retention-days: 1

@@ -46,9 +46,17 @@ next-env.d.ts
 
 # python test artifacts
 .hypothesis/
+__pycache__/
+*.pyc
+*.pyo
+scripts/__pycache__/
+scripts/tests/__pycache__/
 
 # scraper demo data
 scripts/demo_*.json
+
+# scripts next artifacts
+scripts/.next/
 
 # Sentry Config File
 .env.sentry-build-plugin

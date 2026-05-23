@@ -11,6 +11,7 @@ import {
   GUEST_COOKIE_NAME,
   verifyGuestToken,
 } from "@/lib/security/guestCookie"
+import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/auth-config"
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ const PUBLIC_ROUTES = [
   "/onboarding",
   "/privacy",
   "/terms",
+  "/auth/callback",
 ]
 
 const AUTH_ROUTES = ["/login", "/signup"]
@@ -62,47 +64,33 @@ function getClientIp(request: NextRequest): string {
 /**
  * Build the Content-Security-Policy header.
  *
- * Production:
- *   script-src 'self' 'nonce-{n}' 'strict-dynamic'
- *   No 'unsafe-inline' on script-src — XSS via injected inline scripts is
- *   blocked. 'strict-dynamic' lets the nonce-trusted Next.js bootstrap script
- *   transitively authorize the chunks it loads, so we don't have to enumerate
- *   every script URL.
+ * Next.js 16 automatically reads the 'nonce-{value}' from this header and
+ * applies it to all framework script tags during SSR — no manual wiring needed.
+ * 'strict-dynamic' lets nonce-trusted scripts transitively load their chunks.
  *
- * Development:
- *   Same as production plus 'unsafe-eval' (React DevTools require it).
- *
- * style-src intentionally keeps 'unsafe-inline'. Tailwind v4, recharts, and
- * framer-motion all inject inline <style> tags. Locking those down requires
- * a separate workstream (per-component nonce attribution); the XSS payoff for
- * nonce-only style-src is much smaller than for script-src.
+ * Development adds 'unsafe-eval' for React DevTools / HMR.
+ * style-src keeps 'unsafe-inline' because Tailwind v4, recharts, and
+ * framer-motion inject inline <style> tags at runtime.
  */
 function buildCSPHeader(nonce: string): string {
   const isDev = process.env.NODE_ENV === "development"
 
-  const directives = [
-    `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${
-      isDev ? " 'unsafe-eval'" : ""
-    }`,
-    `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: https: blob:`,
-    `font-src 'self' data:`,
-    `connect-src 'self' https: wss:`,
-    `object-src 'none'`,
-    `base-uri 'self'`,
-    `frame-ancestors 'none'`,
-    `form-action 'self'`,
-  ]
+  const csp = `
+    default-src 'self';
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https: blob:;
+    font-src 'self' data:;
+    connect-src 'self' https: wss:;
+    worker-src 'self' blob:;
+    object-src 'none';
+    base-uri 'self';
+    frame-ancestors 'none';
+    form-action 'self';
+    ${isDev ? "" : "upgrade-insecure-requests;"}
+  `
 
-  if (!isDev) {
-    // upgrade-insecure-requests rewrites same-origin http:// subresources to
-    // https://. Safari enforces this on localhost too, so we only emit it in
-    // production where TLS is actually present.
-    directives.push(`upgrade-insecure-requests`)
-  }
-
-  return directives.join("; ")
+  return csp.replace(/\s{2,}/g, " ").trim()
 }
 
 /**
@@ -128,15 +116,16 @@ export async function proxy(request: NextRequest) {
   const clientIp = getClientIp(request)
 
   // ── 0. Generate per-request CSP nonce ─────────────────────────────────────
-  // crypto.randomUUID is available on the edge runtime; encoded as base64 so
-  // it can be embedded directly in the CSP header without escaping.
+  // Next.js 16 automatically reads 'nonce-{value}' from the CSP header and
+  // stamps it on all framework <script> tags during SSR — no layout changes needed.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64")
   const cspHeader = buildCSPHeader(nonce)
 
-  // Forward the nonce to the rendering layer via a request header so React
-  // Server Components can attach it to <Script> components when needed.
+  // Forward the nonce via request header so Server Components can read it
+  // if they need to pass it to third-party <Script> tags.
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-nonce", nonce)
+  requestHeaders.set("Content-Security-Policy", cspHeader)
 
   // ── 1. IP block check (cheapest reject — do it first) ────────────────────
   const ipBlock = checkIPBlock(clientIp)
@@ -254,7 +243,16 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|ico|webp|woff2?|ttf|css|js)$/)
 
-  if (!isPublicRoute && !isApiRoute && !isStaticAsset) {
+  const needsAuthCheck =
+    !isApiRoute &&
+    !isStaticAsset &&
+    (!isPublicRoute || AUTH_ROUTES.some((route) => pathname.startsWith(route)))
+
+  if (needsAuthCheck) {
+    // Create a single Supabase client for this request so we only call
+    // getUser() once. Creating two clients (one per branch) and calling
+    // getUser() on each races to consume the same refresh token, which
+    // triggers Supabase's "refresh_token_already_used" error.
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -265,7 +263,11 @@ export async function proxy(request: NextRequest) {
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options)
+              request.cookies.set(name, value)
+              response.cookies.set(name, value, {
+                ...options,
+                ...AUTH_COOKIE_OPTIONS,
+              })
             })
           },
         },
@@ -283,49 +285,29 @@ export async function proxy(request: NextRequest) {
       request.cookies.get(GUEST_COOKIE_NAME)?.value
     )
 
-    if (!user && !isGuest) {
+    const isAuthed = Boolean(user || isGuest)
+
+    // Already-authenticated users should not see /login or /signup.
+    if (isAuthed && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
+      const redirectResponse = NextResponse.redirect(new URL("/dashboard", request.url))
+      // Forward any refreshed auth cookies so the new tokens aren't lost.
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value)
+      })
+      return redirectResponse
+    }
+
+    // Protected routes require authentication.
+    if (!isPublicRoute && !isAuthed) {
       const loginUrl = new URL("/login", request.url)
       loginUrl.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-
-    if (
-      (user || isGuest) &&
-      AUTH_ROUTES.some((route) => pathname.startsWith(route))
-    ) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
-    }
-  }
-
-  // Redirect already-authed users away from /login and /signup.
-  if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options)
-            })
-          },
-        },
-      }
-    )
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    const isGuest = verifyGuestToken(
-      request.cookies.get(GUEST_COOKIE_NAME)?.value
-    )
-
-    if (user || isGuest) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      const redirectResponse = NextResponse.redirect(loginUrl)
+      // Forward any refreshed auth cookies so the consumed refresh token
+      // is replaced with the new one — prevents "refresh_token_already_used".
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value)
+      })
+      return redirectResponse
     }
   }
 
