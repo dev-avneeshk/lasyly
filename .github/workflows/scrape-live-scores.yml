@@ -1,4 +1,4 @@
-name: Live Scores — DB Refresh (Every 10 min)
+name: Live Scores — DB Refresh (Every 1 hour)
 
 # Keeps the `matches` table fresh so every user hitting the scores page
 # gets sub-second DB reads instead of paying an ESPN round-trip.
@@ -7,17 +7,10 @@ name: Live Scores — DB Refresh (Every 10 min)
 #   The /api/scores route itself re-fetches ESPN whenever a live game is
 #   detected and the DB data is stale (>30s). This GitHub Action is the
 #   *background* pre-warm so the DB is never empty/cold.
-#
-# Cadence: GitHub Actions minimum is every 5 minutes. We use 10 min to
-#   stay well within the free-tier 2,000 min/month limit
-#   (10-min cron = 144 runs/day × ~1 min each = ~4,320 min/month —
-#   that exceeds free tier for the live-scores job alone, so we use
-#   a conditional: only refresh when there are live or upcoming games
-#   in the next 6 hours to avoid burning minutes on dead hours).
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Every 10 minutes
+    - cron: '0 * * * *'  # Every hour
   workflow_dispatch:
 
 jobs:
