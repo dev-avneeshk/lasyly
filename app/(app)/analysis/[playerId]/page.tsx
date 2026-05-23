@@ -503,6 +503,12 @@ export default function PlayerDashboardPage() {
     ? (isMobile ? gameBreakdown.slice(-5) : gameBreakdown)
     : null
 
+  // Pre-filter per-chart to remove zero-value rows (invisible bars cause wrong tooltip)
+  const astChartData = chartGameBreakdown?.filter(d => d.ast > 0) ?? []
+  const fgChartData = chartGameBreakdown?.filter(d => d.fga > 0) ?? []
+  const rebChartData = chartGameBreakdown?.filter(d => d.orb > 0 || d.drb > 0) ?? []
+  const tptChartData = chartGameBreakdown?.filter(d => d.tpa > 0) ?? []
+
   // Stat categories — sport-specific
   const statCategories = isESPNSport
     ? sportParam === "Soccer" ? [
@@ -1147,18 +1153,13 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={astChartData} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip cursor={false} content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null
-                  const d = payload[0].payload
-                  return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.ast} AST</span> <span className="text-[var(--color-text-muted)]">vs {d.opponent}</span></div>
-                }} />
                 <Bar dataKey="ast" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
+                  {astChartData.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1173,23 +1174,18 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={fgChartData} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip cursor={false} content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null
-                  const d = payload[0].payload
-                  return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.fg}/{d.fga} FG</span> <span className="text-[var(--color-text-muted)]">({d.fga > 0 ? ((d.fg / d.fga) * 100).toFixed(0) : 0}%)</span></div>
-                }} />
                 <Bar dataKey="fga" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-text-muted)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
+                  {fgChartData.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
                 </Bar>
                 <Bar dataKey="fg" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
+                  {fgChartData.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1204,21 +1200,16 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={rebChartData} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip cursor={false} content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null
-                  const d = payload[0].payload
-                  return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.orb} OREB · {d.drb} DREB</span></div>
-                }} />
                 <Bar dataKey="drb" radius={[3, 3, 0, 0]} maxBarSize={24} stackId="reb" label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.7} />)}
+                  {rebChartData.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.7} />)}
                 </Bar>
                 <Bar dataKey="orb" radius={[3, 3, 0, 0]} maxBarSize={24} stackId="reb">
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-warning)" opacity={0.7} />)}
+                  {rebChartData.map((_, i) => <Cell key={i} fill="var(--color-warning)" opacity={0.7} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1237,23 +1228,18 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={tptChartData} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
-                <Tooltip cursor={false} content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null
-                  const d = payload[0].payload
-                  return <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded p-2 text-xs"><span className="font-bold">{d.tp}/{d.tpa} 3PT</span> <span className="text-[var(--color-text-muted)]">({d.tpa > 0 ? ((d.tp / d.tpa) * 100).toFixed(0) : 0}%)</span></div>
-                }} />
                 <Bar dataKey="tpa" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-text-muted)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
+                  {tptChartData.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
                 </Bar>
                 <Bar dataKey="tp" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
+                  {tptChartData.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
