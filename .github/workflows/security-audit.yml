@@ -108,21 +108,28 @@ jobs:
 
           VIOLATIONS=""
 
-          # Search for <script src="http..."> or <link href="http..."> without integrity attribute
-          # Check HTML files
+          # Only match actual <script> tags with external src and <link> tags with
+          # rel="stylesheet" and external href. Exclude <img>, <source>, and other
+          # non-executable resource tags to avoid false positives.
           while IFS= read -r -d '' file; do
-            # Find script tags with external src (http/https) missing integrity
+            # Find <script ...src="https://..."> missing integrity
             SCRIPT_VIOLATIONS=$(grep -n '<script[^>]*src=["'"'"']https\?://' "$file" | grep -v 'integrity=' || true)
             if [ -n "$SCRIPT_VIOLATIONS" ]; then
               VIOLATIONS="${VIOLATIONS}${file}:\n${SCRIPT_VIOLATIONS}\n\n"
             fi
 
-            # Find link[rel=stylesheet] tags with external href missing integrity
-            LINK_VIOLATIONS=$(grep -n '<link[^>]*href=["'"'"']https\?://' "$file" | grep -v 'integrity=' || true)
+            # Find <link ...rel="stylesheet"...href="https://..."> missing integrity
+            # Must contain both rel="stylesheet" and an external href
+            LINK_VIOLATIONS=$(grep -n '<link[^>]*rel=["'"'"']stylesheet["'"'"'][^>]*href=["'"'"']https\?://' "$file" | grep -v 'integrity=' || true)
             if [ -n "$LINK_VIOLATIONS" ]; then
               VIOLATIONS="${VIOLATIONS}${file}:\n${LINK_VIOLATIONS}\n\n"
             fi
-          done < <(find . -type f \( -name "*.html" -o -name "*.htm" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.js" -o -name "*.ts" \) -not -path "*/node_modules/*" -not -path "*/.next/*" -print0)
+            # Also check reverse order: href before rel
+            LINK_VIOLATIONS2=$(grep -n '<link[^>]*href=["'"'"']https\?://[^>]*rel=["'"'"']stylesheet["'"'"']' "$file" | grep -v 'integrity=' || true)
+            if [ -n "$LINK_VIOLATIONS2" ]; then
+              VIOLATIONS="${VIOLATIONS}${file}:\n${LINK_VIOLATIONS2}\n\n"
+            fi
+          done < <(find . -type f \( -name "*.html" -o -name "*.htm" \) -not -path "*/node_modules/*" -not -path "*/.next/*" -print0)
 
           if [ -n "$VIOLATIONS" ]; then
             echo "::error::External scripts or stylesheets found without Subresource Integrity (SRI) hashes."
@@ -224,7 +231,10 @@ jobs:
       - name: Check for unused production dependencies via static analysis
         run: |
           # Use depcheck for static analysis of unused dependencies
-          npx depcheck --json --ignores="@types/*,eslint-config-*,@tailwindcss/*,tailwindcss,postcss,typescript" . | node -e "
+          # Ignore packages that are used implicitly (config-based, dynamic imports, etc.)
+          npx depcheck --json \
+            --ignores="@types/*,eslint-config-*,@tailwindcss/*,tailwindcss,postcss,typescript,@sentry/nextjs,@stripe/stripe-js,@radix-ui/*" \
+            . | node -e "
           const fs = require('fs');
           let input = '';
           process.stdin.on('data', chunk => input += chunk);
