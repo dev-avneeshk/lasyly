@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Libre_Baskerville, Source_Sans_3 } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import "@/lib/env"; // Validate environment variables at startup
 import CookieConsent from "@/components/CookieConsent";
@@ -80,6 +81,7 @@ export default async function RootLayout({
       <body className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
         {children}
         <CookieConsent />
+        <Analytics />
       </body>
     </html>
   );
