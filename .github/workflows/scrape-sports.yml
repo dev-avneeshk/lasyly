@@ -3,8 +3,8 @@ name: Scrape Sports Stats (Every 12h)
 # Runs at midnight and noon UTC every day.
 # Covers NBA box scores + season stats, tennis tournaments, and ESPN
 # teams/rosters/standings/player stats.
-# News is handled separately in scrape-news.yml (every 30 min).
-# Live scores are handled in scrape-live-scores.yml (every 10 min).
+# News is handled separately in scrape-news.yml (every 3 hours).
+# Live scores are handled in scrape-live-scores.yml (every 1 hour).
 
 on:
   schedule:
@@ -31,9 +31,7 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Create .env.local
-        run: |
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
       - name: Daily schedule + latest box scores
         run: python scripts/scrape_nba.py daily --delay 3
@@ -79,9 +77,7 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Create .env.local
-        run: |
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
       - name: Discover active tournaments
         id: discover
@@ -134,9 +130,7 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Create .env.local
-        run: |
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
       - name: Refresh teams (fast, idempotent)
         run: python scripts/scrape_espn.py teams --delay 1

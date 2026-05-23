@@ -24,9 +24,7 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Create .env.local for scraper
-        run: |
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > .env.local
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
+        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
 
       - name: Scrape ESPN news
         run: python scripts/scrape_espn_news.py
