@@ -44,6 +44,10 @@ export const metadata: Metadata = {
   },
   description: "Social sports rooms, betslip sharing, prop analytics, live scores, and a tipster marketplace. All in one place.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.com"),
+  icons: {
+    icon: "/lasyly_logo.png",
+    apple: "/lasyly_logo.png",
+  },
   openGraph: {
     type: "website",
     siteName: "Lasyly",
