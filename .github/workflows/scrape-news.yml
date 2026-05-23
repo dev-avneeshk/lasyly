@@ -1,8 +1,8 @@
-name: Scrape ESPN News (4x per 12 hours)
+name: Scrape ESPN News (Every 2 hours)
 
 on:
   schedule:
-    - cron: '0 */3 * * *'  # Every 3 hours (4 times per 12 hours)
+    - cron: '0 */2 * * *'  # Every 2 hours
   workflow_dispatch:
 
 jobs:

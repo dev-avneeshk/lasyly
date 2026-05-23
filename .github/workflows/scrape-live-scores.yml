@@ -1,4 +1,4 @@
-name: Live Scores — DB Refresh (Every 1 hour)
+name: Live Scores — DB Refresh (Every 10 min)
 
 # Keeps the `matches` table fresh so every user hitting the scores page
 # gets sub-second DB reads instead of paying an ESPN round-trip.
@@ -10,7 +10,7 @@ name: Live Scores — DB Refresh (Every 1 hour)
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:
 
 jobs:
