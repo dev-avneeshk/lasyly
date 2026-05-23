@@ -83,9 +83,9 @@ export async function POST(request: Request) {
   )
 
   if (error) {
-    console.error("Profile creation error:", error.message, error.code)
+    console.error("Profile creation error:", error.message, error.code, error.details)
     return NextResponse.json(
-      { error: "Failed to create profile. Please try again." },
+      { error: `Profile creation failed: ${error.message} (code: ${error.code})` },
       { status: 500 }
     )
   }
