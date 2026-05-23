@@ -226,7 +226,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
       tov,
       orb,
       drb,
-      nba_games!inner(game_date)
+      nba_games!inner(game_date, home_team, away_team)
     `)
     .ilike("player_name", player)
     .order("nba_games(game_date)", { ascending: false })
@@ -741,7 +741,13 @@ function buildGameBreakdown(games: any[]) {
 
   return slice.map((g) => {
     const gameDate = g.nba_games?.game_date ?? null
-    const opponent = g.team ?? ""
+    // Derive the actual opponent from home_team/away_team, fallback to player's own team
+    const playerTeam = g.team ?? ""
+    const homeTeam = g.nba_games?.home_team ?? ""
+    const awayTeam = g.nba_games?.away_team ?? ""
+    const opponent = homeTeam && awayTeam
+      ? (playerTeam === homeTeam ? awayTeam : homeTeam)
+      : playerTeam
     const fg = Number(g.fg) || 0
     const fga = Number(g.fga) || 0
     const tp = Number(g.tp) || 0

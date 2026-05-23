@@ -96,6 +96,15 @@ export default function PlayerDashboardPage() {
   const [seasonType, setSeasonType] = useState<"regular" | "playoffs">("regular")
   const [teamAnalytics, setTeamAnalytics] = useState<any>(null)
   const [seriesRecord, setSeriesRecord] = useState<{ team: number; opponent: number; type: string } | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Track mobile breakpoint for chart display
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
   const [gameBreakdown, setGameBreakdown] = useState<{
     date: string | null; opponent: string; fg: number; fga: number; tp: number; tpa: number;
     ft: number; fta: number; orb: number; drb: number; ast: number; pts: number;
@@ -489,6 +498,11 @@ export default function PlayerDashboardPage() {
   const overCount = filteredHistory.filter(g => g.value >= threshold).length
   const totalGames = filteredHistory.length
 
+  // Limit game-by-game charts to 5 on mobile, full list on desktop
+  const chartGameBreakdown = gameBreakdown
+    ? (isMobile ? gameBreakdown.slice(-5) : gameBreakdown)
+    : null
+
   // Stat categories — sport-specific
   const statCategories = isESPNSport
     ? sportParam === "Soccer" ? [
@@ -870,9 +884,6 @@ export default function PlayerDashboardPage() {
                             </div>
                           )}
                         </div>
-                        <div className="mt-1 text-[9px] text-[var(--color-text-muted)]">
-                          Line: {threshold} | {data.value >= threshold ? "✓ Over" : "✗ Under"}
-                        </div>
                       </div>
                     )
                   }}
@@ -1126,7 +1137,7 @@ export default function PlayerDashboardPage() {
       )}
 
       {/* Game-by-Game Charts (NBA only) */}
-      {!isESPNSport && gameBreakdown && gameBreakdown.length > 0 && (
+      {!isESPNSport && chartGameBreakdown && chartGameBreakdown.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Assists Chart */}
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4">
@@ -1136,7 +1147,7 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={gameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
                 <Tooltip content={({ active, payload }) => {
@@ -1147,7 +1158,7 @@ export default function PlayerDashboardPage() {
                 <Bar dataKey="ast" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1162,7 +1173,7 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={gameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
                 <Tooltip content={({ active, payload }) => {
@@ -1173,12 +1184,12 @@ export default function PlayerDashboardPage() {
                 <Bar dataKey="fga" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-text-muted)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
                 </Bar>
                 <Bar dataKey="fg" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1193,7 +1204,7 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={gameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
                 <Tooltip content={({ active, payload }) => {
@@ -1204,10 +1215,10 @@ export default function PlayerDashboardPage() {
                 <Bar dataKey="drb" radius={[3, 3, 0, 0]} maxBarSize={24} stackId="reb" label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.7} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.7} />)}
                 </Bar>
                 <Bar dataKey="orb" radius={[3, 3, 0, 0]} maxBarSize={24} stackId="reb">
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-warning)" opacity={0.7} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-warning)" opacity={0.7} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1226,7 +1237,7 @@ export default function PlayerDashboardPage() {
           </div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={gameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={chartGameBreakdown} margin={{ top: 15, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="opponent" tick={{ fill: "var(--color-text-muted)", fontSize: 8 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 9 }} axisLine={false} tickLine={false} domain={[0, "auto"]} width={20} />
                 <Tooltip content={({ active, payload }) => {
@@ -1237,12 +1248,12 @@ export default function PlayerDashboardPage() {
                 <Bar dataKey="tpa" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-text-muted)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-text-muted)" opacity={0.3} />)}
                 </Bar>
                 <Bar dataKey="tp" radius={[3, 3, 0, 0]} maxBarSize={24} label={({ x, y, width, value }: any) => (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="var(--color-lime)" fontSize={8} fontWeight="bold">{value}</text>
                 )}>
-                  {gameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
+                  {chartGameBreakdown.map((_, i) => <Cell key={i} fill="var(--color-lime)" opacity={0.8} />)}
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
@@ -1321,7 +1332,7 @@ export default function PlayerDashboardPage() {
         <div className="lg:col-span-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4">
           <h3 className="font-semibold text-sm tracking-wide mb-3">Recent Form</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {teamAnalytics.gameLog.slice(0, 10).map((game: any, i: number) => (
+            {teamAnalytics.gameLog.slice(0, isMobile ? 5 : 10).map((game: any, i: number) => (
               <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1 min-w-[60px]">
                 <span className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
@@ -1417,7 +1428,7 @@ export default function PlayerDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
-                {playerAnalytics.gameLog.slice(0, 15).map((game: any, i: number) => (
+                {playerAnalytics.gameLog.slice(0, isMobile ? 5 : 15).map((game: any, i: number) => (
                   <tr key={i} className="hover:bg-white/5">
                     <td className="py-1.5 text-[var(--color-text-muted)]">{game.date}</td>
                     <td className="py-1.5 text-center">
@@ -2008,7 +2019,6 @@ export default function PlayerDashboardPage() {
                   <span className="text-[9px] text-[var(--color-text-muted)] ml-1">(avg: {prop.defensiveMatchup.leagueAverage})</span>
                 </div>
               </div>
-              <div className="text-[9px] text-[var(--color-text-muted)] italic text-center mt-2">Other positions: nil</div>
             </div>
           ) : (
             <div className="flex-grow flex items-center justify-center p-2">
@@ -2055,10 +2065,10 @@ export default function PlayerDashboardPage() {
         <div className="flex items-center gap-4">
           <span className="text-sm font-semibold">Hit Rate:</span>
           <span className="text-[var(--color-lime)] font-bold text-lg">
-            {prop.hitRate.total > 0 ? Math.round((prop.hitRate.over / prop.hitRate.total) * 100) : 0}%
+            {totalGames > 0 ? Math.round((overCount / totalGames) * 100) : 0}%
           </span>
           <span className="text-[var(--color-text-muted)] text-sm">
-            ({prop.hitRate.over}/{prop.hitRate.total} {prop.hitRate.label})
+            ({overCount}/{totalGames} {prop.hitRate.label})
           </span>
         </div>
         <div className="flex items-center gap-3">
