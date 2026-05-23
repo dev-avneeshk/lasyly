@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Libre_Baskerville, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import "@/lib/env"; // Validate environment variables at startup
@@ -27,6 +27,13 @@ const sourceSans = Source_Sans_3({
   variable: "--font-source-sans",
   display: "swap",
 });
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
 
 export const metadata: Metadata = {
   title: {

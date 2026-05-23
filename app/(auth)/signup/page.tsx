@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -12,6 +13,8 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirect") || "/explore"
 
   const handleGoogleSignup = async () => {
     setIsLoading(true)
@@ -26,7 +29,8 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/explore`,
+        // After OAuth, callback checks if profile exists → onboarding if new user
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     })
 
@@ -89,7 +93,8 @@ export default function SignupPage() {
       }
     }
 
-    window.location.href = "/explore"
+    // New email/password signups go to onboarding to complete their profile
+    window.location.href = "/onboarding"
   }
 
   return (
