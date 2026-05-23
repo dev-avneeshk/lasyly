@@ -83,18 +83,30 @@ export default function SignupPage() {
       return
     }
 
-    if (data.user) {
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: data.user.id,
-        username,
-        display_name: username,
-      })
+    if (!data.user) {
+      setError("Sign up failed. Please try again.")
+      setIsLoading(false)
+      return
+    }
 
-      if (profileError) {
-        setError(profileError.message)
-        setIsLoading(false)
-        return
-      }
+    // Create the profile row server-side (admin client bypasses RLS so
+    // this works even when email confirmation is enabled and the user
+    // doesn't have an active session yet).
+    const profileRes = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: data.user.id,
+        username,
+        displayName: username,
+      }),
+    })
+
+    if (!profileRes.ok) {
+      const profileErr = await profileRes.json().catch(() => ({}))
+      setError(profileErr.error ?? "Failed to create profile. Please try again.")
+      setIsLoading(false)
+      return
     }
 
     // New email/password signups go to onboarding to complete their profile
