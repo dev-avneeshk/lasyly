@@ -39,10 +39,10 @@ export const viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Lasyly — Social Sports Betting Platform",
+    default: "Lasyly — Sports Analytics & Community Platform",
     template: "%s | Lasyly",
   },
-  description: "Social sports rooms, betslip sharing, prop analytics, live scores, and a tipster marketplace. All in one place.",
+  description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace. All in one place.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.com"),
   icons: {
     icon: "/lasyly_logo.png",
@@ -51,14 +51,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Lasyly",
-    title: "Lasyly — Social Sports Betting Platform",
-    description: "Social sports rooms, betslip sharing, prop analytics, live scores, and a tipster marketplace.",
+    title: "Lasyly — Sports Analytics & Community Platform",
+    description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace.",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Lasyly — Social Sports Betting Platform",
-    description: "Social sports rooms, betslip sharing, prop analytics, live scores, and a tipster marketplace.",
+    title: "Lasyly — Sports Analytics & Community Platform",
+    description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace.",
   },
   robots: {
     index: true,
