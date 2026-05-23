@@ -1,0 +1,22 @@
+name: Keep Warm
+
+on:
+  schedule:
+    # Runs every 5 minutes — keeps Vercel serverless functions warm to avoid cold starts
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  ping:
+    name: Ping production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://lasyly.me/api/health)
+          echo "Health check status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Health check returned $STATUS — site may be down"
+          else
+            echo "✓ Site is warm and healthy"
+          fi
