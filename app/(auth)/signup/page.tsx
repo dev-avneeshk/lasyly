@@ -31,19 +31,23 @@ export default function SignupPage() {
       options: {
         // After OAuth, callback checks if profile exists → onboarding if new user
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        skipBrowserRedirect: false,
       },
     })
 
     if (error) {
-      setError(error.message)
+      setError(`Google sign-up error: ${error.message}`)
       setIsLoading(false)
       return
     }
 
     if (data.url) {
-      window.location.assign(data.url)
+      window.location.href = data.url
       return
     }
+
+    setError("Google sign-up failed: no redirect URL returned. Check that the Google provider is enabled in your Supabase dashboard.")
+    setIsLoading(false)
   }
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {

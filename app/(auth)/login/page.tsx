@@ -30,19 +30,27 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        // Skip the browser client PKCE step — the server callback route
+        // handles the code exchange, so we don't need a client-side
+        // code verifier stored in a cookie.
+        skipBrowserRedirect: false,
       },
     })
 
     if (error) {
-      setError(error.message)
+      setError(`Google sign-in error: ${error.message}`)
       setIsLoading(false)
       return
     }
 
     if (data.url) {
-      window.location.assign(data.url)
+      // Hard redirect to Google's OAuth consent screen
+      window.location.href = data.url
       return
     }
+
+    setError("Google sign-in failed: no redirect URL returned. Check that the Google provider is enabled in your Supabase dashboard.")
+    setIsLoading(false)
   }
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -66,6 +74,9 @@ export default function LoginPage() {
     })
 
     if (error) {
+      // Surface the exact Supabase error — common causes:
+      // "Invalid login credentials" → wrong password or user signed up via Google OAuth
+      // "Email not confirmed" → user hasn't verified their email yet
       setError(error.message)
       setIsLoading(false)
       return
