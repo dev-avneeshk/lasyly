@@ -199,7 +199,10 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
       </div>
 
       <div className="space-y-3">
-        {transactions.map(t => (
+        {transactions.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)] py-4 text-center">No transactions yet.</p>
+        ) : (
+          transactions.map(t => (
           <div key={t.id} className="flex items-center justify-between bg-white/5 p-2 rounded-xl">
             <div className="flex items-center gap-3">
               <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0", t.isPositive ? "bg-[var(--color-lime)] text-black" : "bg-white/10 text-white")}>
@@ -226,7 +229,8 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
               </div>
             </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   )

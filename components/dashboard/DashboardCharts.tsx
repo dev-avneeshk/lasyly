@@ -14,6 +14,21 @@ export function GaugeChart({ segments, totalLabel }: { segments: GaugeSegment[],
   const radius = 90
   const pathLength = Math.PI * radius // approx 282.74
 
+  // When there's no data render just the empty track
+  if (total === 0) {
+    return (
+      <div className="relative w-full mt-2 mb-2 flex flex-col items-center justify-end">
+        <svg className="w-full h-auto" viewBox="0 0 200 115">
+          <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="var(--color-dash-surface)" strokeWidth="16" />
+        </svg>
+        <div className="absolute bottom-8 flex flex-col items-center">
+          <span className="text-3xl font-black text-white">$0.00</span>
+          <span className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-widest mt-1">{totalLabel}</span>
+        </div>
+      </div>
+    )
+  }
+
   let currentOffset = 0
 
   return (
@@ -135,9 +150,19 @@ export function DualLineChart({ data }: { data: LineChartData }) {
       
       {/* Y-Axis Labels */}
       <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[8px] text-[var(--color-text-muted)] py-2 pointer-events-none">
-        <span>{Math.round(maxValue / 1000)}k</span>
-        <span>{Math.round(maxValue * 0.66 / 1000)}k</span>
-        <span>{Math.round(maxValue * 0.33 / 1000)}k</span>
+        {maxValue >= 1000 ? (
+          <>
+            <span>{(maxValue / 1000).toFixed(1)}k</span>
+            <span>{(maxValue * 0.66 / 1000).toFixed(1)}k</span>
+            <span>{(maxValue * 0.33 / 1000).toFixed(1)}k</span>
+          </>
+        ) : (
+          <>
+            <span>{Math.round(maxValue)}</span>
+            <span>{Math.round(maxValue * 0.66)}</span>
+            <span>{Math.round(maxValue * 0.33)}</span>
+          </>
+        )}
         <span>0</span>
       </div>
       

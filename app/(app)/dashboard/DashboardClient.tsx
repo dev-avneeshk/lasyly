@@ -53,7 +53,7 @@ export default function DashboardClient({
         color: SPORT_COLORS[i % SPORT_COLORS.length],
         icon: SPORT_ICONS[s.category] ?? "🎯",
       }))
-    : [{ label: "No data", value: 1, color: "rgba(255,255,255,0.1)", icon: "—" }]
+    : [{ label: "No data", value: 0, color: "rgba(255,255,255,0.1)", icon: "—" }]
 
   // Format transactions for the TransactionList component
   const formattedTransactions = transactions.map((t) => ({

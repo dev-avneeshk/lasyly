@@ -5,10 +5,10 @@ import * as Sentry from '@sentry/nextjs'
 
 export default function AppError({
   error,
-  unstable_retry,
+  reset,
 }: {
   error: Error & { digest?: string }
-  unstable_retry: () => void
+  reset: () => void
 }) {
   useEffect(() => {
     Sentry.captureException(error)
@@ -30,7 +30,7 @@ export default function AppError({
           <p className="mt-2 text-xs text-slate-500">Error ID: {error.digest}</p>
         )}
         <button
-          onClick={() => unstable_retry()}
+          onClick={() => reset()}
           className="mt-6 inline-flex rounded-full bg-[var(--color-lime)] px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:opacity-90"
         >
           Try again
