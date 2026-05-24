@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { getDashboard } from "@/lib/data/dashboard"
+import { getDashboard, emptyFunds } from "@/lib/data/dashboard"
 import DashboardClient from "./DashboardClient"
 
 // Dashboard is per-user and depends on cookies, so we render it dynamically.
@@ -8,22 +8,6 @@ import DashboardClient from "./DashboardClient"
 // keyed by user id, so repeat visits stay cheap.
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-
-const EMPTY_DASHBOARD = {
-  data: {
-    total_income: 0,
-    total_wagered: 0,
-    win_rate: 0,
-    average_odds: 0,
-    total_picks_count: 0,
-    won_count: 0,
-    lost_count: 0,
-    pending_count: 0,
-  },
-  sports: [],
-  funds: { income: [], spending: [] },
-  transactions: [],
-}
 
 /**
  * Server component shell for /dashboard.
@@ -46,10 +30,23 @@ export default async function DashboardPage() {
   let result
   try {
     result = await getDashboard(user.id)
-  } catch {
-    // If Supabase hiccups, render the page with zeroed widgets rather than
-    // an error boundary; the user still gets the chrome and nav.
-    result = EMPTY_DASHBOARD
+  } catch (err) {
+    console.error("[dashboard] getDashboard failed:", err)
+    result = {
+      data: {
+        total_income: 0,
+        total_wagered: 0,
+        win_rate: 0,
+        average_odds: 0,
+        total_picks_count: 0,
+        won_count: 0,
+        lost_count: 0,
+        pending_count: 0,
+      },
+      sports: [],
+      funds: emptyFunds(),
+      transactions: [],
+    }
   }
 
   return (

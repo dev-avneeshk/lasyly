@@ -104,6 +104,11 @@ export function DualLineChart({ data }: { data: LineChartData }) {
 
   const getPath = (points: number[]) => {
     if (points.length === 0) return ""
+    if (points.length === 1) {
+      // Single point — draw a flat horizontal line
+      const y = 100 - paddingY - (points[0] / maxValue) * height
+      return `M 0 ${y} L ${width} ${y}`
+    }
     const stepX = width / (points.length - 1)
     
     let path = `M 0 ${100 - paddingY - (points[0] / maxValue) * height}`

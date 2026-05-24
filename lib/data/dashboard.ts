@@ -50,6 +50,19 @@ export type DashboardResult = {
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+export function emptyFunds() {
+  const now = new Date()
+  const income = []
+  const spending = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i))
+    const label = DAY_LABELS[d.getUTCDay()]
+    income.push({ day: label, amount: 0 })
+    spending.push({ day: label, amount: 0 })
+  }
+  return { income, spending }
+}
+
 async function getMainStats(userId: string): Promise<DashboardData> {
   const supabase = await createClient()
 
