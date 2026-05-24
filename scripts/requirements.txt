@@ -1,6 +1,6 @@
-scrapling[all]>=0.4.8
-supabase>=2.0.0
-python-dotenv>=1.0.0
-pytest>=7.4.0
-hypothesis>=6.82.0
-pytest-mock>=3.11.0
+scrapling[all]==0.4.8
+supabase==2.30.0
+python-dotenv==1.1.0
+pytest==9.0.3
+hypothesis==6.152.9
+pytest-mock==3.15.1

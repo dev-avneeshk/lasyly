@@ -362,6 +362,36 @@ def get_tournament_id(url: str) -> str:
     return filename.replace('.html', '')
 
 
+def _parse_sets_from_score(score: str, player_won: bool) -> tuple[int, int]:
+    """
+    Parse sets won/lost from a score string like '6-4 7-5' or '6-4 3-6 6-3'.
+    Returns (sets_won, sets_lost) for the player.
+    Handles walkovers (W/O), retirements (ret.), and tiebreaks.
+    """
+    if not score or score in ('W/O', 'w/o', 'Walkover'):
+        return (0, 0)
+
+    # Strip retirement suffix
+    score = re.sub(r'\s*(ret\.?|RET\.?|retired).*$', '', score, flags=re.IGNORECASE).strip()
+
+    # Match set scores: digits-digits optionally followed by tiebreak (7)
+    set_pattern = re.findall(r'(\d+)-(\d+)(?:\(\d+\))?', score)
+    if not set_pattern:
+        return (0, 0)
+
+    sets_won = 0
+    sets_lost = 0
+    for p_games, o_games in set_pattern:
+        p, o = int(p_games), int(o_games)
+        if p > o:
+            sets_won += 1
+        elif o > p:
+            sets_lost += 1
+        # tied sets (rare, e.g. incomplete) ignored
+
+    return (sets_won, sets_lost)
+
+
 # ============================================================
 # Delta Detection
 # ============================================================
@@ -522,6 +552,10 @@ def aggregate_player_stats(player_name: str, matches: list[dict], headers: list[
         total_swon = 0
         wins = 0
         losses = 0
+        total_sets_won = 0
+        total_sets_lost = 0
+        total_games_won = 0
+        total_games_lost = 0
         matches_count = len(group_matches)
 
         for m in group_matches:
@@ -532,10 +566,18 @@ def aggregate_player_stats(player_name: str, matches: list[dict], headers: list[
                 total_firsts += int(m.get("firsts", 0) or 0)
                 total_fwon += int(m.get("fwon", 0) or 0)
                 total_swon += int(m.get("swon", 0) or 0)
+                # Games won/lost from raw columns
+                total_games_won += int(m.get("games", 0) or 0)
+                total_games_lost += int(m.get("ogames", 0) or 0)
                 if m.get("wl") == "W":
                     wins += 1
                 elif m.get("wl") == "L":
                     losses += 1
+                # Parse sets from score string e.g. "6-4 7-5" or "6-4 3-6 6-3"
+                score = m.get("score", "") or ""
+                sw, sl = _parse_sets_from_score(score, m.get("wl", "") == "W")
+                total_sets_won += sw
+                total_sets_lost += sl
             except (ValueError, TypeError):
                 continue
 
@@ -566,6 +608,10 @@ def aggregate_player_stats(player_name: str, matches: list[dict], headers: list[
             "matches_won": wins,
             "matches_lost": losses,
             "win_pct": round(wins / matches_count * 100, 1) if matches_count > 0 else None,
+            "sets_won": round(total_sets_won / matches_count, 2) if matches_count > 0 else None,
+            "sets_lost": round(total_sets_lost / matches_count, 2) if matches_count > 0 else None,
+            "games_won": round(total_games_won / matches_count, 1) if matches_count > 0 else None,
+            "games_lost": round(total_games_lost / matches_count, 1) if matches_count > 0 else None,
             "updated_at": now,
         })
 
