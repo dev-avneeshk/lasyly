@@ -49,7 +49,10 @@ export async function GET(request: Request) {
         }
       }
 
-      return NextResponse.redirect(new URL(next, requestUrl.origin))
+      // Returning user with complete profile — go to the app feed, not dashboard.
+      // /dashboard requires a healthy Supabase session and can error; /explore always works.
+      const safeNext = next === "/dashboard" ? "/explore" : next
+      return NextResponse.redirect(new URL(safeNext, requestUrl.origin))
     }
   }
 
