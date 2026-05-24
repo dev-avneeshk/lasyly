@@ -1,5 +1,19 @@
 import { getNews } from "@/lib/data/news"
 import NewsClient from "./NewsClient"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Sports News — Lasyly Daily",
+  description:
+    "Curated sports news from ESPN and major sources. Football, NBA, NFL, UFC, Tennis, Formula 1, and Cricket. Updated continuously.",
+  openGraph: {
+    title: "Sports News — Lasyly Daily",
+    description: "Curated sports news from ESPN — Football, NBA, NFL, UFC, Tennis, F1, and Cricket.",
+  },
+  alternates: {
+    canonical: "https://lasyly.com/news",
+  },
+}
 
 // Cache the rendered shell for ~60s; matches CACHE_TTL.explore.
 export const revalidate = 60

@@ -79,7 +79,15 @@ const TENNIS_STAT_COLUMNS: Record<string, string> = {
   "first_serve_win_pct": "first_serve_win_pct",
   "second_serve_win_pct": "second_serve_win_pct",
   "hold_pct": "hold_pct",
+  "win_pct": "win_pct",
+  "sets_won": "sets_won",
+  "sets_lost": "sets_lost",
+  "games_won": "games_won",
+  "games_lost": "games_lost",
 }
+
+/** Tennis stats that live in tennis_raw_stats instead of tennis_serve_stats */
+const TENNIS_RAW_STAT_KEYS = new Set(["win_pct", "sets_won", "sets_lost", "games_won", "games_lost"])
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -177,34 +185,55 @@ interface TennisPlayerRow {
   stat_value: number
   matches_played: number
   surface: string
+  upcoming_opponent?: string | null
 }
 
 /**
  * Fetches Tennis player aggregate stats for a given stat category.
  * Tennis data is aggregated per surface/year, not per-match.
+ * win_pct / sets / games live in tennis_raw_stats; all others in tennis_serve_stats.
+ * Also joins tennis_matches to find each player's next upcoming opponent.
  */
 async function fetchTennisPlayerData(
   stat: string
 ): Promise<TennisPlayerRow[]> {
   const supabase = createAdminClient()
   const column = TENNIS_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
+  const table = TENNIS_RAW_STAT_KEYS.has(stat.toLowerCase()) ? "tennis_raw_stats" : "tennis_serve_stats"
 
-  const { data, error } = await supabase
-    .from("tennis_serve_stats")
-    .select(`player_name, ${column}, matches_played, surface`)
-    .not(column, "is", null)
-    .order("matches_played", { ascending: false })
+  // Fetch stats and upcoming matches in parallel
+  const [statsResult, matchesResult] = await Promise.all([
+    supabase
+      .from(table)
+      .select(`player_name, ${column}, matches_played, surface`)
+      .not(column, "is", null)
+      .order("matches_played", { ascending: false }),
+    supabase
+      .from("tennis_matches")
+      .select("player1_name, player2_name")
+      .eq("status", "upcoming"),
+  ])
 
-  if (error || !data) {
-    console.error("[engine] Failed to fetch Tennis player data:", error?.message)
+  if (statsResult.error || !statsResult.data) {
+    console.error("[engine] Failed to fetch Tennis player data:", statsResult.error?.message)
     return []
   }
 
-  return (data as any[]).map((row) => ({
+  // Build opponent lookup: player_name -> opponent_name
+  const opponentMap = new Map<string, string>()
+  for (const match of (matchesResult.data ?? [])) {
+    if (match.player1_name && match.player2_name) {
+      opponentMap.set(match.player1_name, match.player2_name)
+      opponentMap.set(match.player2_name, match.player1_name)
+    }
+  }
+
+  return (statsResult.data as any[]).map((row) => ({
     player_name: row.player_name,
     stat_value: Number(row[column]) || 0,
     matches_played: row.matches_played || 0,
     surface: row.surface,
+    upcoming_opponent: opponentMap.get(row.player_name) ?? null,
   }))
 }
 
@@ -629,7 +658,7 @@ async function computeTennisEnhancedProps(
       },
       trend: "neutral",
       trendPct: 0,
-      matchup: "",
+      matchup: primaryRow.upcoming_opponent ? `vs ${primaryRow.upcoming_opponent}` : `${primaryRow.surface} Court`,
       sport: "Tennis",
 
       // Enhanced fields
@@ -641,7 +670,7 @@ async function computeTennisEnhancedProps(
       sentiment: null,
       direction: (filters?.direction === "all" ? "over" : filters?.direction) ?? "over",
       venue: null,
-      upcomingOpponent: null,
+      upcomingOpponent: primaryRow.upcoming_opponent ?? null,
       withoutPlayerApplied: false,
     }
 

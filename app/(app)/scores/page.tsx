@@ -1,5 +1,19 @@
 import { getScoresForDate, getTodayYYYYMMDD } from "@/lib/data/scores"
 import ScoresClient from "./ScoresClient"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Live Sports Scores — Lasyly",
+  description:
+    "Real-time live scores across 10+ sports — NBA, NFL, Premier League, Champions League, NHL, MLB, ATP, WTA, UFC, Formula 1, and more. Updated every 10 seconds.",
+  openGraph: {
+    title: "Live Sports Scores — Lasyly",
+    description: "Real-time scores across NFL, NBA, soccer, tennis, hockey, baseball, F1, MMA, golf, and cricket.",
+  },
+  alternates: {
+    canonical: "https://lasyly.com/scores",
+  },
+}
 
 // Re-render at most every 10s; matches the in-memory cache TTL for live data.
 export const revalidate = 10

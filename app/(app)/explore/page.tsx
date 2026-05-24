@@ -1,6 +1,20 @@
 import { getScoresForDate, getTodayYYYYMMDD } from "@/lib/data/scores"
 import { getNews } from "@/lib/data/news"
 import ExploreClient from "./ExploreClient"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Explore Betting Rooms & Live Scores — Lasyly",
+  description:
+    "Discover public and tipster betting rooms by sport, browse live match cards, and find trending picks. The social hub for sports bettors.",
+  openGraph: {
+    title: "Explore Betting Rooms & Live Scores — Lasyly",
+    description: "Discover public and tipster betting rooms, live match cards, and trending picks.",
+  },
+  alternates: {
+    canonical: "https://lasyly.com/explore",
+  },
+}
 
 export const revalidate = 30
 

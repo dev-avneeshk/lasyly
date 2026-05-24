@@ -483,21 +483,8 @@ export default function AnalysisPage() {
         {/* Sport Tabs */}
         <SportTabs activeSport={sport} onSportChange={setSport} />
 
-        {/* Tennis: Coming Soon */}
-        {sport === "Tennis" ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-16 h-16 rounded-full bg-[var(--color-lime)]/10 flex items-center justify-center">
-              <Trophy className="w-8 h-8 text-[var(--color-lime)]" />
-            </div>
-            <h2 className="text-xl font-bold text-white">Coming Soon</h2>
-            <p className="text-sm text-[var(--color-text-muted)] text-center max-w-md">
-              Tennis props and analytics are currently in development. Check back soon for player stats, match predictions, and more.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Game Strip with Date Navigation (all sports) */}
-            <GameStrip games={games} loading={gamesLoading} sport={sport} />
+        {/* Game Strip with Date Navigation (all sports) */}
+        <GameStrip games={games} loading={gamesLoading} sport={sport} />
 
             {/* NBA Matchup Filter (select a specific game to filter props) */}
             {sport === "NBA" && !matchupStripLoading && todayGames.length > 0 && (
@@ -565,8 +552,6 @@ export default function AnalysisPage() {
               aiWriteups={aiWriteups}
               emptyMessage={emptyMessage}
             />
-          </>
-        )}
       </div>
 
       {/* Parlay Builder Bottom Sheet */}

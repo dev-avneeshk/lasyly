@@ -28,8 +28,10 @@ const VALID_NBA_STATS = new Set([
 
 /** Valid Tennis stat categories */
 const VALID_TENNIS_STATS = new Set([
+  "all",
   "aces", "double_faults", "first_serve_pct", "first_serve_win_pct",
-  "second_serve_win_pct", "hold_pct",
+  "second_serve_win_pct", "hold_pct", "win_pct",
+  "sets_won", "sets_lost", "games_won", "games_lost",
 ])
 
 /** Valid Soccer stat categories */
@@ -363,8 +365,19 @@ export const GET = withSecurity(async (request: Request) => {
   const cacheKey = `enhanced-props-api:${sport}:${stat}`
 
   const tennisDirection = direction === "all" ? undefined : direction
+
+  // When stat=all, fetch aces + double_faults + win_pct + sets_won + games_won and merge
+  const tennisStatsToFetch = stat === "all"
+    ? ["aces", "double_faults", "win_pct", "sets_won", "games_won"]
+    : [stat]
+
   const allProps = await cached(cacheKey, async () => {
-    return computeEnhancedProps(sport as "NBA" | "Tennis", stat, tennisDirection ? { direction: tennisDirection } : undefined)
+    const results = await Promise.all(
+      tennisStatsToFetch.map((s) =>
+        computeEnhancedProps(sport as "NBA" | "Tennis", s, tennisDirection ? { direction: tennisDirection } : undefined)
+      )
+    )
+    return results.flat()
   }, MATCHUP_PROPS_CACHE_TTL)
 
   // Apply advanced filters
