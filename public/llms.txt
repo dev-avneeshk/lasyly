@@ -1,0 +1,33 @@
+# Lasyly
+
+> Lasyly (lasyly.me) is a real-time sports analytics and betting community platform. It provides player prop analytics with hit rates and matchup grades, live sports scores, curated sports news, social betting rooms, and a tipster marketplace.
+
+## What Lasyly Does
+
+Lasyly is a sports analytics platform built for bettors and prop players. It is an alternative to Action Network, PrizePicks, and Betstamp, combining analytics and community in one place.
+
+Key features:
+- **Prop Analytics**: Player prop research with historical hit rates, matchup grades, injury context, and trend data for NBA, NFL, MLB, and more
+- **Live Scores**: Real-time scores and game updates across major sports
+- **Betting Rooms**: Social rooms where users share picks, discuss games, and track bets together
+- **Sports News**: Curated injury reports and news relevant to bettors
+- **Tipster Marketplace**: Follow and discover top sports bettors and tipsters
+
+## Pages
+
+- [Home](https://lasyly.me): Overview of all features
+- [Prop Analytics](https://lasyly.me/analysis): Deep player prop research tool
+- [Live Scores](https://lasyly.me/scores): Real-time sports scores
+- [Betting Rooms](https://lasyly.me/rooms): Community betting rooms
+- [Sports News](https://lasyly.me/news): Curated sports news for bettors
+- [Sign Up](https://lasyly.me/signup): Create a free account
+- [Blog](https://lasyly.me/blog): Guides and analysis on sports betting strategy
+
+## Who It's For
+
+Sports bettors, prop players, DFS players, and sports fans who want data-driven analytics and a community to share picks with.
+
+## Comparisons
+
+- Alternative to: Action Network, PrizePicks Lobby, Betstamp, OddsJam, Pikkit
+- Better than alternatives for: community features, prop hit rate tracking, matchup grading

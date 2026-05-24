@@ -1,0 +1,61 @@
+# Lasyly — Sports Analytics & Community Platform
+
+> Lasyly (https://lasyly.me) is a free sports analytics and betting community platform for bettors, prop players, and sports fans.
+
+## About
+
+Lasyly is a web application that helps sports bettors make better decisions through data. It combines prop analytics, live scores, community betting rooms, sports news, and a tipster marketplace into a single platform.
+
+Lasyly is not a sportsbook and does not accept real money bets. It is a research and community tool.
+
+The platform is comparable to Action Network, OddsJam, Betstamp, and PrizePicks Lobby but focuses more heavily on player prop analytics and social community features.
+
+## Core Features
+
+### Prop Analytics
+- Historical hit rate data for player props (points, rebounds, assists, passing yards, etc.)
+- Matchup grade scores showing how favorable a player's upcoming opponent is
+- Trend analysis (last 5, 10, 20 games)
+- Injury context and lineup notes
+- Supports NBA, NFL, MLB, NHL, and more
+
+### Live Scores
+- Real-time scores across all major sports
+- Game status, quarter/period updates
+- Available at https://lasyly.me/scores
+
+### Betting Rooms
+- Community rooms where users share picks and discuss games
+- Create private rooms for friend groups
+- Public rooms for following top tipsters
+- Available at https://lasyly.me/rooms
+
+### Sports News
+- Curated injury reports, lineup news, and game previews
+- Filtered for information relevant to bettors and prop players
+- Available at https://lasyly.me/news
+
+### Tipster Marketplace
+- Discover and follow sports bettors with verified track records
+- Browse tipsters by sport, win rate, and ROI
+- Available at https://lasyly.me/tipsters
+
+## Blog
+
+Lasyly publishes guides and analysis for sports bettors:
+- How to read prop analytics: https://lasyly.me/blog/how-to-read-prop-analytics
+- Why share your betslip: https://lasyly.me/blog/why-share-your-betslip
+- NBA player props guide: https://lasyly.me/blog/nba-player-props-guide
+
+## Sitemap
+
+- https://lasyly.me (home)
+- https://lasyly.me/analysis (prop analytics)
+- https://lasyly.me/scores (live scores)
+- https://lasyly.me/rooms (betting rooms)
+- https://lasyly.me/news (sports news)
+- https://lasyly.me/tipsters (tipster marketplace)
+- https://lasyly.me/blog (blog)
+- https://lasyly.me/signup (create account)
+- https://lasyly.me/login (log in)
+- https://lasyly.me/features (feature overview)
