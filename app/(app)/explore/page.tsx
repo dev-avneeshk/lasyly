@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     description: "Discover public and tipster betting rooms, live match cards, and trending picks.",
   },
   alternates: {
-    canonical: "https://lasyly.com/explore",
+    canonical: "https://lasyly.me/explore",
   },
 }
 

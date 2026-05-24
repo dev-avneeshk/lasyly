@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   alternates: {
-    canonical: "https://lasyly.com/tipsters",
+    canonical: "https://lasyly.me/tipsters",
   },
 }
 
@@ -68,7 +68,7 @@ const faqs = [
 ]
 
 export default function TipstersPage() {
-  const baseUrl = "https://lasyly.com"
+  const baseUrl = "https://lasyly.me"
   return (
     <div>
       <JsonLd data={{

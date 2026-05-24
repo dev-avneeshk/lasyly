@@ -289,7 +289,12 @@ export async function proxy(request: NextRequest) {
 
     // Already-authenticated users should not see /login or /signup.
     if (isAuthed && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-      const redirectResponse = NextResponse.redirect(new URL("/dashboard", request.url))
+      // Guest sessions only have a signed cookie — no Supabase user row.
+      // Sending guests to /dashboard causes a loop because dashboard SSR
+      // calls supabase.auth.getUser(), gets null, and redirects back to /login.
+      // Send guests to /explore; real users go to /dashboard.
+      const destination = user ? "/dashboard" : "/explore"
+      const redirectResponse = NextResponse.redirect(new URL(destination, request.url))
       // Forward any refreshed auth cookies so the new tokens aren't lost.
       response.cookies.getAll().forEach((cookie) => {
         redirectResponse.cookies.set(cookie.name, cookie.value)

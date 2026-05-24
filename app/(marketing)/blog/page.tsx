@@ -48,7 +48,7 @@ const posts = [
 ]
 
 export default function BlogIndexPage() {
-  const baseUrl = "https://lasyly.com"
+  const baseUrl = "https://lasyly.me"
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <JsonLd data={{

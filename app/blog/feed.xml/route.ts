@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.com"
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
 
 const posts = [
   {

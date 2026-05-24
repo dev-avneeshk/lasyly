@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-22",
   },
   alternates: {
-    canonical: "https://lasyly.com/blog/how-to-read-prop-analytics",
+    canonical: "https://lasyly.me/blog/how-to-read-prop-analytics",
   },
 }
 
@@ -31,7 +31,7 @@ function MetricCard({ label, value, color, children }: { label: string; value: s
 }
 
 export default function PropAnalyticsGuidePost() {
-  const baseUrl = "https://lasyly.com"
+  const baseUrl = "https://lasyly.me"
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <JsonLd data={{

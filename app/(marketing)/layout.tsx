@@ -5,7 +5,7 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   alternates: {
     types: {
-      "application/rss+xml": "https://lasyly.com/blog/feed.xml",
+      "application/rss+xml": "https://lasyly.me/blog/feed.xml",
     },
   },
 }

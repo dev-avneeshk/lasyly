@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     description: "Real-time scores across NFL, NBA, soccer, tennis, hockey, baseball, F1, MMA, golf, and cricket.",
   },
   alternates: {
-    canonical: "https://lasyly.com/scores",
+    canonical: "https://lasyly.me/scores",
   },
 }
 

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   alternates: {
-    canonical: "https://lasyly.com/features",
+    canonical: "https://lasyly.me/features",
   },
 }
 
@@ -93,7 +93,7 @@ const features = [
 ]
 
 export default function FeaturesPage() {
-  const baseUrl = "https://lasyly.com"
+  const baseUrl = "https://lasyly.me"
   return (
     <div>
       <JsonLd data={{

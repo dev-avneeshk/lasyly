@@ -14,12 +14,12 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-20",
   },
   alternates: {
-    canonical: "https://lasyly.com/blog/nba-player-props-guide",
+    canonical: "https://lasyly.me/blog/nba-player-props-guide",
   },
 }
 
 export default function NbaPropsGuidePost() {
-  const baseUrl = "https://lasyly.com"
+  const baseUrl = "https://lasyly.me"
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <JsonLd data={{

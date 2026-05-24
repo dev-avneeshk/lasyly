@@ -8,15 +8,15 @@ export const metadata: Metadata = {
   description:
     "The all-in-one platform for sports bettors. Real-time betting rooms, NBA prop analytics with hit rates and matchup grades, live scores across 10+ sports, and a tipster marketplace where you earn 85% of every pick you sell.",
   alternates: {
-    canonical: "https://lasyly.com",
-    types: { "application/rss+xml": "https://lasyly.com/blog/feed.xml" },
+    canonical: "https://lasyly.me",
+    types: { "application/rss+xml": "https://lasyly.me/blog/feed.xml" },
   },
   openGraph: {
     title: "Lasyly — Sports Betting Analytics, Rooms & Tipster Marketplace",
     description:
       "Real-time betting rooms, prop analytics with hit rates, live scores, and a tipster marketplace. All free. All in one app.",
     type: "website",
-    url: "https://lasyly.com",
+    url: "https://lasyly.me",
   },
 }
 
@@ -66,7 +66,7 @@ const features = [
   },
 ]
 
-const BASE_URL = "https://lasyly.com"
+const BASE_URL = "https://lasyly.me"
 
 export default function LandingPage() {
   return (

@@ -14,12 +14,12 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-24",
   },
   alternates: {
-    canonical: "https://lasyly.com/blog/why-share-your-betslip",
+    canonical: "https://lasyly.me/blog/why-share-your-betslip",
   },
 }
 
 export default function WhyShareBetslipPost() {
-  const baseUrl = "https://lasyly.com"
+  const baseUrl = "https://lasyly.me"
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <JsonLd data={{
