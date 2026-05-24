@@ -15,7 +15,7 @@ const navItems = [
   { icon: Target, label: "Props", href: "/analysis", comingSoon: false },
   { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: true },
   { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: true },
-  { icon: PieChart, label: "Dashboard", href: "/dashboard", comingSoon: false },
+  { icon: PieChart, label: "Dashboard", href: "/dashboard", comingSoon: true },
   { icon: Wallet, label: "Wallet", href: "/wallet", comingSoon: true },
   { icon: User, label: "Profile", href: "/profile", comingSoon: true },
 ]
