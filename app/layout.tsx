@@ -43,6 +43,11 @@ export const metadata: Metadata = {
     default: "Lasyly — Sports Analytics & Community Platform",
     template: "%s | Lasyly",
   },
+  verification: {
+    other: {
+      "msvalidate.01": "6BA0E86BC23D5F04B75CC76D4AE41AB8",
+    },
+  },
   description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace. All in one place.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"),
   keywords: [
