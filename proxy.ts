@@ -287,18 +287,6 @@ export async function proxy(request: NextRequest) {
 
     const isAuthed = Boolean(user || isGuest)
 
-    // Already-authenticated users should not see /login or /signup.
-    // Redirect to /explore (the main app feed) — it works for both real users
-    // and guests, and doesn't require a valid Supabase session like /dashboard does.
-    if (isAuthed && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-      const redirectResponse = NextResponse.redirect(new URL("/explore", request.url))
-      // Forward any refreshed auth cookies so the new tokens aren't lost.
-      response.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value)
-      })
-      return redirectResponse
-    }
-
     // Protected routes require authentication.
     if (!isPublicRoute && !isAuthed) {
       const loginUrl = new URL("/login", request.url)
