@@ -41,18 +41,8 @@ export default async function AuthLayout({
         </div>
 
         <div className="flex gap-4 items-center">
-          <div className="flex -space-x-4">
-            {[1, 2, 3, 4].map((i) => (
-              <img 
-                key={i}
-                src={`https://i.pravatar.cc/100?img=${i + 10}`} 
-                className="w-12 h-12 rounded-full border-2 border-[var(--color-background)] shadow-lg"
-                alt="User" 
-              />
-            ))}
-          </div>
           <p className="text-sm font-medium text-white/80">
-            Join <span className="text-white font-bold">10,000+</span> bettors inside.
+            Be among the first to join.
           </p>
         </div>
       </div>
