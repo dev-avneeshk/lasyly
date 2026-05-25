@@ -15,7 +15,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)]">
       {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-background)]/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-background)]/95">
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[var(--color-lime)] flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(212,255,0,0.4)]">

@@ -6,7 +6,6 @@ import "./globals.css";
 import "@/lib/env"; // Validate environment variables at startup
 import CookieConsent from "@/components/CookieConsent";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { connection } from "next/server";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -14,14 +13,16 @@ const playfair = Playfair_Display({
   style: ["normal", "italic"],
   variable: "--font-playfair",
   display: "swap",
+  preload: true,
 });
 
 const libreBaskerville = Libre_Baskerville({
   subsets: ["latin"],
   weight: ["400", "700"],
-  style: ["normal", "italic"],
+  style: ["normal"],  // drop italic variant — saves ~20KB on mobile
   variable: "--font-libre-baskerville",
   display: "swap",
+  preload: false,     // secondary font — no need to block for it
 });
 
 const sourceSans = Source_Sans_3({
@@ -29,6 +30,7 @@ const sourceSans = Source_Sans_3({
   weight: ["400", "600", "700"],
   variable: "--font-source-sans",
   display: "swap",
+  preload: false,     // UI font — loaded after FCP
 });
 
 export const viewport = {
@@ -109,14 +111,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Force dynamic rendering so Next.js reads the per-request CSP nonce
-  // from proxy and stamps it on all <script> tags it injects.
-  await connection();
+  // NOTE: `await connection()` was here to read the per-request CSP nonce,
+  // but Next.js 16 auto-stamps nonces on framework scripts from the CSP header
+  // set in proxy.ts — no layout call needed. Removing it lets public pages
+  // (/, /blog, /onboarding, /login) be served as static ISR from CDN edge,
+  // which is the primary fix for mobile FCP 4.1s / 5.19s.
   return (
     <html lang="en" className={`h-full antialiased ${playfair.variable} ${libreBaskerville.variable} ${sourceSans.variable}`}>
       <head>
