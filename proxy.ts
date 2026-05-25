@@ -68,20 +68,30 @@ function getClientIp(request: NextRequest): string {
 /**
  * Build the Content-Security-Policy header.
  *
- * Next.js 16 automatically reads the 'nonce-{value}' from this header and
- * applies it to all framework script tags during SSR — no manual wiring needed.
- * 'strict-dynamic' lets nonce-trusted scripts transitively load their chunks.
+ * We intentionally do NOT use a per-request nonce here. Nonce-based CSP only
+ * works when every page is server-rendered on every request — the nonce in the
+ * CSP header must match the nonce stamped on each <script> tag in the HTML.
+ * Because auth pages (and most pages) are statically generated / ISR-cached,
+ * the HTML is served from CDN cache while the proxy generates a fresh nonce on
+ * every request. Those nonces never match → CSP blocks ALL scripts → React
+ * never hydrates → Suspense boundaries freeze on their skeleton forever.
+ *
+ * Instead we use 'self' + 'strict-dynamic' (no nonce). 'strict-dynamic' allows
+ * scripts loaded by a trusted script to load further scripts, which covers
+ * Next.js chunk loading. 'unsafe-inline' is included as a fallback for older
+ * browsers that don't understand strict-dynamic (browsers that do support it
+ * ignore 'unsafe-inline').
  *
  * Development adds 'unsafe-eval' for React DevTools / HMR.
- * style-src keeps 'unsafe-inline' because Tailwind v4, recharts, and
- * framer-motion inject inline <style> tags at runtime.
+ * style-src keeps 'unsafe-inline' because Tailwind v4 and framer-motion
+ * inject inline <style> tags at runtime.
  */
-function buildCSPHeader(nonce: string): string {
+function buildCSPHeader(): string {
   const isDev = process.env.NODE_ENV === "development"
 
   const csp = `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
+    script-src 'self' 'unsafe-inline' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     font-src 'self' data:;
@@ -119,16 +129,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const clientIp = getClientIp(request)
 
-  // ── 0. Generate per-request CSP nonce ─────────────────────────────────────
-  // Next.js 16 automatically reads 'nonce-{value}' from the CSP header and
-  // stamps it on all framework <script> tags during SSR — no layout changes needed.
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64")
-  const cspHeader = buildCSPHeader(nonce)
+  // ── 0. Build CSP header (no nonce — pages are statically cached) ────────
+  const cspHeader = buildCSPHeader()
 
-  // Forward the nonce via request header so Server Components can read it
-  // if they need to pass it to third-party <Script> tags.
+  // Forward CSP via request header so Server Components can read it if needed.
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set("x-nonce", nonce)
   requestHeaders.set("Content-Security-Policy", cspHeader)
 
   // ── 1. IP block check (cheapest reject — do it first) ────────────────────
