@@ -60,3 +60,6 @@ scripts/.next/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Kiro internal skills (IDE tooling, not project code)
+.kiro/skills/
