@@ -127,9 +127,10 @@ export default function RootLayout({
       <head>
         {/* Preconnect to Google Fonts CDN — we load fonts from fonts.gstatic.com */}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* ESPN CDN preconnect only added on pages that actually load ESPN images.
-            Adding it globally here causes a Lighthouse "unused preconnect" warning
-            on pages like / that don't load ESPN images at all. */}
+        {/* ESPN CDN — used on scores, news, and analysis pages for player/team images */}
+        <link rel="preconnect" href="https://a.espncdn.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://a.espncdn.com" />
+        <link rel="dns-prefetch" href="https://s.espncdn.com" />
       </head>
       <body className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
         <JsonLd data={{

@@ -90,7 +90,7 @@
     margin-bottom: 1.5em;
   }
   .prose-article a {
-    color: var(--color-lime);
+    color: var(--color-lime) !important;
     text-decoration: underline;
     text-underline-offset: 2px;
   }
@@ -120,7 +120,7 @@
     margin-bottom: 1.5em;
   }
   .prose-article-light a {
-    color: #c44569;
+    color: #1d6fa4 !important;
     text-decoration: underline;
     text-underline-offset: 2px;
   }

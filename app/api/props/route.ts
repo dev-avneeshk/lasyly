@@ -195,6 +195,29 @@ export const GET = withSecurity(async (request: Request) => {
     // Deduplicate: if same player appears in multiple stats, keep all (they have different IDs)
     let filtered = allProps as any[]
 
+    // ─── Activity Filter ────────────────────────────────────────────────────
+    // Exclude low-activity players from the default browse view.
+    // Rules:
+    //   - Played only 1 game in last 5  → exclude
+    //   - Played only 2 games in last 10 → exclude
+    // This keeps the default feed relevant. Search bypasses this filter so
+    // users can still look up any player directly.
+    if (!search || search.length < 2) {
+      filtered = filtered.filter((p: any) => {
+        const games: any[] = p.lastGames ?? []
+        const totalGames: number = p.hitRate?.total ?? games.length
+        // lastGames is capped at the most recent 10 games.
+        // If total games played < 3, the player has too little activity to show.
+        // Specifically: < 2 in last 5 means they played 0 or 1 out of 5 schedules slots.
+        // We approximate: if total (up to 10) < 3, they fail both thresholds.
+        if (totalGames < 3) return false
+        // Check last-5 specifically: count games in last 5 entries of lastGames
+        const last5Count = Math.min(5, games.length)
+        if (last5Count < 2) return false
+        return true
+      })
+    }
+
     // Apply direction filter at API level
     if (direction && direction !== "all") {
       const dirFiltered = filtered.filter((p: any) => p.direction === direction)

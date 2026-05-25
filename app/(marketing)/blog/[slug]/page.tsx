@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
+import BlogNewspaperWrapper from "@/components/blog/BlogNewspaperWrapper"
 
 const BASE_URL = "https://lasyly.me"
 
@@ -128,6 +129,7 @@ export default async function DynamicBlogPost({
   })
 
   return (
+    <BlogNewspaperWrapper>
     <div className="max-w-6xl mx-auto px-6 py-16">
       <JsonLd
         data={{
@@ -165,7 +167,7 @@ export default async function DynamicBlogPost({
           >
             {post.category}
           </span>
-          <h1 className="text-4xl md:text-5xl font-bold font-serif tracking-tight text-white leading-tight mt-5 mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold font-serif tracking-tight text-[var(--color-text-primary)] leading-tight mt-5 mb-4">
             {post.title}
           </h1>
           <div className="flex items-center gap-3 text-sm text-[var(--color-text-muted)]">
@@ -181,13 +183,13 @@ export default async function DynamicBlogPost({
       <div className="grid md:grid-cols-[1fr_280px] gap-16 items-start">
         {/* Article — content is stored as HTML */}
         <article
-          className="prose prose-invert prose-lg max-w-none
+          className="prose prose-lg max-w-none
             prose-headings:font-serif prose-headings:font-bold prose-headings:tracking-tight
             prose-p:text-[var(--color-text-muted)] prose-p:leading-relaxed
             prose-li:text-[var(--color-text-muted)]
-            prose-strong:text-white
+            prose-strong:text-[var(--color-text-primary)]
             prose-a:text-[var(--color-lime)] prose-a:no-underline hover:prose-a:underline
-            prose-table:text-sm prose-th:text-[var(--color-text-muted)] prose-td:text-white/80
+            prose-table:text-sm prose-th:text-[var(--color-text-muted)] prose-td:text-[var(--color-text-primary)]/80
           "
           // Content is authored HTML — only admin-controlled, no user input
           dangerouslySetInnerHTML={{ __html: post.content }}
@@ -205,7 +207,7 @@ export default async function DynamicBlogPost({
                 {post.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-white/60"
+                    className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface)] text-[var(--color-text-primary)]/60"
                   >
                     {tag}
                   </span>
@@ -225,7 +227,7 @@ export default async function DynamicBlogPost({
                   <li key={r.slug}>
                     <Link
                       href={`/blog/${r.slug}`}
-                      className="text-sm text-white/80 hover:text-white transition-colors block leading-snug"
+                      className="text-sm text-[var(--color-text-primary)]/80 hover:text-[var(--color-text-primary)] transition-colors block leading-snug"
                     >
                       {r.category} {r.title} →
                     </Link>
@@ -253,12 +255,13 @@ export default async function DynamicBlogPost({
 
           <Link
             href="/signup"
-            className="block text-center bg-white/5 border border-[var(--color-border)] text-white font-bold text-sm px-5 py-3 rounded-xl hover:bg-white/10 transition-colors"
+            className="block text-center bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] font-bold text-sm px-5 py-3 rounded-xl hover:bg-white/10 transition-colors"
           >
             Join Lasyly free →
           </Link>
         </aside>
       </div>
     </div>
+    </BlogNewspaperWrapper>
   )
 }
