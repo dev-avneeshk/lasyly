@@ -104,7 +104,7 @@ export default function PrivacyPolicyPage() {
         <li><strong>Portability</strong> — receive your data in a machine-readable format</li>
         <li><strong>Objection</strong> — object to certain processing of your data</li>
       </ul>
-      <p>To exercise these rights, contact us at <strong>privacy@lasyly.com</strong>.</p>
+      <p>To exercise these rights, contact us at <strong>dev.avneeshkumar@gmail.com</strong>.</p>
 
       <h2>7. Cookies</h2>
       <p>We use essential cookies for:</p>
@@ -134,7 +134,8 @@ export default function PrivacyPolicyPage() {
         If you have questions about this Privacy Policy, contact us at:
       </p>
       <ul>
-        <li>Email: <strong>privacy@lasyly.com</strong></li>
+        <li>Email: <strong>dev.avneeshkumar@gmail.com</strong></li>
+        <li>Instagram: <strong><a href="https://instagram.com/dev.avneeshk" target="_blank" rel="noopener noreferrer">@dev.avneeshk</a></strong></li>
       </ul>
 
       <div className="mt-12 pt-6 border-t border-[var(--color-border)]">

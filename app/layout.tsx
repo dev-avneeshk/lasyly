@@ -141,7 +141,7 @@ export default function RootLayout({
           "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/lasyly_logo.png`,
           "description": "Lasyly is a sports analytics and betting community platform offering player prop analytics, live scores, betting rooms, sports news, and a tipster marketplace.",
           "sameAs": [
-            "https://twitter.com/lasyly",
+            "https://instagram.com/dev.avneeshk",
           ],
           "knowsAbout": [
             "sports betting analytics",

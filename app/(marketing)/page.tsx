@@ -72,7 +72,7 @@ export default async function LandingPage() {
         "logo": `${BASE_URL}/lasyly_logo.png`,
         "description": "Real-time social platform for sports bettors — prop analytics, betting rooms, live scores, tipster marketplace.",
         "sameAs": [],
-        "contactPoint": { "@type": "ContactPoint", "email": "team@lasyly.com", "contactType": "customer support" },
+        "contactPoint": { "@type": "ContactPoint", "email": "dev.avneeshkumar@gmail.com", "contactType": "customer support" },
       }} />
       <JsonLd data={{
         "@context": "https://schema.org",

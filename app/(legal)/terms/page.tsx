@@ -144,7 +144,8 @@ export default function TermsOfServicePage() {
         If you have questions about these Terms, contact us at:
       </p>
       <ul>
-        <li>Email: <strong>legal@lasyly.com</strong></li>
+        <li>Email: <strong>dev.avneeshkumar@gmail.com</strong></li>
+        <li>Instagram: <strong><a href="https://instagram.com/dev.avneeshk" target="_blank" rel="noopener noreferrer">@dev.avneeshk</a></strong></li>
       </ul>
 
       <div className="mt-12 pt-6 border-t border-[var(--color-border)]">
