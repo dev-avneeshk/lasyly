@@ -9,6 +9,13 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-background)] relative w-full max-w-full">
+      {/* Preconnect to ESPN CDN — used heavily on news, scores, analysis pages */}
+      {/* eslint-disable-next-line @next/next/no-head-element */}
+      <head>
+        <link rel="preconnect" href="https://a.espncdn.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://a.espncdn.com" />
+        <link rel="dns-prefetch" href="https://s.espncdn.com" />
+      </head>
       {/* Premium background hint — kept lightweight to avoid blocking paint.
           Single, smaller, lower blur radius; hidden on small screens where
           it's invisible behind UI anyway and just costs compositor time. */}

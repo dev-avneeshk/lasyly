@@ -125,11 +125,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`h-full antialiased ${playfair.variable} ${libreBaskerville.variable} ${sourceSans.variable}`}>
       <head>
-        {/* Warm up connections to image CDNs we use heavily for team logos &
-            news photos so the first <img> hit doesn't pay TLS+DNS twice. */}
-        <link rel="preconnect" href="https://a.espncdn.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://a.espncdn.com" />
-        <link rel="dns-prefetch" href="https://s.espncdn.com" />
+        {/* Preconnect to Google Fonts CDN — we load fonts from fonts.gstatic.com */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* ESPN CDN preconnect only added on pages that actually load ESPN images.
+            Adding it globally here causes a Lighthouse "unused preconnect" warning
+            on pages like / that don't load ESPN images at all. */}
       </head>
       <body className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
         <JsonLd data={{
