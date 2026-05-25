@@ -16,6 +16,66 @@ export const metadata: Metadata = {
 
 const posts = [
   {
+    slug: "thunder-vs-spurs-nba-2026",
+    category: "🏀 NBA",
+    date: "May 25, 2026",
+    readTime: "6 min read",
+    title: "Thunder vs Spurs 2026: 1M+ Searches, Wembanyama Props & Full Betting Breakdown",
+    excerpt:
+      "OKC vs Spurs crossed 1 million US searches. We break down the OKC spread, Victor Wembanyama props, SGA points bets, and same-game parlay construction.",
+    accent: "#F59E0B",
+  },
+  {
+    slug: "cruz-azul-pumas-liga-mx-final-2026",
+    category: "⚽ Liga MX",
+    date: "May 25, 2026",
+    readTime: "5 min read",
+    title: "Cruz Azul Wins Liga MX Clausura 2026: Pumas Final Recap & Betting Analysis",
+    excerpt:
+      "Cruz Azul beat Pumas UNAM 2-1 with a Rodolfo Rotondi stoppage-time winner. 200K+ US searches. Full match recap and betting market breakdown.",
+    accent: "#4ADE80",
+  },
+  {
+    slug: "avalanche-vs-golden-knights-nhl-playoffs-2026",
+    category: "🏒 NHL",
+    date: "May 25, 2026",
+    readTime: "5 min read",
+    title: "Avalanche vs Golden Knights NHL Playoffs 2026: MacKinnon Props, OT Markets & Betting Breakdown",
+    excerpt:
+      "Colorado vs Vegas generated 200K+ searches with a 1,000% spike. Nathan MacKinnon scorer props, OT winner markets, and Golden Knights moneyline analysis.",
+    accent: "#3B82F6",
+  },
+  {
+    slug: "inter-miami-philadelphia-mls-messi-2026",
+    category: "⚽ MLS",
+    date: "May 25, 2026",
+    readTime: "5 min read",
+    title: "Inter Miami vs Philadelphia 2026: Messi Injury, MLS Betting Odds & Market Analysis",
+    excerpt:
+      "Messi injury concerns sent Inter Miami vs Philadelphia Union to 100K+ searches. Anytime scorer props, BTTS markets, and how Messi's fitness moves lines.",
+    accent: "#EC4899",
+  },
+  {
+    slug: "villarreal-atletico-madrid-la-liga-2026",
+    category: "⚽ La Liga",
+    date: "May 25, 2026",
+    readTime: "5 min read",
+    title: "Villarreal vs Atlético Madrid La Liga 2026: Griezmann Props, Under 2.5 & Betting Breakdown",
+    excerpt:
+      "One of the biggest European football betting trends this week. Atlético win, Under 2.5 goals, Griezmann scorer, and draw no bet markets fully analyzed.",
+    accent: "#6C63FF",
+  },
+  {
+    slug: "indy-500-2026-results-betting",
+    category: "🏎️ IndyCar",
+    date: "May 25, 2026",
+    readTime: "4 min read",
+    title: "Indy 500 2026 Results: Who Won, Race Winner Odds & Betting Market Breakdown",
+    excerpt:
+      "The 2026 Indianapolis 500 generated 200K+ searches with a 900% spike. Race winner bets, podium markets, Felix Rosenqvist and David Malukas trending — full breakdown.",
+    accent: "#F97316",
+  },
+  {
     slug: "why-share-your-betslip",
     category: "Community",
     date: "May 24, 2026",

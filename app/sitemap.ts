@@ -67,6 +67,43 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.75,
     },
+    // Trending sports news posts
+    {
+      url: `${baseUrl}/blog/thunder-vs-spurs-nba-2026`,
+      lastModified: new Date("2026-05-25"),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/blog/cruz-azul-pumas-liga-mx-final-2026`,
+      lastModified: new Date("2026-05-25"),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/blog/avalanche-vs-golden-knights-nhl-playoffs-2026`,
+      lastModified: new Date("2026-05-25"),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/blog/inter-miami-philadelphia-mls-messi-2026`,
+      lastModified: new Date("2026-05-25"),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/blog/villarreal-atletico-madrid-la-liga-2026`,
+      lastModified: new Date("2026-05-25"),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
+      url: `${baseUrl}/blog/indy-500-2026-results-betting`,
+      lastModified: new Date("2026-05-25"),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
     // Auth
     {
       url: `${baseUrl}/login`,
