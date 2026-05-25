@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
+import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 
 export const metadata: Metadata = {
   title: "How to Read Prop Analytics: Hit Rates, Matchup Grades & Confidence Scores — Lasyly Blog",
@@ -53,12 +54,8 @@ export default function PropAnalyticsGuidePost() {
         "keywords": ["prop analytics", "hit rate", "matchup grade", "confidence score", "sports betting"],
       }} />
       <div className="max-w-2xl">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mb-10">
-          <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
-          <span>/</span>
-          <span>Analytics</span>
-        </div>
+        {/* Back navigation — context-aware */}
+        <BlogPostBackButton sport="Analytics" />
 
         {/* Header */}
         <div className="mb-12">

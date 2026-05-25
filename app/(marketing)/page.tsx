@@ -2,6 +2,9 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { JsonLd } from "@/components/seo/JsonLd"
+import { createClient } from "@/lib/supabase/server"
+
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: "Lasyly — Sports Betting Analytics, Rooms & Tipster Marketplace",
@@ -68,7 +71,51 @@ const features = [
 
 const BASE_URL = "https://lasyly.me"
 
-export default function LandingPage() {
+// Fallback posts shown if DB has nothing yet
+const FALLBACK_TRENDING = [
+  {
+    slug: "spurs-thunder-game-4-recap-2026",
+    category: "🏀 NBA Playoffs",
+    title: "Wembanyama 33 Pts: Spurs Rout Thunder 103-82, West Finals Tied 2-2",
+    readTime: "7 min",
+    accent: "#F59E0B",
+  },
+  {
+    slug: "how-to-read-prop-analytics",
+    category: "Analytics",
+    title: "How to Read Prop Analytics: Hit Rates, Matchup Grades & Confidence Scores",
+    readTime: "8 min",
+    accent: "#6C63FF",
+  },
+  {
+    slug: "nba-player-props-guide",
+    category: "NBA",
+    title: "The Complete Guide to NBA Player Props in 2026",
+    readTime: "10 min",
+    accent: "#F59E0B",
+  },
+]
+
+export default async function LandingPage() {
+  // Fetch the 3 most recent published posts for the trending strip
+  const supabase = await createClient()
+  const { data: dbPosts } = await supabase
+    .from("blog_posts")
+    .select("slug, title, category, read_time, accent")
+    .eq("published", true)
+    .order("published_at", { ascending: false })
+    .limit(3)
+
+  const trendingPosts =
+    dbPosts && dbPosts.length > 0
+      ? dbPosts.map((p: { slug: string; title: string; category: string; read_time: string; accent: string }) => ({
+          slug: p.slug,
+          category: p.category,
+          title: p.title,
+          readTime: p.read_time,
+          accent: p.accent,
+        }))
+      : FALLBACK_TRENDING
   return (
     <>
       <JsonLd data={{
@@ -289,37 +336,69 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Blog preview */}
+      {/* Trending section */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div className="flex items-center justify-between mb-8 sm:mb-10">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-2">From the blog</p>
-            <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white">Learn to bet smarter</h2>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-2">
+              Trending now
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white">
+              What bettors are reading
+            </h2>
           </div>
           <Link href="/blog" className="text-sm text-[var(--color-lime)] hover:underline hidden md:block">
             All posts →
           </Link>
         </div>
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
-          {[
-            { slug: "why-share-your-betslip", cat: "Community", title: "Why You Should Share Your Betslip (Even When You Lose)", time: "6 min" },
-            { slug: "how-to-read-prop-analytics", cat: "Analytics", title: "How to Read Prop Analytics: Hit Rates, Matchup Grades & Confidence Scores", time: "8 min" },
-            { slug: "nba-player-props-guide", cat: "NBA", title: "The Complete Guide to NBA Player Props in 2026", time: "10 min" },
-          ].map((p) => (
+        <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
+          {trendingPosts.map((p, i) => (
             <Link
               key={p.slug}
               href={`/blog/${p.slug}`}
-              className="group block rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 hover:border-white/15 transition-colors"
+              className="group relative block rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 hover:border-white/15 transition-all hover:-translate-y-0.5 overflow-hidden"
             >
+              {/* Rank number watermark */}
+              <span
+                className="absolute top-3 right-4 text-6xl font-serif font-bold leading-none select-none pointer-events-none"
+                style={{ color: `${p.accent}12` }}
+              >
+                {i + 1}
+              </span>
+
+              {/* Top bar accent line */}
+              <div
+                className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl"
+                style={{ background: p.accent }}
+              />
+
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-lime)]">{p.cat}</span>
-                <span className="text-xs text-[var(--color-text-muted)]">{p.time} read</span>
+                <span
+                  className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                  style={{ background: `${p.accent}18`, color: p.accent }}
+                >
+                  {p.category}
+                </span>
+                <span className="text-xs text-[var(--color-text-muted)]">{p.readTime} read</span>
               </div>
-              <h3 className="font-bold text-white text-sm leading-snug group-hover:text-[var(--color-lime)] transition-colors">
+
+              <h3 className="font-bold text-white text-sm leading-snug group-hover:text-[var(--color-lime)] transition-colors mb-4">
                 {p.title}
               </h3>
+
+              <div className="flex items-center gap-1 text-xs font-semibold text-[var(--color-lime)] opacity-0 group-hover:opacity-100 transition-opacity">
+                Read post
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
             </Link>
           ))}
+        </div>
+        <div className="mt-5 text-center md:hidden">
+          <Link href="/blog" className="text-sm text-[var(--color-lime)] hover:underline">
+            See all posts →
+          </Link>
         </div>
       </section>
 

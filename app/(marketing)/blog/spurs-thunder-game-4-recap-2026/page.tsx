@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
+import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 
 export const metadata: Metadata = {
   title: "Spurs Beat Thunder Game 4: Wembanyama 33 Pts, OKC Series Tied 2-2 — Lasyly",
@@ -84,14 +85,8 @@ export default function SpursThunderGame4Post() {
       />
 
       <div className="max-w-2xl">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mb-10">
-          <Link href="/blog" className="hover:text-white transition-colors">
-            Blog
-          </Link>
-          <span>/</span>
-          <span>NBA</span>
-        </div>
+        {/* Back navigation — context-aware */}
+        <BlogPostBackButton sport="NBA" />
 
         {/* Header */}
         <div className="mb-12">

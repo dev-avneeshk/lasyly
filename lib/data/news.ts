@@ -48,7 +48,7 @@ async function fetchFromDatabase(category: string | null): Promise<NewsItem[] | 
     const supabase = createAdminClient()
     let query = supabase
       .from("espn_news")
-      .select("id, headline, description, published_at, source, category, image_url, link")
+      .select("id, headline, description, published_at, source, category, image_url, link, linked_blog_slug")
       .order("published_at", { ascending: false })
       .limit(80)
 
@@ -68,6 +68,7 @@ async function fetchFromDatabase(category: string | null): Promise<NewsItem[] | 
       source: row.source,
       image: row.image_url,
       category: row.category,
+      linkedBlogSlug: row.linked_blog_slug ?? null,
     }))
   } catch {
     return null

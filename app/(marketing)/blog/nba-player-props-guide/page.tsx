@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
+import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 
 export const metadata: Metadata = {
   title: "The Complete Guide to NBA Player Props in 2026 — Lasyly Blog",
@@ -41,12 +42,8 @@ export default function NbaPropsGuidePost() {
         "keywords": ["NBA player props", "NBA betting guide", "prop analytics", "parlay builder", "defensive matchup"],
       }} />
       <div className="max-w-2xl">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mb-10">
-          <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
-          <span>/</span>
-          <span>NBA</span>
-        </div>
+        {/* Back navigation — context-aware */}
+        <BlogPostBackButton sport="NBA" />
 
         {/* Header */}
         <div className="mb-12">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import type { NewsItem } from "@/types/news"
@@ -70,12 +71,28 @@ function highlightHeadline(title: string, colorIdx: number): React.ReactNode {
 }
 
 export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
+  const router = useRouter()
   const [items, setItems] = useState<NewsItem[]>(initialItems ?? [])
   const [loading, setLoading] = useState(!initialItems || initialItems.length === 0)
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null)
   // Track whether we've already used the SSR-provided initialItems for the
   // current category, so a subsequent category change still triggers a fetch.
   const initialCategoryRef = useState(category ?? null)[0]
+
+  /**
+   * Navigate to a blog post when the news item has a linked blog slug,
+   * otherwise open the in-feed ESPN article detail.
+   */
+  const handleItemClick = useCallback(
+    (item: NewsItem) => {
+      if (item.linkedBlogSlug) {
+        router.push(`/blog/${item.linkedBlogSlug}?from=news`)
+      } else {
+        setSelectedArticle(item)
+      }
+    },
+    [router]
+  )
 
   const fetchNews = useCallback(async () => {
     try {
@@ -110,7 +127,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
         onBack={() => setSelectedArticle(null)}
         fmtDate={fmtDate}
         relatedItems={items.filter((i) => i !== selectedArticle)}
-        onSelect={(item) => setSelectedArticle(item)}
+        onSelect={(item) => handleItemClick(item)}
       />
     )
   }
@@ -162,7 +179,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
         {/* Left stories */}
         <div className="md:hidden">
           {left1 && (
-            <button onClick={() => setSelectedArticle(left1)} className="text-left w-full group cursor-pointer mb-6">
+            <button onClick={() => handleItemClick(left1)} className="text-left w-full group cursor-pointer mb-6">
               {left1.image && (
                 <img src={left1.image} alt="" className="w-full h-[200px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
@@ -179,7 +196,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           )}
 
           {center && (
-            <button onClick={() => setSelectedArticle(center)} className="text-left w-full group cursor-pointer mb-6 pt-6 border-t border-white/10">
+            <button onClick={() => handleItemClick(center)} className="text-left w-full group cursor-pointer mb-6 pt-6 border-t border-white/10">
               {center.image && (
                 <img src={center.image} alt="" className="w-full h-[220px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
@@ -199,7 +216,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           )}
 
           {left2 && (
-            <button onClick={() => setSelectedArticle(left2)} className="text-left w-full group cursor-pointer mb-6 pt-6 border-t border-white/10">
+            <button onClick={() => handleItemClick(left2)} className="text-left w-full group cursor-pointer mb-6 pt-6 border-t border-white/10">
               <div className="flex gap-3 items-start">
                 {left2.image && (
                   <img src={left2.image} alt="" className="w-[100px] h-[80px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
@@ -219,7 +236,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           {[right1, right2, right3, right4, right5].filter(Boolean).map((item, idx) => (
             <button
               key={`rm-${idx}`}
-              onClick={() => item && setSelectedArticle(item)}
+              onClick={() => item && handleItemClick(item)}
               className="flex gap-3 items-start text-left w-full group cursor-pointer py-4 border-t border-white/10"
             >
               {item?.image && (
@@ -242,7 +259,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
         {/* ─── LEFT COLUMN ─── */}
         <div>
           {left1 && (
-            <button onClick={() => setSelectedArticle(left1)} className="text-left w-full group cursor-pointer">
+            <button onClick={() => handleItemClick(left1)} className="text-left w-full group cursor-pointer">
               <h2 className="mb-3 group-hover:text-[var(--color-lime)] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "22px", fontWeight: 700, lineHeight: 1.2, color: "white" }}>
                 {left1.title}
               </h2>
@@ -261,7 +278,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           )}
 
           {left2 && (
-            <button onClick={() => setSelectedArticle(left2)} className="text-left w-full group cursor-pointer mt-6 pt-5 border-t border-white/10">
+            <button onClick={() => handleItemClick(left2)} className="text-left w-full group cursor-pointer mt-6 pt-5 border-t border-white/10">
               <div className="flex gap-3 items-start">
                 {left2.image && (
                   <img src={left2.image} alt="" className="w-[100px] h-[100px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
@@ -288,7 +305,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
         {/* ─── CENTER COLUMN ─── */}
         <div>
           {center && (
-            <button onClick={() => setSelectedArticle(center)} className="text-left w-full group cursor-pointer">
+            <button onClick={() => handleItemClick(center)} className="text-left w-full group cursor-pointer">
               {center.image && (
                 <img src={center.image} alt="" className="w-full h-[320px] object-cover grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
@@ -327,7 +344,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
             {[right1, right2, right3, right4, right5].filter(Boolean).map((item, idx) => (
               <button
                 key={`r-${idx}`}
-                onClick={() => item && setSelectedArticle(item)}
+                onClick={() => item && handleItemClick(item)}
                 className="flex gap-3 items-start text-left w-full group cursor-pointer"
               >
                 {item?.image && (
@@ -358,7 +375,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-6">
             {items.slice(8).map((item, idx) => (
-              <button key={`more-${idx}`} onClick={() => setSelectedArticle(item)} className="text-left w-full group cursor-pointer">
+              <button key={`more-${idx}`} onClick={() => handleItemClick(item)} className="text-left w-full group cursor-pointer">
                 {item.image && (
                   <img src={item.image} alt="" className="w-full h-[140px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
                 )}
@@ -406,219 +423,279 @@ function ArticleDetail({
   }, [article.id])
 
   const heroImage = hiResImage || article.image
-  const col1Items = relatedItems.slice(0, 2)
-  const col3Items = relatedItems.slice(2, 4)
-  const col4Items = relatedItems.slice(4, 6)
+  const sidebarItems = relatedItems.slice(0, 5)
+  const bottomItems = relatedItems.slice(5, 11)
 
   return (
-    <div className="px-4 md:px-7 py-7" style={{ background: "#faf5f0", color: "#1a1a1a" }}>
-      {/* Back button */}
-      <button onClick={onBack} className="flex items-center gap-2 mb-8 cursor-pointer hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 700, letterSpacing: "0.5px", color: "#444", textTransform: "uppercase" }}>
-        <ArrowRight className="w-4 h-4 rotate-180" /> Back to Headlines
-      </button>
+    <div style={{ background: "var(--color-background)", color: "var(--color-text-primary)", minHeight: "100vh" }}>
 
-      {/* Section title */}
-      <div className="text-center mb-10">
-        <h2 className="inline-block pb-2 border-b-[3px] border-[#1a1a1a]" style={{ fontFamily: "var(--font-serif)", fontSize: "28px", fontWeight: 700, color: "#1a1a1a" }}>
-          Latest Updates
-        </h2>
+      {/* ── ARTICLE MASTHEAD ── */}
+      <div className="border-b border-white/10 px-4 md:px-7 py-4 flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 transition-colors hover:text-[var(--color-lime)]"
+          style={{ fontFamily: "var(--font-ui)", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", color: "#666", textTransform: "uppercase" }}
+        >
+          <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+          Back to Headlines
+        </button>
+
+        {/* Category pill */}
+        <span
+          className="px-3 py-1 border border-white/20 rounded-full"
+          style={{ fontFamily: "var(--font-ui)", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "var(--color-lime)" }}
+        >
+          {article.category || article.source}
+        </span>
       </div>
 
-      {/* Mobile: single column article view */}
-      <div className="md:hidden">
-        <div>
+      {/* ── MAIN CONTENT: article + sidebar ── */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-0 md:gap-0">
+
+        {/* ─── LEFT: FEATURED ARTICLE ─── */}
+        <article className="px-4 md:px-8 py-7 md:border-r border-white/10">
+
+          {/* Hero image */}
           {heroImage && (
-            <img src={heroImage} alt="" className="w-full h-[220px] object-cover grayscale mb-5" />
+            <div className="w-full mb-6 overflow-hidden" style={{ maxHeight: "480px" }}>
+              <img
+                src={heroImage}
+                alt=""
+                className="w-full object-cover grayscale"
+                style={{ maxHeight: "480px", objectPosition: "top" }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }}
+              />
+            </div>
           )}
-          <h2 className="mb-4" style={{ fontFamily: "var(--font-serif)", fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: "#1a1a1a" }}>
-            {article.title}
-          </h2>
 
+          {/* Meta row */}
+          <div className="flex items-center gap-4 mb-5">
+            <span
+              className="px-3 py-1 border border-white/20 rounded-full"
+              style={{ fontFamily: "var(--font-ui)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase", color: "white" }}
+            >
+              {article.category || "Sports"}
+            </span>
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: "12px", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              {fmtDate(article.pubDate)}
+            </span>
+          </div>
+
+          {/* Headline */}
+          <h1
+            className="mb-5"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: "clamp(22px, 3.5vw, 38px)",
+              fontWeight: 400,
+              lineHeight: 1.15,
+              color: "white",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {highlightHeadline(article.title, 2)}
+          </h1>
+
+          {/* Byline */}
+          <div className="flex items-center gap-2 mb-7 pb-6 border-b border-white/10">
+            <span style={{ color: "var(--color-lime)", fontSize: "10px" }}>✦</span>
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: "13px", color: "#888" }}>
+              {byline || article.source}
+            </span>
+          </div>
+
+          {/* Article body */}
           {loading ? (
-            <div className="space-y-3">
-              {[100, 92, 88, 95, 85, 90].map((w, i) => (
-                <div key={i} className="h-4 bg-[#ddd] animate-pulse" style={{ width: `${w}%` }} />
-              ))}
-            </div>
-          ) : story ? (
-            <div
-              className="prose-article-light"
-              style={{ fontFamily: "var(--font-body-serif)", fontSize: "14px", lineHeight: 1.7, color: "#333" }}
-              dangerouslySetInnerHTML={{ __html: story }}
-            />
-          ) : (
-            <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "14px", lineHeight: 1.7, color: "#333" }}>
-              {article.description}
-            </p>
-          )}
-
-          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-[#ddd]">
-            <div>
-              <div style={{ fontFamily: "var(--font-ui)", fontSize: "13px", fontWeight: 600, color: "#1a1a1a" }}>
-                {byline || article.source}
-              </div>
-              <div style={{ fontFamily: "var(--font-ui)", fontSize: "11px", color: "#666" }}>
-                {fmtDate(article.pubDate)}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <a href={article.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:underline cursor-pointer" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "#c44569", textTransform: "uppercase" }}>
-              Read on ESPN <ArrowRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        </div>
-
-        {/* Related stories on mobile */}
-        {relatedItems.length > 0 && (
-          <div className="mt-8 pt-6 border-t border-[#ddd]">
-            <h3 className="mb-4" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#888" }}>
-              More Stories
-            </h3>
             <div className="space-y-4">
-              {relatedItems.slice(0, 5).map((item, idx) => (
-                <button key={`rel-${idx}`} onClick={() => onSelect(item)} className="flex gap-3 items-start text-left w-full group cursor-pointer">
-                  {item.image && (
-                    <img src={item.image} alt="" className="w-[75px] h-[60px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
-                  )}
-                  <div>
-                    <h4 className="group-hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "14px", fontWeight: 700, lineHeight: 1.3, color: "#1a1a1a" }}>
-                      {item.title}
-                    </h4>
-                    <p className="mt-1" style={{ fontFamily: "var(--font-ui)", fontSize: "10px", color: "#666" }}>
-                      {item.source} · {fmtDate(item.pubDate)}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 4-COLUMN GRID — main story takes 2fr */}
-      <div className="hidden md:grid gap-9" style={{ gridTemplateColumns: "220px 2fr 1fr 220px", alignItems: "start" }}>
-
-        {/* ─── COL 1: Left sidebar stories ─── */}
-        <div>
-          {col1Items[0] && (
-            <button onClick={() => onSelect(col1Items[0])} className="text-left w-full group cursor-pointer mb-9">
-              <h2 className="mb-4 group-hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "24px", fontWeight: 700, lineHeight: 1.25, color: "#1a1a1a" }}>
-                {highlightHeadline(col1Items[0].title, 0)}
-              </h2>
-              <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "13px", lineHeight: 1.7, color: "#333" }}>
-                {col1Items[0].description}
-              </p>
-              <div className="mt-4" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", color: "#555" }}>
-                {col1Items[0].source} · {fmtDate(col1Items[0].pubDate)}
-              </div>
-            </button>
-          )}
-          {col1Items[1] && (
-            <button onClick={() => onSelect(col1Items[1])} className="text-left w-full group cursor-pointer border-t border-[#ddd] pt-8">
-              <h2 className="mb-3 group-hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: "#1a1a1a" }}>
-                {col1Items[1].title}
-              </h2>
-              <p style={{ fontFamily: "var(--font-ui)", fontSize: "12px", color: "#555", lineHeight: 1.5 }}>
-                By {col1Items[1].source} · {fmtDate(col1Items[1].pubDate)}
-              </p>
-            </button>
-          )}
-        </div>
-
-        {/* ─── COL 2: Main article ─── */}
-        <div>
-          {heroImage && (
-            <img src={heroImage} alt="" className="w-full h-[280px] object-cover grayscale mb-5" />
-          )}
-          <h2 className="mb-4" style={{ fontFamily: "var(--font-serif)", fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: "#1a1a1a" }}>
-            {highlightHeadline(article.title, 3)}
-          </h2>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[100, 92, 88, 95, 85, 90].map((w, i) => (
-                <div key={i} className="h-4 bg-[#ddd] animate-pulse" style={{ width: `${w}%` }} />
+              {[100, 92, 96, 88, 95, 82, 90, 85].map((w, i) => (
+                <div
+                  key={i}
+                  className="h-4 animate-pulse rounded"
+                  style={{ width: `${w}%`, background: "rgba(255,255,255,0.07)" }}
+                />
               ))}
             </div>
           ) : story ? (
             <div
-              className="prose-article-light"
-              style={{ fontFamily: "var(--font-body-serif)", fontSize: "13px", lineHeight: 1.7, color: "#333" }}
+              className="prose-article"
+              style={{ fontFamily: "var(--font-body-serif)", fontSize: "15px", lineHeight: 1.85, color: "#ccc" }}
               dangerouslySetInnerHTML={{ __html: story }}
             />
           ) : (
-            <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "13px", lineHeight: 1.7, color: "#333" }}>
-              {article.description}
-            </p>
+            /* Fallback: description as a pull-quote style block */
+            <div>
+              <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "16px", lineHeight: 1.85, color: "#bbb" }}>
+                {article.description}
+              </p>
+              {/* Decorative pull quote */}
+              <blockquote
+                className="my-8 pl-5"
+                style={{
+                  borderLeft: "3px solid var(--color-lime)",
+                  fontFamily: "var(--font-serif)",
+                  fontStyle: "italic",
+                  fontSize: "18px",
+                  lineHeight: 1.5,
+                  color: "white",
+                }}
+              >
+                {article.description?.slice(0, 120)}{article.description && article.description.length > 120 ? "…" : ""}
+              </blockquote>
+            </div>
           )}
 
-          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-[#ddd]">
+          {/* Footer: source + read more */}
+          <div className="flex items-center justify-between mt-8 pt-6 border-t border-white/10">
             <div>
-              <div style={{ fontFamily: "var(--font-ui)", fontSize: "13px", fontWeight: 600, color: "#1a1a1a" }}>
+              <div style={{ fontFamily: "var(--font-ui)", fontSize: "13px", fontWeight: 600, color: "white" }}>
                 {byline || article.source}
               </div>
-              <div style={{ fontFamily: "var(--font-ui)", fontSize: "11px", color: "#666" }}>
+              <div style={{ fontFamily: "var(--font-ui)", fontSize: "11px", color: "#666", marginTop: "2px" }}>
                 {fmtDate(article.pubDate)}
               </div>
             </div>
-          </div>
-
-          <div className="mt-6">
-            <a href={article.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:underline cursor-pointer" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "#c44569", textTransform: "uppercase" }}>
-              Read on ESPN <ArrowRight className="w-3.5 h-3.5" />
+            <a
+              href={article.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 transition-opacity hover:opacity-70"
+              style={{
+                fontFamily: "var(--font-ui)",
+                fontSize: "11px",
+                fontWeight: 700,
+                letterSpacing: "1px",
+                color: "var(--color-lime)",
+                textTransform: "uppercase",
+              }}
+            >
+              Read Full Story <ArrowRight className="w-3 h-3" />
             </a>
           </div>
-        </div>
+        </article>
 
-        {/* ─── COL 3: Image cards ─── */}
-        <div>
-          {col3Items.map((item, idx) => (
-            <button key={`c3-${idx}`} onClick={() => onSelect(item)} className="text-left w-full group cursor-pointer mb-7">
-              {item.image && (
-                <img src={item.image} alt="" className="w-full h-[160px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
-              )}
-              <h3 className="mb-2 group-hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "18px", fontWeight: 700, lineHeight: 1.3, color: "#1a1a1a" }}>
-                {item.title}
-              </h3>
-              <p style={{ fontFamily: "var(--font-ui)", fontSize: "12px", color: "#555" }}>
-                By {item.source} · {fmtDate(item.pubDate)}
-              </p>
-            </button>
-          ))}
-        </div>
+        {/* ─── RIGHT: LATEST SIDEBAR ─── */}
+        <aside className="px-4 md:px-6 py-7">
+          <h2
+            className="mb-6 pb-3 border-b border-white/10"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: "22px",
+              fontWeight: 700,
+              color: "white",
+              textTransform: "uppercase",
+              letterSpacing: "0.02em",
+            }}
+          >
+            Latest
+          </h2>
 
-        {/* ─── COL 4: Right sidebar ─── */}
-        <div>
-          {col4Items[0] && (
-            <button onClick={() => onSelect(col4Items[0])} className="text-left w-full group cursor-pointer mb-7">
-              <h2 className="mb-3 group-hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "20px", fontWeight: 700, lineHeight: 1.3, color: "#1a1a1a" }}>
-                {col4Items[0].title}
-              </h2>
-              <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "13px", lineHeight: 1.7, color: "#333" }}>
-                {col4Items[0].description}
-              </p>
-              <div className="mt-3" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", color: "#555" }}>
-                {col4Items[0].source} · {fmtDate(col4Items[0].pubDate)}
-              </div>
-            </button>
-          )}
-          {col4Items[1] && (
-            <button onClick={() => onSelect(col4Items[1])} className="text-left w-full group cursor-pointer border-t border-[#ddd] pt-6">
-              <h2 className="mb-3 group-hover:text-[#c44569] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "20px", fontWeight: 700, lineHeight: 1.3, color: "#1a1a1a" }}>
-                {col4Items[1].title}
-              </h2>
-              <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "13px", lineHeight: 1.7, color: "#333" }}>
-                {col4Items[1].description}
-              </p>
-              <div className="mt-3" style={{ fontFamily: "var(--font-ui)", fontSize: "12px", color: "#555" }}>
-                {col4Items[1].source} · {fmtDate(col4Items[1].pubDate)}
-              </div>
-            </button>
-          )}
-        </div>
+          <div className="flex flex-col">
+            {sidebarItems.map((item, idx) => (
+              <button
+                key={`sb-${idx}`}
+                onClick={() => onSelect(item)}
+                className="text-left w-full group pb-5 mb-5 border-b border-white/10 last:border-0 last:mb-0 last:pb-0"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span
+                    className="px-2 py-0.5 border border-white/15 rounded-full"
+                    style={{ fontFamily: "var(--font-ui)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase", color: "#aaa" }}
+                  >
+                    {item.category || item.source.slice(0, 8)}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                    {fmtDate(item.pubDate)}
+                  </span>
+                </div>
+                <h3
+                  className="group-hover:text-[var(--color-lime)] transition-colors"
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    lineHeight: 1.35,
+                    color: "white",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {item.title}
+                </h3>
+              </button>
+            ))}
+          </div>
+        </aside>
       </div>
+
+      {/* ── BOTTOM: MORE STORIES GRID ── */}
+      {bottomItems.length > 0 && (
+        <div className="px-4 md:px-7 py-8 border-t border-white/10">
+          <h2
+            className="mb-6"
+            style={{
+              fontFamily: "var(--font-ui)",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "1.5px",
+              textTransform: "uppercase",
+              color: "#666",
+            }}
+          >
+            More Stories
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-7 gap-y-7">
+            {bottomItems.map((item, idx) => (
+              <button
+                key={`btm-${idx}`}
+                onClick={() => onSelect(item)}
+                className="text-left w-full group"
+              >
+                {item.image && (
+                  <div className="w-full mb-4 overflow-hidden" style={{ aspectRatio: "4/3" }}>
+                    <img
+                      src={item.image}
+                      alt=""
+                      className="w-full h-full object-cover grayscale group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }}
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-3 mb-3">
+                  <span
+                    className="px-2 py-0.5 border border-white/15 rounded-full"
+                    style={{ fontFamily: "var(--font-ui)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase", color: "#aaa" }}
+                  >
+                    {item.category || item.source.slice(0, 8)}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                    {fmtDate(item.pubDate)}
+                  </span>
+                </div>
+                <h3
+                  className="mb-3 group-hover:text-[var(--color-lime)] transition-colors"
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    lineHeight: 1.3,
+                    color: "white",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {item.title}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span style={{ color: "var(--color-lime)", fontSize: "9px" }}>✦</span>
+                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "11px", color: "#666" }}>
+                    {item.source}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
