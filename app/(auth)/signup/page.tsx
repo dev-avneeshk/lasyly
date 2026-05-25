@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import Link from "next/link"
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -9,6 +10,21 @@ import { createClient } from "@/lib/supabase/client"
 import { isSupabaseConfigured, supabaseConfigError } from "@/lib/supabase/config"
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-4">
+        <div className="h-8 w-40 rounded bg-white/5 animate-pulse" />
+        <div className="h-4 w-56 rounded bg-white/5 animate-pulse" />
+        <div className="h-12 rounded-xl bg-white/5 animate-pulse mt-6" />
+        <div className="h-12 rounded-xl bg-white/5 animate-pulse" />
+      </div>
+    }>
+      <SignupContent />
+    </Suspense>
+  )
+}
+
+function SignupContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()

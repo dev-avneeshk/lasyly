@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
@@ -34,6 +35,29 @@ const INTENTS = [
 ] as const
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full space-y-4">
+        <div className="flex gap-2 mb-8">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className="h-1 flex-1 rounded-full bg-white/10" />
+          ))}
+        </div>
+        <div className="h-8 w-48 rounded bg-white/5 animate-pulse" />
+        <div className="h-4 w-64 rounded bg-white/5 animate-pulse" />
+        <div className="space-y-3 mt-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 rounded-2xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
+  )
+}
+
+function OnboardingContent() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   const searchParams = useSearchParams()

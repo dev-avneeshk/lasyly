@@ -36,9 +36,10 @@ const sourceSans = Source_Sans_3({
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-}
+  // Removed maximumScale:1 / userScalable:false — accessibility violation flagged
+  // by Lighthouse Best Practices and WCAG 1.4.4. Modern iOS/Android handle zoom
+  // gracefully; blocking it harms users who rely on browser zoom.
+} satisfies Viewport
 
 export const metadata: Metadata = {
   title: {

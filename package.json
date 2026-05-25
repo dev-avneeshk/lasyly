@@ -10,6 +10,14 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions",
+    "not IE 11",
+    "not dead"
+  ],
   "dependencies": {
     "@radix-ui/react-slot": "1.2.4",
     "@sentry/nextjs": "10.53.1",

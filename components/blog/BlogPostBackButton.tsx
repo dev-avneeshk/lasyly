@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 
@@ -16,11 +17,23 @@ interface BlogPostBackButtonProps {
  *
  * - Arrived directly (Google, blog index, share link, etc.):
  *   Shows the normal breadcrumb "Blog / [sport]"
- *
- * Using `useSearchParams` here keeps the blog post page itself a Server
- * Component — only this thin button is a Client Component.
  */
 export default function BlogPostBackButton({ sport }: BlogPostBackButtonProps) {
+  return (
+    <Suspense fallback={
+      // Static fallback while searchParams resolves — renders the breadcrumb
+      <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mb-10">
+        <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+        <span>/</span>
+        <span>{sport}</span>
+      </div>
+    }>
+      <BackButtonInner sport={sport} />
+    </Suspense>
+  )
+}
+
+function BackButtonInner({ sport }: BlogPostBackButtonProps) {
   const searchParams = useSearchParams()
   const fromNews = searchParams.get("from") === "news"
 
