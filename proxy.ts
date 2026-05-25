@@ -68,30 +68,30 @@ function getClientIp(request: NextRequest): string {
 /**
  * Build the Content-Security-Policy header.
  *
- * We intentionally do NOT use a per-request nonce here. Nonce-based CSP only
- * works when every page is server-rendered on every request — the nonce in the
- * CSP header must match the nonce stamped on each <script> tag in the HTML.
- * Because auth pages (and most pages) are statically generated / ISR-cached,
- * the HTML is served from CDN cache while the proxy generates a fresh nonce on
- * every request. Those nonces never match → CSP blocks ALL scripts → React
- * never hydrates → Suspense boundaries freeze on their skeleton forever.
+ * Pages are statically generated / ISR-cached on CDN, so nonce-based CSP is
+ * not viable (the nonce in the header would never match the one baked into
+ * the cached HTML). We also cannot use 'strict-dynamic' without a nonce or
+ * hash — when strict-dynamic is present, browsers that support it (all modern
+ * browsers) silently ignore 'unsafe-inline', which blocks Next.js's inline
+ * bootstrap scripts and prevents React from hydrating entirely.
  *
- * Instead we use 'self' + 'strict-dynamic' (no nonce). 'strict-dynamic' allows
- * scripts loaded by a trusted script to load further scripts, which covers
- * Next.js chunk loading. 'unsafe-inline' is included as a fallback for older
- * browsers that don't understand strict-dynamic (browsers that do support it
- * ignore 'unsafe-inline').
+ * The correct approach for a statically-rendered Next.js app:
+ *   script-src 'self' 'unsafe-inline'
+ *
+ * 'self' allows scripts loaded from our own origin (all Next.js chunks).
+ * 'unsafe-inline' allows the small inline bootstrap scripts Next.js injects.
+ * No strict-dynamic — it provides no benefit without a nonce/hash and actively
+ * breaks things by overriding unsafe-inline.
  *
  * Development adds 'unsafe-eval' for React DevTools / HMR.
- * style-src keeps 'unsafe-inline' because Tailwind v4 and framer-motion
- * inject inline <style> tags at runtime.
+ * style-src keeps 'unsafe-inline' because Tailwind v4 injects inline styles.
  */
 function buildCSPHeader(): string {
   const isDev = process.env.NODE_ENV === "development"
 
   const csp = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
+    script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     font-src 'self' data:;
