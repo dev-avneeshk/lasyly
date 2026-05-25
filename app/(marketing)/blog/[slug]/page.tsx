@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 
@@ -33,10 +34,11 @@ interface BlogPost {
 // ---------------------------------------------------------------------------
 // Static params — tells Next.js which slugs exist at build time.
 // At runtime, any slug not in this list is fetched on-demand (ISR).
+// Uses the admin client (service role key) — no cookies, safe at build time.
 // ---------------------------------------------------------------------------
 
 export async function generateStaticParams() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data } = await supabase
     .from("blog_posts")
     .select("slug")
