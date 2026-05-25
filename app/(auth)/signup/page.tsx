@@ -27,7 +27,6 @@ export default function SignupPage() {
 function SignupContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/explore"
 
@@ -41,6 +40,7 @@ function SignupContent() {
       return
     }
 
+    const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
