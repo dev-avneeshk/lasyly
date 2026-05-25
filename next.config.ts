@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.31.195"],
   logging: false,
   poweredByHeader: false,
+  compress: true,
   images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 3600,
     remotePatterns: [
       {
         protocol: "https",
@@ -35,11 +38,6 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     const isDev = process.env.NODE_ENV === "development";
-    // CSP is set in proxy.ts so that we can attach a per-request nonce to
-    // script-src. Setting it again here would emit a second CSP header that
-    // the browser would intersect with the proxy's, blocking nonce-trusted
-    // scripts. Other security headers below stay here as a defense-in-depth
-    // fallback for any route the proxy matcher might skip.
     return [
       {
         source: "/(.*)",
@@ -49,6 +47,20 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
           ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]),
+        ],
+      },
+      // Cache news API responses at the CDN edge for 60s (stale-while-revalidate 300s)
+      {
+        source: "/api/news/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" },
+        ],
+      },
+      // Cache scores API for 10s at edge (matches polling interval)
+      {
+        source: "/api/scores/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=10, stale-while-revalidate=30" },
         ],
       },
       ...(isDev

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const revalidate = 60
 
@@ -155,7 +155,7 @@ export default async function BlogIndexPage() {
   const baseUrl = "https://lasyly.me"
 
   // Pull DB posts — newest first, limit to 50 so the index doesn't explode
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data: dbRows } = await supabase
     .from("blog_posts")
     .select("slug, title, excerpt, category, accent, read_time, published_at")

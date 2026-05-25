@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { JsonLd } from "@/components/seo/JsonLd"
-import { createClient } from "@/lib/supabase/server"
+
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const revalidate = 60
 
@@ -97,8 +98,8 @@ const FALLBACK_TRENDING = [
 ]
 
 export default async function LandingPage() {
-  // Fetch the 3 most recent published posts for the trending strip
-  const supabase = await createClient()
+  // Use admin client — no cookies needed, safe at ISR revalidation time
+  const supabase = createAdminClient()
   const { data: dbPosts } = await supabase
     .from("blog_posts")
     .select("slug, title, category, read_time, accent")

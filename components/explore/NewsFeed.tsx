@@ -181,7 +181,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           {left1 && (
             <button onClick={() => handleItemClick(left1)} className="text-left w-full group cursor-pointer mb-6">
               {left1.image && (
-                <img src={left1.image} alt="" className="w-full h-[200px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                <img src={left1.image} alt="" loading="eager" decoding="async" fetchPriority="high" className="w-full h-[200px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
               <h2 className="mb-2 group-hover:text-[var(--color-lime)] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "22px", fontWeight: 700, lineHeight: 1.2, color: "white" }}>
                 {left1.title}
@@ -198,7 +198,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           {center && (
             <button onClick={() => handleItemClick(center)} className="text-left w-full group cursor-pointer mb-6 pt-6 border-t border-white/10">
               {center.image && (
-                <img src={center.image} alt="" className="w-full h-[220px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                <img src={center.image} alt="" loading="eager" decoding="async" fetchPriority="high" className="w-full h-[220px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
               <span style={{ fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "#888", textTransform: "uppercase" }}>
                 Trending
@@ -219,7 +219,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
             <button onClick={() => handleItemClick(left2)} className="text-left w-full group cursor-pointer mb-6 pt-6 border-t border-white/10">
               <div className="flex gap-3 items-start">
                 {left2.image && (
-                  <img src={left2.image} alt="" className="w-[100px] h-[80px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                  <img src={left2.image} alt="" loading="lazy" decoding="async" className="w-[100px] h-[80px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
                 )}
                 <div>
                   <h3 className="group-hover:text-[var(--color-lime)] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "16px", fontWeight: 700, lineHeight: 1.2, color: "white" }}>
@@ -240,7 +240,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
               className="flex gap-3 items-start text-left w-full group cursor-pointer py-4 border-t border-white/10"
             >
               {item?.image && (
-                <img src={item.image} alt="" className="w-[75px] h-[65px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                <img src={item.image} alt="" loading="lazy" decoding="async" className="w-[75px] h-[65px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
               <div>
                 <h4 className="group-hover:text-[var(--color-lime)] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "14px", fontWeight: 700, lineHeight: 1.3, color: "white" }}>
@@ -265,7 +265,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
               </h2>
               <div className="flex gap-3">
                 {left1.image && (
-                  <img src={left1.image} alt="" className="w-[130px] h-[160px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                  <img src={left1.image} alt="" loading="lazy" decoding="async" className="w-[130px] h-[160px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
                 )}
                 <p style={{ fontFamily: "var(--font-body-serif)", fontSize: "12px", lineHeight: 1.6, color: "#999" }}>
                   {left1.description}
@@ -281,7 +281,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
             <button onClick={() => handleItemClick(left2)} className="text-left w-full group cursor-pointer mt-6 pt-5 border-t border-white/10">
               <div className="flex gap-3 items-start">
                 {left2.image && (
-                  <img src={left2.image} alt="" className="w-[100px] h-[100px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                  <img src={left2.image} alt="" loading="lazy" decoding="async" className="w-[100px] h-[100px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
                 )}
                 <div>
                   <h3 className="group-hover:text-[var(--color-lime)] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "17px", fontWeight: 700, lineHeight: 1.2, color: "white" }}>
@@ -307,7 +307,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
           {center && (
             <button onClick={() => handleItemClick(center)} className="text-left w-full group cursor-pointer">
               {center.image && (
-                <img src={center.image} alt="" className="w-full h-[320px] object-cover grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                <img src={center.image} alt="" loading="eager" decoding="async" fetchPriority="high" className="w-full h-[320px] object-cover grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
               )}
               <div className="flex items-center justify-between mt-[18px]">
                 <span style={{ fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", color: "#888", textTransform: "uppercase" }}>
@@ -348,7 +348,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
                 className="flex gap-3 items-start text-left w-full group cursor-pointer"
               >
                 {item?.image && (
-                  <img src={item.image} alt="" className="w-[75px] h-[65px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                  <img src={item.image} alt="" loading="lazy" decoding="async" className="w-[75px] h-[65px] object-cover flex-shrink-0 grayscale" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
                 )}
                 <div>
                   <h4 className="group-hover:text-[var(--color-lime)] transition-colors" style={{ fontFamily: "var(--font-serif)", fontSize: "14px", fontWeight: 700, lineHeight: 1.3, color: "white" }}>
@@ -377,7 +377,7 @@ export default function NewsFeed({ category, initialItems }: NewsFeedProps) {
             {items.slice(8).map((item, idx) => (
               <button key={`more-${idx}`} onClick={() => handleItemClick(item)} className="text-left w-full group cursor-pointer">
                 {item.image && (
-                  <img src={item.image} alt="" className="w-full h-[140px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
+                  <img src={item.image} alt="" loading="lazy" decoding="async" className="w-full h-[140px] object-cover grayscale mb-3" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }} />
                 )}
                 <h4 className="group-hover:text-[var(--color-lime)] transition-colors line-clamp-2" style={{ fontFamily: "var(--font-serif)", fontSize: "15px", fontWeight: 700, lineHeight: 1.3, color: "white" }}>
                   {item.title}
@@ -461,6 +461,9 @@ function ArticleDetail({
               <img
                 src={heroImage}
                 alt=""
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
                 className="w-full object-cover grayscale"
                 style={{ maxHeight: "480px", objectPosition: "top" }}
                 onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none" }}

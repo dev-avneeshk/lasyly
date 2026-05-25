@@ -1,4 +1,3 @@
-import { getNews } from "@/lib/data/news"
 import NewsClient from "./NewsClient"
 import type { Metadata } from "next"
 
@@ -15,25 +14,12 @@ export const metadata: Metadata = {
   },
 }
 
-// Cache the rendered shell for ~60s; matches CACHE_TTL.explore.
+// Statically render the shell; client fetches fresh news on hydration.
+// This removes the blocking getNews() call that added ~300-700ms to TTFB.
+export const dynamic = "force-static"
 export const revalidate = 60
 
-/**
- * Server component shell for /news.
- *
- * Pre-fetches the "Latest" feed on the server so the first response already
- * contains real article cards. Category tab switches are still handled
- * client-side via NewsFeed's existing fetch path.
- */
-export default async function NewsPage() {
-  let initialItems: Awaited<ReturnType<typeof getNews>>["items"] = []
-  try {
-    const result = await getNews(null)
-    initialItems = result.items
-  } catch {
-    initialItems = []
-  }
-
+export default function NewsPage() {
   return (
     <div className="w-full">
       {/* Masthead — pure server-rendered */}
@@ -46,7 +32,8 @@ export default async function NewsPage() {
         </p>
       </header>
 
-      <NewsClient initialItems={initialItems} />
+      {/* Client component fetches news after hydration — no SSR DB round-trip */}
+      <NewsClient initialItems={[]} />
     </div>
   )
 }
