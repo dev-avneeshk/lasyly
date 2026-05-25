@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 import { createClient } from "@/lib/supabase/client"
@@ -11,8 +10,14 @@ import { isSupabaseConfigured, supabaseConfigError } from "@/lib/supabase/config
 export function LoginContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect") || "/explore"
+
+  // Read redirect param lazily (inside handlers) so this component has no
+  // runtime dependency on useSearchParams — no Suspense boundary needed,
+  // no risk of the skeleton freezing in production.
+  function getRedirect() {
+    if (typeof window === "undefined") return "/explore"
+    return new URLSearchParams(window.location.search).get("redirect") || "/explore"
+  }
 
   const handleGoogleLogin = async () => {
     setIsLoading(true)
@@ -24,6 +29,7 @@ export function LoginContent() {
       return
     }
 
+    const redirectTo = getRedirect()
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -62,7 +68,7 @@ export function LoginContent() {
       return
     }
 
-    window.location.href = redirectTo
+    window.location.href = getRedirect()
   }
 
   return (
@@ -84,7 +90,7 @@ export function LoginContent() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p className="text-sm text-[var(--color-text-muted)]">
-          Email login is not available right now. Use Google, Apple, or continue as a guest.
+          Email login is not available right now. Use Google or continue as a guest.
         </p>
       </div>
 
