@@ -6,12 +6,13 @@ const nextConfig: NextConfig = {
   logging: false,
   poweredByHeader: false,
   compress: true,
-  // Emit source maps in production so Lighthouse and browser DevTools can
-  // show original source. Sentry will also pick these up automatically.
-  productionBrowserSourceMaps: true,
+  // Source maps are uploaded to Sentry during build — they don't need to be
+  // served to browsers in production. Serving them exposes source code and
+  // adds ~200KB+ to the JS payload flagged by Lighthouse "unused JS".
+  productionBrowserSourceMaps: false,
   images: {
     formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 3600,
+    minimumCacheTTL: 86400, // 24h — was 1h, improves CDN cache hit rate significantly
     remotePatterns: [
       {
         protocol: "https",
@@ -70,8 +71,15 @@ const nextConfig: NextConfig = {
         ? []
         : [
             {
-              // Cache static assets aggressively (production only)
-              source: "/(.*)\\.(js|css|woff2|png|jpg|svg|ico)",
+              // Cache hashed JS/CSS chunks forever — they have content hashes in filenames
+              source: "/_next/static/(.*)",
+              headers: [
+                { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+              ],
+            },
+            {
+              // Cache public static assets (images, fonts, icons) for 1 year
+              source: "/(.*)\\.(js|css|woff2|woff|ttf|otf|png|jpg|jpeg|webp|avif|svg|ico|gif)",
               headers: [
                 { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
               ],

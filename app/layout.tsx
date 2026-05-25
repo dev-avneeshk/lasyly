@@ -13,16 +13,16 @@ const playfair = Playfair_Display({
   style: ["normal", "italic"],
   variable: "--font-playfair",
   display: "swap",
-  preload: true,
+  preload: false,     // display:swap means it won't block render — no need to preload
 });
 
 const libreBaskerville = Libre_Baskerville({
   subsets: ["latin"],
   weight: ["400", "700"],
-  style: ["normal"],  // drop italic variant — saves ~20KB on mobile
+  style: ["normal"],
   variable: "--font-libre-baskerville",
   display: "swap",
-  preload: false,     // secondary font — no need to block for it
+  preload: false,
 });
 
 const sourceSans = Source_Sans_3({
@@ -30,7 +30,7 @@ const sourceSans = Source_Sans_3({
   weight: ["400", "600", "700"],
   variable: "--font-source-sans",
   display: "swap",
-  preload: false,     // UI font — loaded after FCP
+  preload: false,
 });
 
 export const viewport = {
