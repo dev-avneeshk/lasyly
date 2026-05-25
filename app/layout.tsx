@@ -73,10 +73,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
-      { url: "/lasyly_logo.png", type: "image/png" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
     ],
     shortcut: "/favicon.ico",
-    apple: { url: "/lasyly_logo.png", type: "image/png" },
+    apple: { url: "/apple-icon.png", type: "image/png", sizes: "180x180" },
   },
   openGraph: {
     type: "website",
