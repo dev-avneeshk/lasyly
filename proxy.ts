@@ -16,12 +16,16 @@ import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/auth-config"
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const PUBLIC_ROUTES = [
+  "/",
   "/login",
   "/signup",
   "/onboarding",
   "/privacy",
   "/terms",
   "/auth/callback",
+  "/blog",
+  "/features",
+  "/tipsters",
 ]
 
 const AUTH_ROUTES = ["/login", "/signup"]

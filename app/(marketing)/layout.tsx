@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import type { Metadata } from "next"
+import { MobileNav } from "@/components/marketing/MobileNav"
 
 export const metadata: Metadata = {
   alternates: {
@@ -15,20 +16,23 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)]">
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-background)]/80 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[var(--color-lime)] flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(212,255,0,0.4)]">
               <Image src="/lasyly_logo.png" alt="Lasyly" width={32} height={32} className="w-full h-full object-cover" />
             </div>
             <span className="text-lg font-bold tracking-tight text-white">Lasyly</span>
           </Link>
+
+          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-8 text-sm text-[var(--color-text-muted)]">
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
             <Link href="/features" className="hover:text-white transition-colors">Features</Link>
             <Link href="/tipsters" className="hover:text-white transition-colors">Tipsters</Link>
             <Link href="/scores" className="hover:text-white transition-colors">Live Scores</Link>
           </nav>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/login" className="text-sm text-[var(--color-text-muted)] hover:text-white transition-colors hidden md:block">
               Sign in
             </Link>
@@ -38,6 +42,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             >
               Get started
             </Link>
+            {/* Mobile hamburger + dropdown */}
+            <MobileNav />
           </div>
         </div>
       </header>
@@ -46,8 +52,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <main>{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--color-border)] mt-24">
-        <div className="max-w-6xl mx-auto px-6 py-12">
+      <footer className="border-t border-[var(--color-border)] mt-16 md:mt-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -86,7 +92,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </ul>
             </div>
           </div>
-          <div className="border-t border-[var(--color-border)] pt-6 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="border-t border-[var(--color-border)] pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-center md:text-left">
             <p className="text-xs text-[var(--color-text-muted)]">© 2026 Lasyly. All rights reserved.</p>
             <p className="text-xs text-[var(--color-text-muted)]">Not a sportsbook. For entertainment and analytics purposes only.</p>
           </div>

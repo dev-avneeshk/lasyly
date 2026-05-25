@@ -121,28 +121,28 @@ export default function LandingPage() {
       }} />
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-12 sm:pb-16">
         <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-4 sm:mb-5">
             Sports betting, finally in one place
           </p>
-          <h1 className="text-5xl md:text-7xl font-bold font-serif tracking-tight text-white leading-none mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-serif tracking-tight text-white leading-none mb-5 sm:mb-6">
             Where bettors<br />
             <span className="text-[var(--color-lime)]">win together.</span>
           </h1>
-          <p className="text-lg md:text-xl text-[var(--color-text-muted)] leading-relaxed max-w-2xl mb-10">
+          <p className="text-base sm:text-lg md:text-xl text-[var(--color-text-muted)] leading-relaxed max-w-2xl mb-8 sm:mb-10">
             Prop analytics with real hit rates. Real-time betting rooms. Live scores across 10+ sports. A tipster marketplace where you keep 85%. All free. All in one app.
           </p>
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
             <Link
               href="/signup"
-              className="inline-block bg-[var(--color-lime)] text-black font-bold px-7 py-3.5 rounded-full text-sm hover:opacity-90 transition-opacity shadow-[0_0_30px_rgba(212,255,0,0.3)]"
+              className="inline-block bg-[var(--color-lime)] text-black font-bold px-6 sm:px-7 py-3 sm:py-3.5 rounded-full text-sm hover:opacity-90 transition-opacity shadow-[0_0_30px_rgba(212,255,0,0.3)]"
             >
               Get started free →
             </Link>
             <Link
               href="/features"
-              className="inline-block border border-[var(--color-border)] text-white font-medium px-7 py-3.5 rounded-full text-sm hover:border-white/30 transition-colors"
+              className="inline-block border border-[var(--color-border)] text-white font-medium px-6 sm:px-7 py-3 sm:py-3.5 rounded-full text-sm hover:border-white/30 transition-colors"
             >
               See all features
             </Link>
@@ -152,7 +152,7 @@ export default function LandingPage() {
 
       {/* Stats strip */}
       <section className="border-y border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
               <p className="text-4xl font-bold font-serif text-[var(--color-lime)] leading-none mb-1">{s.value}</p>
@@ -163,11 +163,11 @@ export default function LandingPage() {
       </section>
 
       {/* Problem section */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)] mb-4">The problem</p>
-            <h2 className="text-4xl font-bold font-serif text-white leading-tight mb-6">
+            <h2 className="text-3xl sm:text-4xl font-bold font-serif text-white leading-tight mb-6">
               You&apos;re juggling 4–6 apps just to place one informed bet.
             </h2>
             <div className="space-y-4">
@@ -209,12 +209,12 @@ export default function LandingPage() {
       </section>
 
       {/* Features grid */}
-      <section className="max-w-6xl mx-auto px-6 pb-20">
-        <div className="text-center mb-12">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14 sm:pb-20">
+        <div className="text-center mb-10 sm:mb-12">
           <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-3">Platform features</p>
-          <h2 className="text-4xl font-bold font-serif text-white">Everything a bettor needs</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold font-serif text-white">Everything a bettor needs</h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
           {features.map((f) => (
             <Link
               key={f.title}
@@ -240,11 +240,11 @@ export default function LandingPage() {
       </section>
 
       {/* Tipster section */}
-      <section className="border-y border-[var(--color-border)] bg-[var(--color-surface)] py-20">
-        <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
+      <section className="border-y border-[var(--color-border)] bg-[var(--color-surface)] py-14 sm:py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-4">For tipsters</p>
-            <h2 className="text-4xl font-bold font-serif text-white leading-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold font-serif text-white leading-tight mb-4">
               Your edge is worth money. Start earning it.
             </h2>
             <p className="text-[var(--color-text-muted)] leading-relaxed mb-6">
@@ -290,17 +290,17 @@ export default function LandingPage() {
       </section>
 
       {/* Blog preview */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <div className="flex items-center justify-between mb-10">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div className="flex items-center justify-between mb-8 sm:mb-10">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-lime)] mb-2">From the blog</p>
-            <h2 className="text-3xl font-bold font-serif text-white">Learn to bet smarter</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold font-serif text-white">Learn to bet smarter</h2>
           </div>
           <Link href="/blog" className="text-sm text-[var(--color-lime)] hover:underline hidden md:block">
             All posts →
           </Link>
         </div>
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
           {[
             { slug: "why-share-your-betslip", cat: "Community", title: "Why You Should Share Your Betslip (Even When You Lose)", time: "6 min" },
             { slug: "how-to-read-prop-analytics", cat: "Analytics", title: "How to Read Prop Analytics: Hit Rates, Matchup Grades & Confidence Scores", time: "8 min" },
@@ -324,10 +324,10 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ (matches JSON-LD above) */}
-      <section className="border-t border-[var(--color-border)] py-20">
-        <div className="max-w-3xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold font-serif text-white">Common questions</h2>
+      <section className="border-t border-[var(--color-border)] py-14 sm:py-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold font-serif text-white">Common questions</h2>
           </div>
           <div className="space-y-0">
             {[
@@ -347,17 +347,17 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="max-w-6xl mx-auto px-6 pb-24">
-        <div className="rounded-2xl border border-[var(--color-lime)]/20 bg-[var(--color-lime)]/5 p-12 md:p-16 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold font-serif text-white mb-4 leading-tight">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 sm:pb-24">
+        <div className="rounded-2xl border border-[var(--color-lime)]/20 bg-[var(--color-lime)]/5 p-8 sm:p-12 md:p-16 text-center">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-serif text-white mb-4 leading-tight">
             Stop betting blind.<br />Start winning smarter.
           </h2>
-          <p className="text-[var(--color-text-muted)] max-w-md mx-auto mb-8 text-lg">
+          <p className="text-[var(--color-text-muted)] max-w-md mx-auto mb-7 sm:mb-8 text-base sm:text-lg">
             Join free. No credit card. Research your first prop in under a minute.
           </p>
           <Link
             href="/signup"
-            className="inline-block bg-[var(--color-lime)] text-black font-bold px-8 py-4 rounded-full text-base hover:opacity-90 transition-opacity shadow-[0_0_40px_rgba(212,255,0,0.25)]"
+            className="inline-block bg-[var(--color-lime)] text-black font-bold px-7 sm:px-8 py-3.5 sm:py-4 rounded-full text-sm sm:text-base hover:opacity-90 transition-opacity shadow-[0_0_40px_rgba(212,255,0,0.25)]"
           >
             Create free account →
           </Link>
