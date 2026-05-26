@@ -1,33 +1,75 @@
 # Lasyly
 
-> Lasyly (lasyly.me) is a real-time sports analytics and betting community platform. It provides player prop analytics with hit rates and matchup grades, live sports scores, curated sports news, social betting rooms, and a tipster marketplace.
+> Lasyly is a real-time social platform for sports bettors. It combines data-backed prop analytics, Discord-style betting rooms, live scores across 10+ sports, curated sports news, and a tipster marketplace — all in one dark-themed, mobile-first web app.
 
 ## What Lasyly Does
 
-Lasyly is a sports analytics platform built for bettors and prop players. It is an alternative to Action Network, PrizePicks, and Betstamp, combining analytics and community in one place.
+Lasyly solves the fragmented sports betting experience. Instead of juggling multiple apps for analytics, community, scores, and picks, bettors get everything in one place — for free.
 
-Key features:
-- **Prop Analytics**: Player prop research with historical hit rates, matchup grades, injury context, and trend data for NBA, NFL, MLB, and more
-- **Live Scores**: Real-time scores and game updates across major sports
-- **Betting Rooms**: Social rooms where users share picks, discuss games, and track bets together
-- **Sports News**: Curated injury reports and news relevant to bettors
-- **Tipster Marketplace**: Follow and discover top sports bettors and tipsters
-
-## Pages
-
-- [Home](https://lasyly.me): Overview of all features
-- [Prop Analytics](https://lasyly.me/analysis): Deep player prop research tool
-- [Live Scores](https://lasyly.me/scores): Real-time sports scores
-- [Betting Rooms](https://lasyly.me/rooms): Community betting rooms
-- [Sports News](https://lasyly.me/news): Curated sports news for bettors
-- [Sign Up](https://lasyly.me/signup): Create a free account
-- [Blog](https://lasyly.me/blog): Guides and analysis on sports betting strategy
+Think of it as PrizePicks analytics + Discord-style rooms + a tipster marketplace.
 
 ## Who It's For
 
-Sports bettors, prop players, DFS players, and sports fans who want data-driven analytics and a community to share picks with.
+- Recreational sports bettors who want data-backed insights before placing props
+- Serious handicappers looking for advanced analytics (hit rates, matchup grades, correlations, line movement)
+- Tipsters who want to monetize their picks by selling them to followers
+- Sports fans who want a social space to discuss games, share betslips, and track live scores
 
-## Comparisons
+## Core Features
 
-- Alternative to: Action Network, PrizePicks Lobby, Betstamp, OddsJam, Pikkit
-- Better than alternatives for: community features, prop hit rate tracking, matchup grading
+- Betting Rooms: Public, private, and premium tipster rooms with real-time chat and betslip sharing
+- Prop Analytics: Player prop cards with hit rates (L5/L10/L15/L20), matchup grades (A-F), confidence scores, trend arrows, streak dots, correlations, line movement, and AI writeups
+- Bet Tracker: Log picks, track win rate, ROI, net profit, and discover which signals work best for you
+- Live Scores: Real-time scores for Soccer, NBA, NFL, Tennis, NHL, MLB, F1, UFC, Golf, and Cricket
+- Sports News: Curated feed from ESPN covering Football, NBA, NFL, UFC, Tennis, F1, and Cricket
+- Wallet & Marketplace: Stripe-powered credits system where tipsters sell picks (85/15 revenue split)
+- Dashboard: Personal analytics hub with win rate, sport breakdowns, and funds activity
+- Social: Follow bettors, share betslips with reactions, leaderboards, and profile pages
+
+## Sports Covered
+
+- NBA (basketball-reference.com data: box scores, player stats, team defense ratings)
+- Tennis (tennisabstract.com data: serve stats, return stats, surface splits)
+- Football/Soccer (fbref.com data: player stats, standings for top 5 European leagues)
+- NFL, NHL, MLB, F1, UFC, Golf, Cricket (live scores via ESPN)
+
+## How Analytics Work
+
+All prop lines and analytics are computed from real scraped historical data — no paid odds feeds. Scrapers run automatically via GitHub Actions. Hit rates, matchup grades, confidence scores, and correlations are all derived from actual player performance history.
+
+## Business Model
+
+- Tipster marketplace: 15% platform fee on premium pick sales (tipsters keep 85%)
+- Wallet top-ups via Stripe for purchasing picks
+- Future: Premium tiers, room subscriptions, sponsored content
+
+## Tech Stack
+
+- Next.js 16 (App Router), TypeScript 5, Tailwind CSS v4, Framer Motion 12
+- Supabase (Postgres + Row Level Security + Realtime)
+- Stripe (Checkout Sessions + Webhooks)
+- Python scrapers (Scrapling library) on GitHub Actions
+- Radix UI, Lucide Icons, Vitest
+
+## Important Pages
+
+- [Home](https://lasyly.me): Landing page with product overview and signup
+- [Features](https://lasyly.me/features): Detailed breakdown of platform capabilities
+- [Tipsters](https://lasyly.me/tipsters): Information about the tipster marketplace
+- [Blog](https://lasyly.me/blog): Sports betting insights and platform updates
+- [Scores](https://lasyly.me/scores): Live scores across 10+ sports
+- [News](https://lasyly.me/news): Curated sports news feed (Lasyly Daily)
+- [Analysis](https://lasyly.me/analysis): Player prop analytics and research tools
+- [Rooms](https://lasyly.me/rooms): Browse and join betting community rooms
+- [Explore](https://lasyly.me/explore): Discover rooms, tipsters, and trending content
+- [Dashboard](https://lasyly.me/dashboard): Personal betting performance analytics
+- [Bets](https://lasyly.me/bets): Bet tracker and pick logging
+- [Wallet](https://lasyly.me/wallet): Credits, top-ups, and transaction history
+- [Login](https://lasyly.me/login): Sign in to your account
+- [Signup](https://lasyly.me/signup): Create a new account
+- [Privacy Policy](https://lasyly.me/privacy): Privacy policy
+- [Terms of Service](https://lasyly.me/terms): Terms of service
+
+## Contact
+
+- Website: https://lasyly.me
