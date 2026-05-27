@@ -3,12 +3,14 @@
 import { Search, Plus, Bell, Clock, DollarSign, Users, Activity, Hash, Star } from "lucide-react"
 import { GaugeChart, DualLineChart, ProgressBar } from "@/components/dashboard/DashboardCharts"
 import { MetricSquare, PillMetric, TransactionList } from "@/components/dashboard/DashboardWidgets"
+import DashboardParlayWidget from "@/components/parlays/DashboardParlayWidget"
 import type {
   DashboardData,
   SportCategory,
   FundsDay,
   Transaction,
 } from "@/lib/data/dashboard"
+import type { ParlayWithLegs, ParlayStats } from "@/lib/types/parlay"
 
 const SPORT_COLORS = ["var(--color-lime)", "#4ADE80", "#3B82F6", "#EF4444", "#F97316"]
 const SPORT_ICONS: Record<string, string> = {
@@ -20,6 +22,8 @@ type Props = {
   initialSports: SportCategory[]
   initialFunds: { income: FundsDay[]; spending: FundsDay[] }
   initialTransactions: Transaction[]
+  initialParlays: ParlayWithLegs[]
+  initialParlayStats: ParlayStats
 }
 
 export default function DashboardClient({
@@ -27,6 +31,8 @@ export default function DashboardClient({
   initialSports,
   initialFunds,
   initialTransactions,
+  initialParlays,
+  initialParlayStats,
 }: Props) {
   // Server-rendered data is already final; no client-side fetching needed.
   // Keeping these as locals (rather than state) means React skips an extra
@@ -67,7 +73,7 @@ export default function DashboardClient({
   }))
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] p-4 md:p-6 lg:p-8 font-sans">
+    <div className="flex flex-col min-h-screen bg-[var(--color-background)] p-4 md:p-6 lg:p-8 font-sans">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -222,6 +228,14 @@ export default function DashboardClient({
           {/* Transactions */}
           <TransactionList transactions={formattedTransactions} />
         </div>
+      </div>
+
+      {/* My Parlays Section */}
+      <div className="mt-6">
+        <DashboardParlayWidget
+          initialParlays={initialParlays}
+          initialStats={initialParlayStats}
+        />
       </div>
     </div>
   )

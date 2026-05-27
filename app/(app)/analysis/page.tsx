@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { Trophy } from "lucide-react"
+import { Trophy, AlertTriangle } from "lucide-react"
 import { Game } from "@/lib/props/types"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { NBA_STAT_FILTERS, TENNIS_STAT_FILTERS, SOCCER_STAT_FILTERS, NFL_STAT_FILTERS, NHL_STAT_FILTERS, DEFAULT_STATS } from "@/lib/props/constants"
@@ -12,6 +12,7 @@ import { PropCardGrid } from "@/components/analysis/PropCardGrid"
 import { PlayerSearch } from "@/components/analysis/PlayerSearch"
 import { MatchupStrip } from "@/components/props/MatchupStrip"
 import { ParlayBuilder, ParlayLeg, ParlayState, canAddToParlay } from "@/components/props/ParlayBuilder"
+import { AuthRequiredDialog } from "@/components/auth/AuthGate"
 import { StatsPanel } from "@/components/props/StatsPanel"
 import { TodayGame } from "@/lib/analytics/engine-v2"
 import { createClient } from "@/lib/supabase/client"
@@ -33,6 +34,7 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(!cachedProps?.props?.length)
   const [gamesLoading, setGamesLoading] = useState(!cachedGames?.games?.length)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   // ─── Matchup state (NBA only) ──────────────────────────────────────────────
   const [selectedMatchup, setSelectedMatchup] = useState<string | null>(null)
@@ -162,9 +164,29 @@ export default function AnalysisPage() {
 
   // ─── Parlay handlers ────────────────────────────────────────────────────────
 
+  // ─── Duplicate toast state (Task 8.2) ─────────────────────────────────────
+  const [duplicateToast, setDuplicateToast] = useState<string | null>(null)
+
+  // Auto-dismiss duplicate toast after 3 seconds (Requirement 7.2)
+  useEffect(() => {
+    if (!duplicateToast) return
+    const timer = setTimeout(() => setDuplicateToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [duplicateToast])
+
   const handleAddToParlay = useCallback(async (prop: EnhancedPropCardData) => {
-    const validation = canAddToParlay(parlayState.legs, prop.id)
-    if (!validation.canAdd) return
+    // Auth gate — show popup for guests
+    if (!isAuthenticated) {
+      setShowAuthDialog(true)
+      return
+    }
+    // Enhanced validation with duplicate (player, stat) check (Task 8.2, Requirement 7.2)
+    const validation = canAddToParlay(parlayState.legs, prop.id, prop.player, prop.statCategory)
+    if (!validation.canAdd) {
+      // Show toast for 3 seconds on duplicate rejection (Requirement 7.2)
+      setDuplicateToast(validation.reason)
+      return
+    }
 
     // Find L10 hit rate: prefer hitRateWindows if available, fallback to hitRate field
     const l10Window = prop.hitRateWindows?.find((w) => w.window === "L10")
@@ -186,6 +208,7 @@ export default function AnalysisPage() {
       direction: prop.direction ?? "over",
       l10HitRate,
       isWeakLink: false,
+      sport: prop.sport ?? sport,
     }
 
     const newLegs = [...parlayState.legs, newLeg]
@@ -229,6 +252,65 @@ export default function AnalysisPage() {
         }
       } catch {
         // Keep optimistic state
+      }
+    }
+  }, [parlayState.legs])
+
+  // ─── Parlay leg direction toggle handler (Task 8.3, Requirement 7.5, 7.6, 7.7) ────────
+
+  const handleParlayLegDirectionToggle = useCallback(async (propId: string, newDirection: "over" | "under") => {
+    // Update the leg direction optimistically
+    const newLegs = parlayState.legs.map((leg) =>
+      leg.propId === propId ? { ...leg, direction: newDirection } : leg
+    )
+
+    setParlayState((prev) => ({
+      ...prev,
+      legs: newLegs,
+    }))
+
+    // Re-call /api/props/parlay to recalculate combined hit rate (Requirement 7.6)
+    if (newLegs.length >= 2) {
+      try {
+        const res = await fetch("/api/props/parlay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            legs: newLegs.map((l) => ({ propId: l.propId, direction: l.direction })),
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setParlayState((prev) => ({
+            ...prev,
+            combinedHitRate: data.combinedHitRate,
+            overlappingDates: data.overlappingDates ?? 0,
+            legs: prev.legs.map((leg) => {
+              const legData = data.legs?.find((l: { propId: string }) => l.propId === leg.propId)
+              if (legData) {
+                return {
+                  ...leg,
+                  l10HitRate: legData.l10HitRate ?? leg.l10HitRate,
+                  isWeakLink: legData.isWeakLink ?? false,
+                  correlationFlag: legData.correlationFlag,
+                }
+              }
+              return leg
+            }),
+          }))
+        } else {
+          // API failure: retain legs, omit hit rate (Requirement 7.7)
+          setParlayState((prev) => ({
+            ...prev,
+            combinedHitRate: null,
+          }))
+        }
+      } catch {
+        // Network failure: retain legs, omit hit rate (Requirement 7.7)
+        setParlayState((prev) => ({
+          ...prev,
+          combinedHitRate: null,
+        }))
       }
     }
   }, [parlayState.legs])
@@ -415,9 +497,9 @@ export default function AnalysisPage() {
   // ─── Log Pick handler ───────────────────────────────────────────────────────
 
   const handleLogPick = useCallback((prop: EnhancedPropCardData) => {
+    // Auth gate — show popup for guests
     if (!isAuthenticated) {
-      // Redirect to login
-      window.location.href = "/login"
+      setShowAuthDialog(true)
       return
     }
     // Navigate to bets page with pre-filled data via query params
@@ -559,6 +641,8 @@ export default function AnalysisPage() {
         state={parlayState}
         onRemoveLeg={handleRemoveLeg}
         onClear={handleClearParlay}
+        onDirectionToggle={handleParlayLegDirectionToggle}
+        isAuthenticated={isAuthenticated}
       />
 
       {/* Stats Reference Panel */}
@@ -569,6 +653,23 @@ export default function AnalysisPage() {
         onClose={handleStatsPanelClose}
         triggerRef={statsPanelTriggerRef}
       />
+
+      {/* Duplicate prop toast (Task 8.2, Requirement 7.2) */}
+      {duplicateToast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-xl px-5 py-3 shadow-lg">
+            <AlertTriangle className="w-4 h-4 text-[var(--color-warning)] shrink-0" />
+            <span className="text-sm text-white font-medium">
+              {duplicateToast}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Auth required dialog for guests */}
+      {showAuthDialog && (
+        <AuthRequiredDialog onClose={() => setShowAuthDialog(false)} />
+      )}
     </div>
   )
 }
