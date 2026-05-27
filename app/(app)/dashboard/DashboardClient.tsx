@@ -24,6 +24,7 @@ type Props = {
   initialTransactions: Transaction[]
   initialParlays: ParlayWithLegs[]
   initialParlayStats: ParlayStats
+  isGuest?: boolean
 }
 
 export default function DashboardClient({
@@ -33,6 +34,7 @@ export default function DashboardClient({
   initialTransactions,
   initialParlays,
   initialParlayStats,
+  isGuest = false,
 }: Props) {
   // Server-rendered data is already final; no client-side fetching needed.
   // Keeping these as locals (rather than state) means React skips an extra
@@ -74,6 +76,15 @@ export default function DashboardClient({
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-background)] p-4 md:p-6 lg:p-8 font-sans">
+      {/* Guest sign-in banner */}
+      {isGuest && (
+        <div className="flex items-center justify-between gap-4 mb-4 px-4 py-3 rounded-xl bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
+          <p className="text-sm text-white font-medium">Sign in to track your bets and see your stats</p>
+          <a href="/login" className="shrink-0 rounded-lg bg-[var(--color-lime)] px-4 py-2 text-xs font-bold text-black hover:brightness-110 transition-all">
+            Sign in
+          </a>
+        </div>
+      )}
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">

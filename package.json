@@ -19,6 +19,7 @@
     "not dead"
   ],
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "1.2.4",
     "@sentry/nextjs": "10.53.1",
     "@stripe/stripe-js": "9.4.0",

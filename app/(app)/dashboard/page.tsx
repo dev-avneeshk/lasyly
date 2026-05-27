@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server"
 import { getDashboard } from "@/lib/data/dashboard"
 import { getDashboardParlays } from "@/lib/data/parlays"
 import { computeParlayStats } from "@/lib/parlays/computations"
-import { AuthGatePage } from "@/components/auth/AuthGate"
 import DashboardClient from "./DashboardClient"
 
 export const metadata: Metadata = {
@@ -18,7 +17,28 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return <AuthGatePage title="Sign in to view your dashboard" />
+    // Show dashboard with empty data + sign-in banner for guests
+    const emptyStats = computeParlayStats([])
+    return (
+      <DashboardClient
+        initialData={{
+          total_income: 0,
+          total_wagered: 0,
+          win_rate: 0,
+          average_odds: 0,
+          total_picks_count: 0,
+          won_count: 0,
+          lost_count: 0,
+          pending_count: 0,
+        }}
+        initialSports={[]}
+        initialFunds={{ income: [], spending: [] }}
+        initialTransactions={[]}
+        initialParlays={[]}
+        initialParlayStats={emptyStats}
+        isGuest={true}
+      />
+    )
   }
 
   // Fetch dashboard data and parlay data in parallel
@@ -45,6 +65,7 @@ export default async function DashboardPage() {
       initialTransactions={dashboard.transactions}
       initialParlays={parlayData.parlays}
       initialParlayStats={parlayData.stats}
+      isGuest={false}
     />
   )
 }
