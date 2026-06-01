@@ -66,7 +66,7 @@ const STATUS_CONFIG = {
     className: "bg-red-500/20 text-red-400 border-red-500/30",
   },
   pending: {
-    label: "Live",
+    label: "Pending",
     className: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   },
 } as const

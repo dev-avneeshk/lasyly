@@ -33,6 +33,7 @@ interface SettlementResult {
   legsChecked: number
   legsSettled: number
   parlaysResolved: number
+  parlaysExpired: number
   errors: number
 }
 
@@ -81,6 +82,7 @@ const NBA_STAT_MAP: Record<string, string> = {
 /**
  * Settles all pending parlay legs that have available game results.
  * Then resolves any parlays where all legs are now settled.
+ * Also expires stale parlays (older than 5 days with no stats found).
  */
 export async function settleParlayLegs(): Promise<SettlementResult> {
   const supabase = createAdminClient()
@@ -88,6 +90,7 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
     legsChecked: 0,
     legsSettled: 0,
     parlaysResolved: 0,
+    parlaysExpired: 0,
     errors: 0,
   }
 
@@ -153,6 +156,10 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
   const parlayIds = [...new Set(legs.map((l) => l.parlay_id))]
   const resolved = await resolveParlays(supabase, parlayIds)
   result.parlaysResolved = resolved
+
+  // 6. Expire stale parlays (older than 5 days, still pending, no stats found)
+  const expired = await expireStaleParlays(supabase)
+  result.parlaysExpired = expired
 
   return result
 }
@@ -497,4 +504,82 @@ async function resolveParlays(
   }
 
   return resolved
+}
+
+// ─── Stale Parlay Expiry ────────────────────────────────────────────────────
+
+/**
+ * Expires parlays that are older than 5 days and still have pending legs.
+ * These are bets where game stats were never found (scraper missed the game,
+ * player didn't play, etc.). Marks unsettled legs as "push" and resolves
+ * the parlay based on whatever legs did settle.
+ *
+ * If ALL legs are still pending after 5 days, the parlay is voided (marked lost).
+ */
+async function expireStaleParlays(
+  supabase: ReturnType<typeof createAdminClient>
+): Promise<number> {
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Find stale parlays: pending, created more than 5 days ago
+  const { data: staleParlays, error } = await supabase
+    .from("parlays")
+    .select("id")
+    .eq("status", "pending")
+    .lt("created_at", fiveDaysAgo)
+    .limit(100)
+
+  if (error || !staleParlays || staleParlays.length === 0) return 0
+
+  let expired = 0
+
+  for (const parlay of staleParlays) {
+    // Get all legs for this parlay
+    const { data: legs, error: legsError } = await supabase
+      .from("parlay_legs")
+      .select("id, result")
+      .eq("parlay_id", parlay.id)
+
+    if (legsError || !legs || legs.length === 0) continue
+
+    const pendingLegs = legs.filter((l) => l.result === "pending")
+    const settledLegs = legs.filter((l) => l.result !== "pending")
+
+    // Mark all remaining pending legs as "push" (voided — no action)
+    if (pendingLegs.length > 0) {
+      const pendingIds = pendingLegs.map((l) => l.id)
+      await supabase
+        .from("parlay_legs")
+        .update({ result: "push" })
+        .in("id", pendingIds)
+    }
+
+    // Determine final parlay status
+    // If any settled leg lost → parlay lost
+    // If all legs are won/push → parlay won
+    // If ALL legs were pending (now push) → parlay lost (void = loss)
+    const anyLost = settledLegs.some((l) => l.result === "lost")
+    const allOriginallyPending = settledLegs.length === 0
+
+    let newStatus: "won" | "lost"
+    if (anyLost || allOriginallyPending) {
+      newStatus = "lost"
+    } else {
+      // All settled legs won/push, remaining were voided as push
+      newStatus = "won"
+    }
+
+    const { error: updateError } = await supabase
+      .from("parlays")
+      .update({
+        status: newStatus,
+        resolved_at: new Date().toISOString(),
+      })
+      .eq("id", parlay.id)
+      .eq("status", "pending")
+
+    if (!updateError) expired++
+  }
+
+  return expired
 }

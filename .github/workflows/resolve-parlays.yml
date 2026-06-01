@@ -8,8 +8,19 @@ jobs:
   resolve:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger parlay settlement
+      - name: Settle parlay legs directly
         run: |
-          curl -X POST "${{ secrets.SITE_URL }}/api/cron/resolve-parlays" \
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SITE_URL }}/api/cron/settle-parlays" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Status: $http_code"
+          echo "Response: $body"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "::warning::Settlement returned status $http_code"
+          fi
