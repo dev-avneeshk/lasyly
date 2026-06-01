@@ -89,12 +89,12 @@ export default function OGImage() {
           maxWidth: 640,
           marginBottom: 48,
         }}>
-          Prop analytics · Real-time rooms · Live scores · Tipster marketplace
+          Prop analytics · Real-time rooms · Live scores · Pick marketplace
         </div>
 
         {/* Stat pills */}
         <div style={{ display: "flex", gap: 12 }}>
-          {["10+ Sports", "Hit Rates & Matchup Grades", "85% Tipster Revenue"].map((s) => (
+          {["10+ Sports", "Hit Rates & Matchup Grades", "85% Seller Revenue"].map((s) => (
             <div key={s} style={{
               background: "rgba(255,255,255,0.06)",
               border: "1px solid rgba(255,255,255,0.1)",

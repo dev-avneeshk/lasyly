@@ -3,18 +3,18 @@ import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 
 export const metadata: Metadata = {
-  title: "Features — Lasyly Sports Betting Platform",
-  description: "Explore every feature inside Lasyly — prop analytics with hit rates and matchup grades, real-time betting rooms, live scores across 10+ sports, a tipster marketplace, bet tracker, and curated news.",
-  openGraph: { title: "Features — Lasyly Sports Betting Platform", description: "Prop analytics, real-time rooms, live scores, tipster marketplace, bet tracker, and curated news. All free.", type: "website" },
+  title: "Features — Lasyly Sports Analytics Platform",
+  description: "Explore every feature inside Lasyly — prop analytics with hit rates and matchup grades, real-time rooms, live scores across 10+ sports, a pick marketplace, pick tracker, and curated news.",
+  openGraph: { title: "Features — Lasyly Sports Analytics Platform", description: "Prop analytics, real-time rooms, live scores, pick marketplace, pick tracker, and curated news. All free.", type: "website" },
   alternates: { canonical: "https://lasyly.me/features" },
 }
 
 const features = [
-  { color: "var(--color-lime)", label: "Rooms", headline: "Real-time betting community", desc: "Join or create topic-based rooms organized by sport. Share picks, react to betslips, and chat with other bettors in real-time.", bullets: ["Real-time chat via Supabase", "Betslip sharing with emoji reactions", "Public, private, and tipster-gated rooms", "Live member indicators and sport tags"] },
+  { color: "var(--color-lime)", label: "Rooms", headline: "Real-time community", desc: "Join or create topic-based rooms organized by sport. Share picks, react to slips, and chat with others in real-time.", bullets: ["Real-time chat via Supabase", "Slip sharing with emoji reactions", "Public, private, and premium rooms", "Live member indicators and sport tags"] },
   { color: "#6C63FF", label: "Props & Analytics", headline: "Data-backed prop research", desc: "Every player prop card is powered by real scraped historical data. Compute your own edge instead of relying on gut feel.", bullets: ["Hit rates: L5, L10, L15, L20, season", "Matchup grades A–F (defensive stats)", "Confidence scores 1–5 stars", "Trend arrows, streak dots, line movement", "Correlated parlay builder", "AI-generated writeups"] },
   { color: "#00D4AA", label: "Live Scores", headline: "10+ sports, real-time", desc: "A SofaScore-style live scores experience with date navigation, real-time polling, ESPN team logos, and YouTube highlights.", bullets: ["Adaptive polling — faster when live", "Past, today, future date navigation", "ESPN team logos and colors", "Match detail modals + highlights", "Historical match cache"] },
-  { color: "#F59E0B", label: "Bet Tracker", headline: "Your personal performance ledger", desc: "Log every pick with player, stat type, line, direction, odds, and stake. Track win rate, ROI, net profit.", bullets: ["Log picks in seconds", "Track win rate, ROI, net profit", "Best signals analysis — your edge", "Filter by sport, date range, status"] },
-  { color: "#EC4899", label: "Tipster Marketplace", headline: "Buy and sell premium picks", desc: "A Stripe-backed credits system that powers the pick economy. Bettors load credits to purchase premium picks from vetted tipsters.", bullets: ["Top up via Stripe ($10–$100+)", "Browse picks by tipster stats and sport", "Tipsters keep 85% — we take 15%", "Full transaction history and earnings"] },
+  { color: "#F59E0B", label: "Pick Tracker", headline: "Your personal performance ledger", desc: "Log every pick with player, stat type, line, direction, odds, and stake. Track win rate, ROI, net profit.", bullets: ["Log picks in seconds", "Track win rate, ROI, net profit", "Best signals analysis — your edge", "Filter by sport, date range, status"] },
+  { color: "#EC4899", label: "Pick Marketplace", headline: "Buy and sell premium picks", desc: "A Stripe-backed credits system that powers the pick economy. Load credits to purchase premium picks from verified sellers.", bullets: ["Top up via Stripe ($10–$100+)", "Browse picks by seller stats and sport", "Sellers keep 85% — we take 15%", "Full transaction history and earnings"] },
   { color: "#14B8A6", label: "Lasyly Daily", headline: "Curated sports news, instantly", desc: "Sports news aggregated from ESPN and major sources, scraped and served from our own database. Zero third-party latency.", bullets: ["ESPN and major source aggregation", "8 sport categories", "Clean editorial newspaper layout", "Updated continuously via scrapers"] },
 ]
 
@@ -25,7 +25,7 @@ export default function FeaturesPage() {
       <JsonLd data={{
         "@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Lasyly", "url": baseUrl,
         "applicationCategory": "SportsApplication", "operatingSystem": "Web",
-        "description": "Real-time social platform for sports bettors — prop analytics, betting rooms, live scores, tipster marketplace, and curated news.",
+        "description": "Real-time social platform for sports fans — prop analytics, community rooms, live scores, pick marketplace, and curated news.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "featureList": features.map((f) => f.headline),
         "publisher": { "@type": "Organization", "name": "Lasyly", "url": baseUrl },
@@ -38,10 +38,10 @@ export default function FeaturesPage() {
             Everything in one place
           </span>
           <h1 className="text-[2.5rem] sm:text-[3.5rem] md:text-[4.5rem] font-bold font-serif tracking-tight text-white leading-[1.05] mb-6">
-            Every tool a bettor needs
+            Every tool you need, zero effort
           </h1>
           <p className="text-lg text-white/50 max-w-[52ch] leading-relaxed mb-10">
-            No more juggling 4–6 apps to make one informed bet. Lasyly combines real-time analytics, community, live scores, news, and a pick marketplace — all free.
+            No more juggling 4–6 apps to make one informed pick. Lasyly combines real-time analytics, community, live scores, news, and a pick marketplace — all free.
           </p>
           <div className="flex items-center gap-4 flex-wrap">
             <Link href="/signup" className="inline-flex items-center gap-2 bg-[var(--color-lime)] text-black font-bold text-sm px-6 py-3 rounded-full hover:scale-[0.98] active:scale-[0.96] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
@@ -166,12 +166,12 @@ export default function FeaturesPage() {
                 {[
                   ["Prop analytics + hit rates", "Y", "Partial", "—", "—"],
                   ["Matchup grades (A–F)", "Y", "—", "—", "—"],
-                  ["Real-time betting rooms", "Y", "—", "Y", "—"],
-                  ["Betslip sharing + reactions", "Y", "—", "—", "—"],
-                  ["Tipster monetization (85%)", "Y", "—", "—", "—"],
+                  ["Real-time rooms", "Y", "—", "Y", "—"],
+                  ["Slip sharing + reactions", "Y", "—", "—", "—"],
+                  ["Seller monetization (85%)", "Y", "—", "—", "—"],
                   ["Live scores (10+ sports)", "Y", "Partial", "—", "—"],
                   ["Correlated parlay builder", "Y", "—", "—", "—"],
-                  ["Bet tracker + ROI", "Y", "Y", "—", "—"],
+                  ["Pick tracker + ROI", "Y", "Y", "—", "—"],
                   ["Free to use", "Y", "Freemium", "Y", "—"],
                 ].map(([feat, ...vals]) => (
                   <tr key={feat as string} className="hover:bg-white/[0.02] transition-colors">

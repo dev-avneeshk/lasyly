@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import * as Dialog from "@radix-ui/react-dialog"
 import { motion, AnimatePresence } from "framer-motion"
 import { Globe, Lock, X, Loader2, DollarSign, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -71,10 +70,11 @@ export function SaveParlayDialog({
   isSubmitting,
   error,
 }: SaveParlayDialogProps) {
-  const [visibility, setVisibility] = useState<ParlayVisibility>("public")
+  const [visibility, setVisibility] = useState<ParlayVisibility>("private")
   const [odds, setOdds] = useState("")
   const [stake, setStake] = useState("")
   const [note, setNote] = useState("")
+  const [isLogged, setIsLogged] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
 
   // Compute potential payout when both odds and stake are valid
@@ -122,54 +122,52 @@ export function SaveParlayDialog({
       stake: stakeValue,
       custom_note: noteValue,
       combined_hit_rate: combinedHitRate,
+      is_logged: isLogged,
     }
 
     await onSave(payload)
-  }, [legs, visibility, odds, stake, note, combinedHitRate, onSave])
+  }, [legs, visibility, odds, stake, note, isLogged, combinedHitRate, onSave])
 
   const hasMinLegs = legs.length >= 2
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <AnimatePresence>
-          <Dialog.Overlay asChild>
-            <motion.div
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            />
-          </Dialog.Overlay>
-        </AnimatePresence>
+    <>
+      {/* Backdrop */}
+      <motion.div
+        className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
 
-        <Dialog.Content asChild>
-          <motion.div
-            className="fixed inset-x-4 top-[50%] z-50 max-w-md mx-auto -translate-y-1/2 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] shadow-2xl p-6 focus:outline-none"
-            initial={{ opacity: 0, scale: 0.95, y: "-48%" }}
-            animate={{ opacity: 1, scale: 1, y: "-50%" }}
-            exit={{ opacity: 0, scale: 0.95, y: "-48%" }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-5">
-              <Dialog.Title className="text-lg font-semibold text-white">
-                Save Parlay
-              </Dialog.Title>
-              <Dialog.Close asChild>
-                <button
-                  type="button"
-                  className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-white/10 transition-colors"
-                  aria-label="Close dialog"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </Dialog.Close>
-            </div>
+      {/* Dialog */}
+      <motion.div
+        className="fixed inset-x-0 bottom-0 z-[60] sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:mx-auto"
+        initial={{ opacity: 0, y: 100 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 100 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+      >
+        <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[80vh] sm:max-h-[85vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]/50 shrink-0">
+            <h2 className="text-base font-semibold text-white">Save Parlay</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Close dialog"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
+          {/* Scrollable content */}
+          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
             {/* Leg summary */}
-            <div className="mb-5 px-3 py-2 rounded-xl bg-white/5 border border-[var(--color-border)]/50">
+            <div className="px-3 py-2 rounded-xl bg-white/5 border border-[var(--color-border)]/50">
               <p className="text-xs text-[var(--color-text-muted)]">
                 {legs.length} leg{legs.length !== 1 ? "s" : ""} selected
                 {combinedHitRate !== null && (
@@ -181,24 +179,11 @@ export function SaveParlayDialog({
             </div>
 
             {/* Visibility toggle */}
-            <div className="mb-4">
+            <div>
               <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">
                 Visibility
               </label>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setVisibility("public")}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all",
-                    visibility === "public"
-                      ? "bg-[var(--color-lime)]/15 text-[var(--color-lime)] border border-[var(--color-lime)]/40"
-                      : "bg-white/5 text-[var(--color-text-muted)] border border-[var(--color-border)] hover:bg-white/10"
-                  )}
-                >
-                  <Globe className="w-4 h-4" />
-                  Public
-                </button>
                 <button
                   type="button"
                   onClick={() => setVisibility("private")}
@@ -212,16 +197,54 @@ export function SaveParlayDialog({
                   <Lock className="w-4 h-4" />
                   Private
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setVisibility("public")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all",
+                    visibility === "public"
+                      ? "bg-[var(--color-lime)]/15 text-[var(--color-lime)] border border-[var(--color-lime)]/40"
+                      : "bg-white/5 text-[var(--color-text-muted)] border border-[var(--color-border)] hover:bg-white/10"
+                  )}
+                >
+                  <Globe className="w-4 h-4" />
+                  Public
+                </button>
               </div>
             </div>
 
+            {/* Log Only toggle */}
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/5 border border-[var(--color-border)]/50">
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-white">Log Only</span>
+                <span className="text-[10px] text-[var(--color-text-muted)]">
+                  Track outcome without affecting your stats
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLogged(!isLogged)}
+                className={cn(
+                  "relative w-10 h-5 rounded-full transition-colors",
+                  isLogged ? "bg-blue-500" : "bg-zinc-700"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                    isLogged && "translate-x-5"
+                  )}
+                />
+              </button>
+            </div>
+
             {/* Odds input */}
-            <div className="mb-4">
+            <div>
               <label
                 htmlFor="parlay-odds"
                 className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
               >
-                Odds <span className="text-[var(--color-text-muted)]/60">(optional)</span>
+                Odds <span className="opacity-60">(optional)</span>
               </label>
               <input
                 id="parlay-odds"
@@ -251,12 +274,12 @@ export function SaveParlayDialog({
             </div>
 
             {/* Stake input */}
-            <div className="mb-4">
+            <div>
               <label
                 htmlFor="parlay-stake"
                 className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
               >
-                Stake <span className="text-[var(--color-text-muted)]/60">(optional)</span>
+                Stake <span className="opacity-60">(optional)</span>
               </label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
@@ -290,7 +313,7 @@ export function SaveParlayDialog({
 
             {/* Potential payout */}
             {potentialPayout !== null && potentialPayout > 0 && (
-              <div className="mb-4 px-3 py-2 rounded-xl bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
+              <div className="px-3 py-2 rounded-xl bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
                 <p className="text-xs text-[var(--color-text-muted)]">
                   Potential Payout
                 </p>
@@ -301,12 +324,12 @@ export function SaveParlayDialog({
             )}
 
             {/* Custom note */}
-            <div className="mb-5">
+            <div>
               <label
                 htmlFor="parlay-note"
                 className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
               >
-                Note <span className="text-[var(--color-text-muted)]/60">(optional)</span>
+                Note <span className="opacity-60">(optional)</span>
               </label>
               <textarea
                 id="parlay-note"
@@ -319,7 +342,7 @@ export function SaveParlayDialog({
                   }
                 }}
                 maxLength={NOTE_MAX_LENGTH + 10}
-                rows={3}
+                rows={2}
                 className={cn(
                   "w-full rounded-lg border px-3 py-2 text-sm text-white placeholder:text-[var(--color-text-muted)] bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-lime)]/50 focus:border-transparent transition-colors resize-none",
                   validationErrors.note
@@ -327,18 +350,10 @@ export function SaveParlayDialog({
                     : "border-[var(--color-border)]"
                 )}
               />
-              <div className="flex items-center justify-between mt-1">
-                {validationErrors.note ? (
-                  <p className="text-xs text-[var(--color-danger)] flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {validationErrors.note}
-                  </p>
-                ) : (
-                  <span />
-                )}
+              <div className="flex items-center justify-end mt-1">
                 <span
                   className={cn(
-                    "text-xs",
+                    "text-[10px]",
                     note.length > NOTE_MAX_LENGTH
                       ? "text-[var(--color-danger)]"
                       : "text-[var(--color-text-muted)]"
@@ -347,19 +362,27 @@ export function SaveParlayDialog({
                   {note.length}/{NOTE_MAX_LENGTH}
                 </span>
               </div>
+              {validationErrors.note && (
+                <p className="text-xs text-[var(--color-danger)] flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {validationErrors.note}
+                </p>
+              )}
             </div>
 
             {/* API error message */}
             {error && (
-              <div className="mb-4 px-3 py-2 rounded-xl bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20">
+              <div className="px-3 py-2 rounded-xl bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20">
                 <p className="text-xs text-[var(--color-danger)] flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {error}
                 </p>
               </div>
             )}
+          </div>
 
-            {/* Submit button */}
+          {/* Submit button - fixed at bottom */}
+          <div className="px-5 py-4 border-t border-[var(--color-border)]/50 shrink-0">
             <button
               type="button"
               onClick={handleSubmit}
@@ -386,9 +409,9 @@ export function SaveParlayDialog({
                 Add at least 2 legs to save a parlay
               </p>
             )}
-          </motion.div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          </div>
+        </div>
+      </motion.div>
+    </>
   )
 }

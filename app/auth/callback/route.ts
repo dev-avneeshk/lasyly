@@ -1,26 +1,49 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import type { NextRequest } from "next/server"
+import { createServerClient } from "@supabase/ssr"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/auth-config"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
   const next = requestUrl.searchParams.get("next") || "/explore"
 
   if (code) {
-    const supabase = await createClient()
+    // We need to track cookies set during exchangeCodeForSession so we can
+    // forward them onto the redirect response. The cookies() API from
+    // next/headers does NOT propagate to a manually-created NextResponse.redirect().
+    const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = []
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookies) {
+            cookies.forEach((cookie) => {
+              // Update request cookies so subsequent reads (e.g. getUser)
+              // see the fresh tokens set by exchangeCodeForSession
+              request.cookies.set(cookie.name, cookie.value)
+              cookiesToSet.push(cookie)
+            })
+          },
+        },
+      }
+    )
+
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser()
 
+      let redirectTo = next
+
       if (user) {
-        // Ensure the profile row exists. For email/password signups with
-        // confirmation enabled, the user row in auth.users only becomes
-        // live after they click the confirmation link — this is the first
-        // point we can safely insert the profile. Use admin client to
-        // bypass RLS (the session is valid but may not have propagated
-        // to RLS cookies yet on this server request).
+        // Ensure the profile row exists. Use admin client to bypass RLS.
         const admin = createAdminClient()
         const { data: profile } = await admin
           .from("profiles")
@@ -40,19 +63,25 @@ export async function GET(request: Request) {
             },
             { onConflict: "id", ignoreDuplicates: true }
           )
-          return NextResponse.redirect(new URL("/onboarding", requestUrl.origin))
-        }
-
-        // Profile exists — check if onboarding is complete
-        if (profile.username.match(/_[a-f0-9]{8}$/) || profile.username.startsWith("user_")) {
-          return NextResponse.redirect(new URL("/onboarding", requestUrl.origin))
+          redirectTo = "/onboarding"
+        } else if (profile.username.match(/_[a-f0-9]{8}$/) || profile.username.startsWith("user_")) {
+          // Profile exists but onboarding incomplete
+          redirectTo = "/onboarding"
+        } else {
+          // Returning user with complete profile
+          redirectTo = next === "/dashboard" ? "/explore" : next
         }
       }
 
-      // Returning user with complete profile — go to the app feed, not dashboard.
-      // /dashboard requires a healthy Supabase session and can error; /explore always works.
-      const safeNext = next === "/dashboard" ? "/explore" : next
-      return NextResponse.redirect(new URL(safeNext, requestUrl.origin))
+      // Build redirect response and attach all session cookies
+      const response = NextResponse.redirect(new URL(redirectTo, requestUrl.origin))
+      cookiesToSet.forEach(({ name, value, options }) => {
+        response.cookies.set(name, value, {
+          ...options,
+          ...AUTH_COOKIE_OPTIONS,
+        })
+      })
+      return response
     }
   }
 

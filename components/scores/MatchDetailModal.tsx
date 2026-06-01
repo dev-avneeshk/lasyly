@@ -11,7 +11,7 @@ interface MatchDetailModalProps {
   onClose: () => void
 }
 
-type Tab = "summary" | "boxscore" | "stats"
+type Tab = "summary" | "boxscore" | "stats" | "odds" | "standings"
 
 function isLive(status: string): boolean {
   return (
@@ -34,23 +34,32 @@ const TEAM_SPORTS = new Set(["Football", "Basketball", "American Football", "Hoc
 // Sports that are individual (no team stats or box score)
 const INDIVIDUAL_SPORTS = new Set(["Tennis", "MMA", "Golf", "F1"])
 
+// Sports where box scores (individual player stats) make sense
+const BOX_SCORE_SPORTS = new Set(["Basketball", "American Football", "Hockey", "Baseball"])
+
 function getTabsForSport(
   sport: string,
   hasTeamStats?: boolean,
-  hasBoxscore?: boolean
+  hasBoxscore?: boolean,
+  hasOdds?: boolean
 ): { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] {
   if (INDIVIDUAL_SPORTS.has(sport)) {
-    // Individual sports: show match summary/details only
+    // Individual sports: show match info + odds if available
     return [
       { id: "summary", label: "Match Info", icon: <Clock className="h-3.5 w-3.5" />, show: true },
+      { id: "odds", label: "Betting Lines", icon: <TrendingUp className="h-3.5 w-3.5" />, show: true },
     ]
   }
 
-  // Team sports: show all relevant tabs
+  // Team sports: show relevant tabs
+  // Only show Box Score for sports that actually have player-level stats
+  const showBoxScore = BOX_SCORE_SPORTS.has(sport)
+
   return [
     { id: "stats", label: "Team Stats", icon: <Users2 className="h-3.5 w-3.5" />, show: true },
-    { id: "boxscore", label: "Box Score", icon: <BarChart3 className="h-3.5 w-3.5" />, show: true },
-    { id: "summary", label: "Standings", icon: <Clock className="h-3.5 w-3.5" />, show: true },
+    { id: "boxscore", label: "Box Score", icon: <BarChart3 className="h-3.5 w-3.5" />, show: showBoxScore },
+    { id: "standings", label: "Standings", icon: <Clock className="h-3.5 w-3.5" />, show: true },
+    { id: "odds", label: "Betting Lines", icon: <TrendingUp className="h-3.5 w-3.5" />, show: true },
   ]
 }
 
@@ -181,8 +190,9 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
   const tabs: { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] = isUpcoming
     ? [
         { id: "summary", label: "Preview", icon: <Clock className="h-3.5 w-3.5" />, show: true },
+        { id: "odds", label: "Betting Lines", icon: <TrendingUp className="h-3.5 w-3.5" />, show: true },
       ]
-    : getTabsForSport(match.sport, hasTeamStats, hasBoxscore)
+    : getTabsForSport(match.sport, hasTeamStats, hasBoxscore, !!summary?.odds)
 
   return createPortal(
     <div
@@ -240,7 +250,9 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
               )}
               {match.status === "Not Started" && (
                 <span className="text-[10px] font-medium text-white/40">
-                  {match.clock || "Scheduled"}
+                  {match.startTime
+                    ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                    : "Scheduled"}
                 </span>
               )}
             </div>
@@ -262,8 +274,10 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
                 {match.status === "Not Started" ? (
                   <div>
                     <span className="text-2xl font-black text-white/30">VS</span>
-                    {match.clock && (
-                      <p className="mt-1 text-xs text-white/40">{match.clock}</p>
+                    {match.startTime && (
+                      <p className="mt-1 text-xs text-white/40">
+                        {new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </p>
                     )}
                   </div>
                 ) : (
@@ -338,7 +352,7 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
           )}
 
           {!loading && !fetchError && activeTab === "boxscore" && (
-            summary?.boxscore?.players ? (
+            summary?.boxscore?.players && summary.boxscore.players.length > 0 ? (
               <BoxScoreTab players={summary.boxscore.players} />
             ) : (
               <div className="text-center py-8">
@@ -357,6 +371,18 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
                 <p className="text-xs text-white/25 mt-1">Stats will appear once the game data is loaded from ESPN</p>
               </div>
             )
+          )}
+
+          {!loading && !fetchError && activeTab === "standings" && (
+            <div className="text-center py-8">
+              <Clock className="w-8 h-8 text-white/15 mx-auto mb-3" />
+              <p className="text-sm text-white/40">Standings not available</p>
+              <p className="text-xs text-white/25 mt-1">League standings data is not available for this match</p>
+            </div>
+          )}
+
+          {!loading && !fetchError && activeTab === "odds" && (
+            <OddsTab match={match} summary={summary} />
           )}
         </div>
       </div>
@@ -380,7 +406,10 @@ function SummaryTab({ match, summary, venue }: { match: LiveMatch; summary: Matc
             {isIndividual ? "Match Preview" : "Game Preview"}
           </p>
           <p className="text-sm text-white/70">
-            {match.clock || "Time TBD"} · {match.league}
+            {match.startTime
+              ? new Date(match.startTime).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+              : "Time TBD"}{" "}
+            · {match.league}
           </p>
         </div>
       )}
@@ -447,7 +476,7 @@ function SummaryTab({ match, summary, venue }: { match: LiveMatch; summary: Matc
       </div>
 
       {/* Odds */}
-      {summary?.odds && (
+      {summary?.odds && !TEAM_SPORTS.has(match.sport) && !INDIVIDUAL_SPORTS.has(match.sport) && (
         <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="h-4 w-4 text-[var(--color-primary)]" />
@@ -701,6 +730,62 @@ function TeamStatsTab({
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+
+// ─── Odds / Betting Lines Tab ────────────────────────────────────────────────
+
+function OddsTab({ match, summary }: { match: LiveMatch; summary: MatchSummary | null }) {
+  if (!summary?.odds) {
+    return (
+      <div className="text-center py-8">
+        <TrendingUp className="w-8 h-8 text-white/15 mx-auto mb-3" />
+        <p className="text-sm text-white/40">Betting lines not available</p>
+        <p className="text-xs text-white/25 mt-1">Odds data is not available for this match</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <TrendingUp className="h-4 w-4 text-[var(--color-primary)]" />
+          <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Betting Lines</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {summary.odds.homeMoneyline && (
+            <div className="rounded-lg bg-white/5 p-3 text-center">
+              <p className="text-[10px] text-white/40 mb-1 truncate">{match.homeTeam}</p>
+              <p className="text-sm font-black text-white">{summary.odds.homeMoneyline}</p>
+            </div>
+          )}
+          {summary.odds.spread && (
+            <div className="rounded-lg bg-white/5 p-3 text-center">
+              <p className="text-[10px] text-white/40 mb-1">
+                {match.sport === "Tennis" ? "Game Spread" : "Spread"}
+              </p>
+              <p className="text-sm font-black text-white">{summary.odds.spread}</p>
+            </div>
+          )}
+          {summary.odds.awayMoneyline && (
+            <div className="rounded-lg bg-white/5 p-3 text-center">
+              <p className="text-[10px] text-white/40 mb-1 truncate">{match.awayTeam}</p>
+              <p className="text-sm font-black text-white">{summary.odds.awayMoneyline}</p>
+            </div>
+          )}
+        </div>
+        {summary.odds.overUnder && (
+          <div className="mt-3 rounded-lg bg-white/5 p-3 text-center">
+            <p className="text-[10px] text-white/40 mb-1">
+              {match.sport === "Tennis" ? "Total Games" : "Over/Under"}
+            </p>
+            <p className="text-sm font-black text-white">{summary.odds.overUnder}</p>
+          </div>
+        )}
       </div>
     </div>
   )

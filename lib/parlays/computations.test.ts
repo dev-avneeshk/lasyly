@@ -20,6 +20,7 @@ function makeParlay(
     stake: null,
     custom_note: null,
     combined_hit_rate: null,
+    is_logged: false,
     created_at: new Date().toISOString(),
     resolved_at: null,
     legs: [

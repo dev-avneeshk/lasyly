@@ -8,7 +8,7 @@ import { validateCreateParlay } from "@/lib/parlays/validation"
 function validLeg(overrides: Record<string, unknown> = {}) {
   return {
     player_name: "LeBron James",
-    stat_category: "Points",
+    stat_category: "pts",
     prop_line: 25.5,
     direction: "over",
     l10_hit_rate: 70,

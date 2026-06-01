@@ -96,4 +96,6 @@ export interface AdvancedFilterState {
   direction: "over" | "under" | "all"
   hitRateMin: number              // 0-100, step 5
   hitRateMax: number              // 0-100, step 5
+  minMinutes: number              // NBA only, minimum minutes threshold (0 = no filter)
+  vsOpponent: boolean             // NBA only, filter to only games vs upcoming opponent
 }

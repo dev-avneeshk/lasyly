@@ -26,9 +26,10 @@ const PUBLIC_ROUTES = [
   "/blog",
   "/features",
   "/tipsters",
+  "/explore",
+  "/scores",
+  "/news",
 ]
-
-const AUTH_ROUTES = ["/login", "/signup"]
 
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
@@ -91,7 +92,7 @@ function buildCSPHeader(): string {
 
   const csp = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
+    script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     font-src 'self' data:;
@@ -244,24 +245,22 @@ export async function proxy(request: NextRequest) {
   response.headers.delete("X-Powered-By")
   response.headers.delete("Server")
 
-  // ── 8. Auth guard (page routes only — API routes self-enforce) ────────────
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route))
+  // ── 8. Session refresh & Auth guard ────────────────────────────────────────
+  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+    route === "/" ? pathname === "/" : pathname.startsWith(route)
+  )
   const isApiRoute = pathname.startsWith("/api/")
   const isStaticAsset =
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
+    pathname === "/manifest.json" ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|ico|webp|woff2?|ttf|css|js)$/)
 
-  const needsAuthCheck =
-    !isApiRoute &&
-    !isStaticAsset &&
-    (!isPublicRoute || AUTH_ROUTES.some((route) => pathname.startsWith(route)))
+  // Refresh session tokens for all non-static requests (pages AND API routes).
+  // Without this, API routes can't read the session when the access token expires.
+  const needsSessionRefresh = !isStaticAsset
 
-  if (needsAuthCheck) {
-    // Create a single Supabase client for this request so we only call
-    // getUser() once. Creating two clients (one per branch) and calling
-    // getUser() on each races to consume the same refresh token, which
-    // triggers Supabase's "refresh_token_already_used" error.
+  if (needsSessionRefresh) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -287,22 +286,23 @@ export async function proxy(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Verify the HMAC-signed guest cookie. A forged Cookie header (e.g.
-    // `lasyly_guest=true`) no longer satisfies this check — only tokens
-    // issued by /api/auth/guest with the server's GUEST_TOKEN_SECRET pass.
+    // Verify the HMAC-signed guest cookie.
     const isGuest = verifyGuestToken(
       request.cookies.get(GUEST_COOKIE_NAME)?.value
     )
 
     const isAuthed = Boolean(user || isGuest)
 
-    // Protected routes require authentication.
-    if (!isPublicRoute && !isAuthed) {
+    // Protected page routes require authentication (API routes self-enforce).
+    const needsAuthGuard =
+      !isApiRoute &&
+      !isPublicRoute
+
+    if (needsAuthGuard && !isAuthed) {
       const loginUrl = new URL("/login", request.url)
       loginUrl.searchParams.set("redirect", pathname)
       const redirectResponse = NextResponse.redirect(loginUrl)
-      // Forward any refreshed auth cookies so the consumed refresh token
-      // is replaced with the new one — prevents "refresh_token_already_used".
+      // Forward any refreshed auth cookies
       response.cookies.getAll().forEach((cookie) => {
         redirectResponse.cookies.set(cookie.name, cookie.value)
       })
@@ -320,7 +320,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

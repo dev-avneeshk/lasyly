@@ -395,7 +395,9 @@ function MatchCard({ match, onSelect }: { match: LiveMatch; onSelect: () => void
             )}
             {match.status === "Not Started" && (
               <span className="text-[10px] font-medium text-white/40">
-                {match.clock || (match.startTime ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Scheduled")}
+                {match.startTime
+                  ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                  : match.clock || "Scheduled"}
               </span>
             )}
           </div>

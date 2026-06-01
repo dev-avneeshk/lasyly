@@ -63,6 +63,9 @@ export default function DashboardClient({
       }))
     : [{ label: "No data", value: 0, color: "rgba(255,255,255,0.1)", icon: "—" }]
 
+  // Calculate total profit for the gauge display
+  const totalProfit = sports.reduce((sum, s) => sum + s.profit_loss, 0)
+
   // Format transactions for the TransactionList component
   const formattedTransactions = transactions.map((t) => ({
     id: t.id,
@@ -79,7 +82,7 @@ export default function DashboardClient({
       {/* Guest sign-in banner */}
       {isGuest && (
         <div className="flex items-center justify-between gap-4 mb-4 px-4 py-3 rounded-xl bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
-          <p className="text-sm text-white font-medium">Sign in to track your bets and see your stats</p>
+          <p className="text-sm text-[var(--color-text-primary)] font-medium">Sign in to track your bets and see your stats</p>
           <a href="/login" className="shrink-0 rounded-lg bg-[var(--color-lime)] px-4 py-2 text-xs font-bold text-black hover:brightness-110 transition-all">
             Sign in
           </a>
@@ -89,17 +92,17 @@ export default function DashboardClient({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[var(--color-lime)] flex items-center justify-center text-black font-bold">$</div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-            <input type="text" placeholder="Search" className="w-full h-10 bg-[var(--color-dash-surface)] border-none rounded-full pl-9 pr-4 text-sm text-white placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-lime)] transition-all" />
+            <input type="text" placeholder="Search" className="w-full h-10 bg-[var(--color-dash-surface)] border-none rounded-full pl-9 pr-4 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-lime)] transition-all" />
           </div>
-          <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-black hover:bg-gray-200 transition-colors shrink-0">
+          <button className="w-10 h-10 rounded-full bg-[var(--color-text-primary)] flex items-center justify-center text-[var(--color-background)] hover:opacity-80 transition-colors shrink-0">
             <Plus className="w-5 h-5" />
           </button>
-          <button className="w-10 h-10 rounded-full bg-[var(--color-dash-surface)] flex items-center justify-center text-white hover:bg-white/10 transition-colors shrink-0">
+          <button className="w-10 h-10 rounded-full bg-[var(--color-dash-surface)] flex items-center justify-center text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/30 transition-colors shrink-0">
             <Bell className="w-4 h-4" />
           </button>
         </div>
@@ -111,13 +114,13 @@ export default function DashboardClient({
           <button className="flex items-center gap-2 text-[var(--color-lime)] border-b-2 border-[var(--color-lime)] pb-1 px-1 font-semibold text-sm">
             <span className="text-[10px]">✨</span> Overview
           </button>
-          <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-white pb-1 px-1 font-semibold text-sm transition-colors">
+          <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] pb-1 px-1 font-semibold text-sm transition-colors">
             <Star className="w-4 h-4" /> Favorites
           </button>
-          <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-white pb-1 px-1 font-semibold text-sm transition-colors">
+          <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] pb-1 px-1 font-semibold text-sm transition-colors">
             <Activity className="w-4 h-4" /> Performance
           </button>
-          <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-white pb-1 px-1 font-semibold text-sm transition-colors">
+          <button className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] pb-1 px-1 font-semibold text-sm transition-colors">
             <Hash className="w-4 h-4" /> Customize
           </button>
         </div>
@@ -134,11 +137,11 @@ export default function DashboardClient({
           </div>
 
           {/* Sport Categories */}
-          <div className="bg-[var(--color-dash-surface)] rounded-2xl p-5 border border-white/5 flex-1 flex flex-col">
+          <div className="bg-[var(--color-dash-surface)] rounded-2xl p-5 border border-[var(--color-border)] flex-1 flex flex-col">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold text-white">Sport Breakdown</h2>
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Sport Breakdown</h2>
             </div>
-            <GaugeChart segments={gaugeSegments} totalLabel="Total profit" />
+            <GaugeChart segments={gaugeSegments} totalLabel="Total profit" totalValue={totalProfit} />
             <div className="flex justify-between items-center bg-black/30 rounded-full px-3 py-2 mt-auto">
               {gaugeSegments.map((s) => (
                 <div key={s.label} className="w-6 h-6 rounded-full flex items-center justify-center text-[10px]" style={{ backgroundColor: s.color === "var(--color-lime)" ? s.color : "rgba(255,255,255,0.05)", color: s.color === "var(--color-lime)" ? "black" : "rgba(255,255,255,0.5)" }}>
@@ -149,9 +152,9 @@ export default function DashboardClient({
           </div>
 
           {/* Sport Win Rates */}
-          <div className="bg-[var(--color-dash-surface)] rounded-2xl p-5 border border-white/5">
+          <div className="bg-[var(--color-dash-surface)] rounded-2xl p-5 border border-[var(--color-border)]">
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-semibold text-white">Win Rate by Sport</h2>
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Win Rate by Sport</h2>
             </div>
             <div className="space-y-4">
               {sports.length === 0 ? (
@@ -177,12 +180,12 @@ export default function DashboardClient({
           </div>
 
           {/* Performance Summary */}
-          <div className="bg-[var(--color-dash-surface)] rounded-2xl p-5 border border-white/5 flex-1">
-            <h2 className="text-lg font-semibold text-white mb-4">Performance Summary</h2>
+          <div className="bg-[var(--color-dash-surface)] rounded-2xl p-5 border border-[var(--color-border)] flex-1">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Performance Summary</h2>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-[var(--color-text-muted)]">Total Picks</span>
-                <span className="text-sm font-bold text-white">{data.total_picks_count}</span>
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">{data.total_picks_count}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-[var(--color-text-muted)]">Won</span>
@@ -196,13 +199,13 @@ export default function DashboardClient({
                 <span className="text-sm text-[var(--color-text-muted)]">Pending</span>
                 <span className="text-sm font-bold text-[var(--color-warning)]">{data.pending_count}</span>
               </div>
-              <div className="flex justify-between items-center pt-3 border-t border-white/5">
+              <div className="flex justify-between items-center pt-3 border-t border-[var(--color-border)]">
                 <span className="text-sm text-[var(--color-text-muted)]">Win Rate</span>
                 <span className="text-sm font-bold text-[var(--color-lime)]">{data.win_rate}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-[var(--color-text-muted)]">Avg Odds</span>
-                <span className="text-sm font-bold text-white">{data.average_odds}x</span>
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">{data.average_odds}x</span>
               </div>
             </div>
           </div>
@@ -217,20 +220,20 @@ export default function DashboardClient({
           </div>
 
           {/* Funds Activity Chart */}
-          <div className="bg-black/20 border border-white/5 rounded-2xl p-4 pt-3 relative overflow-hidden flex-1 min-h-[220px]">
+          <div className="bg-[var(--color-dash-surface)] border border-[var(--color-border)] rounded-2xl p-4 pt-3 relative overflow-hidden flex-1 min-h-[220px]">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-[var(--color-lime)]/5 rounded-full blur-[40px] pointer-events-none" />
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-semibold text-white">Funds Activity</h3>
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Funds Activity</h3>
             </div>
             <DualLineChart data={lineChartData} />
-            <div className="flex justify-center gap-8 mt-6 border-t border-white/5 pt-3">
+            <div className="flex justify-center gap-8 mt-6 border-t border-[var(--color-border)] pt-3">
               {lineChartData.datasets.map((d) => (
                 <div key={d.label} className="text-center">
                   <div className="flex items-center justify-center gap-1.5 mb-1">
                     <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: d.color }} />
                     <span className="text-[10px] text-[var(--color-text-muted)]">{d.label}</span>
                   </div>
-                  <div className="text-sm font-bold text-white">${(d.data[d.data.length - 1] ?? 0).toLocaleString()}</div>
+                  <div className="text-sm font-bold text-[var(--color-text-primary)]">${(d.data[d.data.length - 1] ?? 0).toLocaleString()}</div>
                 </div>
               ))}
             </div>

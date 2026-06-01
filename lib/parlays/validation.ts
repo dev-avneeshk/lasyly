@@ -30,9 +30,20 @@ const MAX_STAKE = 99999.99
 const MAX_CUSTOM_NOTE_LENGTH = 280
 const MAX_PLAYER_NAME_LENGTH = 100
 const MAX_STAT_CATEGORY_LENGTH = 50
-const MAX_SPORT_LENGTH = 50
 const VALID_DIRECTIONS: readonly string[] = ["over", "under"]
 const VALID_VISIBILITIES: readonly string[] = ["public", "private"]
+
+// Valid sports that we support for parlays
+const VALID_SPORTS: readonly string[] = ["NBA", "Tennis", "Soccer", "NFL", "NHL"]
+
+// Valid stat categories per sport (keys from props/constants.ts)
+const VALID_STAT_CATEGORIES: Record<string, readonly string[]> = {
+  NBA: ["pts", "trb", "ast", "tp", "fg", "fga", "ft", "fta", "stl", "blk", "tov", "pra"],
+  Tennis: ["aces", "double_faults", "win_pct", "first_serve_pct", "sets_won", "games_won"],
+  Soccer: ["team_totalGoals", "team_matchGoals", "team_cards", "team_corners", "totalGoals", "goalAssists", "totalShots", "shotsOnTarget", "foulsCommitted", "yellowCards", "saves"],
+  NFL: ["YDS", "TD", "REC", "CAR", "INT", "SACKS"],
+  NHL: ["G", "A", "SOG", "+/-", "HT", "BS", "TK", "PIM"],
+}
 
 // --- Validation Functions ---
 
@@ -174,15 +185,31 @@ function validateLeg(leg: unknown, index: number): ValidationError[] {
     errors.push({ field: `${prefix}.l10_hit_rate`, message: "l10_hit_rate must be between 0 and 100." })
   }
 
-  // sport: required string, max 50
+  // sport: required string, must be a valid sport
   if (legObj.sport === undefined || legObj.sport === null) {
     errors.push({ field: `${prefix}.sport`, message: "sport is required." })
   } else if (typeof legObj.sport !== "string") {
     errors.push({ field: `${prefix}.sport`, message: "sport must be a string." })
   } else if (legObj.sport.length === 0) {
     errors.push({ field: `${prefix}.sport`, message: "sport must not be empty." })
-  } else if (legObj.sport.length > MAX_SPORT_LENGTH) {
-    errors.push({ field: `${prefix}.sport`, message: `sport must be at most ${MAX_SPORT_LENGTH} characters.` })
+  } else if (!VALID_SPORTS.includes(legObj.sport)) {
+    errors.push({ field: `${prefix}.sport`, message: `sport must be one of: ${VALID_SPORTS.join(", ")}.` })
+  }
+
+  // Validate stat_category against the sport's allowed categories
+  if (
+    typeof legObj.sport === "string" &&
+    VALID_SPORTS.includes(legObj.sport) &&
+    typeof legObj.stat_category === "string" &&
+    legObj.stat_category.length > 0
+  ) {
+    const allowedStats = VALID_STAT_CATEGORIES[legObj.sport]
+    if (allowedStats && !allowedStats.includes(legObj.stat_category)) {
+      errors.push({
+        field: `${prefix}.stat_category`,
+        message: `stat_category "${legObj.stat_category}" is not valid for ${legObj.sport}. Allowed: ${allowedStats.join(", ")}.`,
+      })
+    }
   }
 
   return errors

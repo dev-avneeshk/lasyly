@@ -150,7 +150,7 @@ export const POST = withSecurity(async (request: Request) => {
 
   // Invalidate the cached totals for this prop
   const cacheKey = getVoteCacheKey(data.propIdentifier, today)
-  invalidateCache(cacheKey)
+  invalidateCache(cacheKey).catch(() => {})
 
   // Fetch updated totals
   const { data: votes, error: fetchError } = await adminClient

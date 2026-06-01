@@ -188,18 +188,19 @@ async function fetchLeagueScoreboard(config: LeagueConfig, date?: string): Promi
     const data: ESPNScoreboardResponse = await res.json()
     const events = data.events ?? []
 
-    // Filter events to only include matches on the requested date
-    // ESPN sometimes returns entire matchdays/gameweeks that span multiple calendar days
-    // Determine the target date to filter by
-    const targetDate = date
-      ? `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`
-      : new Date().toISOString().split("T")[0] // Today in local time
-
-    const filtered = events.filter((event) => {
-      if (!event.date) return true // Keep events without a date (shouldn't happen)
-      const eventDate = event.date.split("T")[0] // "2025-05-24T15:00Z" → "2025-05-24"
-      return eventDate === targetDate
-    })
+    // When no date param is passed, ESPN returns the "current" scoreboard
+    // which already contains only relevant games — trust it as-is.
+    // When a specific date IS passed, ESPN may return multi-day events
+    // (e.g., soccer matchweeks), so we filter to the requested date.
+    let filtered = events
+    if (date) {
+      const targetDate = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`
+      filtered = events.filter((event) => {
+        if (!event.date) return true
+        const eventDate = event.date.split("T")[0]
+        return eventDate === targetDate
+      })
+    }
 
     return filtered.map((event) => mapESPNEvent(event, config))
   } catch {

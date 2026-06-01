@@ -1,4 +1,4 @@
-# Lasyly — Product Document
+`# Lasyly — Product Document
 
 ## What is Lasyly?
 
@@ -183,3 +183,4 @@ Lasyly has a polished UI with most pages functional. Core backend services (room
 - Expanding scraper coverage (football standings, more tennis tournaments)
 - Performance optimization and caching
 - Social feed pagination and real-time reactions
+`

@@ -66,6 +66,8 @@ export const RATE_LIMITS = {
   chat: { maxRequests: 1, windowMs: 2000 },
   /** Chat burst: max 10 messages per 30 seconds */
   chatBurst: { maxRequests: 10, windowMs: 30000 },
+  /** Chat flood: max 30 messages per 5 minutes (global across all rooms) */
+  chatFlood: { maxRequests: 30, windowMs: 300000 },
   /** API general: 60 requests per minute */
   general: { maxRequests: 60, windowMs: 60000 },
   /** Auth: 5 attempts per minute */
@@ -76,4 +78,6 @@ export const RATE_LIMITS = {
   follow: { maxRequests: 30, windowMs: 60000 },
   /** Room create: 5 per hour */
   roomCreate: { maxRequests: 5, windowMs: 3600000 },
+  /** Admin actions: 20 per minute (kick/ban/mute/role) */
+  adminAction: { maxRequests: 20, windowMs: 60000 },
 } as const

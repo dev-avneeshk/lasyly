@@ -19,7 +19,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[var(--color-lime)] flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(212,255,0,0.4)]">
-              <Image src="/lasyly_logo.png" alt="Lasyly" width={32} height={32} className="w-full h-full object-cover" />
+              <Image src="/lasyly_logo_128.png" alt="Lasyly" width={32} height={32} className="w-full h-full object-cover" />
             </div>
             <span className="text-lg font-bold tracking-tight text-white">Lasyly</span>
           </Link>
@@ -28,7 +28,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <nav className="hidden md:flex items-center gap-8 text-sm text-[var(--color-text-muted)]">
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
             <Link href="/features" className="hover:text-white transition-colors">Features</Link>
-            <Link href="/tipsters" className="hover:text-white transition-colors">Tipsters</Link>
+            <Link href="/tipsters" className="hover:text-white transition-colors">Picks</Link>
             <Link href="/scores" className="hover:text-white transition-colors">Live Scores</Link>
           </nav>
 
@@ -58,20 +58,21 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 rounded-lg bg-[var(--color-lime)] flex items-center justify-center overflow-hidden">
-                  <Image src="/lasyly_logo.png" alt="Lasyly" width={28} height={28} className="w-full h-full object-cover" />
+                  <Image src="/lasyly_logo_128.png" alt="Lasyly" width={28} height={28} className="w-full h-full object-cover" />
                 </div>
                 <span className="font-bold text-white">Lasyly</span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-                Where sports bettors win together.
+                Win more. Do less.
               </p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)] mb-4">Product</p>
               <ul className="space-y-2.5 text-sm text-[var(--color-text-muted)]">
                 <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
-                <li><Link href="/tipsters" className="hover:text-white transition-colors">Tipsters</Link></li>
+                <li><Link href="/tipsters" className="hover:text-white transition-colors">Picks</Link></li>
                 <li><Link href="/scores" className="hover:text-white transition-colors">Live Scores</Link></li>
+                <li><Link href="/compare" className="hover:text-white transition-colors">Comparisons</Link></li>
                 <li><Link href="/explore" className="hover:text-white transition-colors">Explore</Link></li>
               </ul>
             </div>
@@ -79,7 +80,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)] mb-4">Learn</p>
               <ul className="space-y-2.5 text-sm text-[var(--color-text-muted)]">
                 <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-                <li><Link href="/blog/why-share-your-betslip" className="hover:text-white transition-colors">Why Share Betslips</Link></li>
+                <li><Link href="/blog/why-share-your-betslip" className="hover:text-white transition-colors">Why Share Slips</Link></li>
                 <li><Link href="/blog/how-to-read-prop-analytics" className="hover:text-white transition-colors">Prop Analytics Guide</Link></li>
                 <li><Link href="/blog/nba-player-props-guide" className="hover:text-white transition-colors">NBA Props Guide</Link></li>
               </ul>

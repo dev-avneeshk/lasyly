@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAllPlayerSlugs } from "@/lib/data/public-players"
 import { SPORT_SLUG_MAP } from "@/lib/seo/player-slug"
+import { getAllComparisonSlugs } from "@/lib/data/comparisons"
 
 export const revalidate = 3600 // regenerate sitemap every hour
 
@@ -77,6 +78,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
   )
 
+  // Comparison pages (Lasyly vs X)
+  const comparisonSlugs = getAllComparisonSlugs()
+  const comparisonEntries: MetadataRoute.Sitemap = comparisonSlugs.map((slug) => ({
+    url: `${baseUrl}/compare/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "monthly" as const,
+    priority: 0.85,
+  }))
+
   return [
     // Core app
     {
@@ -132,6 +142,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...propsEntry,
     // Public SEO pages: sport scores
     ...sportScoresEntries,
+    // Public SEO pages: comparisons (Lasyly vs X)
+    {
+      url: `${baseUrl}/compare`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.85,
+    },
+    ...comparisonEntries,
     // Auth
     {
       url: `${baseUrl}/login`,

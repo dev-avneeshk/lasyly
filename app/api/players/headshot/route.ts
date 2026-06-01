@@ -159,7 +159,7 @@ async function searchDatabase(
     }
 
     // Search espn_players by name (case-insensitive)
-    let query = supabase
+    const query = supabase
       .from("espn_players")
       .select("espn_id, name, headshot_url, sport")
       .ilike("name", `%${playerName}%`)

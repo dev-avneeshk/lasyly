@@ -24,7 +24,7 @@ export default function PrivacyPolicyPage() {
         <li>Email address</li>
         <li>Display name and username</li>
         <li>Profile avatar (if uploaded)</li>
-        <li>Account type preference (bettor, tipster, or both)</li>
+        <li>Account type preference (follower, seller, or both)</li>
         <li>Favorite sports selections</li>
       </ul>
 
@@ -60,7 +60,7 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li><strong>Provide the Service</strong> — display analytics, deliver live scores, enable rooms and chat</li>
         <li><strong>Personalize your experience</strong> — show relevant sports, props, and content based on your preferences</li>
-        <li><strong>Process transactions</strong> — handle wallet top-ups, tipster purchases, and earnings</li>
+        <li><strong>Process transactions</strong> — handle wallet top-ups, pick purchases, and earnings</li>
         <li><strong>Improve the platform</strong> — analyze usage patterns to fix bugs and build better features</li>
         <li><strong>Security</strong> — detect abuse, enforce rate limits, and protect against unauthorized access</li>
         <li><strong>Communications</strong> — send account-related emails (password resets, security alerts). We do not send marketing emails without your consent.</li>

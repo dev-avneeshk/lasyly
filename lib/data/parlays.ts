@@ -46,6 +46,7 @@ export async function getDashboardParlays(
     stake: p.stake != null ? Number(p.stake) : null,
     custom_note: p.custom_note,
     combined_hit_rate: p.combined_hit_rate != null ? Number(p.combined_hit_rate) : null,
+    is_logged: p.is_logged ?? false,
     created_at: p.created_at,
     resolved_at: p.resolved_at,
     legs: (p.parlay_legs ?? [])
@@ -83,6 +84,7 @@ export async function getDashboardParlays(
         stake: p.stake != null ? Number(p.stake) : null,
         custom_note: p.custom_note,
         combined_hit_rate: p.combined_hit_rate != null ? Number(p.combined_hit_rate) : null,
+        is_logged: p.is_logged ?? false,
         created_at: p.created_at,
         resolved_at: p.resolved_at,
         legs: (p.parlay_legs ?? [])

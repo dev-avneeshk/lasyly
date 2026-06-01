@@ -88,7 +88,8 @@ async function fetchUpcomingOpponents(
   const upcomingMap = new Map<string, string>()
 
   try {
-    const today = new Date().toISOString().split("T")[0]
+    // Use US Eastern Time for date comparison (matches are typically scheduled in local/ET time)
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
     const { data: upcomingGames } = await supabase
       .from("espn_games")
       .select("home_team, away_team, match_date")

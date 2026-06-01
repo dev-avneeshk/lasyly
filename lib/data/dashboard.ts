@@ -66,8 +66,9 @@ export function emptyFunds() {
 async function getMainStats(userId: string): Promise<DashboardData> {
   const supabase = await createClient()
 
-  const [betslipResult, earningsResult] = await Promise.all([
+  const [betslipResult, parlayResult, earningsResult] = await Promise.all([
     supabase.from("betslips").select("status, odds, stake").eq("user_id", userId),
+    supabase.from("parlays").select("status, odds, stake").eq("user_id", userId).eq("is_logged", false),
     supabase
       .from("transactions")
       .select("amount")
@@ -77,35 +78,68 @@ async function getMainStats(userId: string): Promise<DashboardData> {
   ])
 
   const allBetslips = betslipResult.data ?? []
-  const totalPicksCount = allBetslips.length
+  const allParlays = parlayResult.data ?? []
 
-  const wonCount = allBetslips.filter((b) => b.status === "Won").length
-  const lostCount = allBetslips.filter((b) => b.status === "Lost").length
-  const pendingCount = allBetslips.filter((b) => b.status === "Pending").length
-
-  const resolvedCount = allBetslips.filter(
+  // Betslip counts (legacy room-based bets)
+  const bsTotal = allBetslips.length
+  const bsWon = allBetslips.filter((b) => b.status === "Won").length
+  const bsLost = allBetslips.filter((b) => b.status === "Lost").length
+  const bsPending = allBetslips.filter((b) => b.status === "Pending").length
+  const bsResolved = allBetslips.filter(
     (b) => b.status === "Won" || b.status === "Lost" || b.status === "Void"
   ).length
+
+  // Parlay counts
+  const pTotal = allParlays.length
+  const pWon = allParlays.filter((p) => p.status === "won").length
+  const pLost = allParlays.filter((p) => p.status === "lost").length
+  const pPending = allParlays.filter((p) => p.status === "pending").length
+  const pResolved = pWon + pLost
+
+  // Combined totals
+  const totalPicksCount = bsTotal + pTotal
+  const wonCount = bsWon + pWon
+  const lostCount = bsLost + pLost
+  const pendingCount = bsPending + pPending
+  const resolvedCount = bsResolved + pResolved
 
   let winRate = 0
   if (resolvedCount > 0) {
     winRate = Math.round((wonCount / resolvedCount) * 1000) / 10
   }
 
+  // Average odds: combine betslips odds + parlay odds
+  const bsOddsTotal = allBetslips.reduce((sum, b) => sum + Number(b.odds || 0), 0)
+  const pOddsTotal = allParlays
+    .filter((p) => p.odds != null)
+    .reduce((sum, p) => sum + Number(p.odds), 0)
+  const oddsCount = bsTotal + allParlays.filter((p) => p.odds != null).length
+
   let averageOdds = 0
-  if (totalPicksCount > 0) {
-    const totalOdds = allBetslips.reduce((sum, b) => sum + Number(b.odds), 0)
-    averageOdds = Math.round((totalOdds / totalPicksCount) * 100) / 100
+  if (oddsCount > 0) {
+    averageOdds = Math.round(((bsOddsTotal + pOddsTotal) / oddsCount) * 100) / 100
   }
 
-  const totalWagered = allBetslips
+  // Total wagered: betslip stakes + parlay stakes
+  const bsWagered = allBetslips
     .filter((b) => b.stake != null)
     .reduce((sum, b) => sum + Number(b.stake), 0)
+  const pWagered = allParlays
+    .filter((p) => p.stake != null)
+    .reduce((sum, p) => sum + Number(p.stake), 0)
+  const totalWagered = bsWagered + pWagered
 
-  const totalIncome = (earningsResult.data ?? []).reduce(
+  // Total income from transactions + parlay winnings
+  const txIncome = (earningsResult.data ?? []).reduce(
     (sum, t) => sum + Number(t.amount),
     0
   )
+  // For parlays marked as won with stake and odds, calculate winnings
+  const parlayWinnings = allParlays
+    .filter((p) => p.status === "won" && p.stake != null && p.odds != null)
+    .reduce((sum, p) => sum + (Number(p.stake) * Number(p.odds) - Number(p.stake)), 0)
+
+  const totalIncome = txIncome + parlayWinnings
 
   return {
     total_income: Math.round(totalIncome * 100) / 100,
@@ -122,27 +156,19 @@ async function getMainStats(userId: string): Promise<DashboardData> {
 async function getSportBreakdown(userId: string): Promise<SportCategory[]> {
   const supabase = await createClient()
 
+  // Fetch legacy betslips with room sport info
   const { data: betslips } = await supabase
     .from("betslips")
     .select("status, odds, stake, payout, room_id")
     .eq("user_id", userId)
     .not("room_id", "is", null)
 
-  if (!betslips || betslips.length === 0) {
-    return []
-  }
-
-  const roomIds = [...new Set(betslips.map((b) => b.room_id))]
-
-  const { data: rooms } = await supabase
-    .from("rooms")
-    .select("id, sport_tag")
-    .in("id", roomIds)
-
-  const roomSportMap: Record<string, string> = {}
-  for (const room of rooms ?? []) {
-    roomSportMap[room.id] = room.sport_tag ?? "Other"
-  }
+  // Fetch parlays with their legs (which contain sport info) — exclude logged parlays
+  const { data: parlays } = await supabase
+    .from("parlays")
+    .select("id, status, odds, stake, parlay_legs(sport)")
+    .eq("user_id", userId)
+    .eq("is_logged", false)
 
   const categoryMap: Record<
     string,
@@ -154,29 +180,89 @@ async function getSportBreakdown(userId: string): Promise<SportCategory[]> {
     }
   > = {}
 
-  for (const b of betslips) {
-    const sport = roomSportMap[b.room_id] ?? "Other"
+  // Process legacy betslips
+  if (betslips && betslips.length > 0) {
+    const roomIds = [...new Set(betslips.map((b) => b.room_id))]
 
-    if (!categoryMap[sport]) {
-      categoryMap[sport] = { total: 0, won: 0, resolved: 0, profitLoss: 0 }
+    const { data: rooms } = await supabase
+      .from("rooms")
+      .select("id, sport_tag")
+      .in("id", roomIds)
+
+    const roomSportMap: Record<string, string> = {}
+    for (const room of rooms ?? []) {
+      roomSportMap[room.id] = room.sport_tag ?? "Other"
     }
 
-    categoryMap[sport].total += 1
+    for (const b of betslips) {
+      const sport = roomSportMap[b.room_id] ?? "Other"
 
-    const isResolved =
-      b.status === "Won" || b.status === "Lost" || b.status === "Partial"
-
-    if (isResolved) {
-      categoryMap[sport].resolved += 1
-
-      if (b.status === "Won") {
-        categoryMap[sport].won += 1
+      if (!categoryMap[sport]) {
+        categoryMap[sport] = { total: 0, won: 0, resolved: 0, profitLoss: 0 }
       }
 
-      if (b.stake != null && b.payout != null) {
-        categoryMap[sport].profitLoss += Number(b.payout) - Number(b.stake)
+      categoryMap[sport].total += 1
+
+      const isResolved =
+        b.status === "Won" || b.status === "Lost" || b.status === "Partial"
+
+      if (isResolved) {
+        categoryMap[sport].resolved += 1
+
+        if (b.status === "Won") {
+          categoryMap[sport].won += 1
+        }
+
+        if (b.stake != null && b.payout != null) {
+          categoryMap[sport].profitLoss += Number(b.payout) - Number(b.stake)
+        }
       }
     }
+  }
+
+  // Process parlays — determine sport from the most common leg sport
+  if (parlays && parlays.length > 0) {
+    for (const p of parlays) {
+      const legs = (p.parlay_legs ?? []) as Array<{ sport: string }>
+      if (legs.length === 0) continue
+
+      // Determine primary sport from legs (most frequent)
+      const sportCounts: Record<string, number> = {}
+      for (const leg of legs) {
+        const s = leg.sport || "Other"
+        sportCounts[s] = (sportCounts[s] ?? 0) + 1
+      }
+      const sport = Object.entries(sportCounts).sort((a, b) => b[1] - a[1])[0][0]
+
+      if (!categoryMap[sport]) {
+        categoryMap[sport] = { total: 0, won: 0, resolved: 0, profitLoss: 0 }
+      }
+
+      categoryMap[sport].total += 1
+
+      const isResolved = p.status === "won" || p.status === "lost"
+
+      if (isResolved) {
+        categoryMap[sport].resolved += 1
+
+        if (p.status === "won") {
+          categoryMap[sport].won += 1
+        }
+
+        // Calculate P/L for parlays
+        if (p.stake != null && p.odds != null) {
+          if (p.status === "won") {
+            categoryMap[sport].profitLoss += Number(p.stake) * Number(p.odds) - Number(p.stake)
+          } else {
+            categoryMap[sport].profitLoss -= Number(p.stake)
+          }
+        }
+      }
+    }
+  }
+
+  if (Object.keys(categoryMap).length === 0) {
+    return []
   }
 
   return Object.entries(categoryMap)
@@ -270,7 +356,7 @@ async function getRecentTransactions(userId: string): Promise<Transaction[]> {
     )
     .map((t) => t.reference_id)
 
-  let betslipMap: Record<
+  const betslipMap: Record<
     string,
     { sportsbook: string; bet_type: string; odds: number } | null
   > = {}

@@ -8,7 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "loadtest:smoke": "k6 run load-tests/smoke.js",
+    "loadtest": "k6 run load-tests/load.js",
+    "loadtest:stress": "k6 run load-tests/stress.js",
+    "loadtest:spike": "k6 run load-tests/spike.js",
+    "loadtest:soak": "k6 run load-tests/soak.js"
   },
   "browserslist": [
     "last 2 Chrome versions",

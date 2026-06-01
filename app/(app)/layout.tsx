@@ -1,6 +1,8 @@
 import Sidebar from "@/components/layout/Sidebar"
 import BottomNav from "@/components/layout/BottomNav"
+import TopBar from "@/components/layout/TopBar"
 import AppScrollRestorer from "@/components/layout/AppScrollRestorer"
+import AuthListener from "@/components/AuthListener"
 
 export default function AppLayout({
   children,
@@ -17,9 +19,11 @@ export default function AppLayout({
         className="hidden md:block absolute top-[-10%] left-[-10%] w-[30%] h-[30%] rounded-full bg-[var(--color-lime)]/5 blur-3xl pointer-events-none"
       />
 
+      <AuthListener />
       <Sidebar />
       <AppScrollRestorer />
       <main data-app-scroll className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden scroll-pt-28 pb-36 md:pb-0">
+        <TopBar />
         {children}
       </main>
       <BottomNav />

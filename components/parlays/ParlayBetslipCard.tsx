@@ -8,10 +8,51 @@ import {
   Clock,
   ChevronUp,
   ChevronDown,
+  Link2,
+  Check,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatOdds, computePayout } from "@/lib/parlays/computations"
 import type { ParlayBetslipCardProps, ParlayLegRow } from "@/lib/types/parlay"
+
+// --- Copy Link Button ---
+
+function CopyLinkButton({ parlayId }: { parlayId: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const url = `${window.location.origin}/parlays/${parlayId}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback: do nothing
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+      title="Copy shareable link"
+    >
+      {copied ? (
+        <>
+          <Check className="h-3.5 w-3.5 text-lime-400" />
+          <span className="text-lime-400">Copied!</span>
+        </>
+      ) : (
+        <>
+          <Link2 className="h-3.5 w-3.5" />
+          <span>Copy Link</span>
+        </>
+      )}
+    </button>
+  )
+}
 
 // --- Status badge configuration ---
 
@@ -70,19 +111,16 @@ function LegStatusIcon({ status }: { status: "hit" | "miss" | "pending" }) {
 // --- Progress bar for a leg ---
 
 function LegProgressBar({ leg, parlayStatus }: { leg: ParlayLegRow; parlayStatus: string }) {
-  // Since we don't have live stat data, we show the line as a reference
-  // For resolved parlays, we can infer hit/miss from parlay status
-  // For now, show the prop line as a visual indicator
   const isOver = leg.direction === "over"
   const hitRate = leg.l10_hit_rate ?? 50
 
-  // Determine if this leg "hit" based on parlay status and hit rate
-  // In a real implementation, you'd have actual game results
+  // Use the actual leg result if available, otherwise infer from parlay status
   const legStatus: "hit" | "miss" | "pending" =
+    leg.result === "won" ? "hit" :
+    leg.result === "lost" ? "miss" :
+    leg.result === "push" ? "hit" :
     parlayStatus === "pending" ? "pending" :
-    parlayStatus === "won" ? "hit" :
-    // For lost parlays, use hit rate as a heuristic (>60% likely hit, <40% likely missed)
-    hitRate >= 60 ? "hit" : "miss"
+    "pending"
 
   const barColor = legStatus === "hit" ? "bg-lime-500" : legStatus === "miss" ? "bg-zinc-500" : "bg-amber-500"
   const barWidth = Math.min(Math.max(hitRate, 10), 100)
@@ -142,6 +180,11 @@ function CompactVariant({
           <span className="text-sm font-bold text-white">
             {parlay.legs.length} Leg Parlay
           </span>
+          {parlay.is_logged && (
+            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+              Log
+            </span>
+          )}
         </div>
         <span className={cn("rounded-md border px-2.5 py-1 text-[11px] font-bold", config.className)}>
           {config.label}
@@ -152,9 +195,10 @@ function CompactVariant({
       <div className="flex items-center gap-1.5 mt-3">
         {parlay.legs.map((leg) => {
           const legStatus: "hit" | "miss" | "pending" =
-            parlay.status === "pending" ? "pending" :
-            parlay.status === "won" ? "hit" :
-            (leg.l10_hit_rate ?? 50) >= 60 ? "hit" : "miss"
+            leg.result === "won" ? "hit" :
+            leg.result === "lost" ? "miss" :
+            leg.result === "push" ? "hit" :
+            "pending"
           return (
             <div key={leg.id} className="flex items-center">
               {legStatus === "hit" ? (
@@ -207,6 +251,11 @@ function ExpandedVariant({
           <span className="text-sm font-bold text-white">
             {parlay.legs.length} Leg Parlay
           </span>
+          {parlay.is_logged && (
+            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+              Log
+            </span>
+          )}
         </div>
         <span className={cn("rounded-md border px-2.5 py-1 text-[11px] font-bold", config.className)}>
           {config.label}
@@ -221,9 +270,10 @@ function ExpandedVariant({
         <div className="flex items-center gap-1.5">
           {parlay.legs.map((leg) => {
             const legStatus: "hit" | "miss" | "pending" =
-              parlay.status === "pending" ? "pending" :
-              parlay.status === "won" ? "hit" :
-              (leg.l10_hit_rate ?? 50) >= 60 ? "hit" : "miss"
+              leg.result === "won" ? "hit" :
+              leg.result === "lost" ? "miss" :
+              leg.result === "push" ? "hit" :
+              "pending"
             return (
               <div key={leg.id}>
                 {legStatus === "hit" ? (
@@ -315,8 +365,9 @@ function ExpandedVariant({
         </div>
       )}
 
-      {/* Footer — Lasyly branding */}
-      <div className="flex items-center justify-center py-3 border-t border-zinc-800">
+      {/* Footer — Copy Link + Lasyly branding */}
+      <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
+        <CopyLinkButton parlayId={parlay.id} />
         <span className="text-sm font-black tracking-tight text-white/80">Lasyly</span>
       </div>
     </div>
@@ -379,9 +430,10 @@ function FeedVariant({
         <div className="flex items-center gap-1.5">
           {parlay.legs.map((leg) => {
             const legStatus: "hit" | "miss" | "pending" =
-              parlay.status === "pending" ? "pending" :
-              parlay.status === "won" ? "hit" :
-              (leg.l10_hit_rate ?? 50) >= 60 ? "hit" : "miss"
+              leg.result === "won" ? "hit" :
+              leg.result === "lost" ? "miss" :
+              leg.result === "push" ? "hit" :
+              "pending"
             return (
               <div key={leg.id}>
                 {legStatus === "hit" ? (
@@ -433,8 +485,9 @@ function FeedVariant({
         </div>
       )}
 
-      {/* Footer — Lasyly branding */}
-      <div className="flex items-center justify-center py-3 border-t border-zinc-800">
+      {/* Footer — Copy Link + Lasyly branding */}
+      <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
+        <CopyLinkButton parlayId={parlay.id} />
         <span className="text-sm font-black tracking-tight text-white/80">Lasyly</span>
       </div>
     </div>

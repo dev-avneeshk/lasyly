@@ -63,3 +63,6 @@ scripts/.next/
 
 # Kiro internal skills (IDE tooling, not project code)
 .kiro/skills/
+
+# Private scripts — local only, never pushed
+/private/

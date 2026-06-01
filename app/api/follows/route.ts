@@ -94,7 +94,7 @@ export const POST = withSecurity(async (request: Request) => {
     }
   }
 
-  invalidateCachePrefix(`feed-graph:${user.id}`)
+  invalidateCachePrefix(`feed-graph:${user.id}`).catch(() => {})
 
   const [{ count: followerCount }, { count: followingCount }] = await Promise.all([
     supabase

@@ -53,7 +53,7 @@ describe("buildGraphData", () => {
     expect(result[2].date).toBe("2025-01-03")
   })
 
-  it("takes only the most recent 6 games when more are available", () => {
+  it("returns all games in chronological order when more than 6 are available", () => {
     const games = [
       makeGame(20, "2025-01-08", "PHX"),
       makeGame(22, "2025-01-07", "DEN"),
@@ -61,17 +61,17 @@ describe("buildGraphData", () => {
       makeGame(30, "2025-01-05", "SAS"),
       makeGame(15, "2025-01-04", "DAL"),
       makeGame(28, "2025-01-03", "HOU"),
-      makeGame(12, "2025-01-02", "MEM"), // should be excluded (7th game)
-      makeGame(35, "2025-01-01", "NOP"), // should be excluded (8th game)
+      makeGame(12, "2025-01-02", "MEM"),
+      makeGame(35, "2025-01-01", "NOP"),
     ]
 
     const result = buildGraphData(games, 20)
 
-    expect(result).toHaveLength(6)
-    // Oldest of the 6 most recent should be first
-    expect(result[0].date).toBe("2025-01-03")
+    expect(result).toHaveLength(8)
+    // Oldest should be first (chronological order)
+    expect(result[0].date).toBe("2025-01-01")
     // Most recent should be last
-    expect(result[5].date).toBe("2025-01-08")
+    expect(result[7].date).toBe("2025-01-08")
   })
 
   it("correctly computes overLine boolean", () => {

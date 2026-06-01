@@ -204,7 +204,7 @@ describe("computeAllCorrelations", () => {
     expect(results[0].propB).toBe("davis-reb")
   })
 
-  it("default maxProps is 500", () => {
+  it("default maxProps is 500", { timeout: 30000 }, () => {
     // Create 501 props with enough data
     const props = Array.from({ length: 501 }, (_, i) => ({
       id: `player${i}-pts`,

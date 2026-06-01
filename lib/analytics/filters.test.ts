@@ -274,6 +274,8 @@ describe("getActiveFilterCount", () => {
       direction: "under",
       hitRateMin: 30,
       hitRateMax: 90,
+      minMinutes: 0,
+      vsOpponent: false,
     }
     expect(getActiveFilterCount(filters)).toBe(7)
   })

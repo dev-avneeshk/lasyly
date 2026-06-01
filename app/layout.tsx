@@ -6,6 +6,7 @@ import "./globals.css";
 import "@/lib/env"; // Validate environment variables at startup
 import CookieConsent from "@/components/CookieConsent";
 import { JsonLd } from "@/components/seo/JsonLd";
+import ThemeProvider from "@/components/ThemeProvider";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ const sourceSans = Source_Sans_3({
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#d4ff00",
   // Removed maximumScale:1 / userScalable:false — accessibility violation flagged
   // by Lighthouse Best Practices and WCAG 1.4.4. Modern iOS/Android handle zoom
   // gracefully; blocking it harms users who rely on browser zoom.
@@ -46,27 +48,33 @@ export const metadata: Metadata = {
     default: "Lasyly — Sports Analytics & Community Platform",
     template: "%s | Lasyly",
   },
+  manifest: "/manifest.json",
   verification: {
     other: {
       "msvalidate.01": "6BA0E86BC23D5F04B75CC76D4AE41AB8",
     },
   },
-  description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace. All in one place.",
+  description: "Real-time sports rooms, prop analytics, live scores, curated news, and a pick marketplace. All in one place.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"),
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Lasyly",
+  },
   keywords: [
-    "sports betting analytics",
+    "sports analytics",
     "player prop analytics",
-    "NBA prop bets",
-    "bet tracker",
-    "sports betting community",
-    "tipster marketplace",
+    "NBA props",
+    "pick tracker",
+    "sports community",
+    "pick marketplace",
     "hit rate",
     "matchup grade",
     "live sports scores",
     "prop research",
-    "betslip sharing",
+    "slip sharing",
     "parlay builder",
-    "sports betting app",
+    "sports analytics app",
     "PrizePicks alternative",
     "Action Network alternative",
   ],
@@ -82,7 +90,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Lasyly",
     title: "Lasyly — Sports Analytics & Community Platform",
-    description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace.",
+    description: "Real-time sports rooms, prop analytics, live scores, curated news, and a pick marketplace.",
     locale: "en_US",
     url: process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
   },
@@ -91,7 +99,7 @@ export const metadata: Metadata = {
     site: "@lasyly",
     creator: "@lasyly",
     title: "Lasyly — Sports Analytics & Community Platform",
-    description: "Real-time sports rooms, prop analytics, live scores, curated news, and a tipster marketplace.",
+    description: "Real-time sports rooms, prop analytics, live scores, curated news, and a pick marketplace.",
   },
   robots: {
     index: true,
@@ -125,32 +133,32 @@ export default function RootLayout({
   return (
     <html lang="en" className={`h-full antialiased ${playfair.variable} ${libreBaskerville.variable} ${sourceSans.variable}`}>
       <head>
-        {/* Preconnect to Google Fonts CDN — we load fonts from fonts.gstatic.com */}
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* ESPN CDN — used on scores, news, and analysis pages for player/team images */}
-        <link rel="preconnect" href="https://a.espncdn.com" crossOrigin="anonymous" />
+        {/* dns-prefetch for ESPN CDN — next/image proxies through /_next/image
+            so preconnect is unnecessary, but dns-prefetch is still useful for
+            pages that use raw img tags (social feed avatars, etc.) */}
         <link rel="dns-prefetch" href="https://a.espncdn.com" />
         <link rel="dns-prefetch" href="https://s.espncdn.com" />
       </head>
       <body className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
+        <ThemeProvider>
         <JsonLd data={{
           "@context": "https://schema.org",
           "@type": "Organization",
           "name": "Lasyly",
           "url": process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
           "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/lasyly_logo.png`,
-          "description": "Lasyly is a sports analytics and betting community platform offering player prop analytics, live scores, betting rooms, sports news, and a tipster marketplace.",
+          "description": "Lasyly is a sports analytics and community platform offering player prop analytics, live scores, community rooms, sports news, and a pick marketplace.",
           "sameAs": [
             "https://instagram.com/dev.avneeshk",
           ],
           "knowsAbout": [
-            "sports betting analytics",
+            "sports analytics",
             "player prop analytics",
-            "NBA prop bets",
-            "sports betting community",
+            "NBA props",
+            "sports community",
             "live sports scores",
-            "tipster marketplace",
-            "bet tracking",
+            "pick marketplace",
+            "pick tracking",
           ],
         }} />
         <JsonLd data={{
@@ -158,7 +166,7 @@ export default function RootLayout({
           "@type": "WebSite",
           "name": "Lasyly",
           "url": process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
-          "description": "Real-time social platform for sports bettors. Prop analytics, live scores, betting rooms, and a tipster marketplace.",
+          "description": "Real-time social platform for sports fans. Prop analytics, live scores, community rooms, and a pick marketplace.",
           "potentialAction": {
             "@type": "SearchAction",
             "target": {
@@ -227,6 +235,7 @@ export default function RootLayout({
         }} />
         {children}
         <CookieConsent />
+        </ThemeProvider>
         <Analytics />
         <SpeedInsights />
       </body>

@@ -109,6 +109,24 @@ export const PATCH = withSecurity(async (
     )
   }
 
+  // When manually settling a parlay (won/lost), also update all pending leg results
+  // so the UI can show per-leg hit/miss status correctly
+  if (status === "won" || status === "lost") {
+    const legResult = status === "won" ? "won" : "lost"
+    await supabase
+      .from("parlay_legs")
+      .update({ result: legResult })
+      .eq("parlay_id", id)
+      .eq("result", "pending")
+  } else if (status === "pending") {
+    // If reverting to pending, reset leg results too
+    await supabase
+      .from("parlay_legs")
+      .update({ result: "pending" })
+      .eq("parlay_id", id)
+      .neq("result", "pending")
+  }
+
   // Handle Realtime broadcasts for visibility changes
   if (visibility === "public") {
     // Fetch legs to include in the broadcast payload

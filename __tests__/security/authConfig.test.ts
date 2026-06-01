@@ -7,8 +7,8 @@ import {
 } from '@/lib/supabase/auth-config'
 
 describe('Auth Cookie Configuration', () => {
-  it('should not set httpOnly (Supabase SSR needs client-side cookie access)', () => {
-    expect(AUTH_COOKIE_OPTIONS).not.toHaveProperty('httpOnly')
+  it('should explicitly set httpOnly to false (Supabase SSR needs client-side cookie access)', () => {
+    expect(AUTH_COOKIE_OPTIONS.httpOnly).toBe(false)
   })
 
   it('should set sameSite to lax (required for OAuth redirect flows)', () => {

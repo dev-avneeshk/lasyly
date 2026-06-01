@@ -135,13 +135,17 @@ export async function getMatchesWithFreshness(
   const hasLive = matches.some((m) => liveStatuses.includes(m.status))
   const allFinished = matches.every((m) => m.status === "Finished" || m.status === "Postponed")
 
+  const latestUpdate = getLatestUpdate(data)
+
   if (allFinished) {
-    // All games done today — no need to re-fetch
-    return { matches, isFresh: true, hasLive: false }
+    // Even if all stored matches are finished, new games may have started
+    // that we haven't fetched yet. Re-check ESPN every 2 minutes to pick
+    // up newly started games (e.g., a later tipoff on the same calendar day).
+    const isFresh = latestUpdate > Date.now() - 2 * 60 * 1000
+    return { matches, isFresh, hasLive: false }
   }
 
   // Has live or upcoming games — check how recent the data is
-  const latestUpdate = getLatestUpdate(data)
   // Consider fresh if updated within last 30 seconds
   const isFresh = latestUpdate > Date.now() - 30_000
 
@@ -248,7 +252,7 @@ async function storeTeamLogos(matches: LiveMatch[], supabase: any): Promise<void
 
 function getTodayDate(): string {
   const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`
 }
 
 /**

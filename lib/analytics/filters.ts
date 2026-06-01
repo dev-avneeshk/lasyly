@@ -16,6 +16,8 @@ export const DEFAULT_FILTERS: AdvancedFilterState = {
   direction: "all",
   hitRateMin: 0,
   hitRateMax: 100,
+  minMinutes: 0,
+  vsOpponent: false,
 }
 
 // ─── Filter Application ─────────────────────────────────────────────────────
@@ -104,6 +106,8 @@ export function getActiveFilterCount(filters: AdvancedFilterState): number {
   if (filters.direction !== DEFAULT_FILTERS.direction) count++
   if (filters.hitRateMin !== DEFAULT_FILTERS.hitRateMin) count++
   if (filters.hitRateMax !== DEFAULT_FILTERS.hitRateMax) count++
+  if (filters.minMinutes !== DEFAULT_FILTERS.minMinutes) count++
+  if (filters.vsOpponent !== DEFAULT_FILTERS.vsOpponent) count++
 
   return count
 }

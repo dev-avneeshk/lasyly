@@ -63,12 +63,17 @@ export default function PlayerDashboardPage() {
   const teamParam = searchParams.get("team") ?? ""
   const sportParam = searchParams.get("sport") ?? "NBA"
   const isSoccer = sportParam === "Soccer"
+  const isTennis = sportParam === "Tennis"
   const isESPNSport = sportParam === "Soccer" || sportParam === "NFL" || sportParam === "NHL"
   const isTeamProp = searchParams.get("type") === "team" || isSoccer
 
   const [prop, setProp] = useState<PropData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeStat, setActiveStat] = useState(statParam.toUpperCase())
+  const [activeStat, setActiveStat] = useState(
+    sportParam === "Tennis" || sportParam === "Soccer" || sportParam === "NFL" || sportParam === "NHL"
+      ? statParam
+      : statParam.toUpperCase()
+  )
   const [timeRange, setTimeRange] = useState("L15")
   const [threshold, setThreshold] = useState(0)
   const [rollingAverages, setRollingAverages] = useState<Record<string, Record<string, number | null>> | null>(null)
@@ -127,7 +132,7 @@ export default function PlayerDashboardPage() {
   // For NBA, map display stat names to API params. For other sports, use the stat param directly.
   const fetchStat = sportParam === "NBA"
     ? (statApiMap[activeStat] ?? statParam)
-    : statParam
+    : isTennis ? activeStat : statParam
 
   // Fetch the prop data for this player
   useEffect(() => {
@@ -531,6 +536,14 @@ export default function PlayerDashboardPage() {
         { key: "HT", label: "Hits", propLine: activeStat === "HT" ? prop.propLine : null },
         { key: "BS", label: "Blocks", propLine: activeStat === "BS" ? prop.propLine : null },
       ]
+    : isTennis ? [
+        { key: "aces", label: "Aces", propLine: activeStat === "aces" ? prop.propLine : null },
+        { key: "double_faults", label: "Dbl Faults", propLine: activeStat === "double_faults" ? prop.propLine : null },
+        { key: "win_pct", label: "Match Win", propLine: activeStat === "win_pct" ? prop.propLine : null },
+        { key: "first_serve_pct", label: "1st Serve %", propLine: activeStat === "first_serve_pct" ? prop.propLine : null },
+        { key: "sets_won", label: "Sets Won", propLine: activeStat === "sets_won" ? prop.propLine : null },
+        { key: "games_won", label: "Games Won", propLine: activeStat === "games_won" ? prop.propLine : null },
+      ]
     : [
         { key: "PTS", label: "PTS", propLine: activeStat === "PTS" ? prop.propLine : null },
         { key: "AST", label: "AST", propLine: activeStat === "AST" ? prop.propLine : null },
@@ -555,9 +568,9 @@ export default function PlayerDashboardPage() {
       </button>
 
       {/* Row 1: Player Profile | Injury Report | Matchup */}
-      <div className={cn("grid grid-cols-1 gap-4 lg:h-[280px]", isESPNSport ? "lg:grid-cols-4" : "lg:grid-cols-12")}>
+      <div className={cn("grid grid-cols-1 gap-4 lg:h-[280px]", isESPNSport ? "lg:grid-cols-4" : isTennis ? "lg:grid-cols-2" : "lg:grid-cols-12")}>
         {/* Player Profile Card — REAL DATA */}
-        <div className={cn("flex flex-col relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md", isESPNSport ? "lg:col-span-4" : "lg:col-span-3")}>
+        <div className={cn("flex flex-col relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md", isESPNSport ? "lg:col-span-4" : isTennis ? "lg:col-span-1" : "lg:col-span-3")}>
           <div className="absolute top-0 left-0 w-full h-[60%] bg-[var(--color-lime)]/20 transform -skew-y-6 origin-top-left z-0" />
           <div className="relative z-10 p-4 flex-grow flex flex-col justify-between">
             <div className="flex justify-between items-start">
@@ -595,8 +608,8 @@ export default function PlayerDashboardPage() {
                 <div className="text-[var(--color-lime)] font-bold text-lg">{prop.l5Avg}</div>
               </div>
               <div>
-                <div className="text-[var(--color-text-muted)] text-[10px] uppercase tracking-wider font-medium mb-1">Position</div>
-                <div className="text-white font-bold text-lg">{prop.position ?? "nil"}</div>
+                <div className="text-[var(--color-text-muted)] text-[10px] uppercase tracking-wider font-medium mb-1">{isTennis ? "Surface" : "Position"}</div>
+                <div className="text-white font-bold text-lg">{isTennis ? (teamParam || prop.team || "—") : (prop.position ?? "nil")}</div>
               </div>
               <div>
                 <div className="text-[var(--color-text-muted)] text-[10px] uppercase tracking-wider font-medium mb-1">L10 AVG</div>
@@ -607,7 +620,7 @@ export default function PlayerDashboardPage() {
         </div>
 
         {/* Injury Report — REAL DATA from ESPN (NBA only) */}
-        {!isESPNSport && (
+        {!isESPNSport && !isTennis && (
         <div className="lg:col-span-6 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
           <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -657,9 +670,9 @@ export default function PlayerDashboardPage() {
         </div>
         )}
 
-        {/* Matchup Header — NBA only */}
+        {/* Matchup Header — NBA and Tennis */}
         {!isESPNSport && (
-        <div className="lg:col-span-3 bg-gradient-to-b from-[var(--color-primary)]/20 to-[var(--color-surface)] relative overflow-hidden flex flex-col justify-between p-4 border border-[var(--color-border)] rounded-md">
+        <div className={cn("bg-gradient-to-b from-[var(--color-primary)]/20 to-[var(--color-surface)] relative overflow-hidden flex flex-col justify-between p-4 border border-[var(--color-border)] rounded-md", isTennis ? "lg:col-span-1" : "lg:col-span-3")}>
           <div className="relative z-10 text-center border-b border-white/10 pb-3 mb-3">
             <h3 className="font-bold text-lg tracking-wide">Upcoming</h3>
             <p className="text-[var(--color-lime)] text-sm font-medium">
@@ -797,7 +810,7 @@ export default function PlayerDashboardPage() {
       {/* Row 3: Performance Chart | Filtered Averages — AT TOP */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Performance Chart — REAL DATA */}
-        <div className={cn("flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md relative", isESPNSport ? "lg:col-span-12" : "lg:col-span-9")}>
+        <div className={cn("flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md relative", (isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
           {/* Header */}
           <div className="flex justify-between items-center mb-4 z-10">
             <h2 className="font-semibold text-lg tracking-wide">Performance</h2>
@@ -913,7 +926,7 @@ export default function PlayerDashboardPage() {
         </div>
 
         {/* Filtered Averages — REAL DATA from stats-reference (NBA only) */}
-        {!isESPNSport && (
+        {!isESPNSport && !isTennis && (
         <div className="lg:col-span-3 flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
           <h3 className="font-semibold text-base tracking-wide text-center border-b border-[var(--color-border)] pb-3 mb-2">Filtered Averages</h3>
           <div className="flex-grow overflow-auto">
@@ -1006,7 +1019,7 @@ export default function PlayerDashboardPage() {
       </div>
 
       {/* Splits Panel — Shooting / Points / Efficiency (NBA only) */}
-      {!isESPNSport && rollingAverages && (
+      {!isESPNSport && !isTennis && rollingAverages && (
       <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
         {/* Tab Header */}
         <div className="flex border-b border-[var(--color-border)]">
@@ -1143,7 +1156,7 @@ export default function PlayerDashboardPage() {
       )}
 
       {/* Game-by-Game Charts (NBA only) */}
-      {!isESPNSport && chartGameBreakdown && chartGameBreakdown.length > 0 && (
+      {!isESPNSport && !isTennis && chartGameBreakdown && chartGameBreakdown.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Assists Chart */}
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4">
@@ -1453,7 +1466,7 @@ export default function PlayerDashboardPage() {
       )}
 
       {/* Row 3.5: Per Game (left) | Projected + Matchup (right) — NBA only */}
-      {!isESPNSport && (
+      {!isESPNSport && !isTennis && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Per Game Stats */}
         <div className="lg:col-span-9">
@@ -1885,7 +1898,7 @@ export default function PlayerDashboardPage() {
       )}
 
       {/* Row 4: Pts vs Team | Defense | Position Points | Matchup Factors */}
-      {!isESPNSport && (
+      {!isESPNSport && !isTennis && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-3 p-4 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md min-h-[160px]">
           <h3 className="font-semibold text-sm tracking-wide mb-3">

@@ -8,23 +8,23 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: "Blog — Lasyly",
   description:
-    "Sports betting tips, prop analytics guides, and community insights from the Lasyly team. Learn how to bet smarter with data.",
+    "Sports prop analytics guides, community insights, and match breakdowns from the Lasyly team. Learn how to win lazily with data.",
   openGraph: {
     title: "Blog — Lasyly",
-    description: "Sports betting tips, prop analytics guides, and community insights from the Lasyly team.",
+    description: "Sports prop analytics guides, community insights, and match breakdowns from the Lasyly team.",
     type: "website",
   },
 }
 
 const STATIC_POSTS = [
-  { slug: "spurs-thunder-game-4-recap-2026", category: "NBA Playoffs", date: "May 25, 2026", readTime: "7 min read", title: "Wembanyama 33 Pts: Spurs Rout Thunder 103-82, West Finals Tied 2-2", excerpt: "Victor Wembanyama scores 33 points, 8 rebounds, and 3 blocks as San Antonio dominates OKC to even the Western Conference Finals. Full Game 4 recap, box score breakdown, and Game 5 betting angles.", accent: "#F59E0B" },
-  { slug: "thunder-vs-spurs-nba-2026", category: "NBA", date: "May 25, 2026", readTime: "6 min read", title: "Thunder vs Spurs 2026: 1M+ Searches, Wembanyama Props & Full Betting Breakdown", excerpt: "OKC vs Spurs crossed 1 million US searches. We break down the OKC spread, Victor Wembanyama props, SGA points bets, and same-game parlay construction.", accent: "#F59E0B" },
-  { slug: "cruz-azul-pumas-liga-mx-final-2026", category: "Liga MX", date: "May 25, 2026", readTime: "5 min read", title: "Cruz Azul Wins Liga MX Clausura 2026: Pumas Final Recap & Betting Analysis", excerpt: "Cruz Azul beat Pumas UNAM 2-1 with a Rodolfo Rotondi stoppage-time winner. 200K+ US searches. Full match recap and betting market breakdown.", accent: "#4ADE80" },
-  { slug: "avalanche-vs-golden-knights-nhl-playoffs-2026", category: "NHL", date: "May 25, 2026", readTime: "5 min read", title: "Avalanche vs Golden Knights NHL Playoffs 2026: MacKinnon Props, OT Markets & Betting Breakdown", excerpt: "Colorado vs Vegas generated 200K+ searches with a 1,000% spike. Nathan MacKinnon scorer props, OT winner markets, and Golden Knights moneyline analysis.", accent: "#3B82F6" },
-  { slug: "inter-miami-philadelphia-mls-messi-2026", category: "MLS", date: "May 25, 2026", readTime: "5 min read", title: "Inter Miami vs Philadelphia 2026: Messi Injury, MLS Betting Odds & Market Analysis", excerpt: "Messi injury concerns sent Inter Miami vs Philadelphia Union to 100K+ searches. Anytime scorer props, BTTS markets, and how Messi's fitness moves lines.", accent: "#EC4899" },
-  { slug: "villarreal-atletico-madrid-la-liga-2026", category: "La Liga", date: "May 25, 2026", readTime: "5 min read", title: "Villarreal vs Atlético Madrid La Liga 2026: Griezmann Props, Under 2.5 & Betting Breakdown", excerpt: "One of the biggest European football betting trends this week. Atlético win, Under 2.5 goals, Griezmann scorer, and draw no bet markets fully analyzed.", accent: "#6C63FF" },
-  { slug: "indy-500-2026-results-betting", category: "IndyCar", date: "May 25, 2026", readTime: "4 min read", title: "Indy 500 2026 Results: Who Won, Race Winner Odds & Betting Market Breakdown", excerpt: "The 2026 Indianapolis 500 generated 200K+ searches with a 900% spike. Race winner bets, podium markets, Felix Rosenqvist and David Malukas trending.", accent: "#F97316" },
-  { slug: "why-share-your-betslip", category: "Community", date: "May 24, 2026", readTime: "6 min read", title: "Why You Should Share Your Betslip (Even When You Lose)", excerpt: "Sharing your betslip publicly isn't just about bragging rights. It builds your track record, sharpens your thinking, and turns a solo hobby into a competitive edge.", accent: "var(--color-lime)" },
+  { slug: "spurs-thunder-game-4-recap-2026", category: "NBA Playoffs", date: "May 25, 2026", readTime: "7 min read", title: "Wembanyama 33 Pts: Spurs Rout Thunder 103-82, West Finals Tied 2-2", excerpt: "Victor Wembanyama scores 33 points, 8 rebounds, and 3 blocks as San Antonio dominates OKC to even the Western Conference Finals. Full Game 4 recap, box score breakdown, and Game 5 prop angles.", accent: "#F59E0B" },
+  { slug: "thunder-vs-spurs-nba-2026", category: "NBA", date: "May 25, 2026", readTime: "6 min read", title: "Thunder vs Spurs 2026: 1M+ Searches, Wembanyama Props & Full Breakdown", excerpt: "OKC vs Spurs crossed 1 million US searches. We break down the OKC spread, Victor Wembanyama props, SGA points lines, and same-game parlay construction.", accent: "#F59E0B" },
+  { slug: "cruz-azul-pumas-liga-mx-final-2026", category: "Liga MX", date: "May 25, 2026", readTime: "5 min read", title: "Cruz Azul Wins Liga MX Clausura 2026: Pumas Final Recap & Analysis", excerpt: "Cruz Azul beat Pumas UNAM 2-1 with a Rodolfo Rotondi stoppage-time winner. 200K+ US searches. Full match recap and market breakdown.", accent: "#4ADE80" },
+  { slug: "avalanche-vs-golden-knights-nhl-playoffs-2026", category: "NHL", date: "May 25, 2026", readTime: "5 min read", title: "Avalanche vs Golden Knights NHL Playoffs 2026: MacKinnon Props, OT Markets & Breakdown", excerpt: "Colorado vs Vegas generated 200K+ searches with a 1,000% spike. Nathan MacKinnon scorer props, OT winner markets, and Golden Knights moneyline analysis.", accent: "#3B82F6" },
+  { slug: "inter-miami-philadelphia-mls-messi-2026", category: "MLS", date: "May 25, 2026", readTime: "5 min read", title: "Inter Miami vs Philadelphia 2026: Messi Injury, MLS Odds & Market Analysis", excerpt: "Messi injury concerns sent Inter Miami vs Philadelphia Union to 100K+ searches. Anytime scorer props, BTTS markets, and how Messi's fitness moves lines.", accent: "#EC4899" },
+  { slug: "villarreal-atletico-madrid-la-liga-2026", category: "La Liga", date: "May 25, 2026", readTime: "5 min read", title: "Villarreal vs Atlético Madrid La Liga 2026: Griezmann Props, Under 2.5 & Breakdown", excerpt: "One of the biggest European football trends this week. Atlético win, Under 2.5 goals, Griezmann scorer, and draw no bet markets fully analyzed.", accent: "#6C63FF" },
+  { slug: "indy-500-2026-results-betting", category: "IndyCar", date: "May 25, 2026", readTime: "4 min read", title: "Indy 500 2026 Results: Who Won, Race Winner Odds & Market Breakdown", excerpt: "The 2026 Indianapolis 500 generated 200K+ searches with a 900% spike. Race winner picks, podium markets, Felix Rosenqvist and David Malukas trending.", accent: "#F97316" },
+  { slug: "why-share-your-betslip", category: "Community", date: "May 24, 2026", readTime: "6 min read", title: "Why You Should Share Your Slip (Even When You Lose)", excerpt: "Sharing your slip publicly isn't just about bragging rights. It builds your track record, sharpens your thinking, and turns a solo hobby into a competitive edge.", accent: "var(--color-lime)" },
   { slug: "how-to-read-prop-analytics", category: "Analytics", date: "May 22, 2026", readTime: "8 min read", title: "How to Read Prop Analytics: Hit Rates, Matchup Grades, and Confidence Scores Explained", excerpt: "Lasyly surfaces a lot of numbers on every player card. Here's what each metric actually means and how to combine them to find high-value props.", accent: "#6C63FF" },
   { slug: "nba-player-props-guide", category: "NBA", date: "May 20, 2026", readTime: "10 min read", title: "The Complete Guide to NBA Player Props in 2026", excerpt: "Points, rebounds, assists, 3-pointers, and beyond. A deep dive into how to approach NBA player props — from reading defensive matchups to spotting line value.", accent: "#F59E0B" },
 ]
@@ -60,7 +60,7 @@ export default async function BlogIndexPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
       <JsonLd data={{
         "@context": "https://schema.org", "@type": "Blog", name: "Lasyly Blog", url: `${baseUrl}/blog`,
-        description: "Sports betting tips, prop analytics guides, and community insights from the Lasyly team.",
+        description: "Sports prop analytics guides, community insights, and match breakdowns from the Lasyly team.",
         publisher: { "@type": "Organization", name: "Lasyly", url: baseUrl, logo: { "@type": "ImageObject", url: `${baseUrl}/lasyly_logo.png` } },
         blogPost: mergedPosts.map((p) => ({ "@type": "BlogPosting", headline: p.title, description: p.excerpt, url: `${baseUrl}/blog/${p.slug}`, datePublished: p.date })),
       }} />
@@ -72,7 +72,7 @@ export default async function BlogIndexPage() {
           The Blog
         </h1>
         <p className="text-lg text-white/50 max-w-[48ch] leading-relaxed">
-          Tips, guides, and honest takes on sports betting, prop analytics, and building smarter habits as a bettor.
+          Tips, guides, and honest takes on prop analytics, match breakdowns, and building smarter habits — the lazy way.
         </p>
       </div>
 

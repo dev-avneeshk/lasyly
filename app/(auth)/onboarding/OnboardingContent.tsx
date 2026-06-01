@@ -12,21 +12,21 @@ const SPORTS = ["Football", "Basketball", "Tennis", "Cricket", "NFL", "Formula 1
 const INTENTS = [
   {
     id: "bettor",
-    title: "I'm here to follow & bet",
-    description: "Get tips from top tipsters, join rooms, and track your bets.",
+    title: "I'm here to follow & win",
+    description: "Get picks from top sellers, join rooms, and track your record.",
     icon: TrendingUp,
     color: "var(--color-primary)",
   },
   {
     id: "tipster",
-    title: "I'm a Tipster",
+    title: "I'm a Seller",
     description: "Share premium picks, build a following, and earn from your expertise.",
     icon: Zap,
     color: "var(--color-secondary)",
   },
   {
     id: "both",
-    title: "Both — I tip & bet",
+    title: "Both — I sell & follow",
     description: "Share your own picks while following others. Best of both worlds.",
     icon: Users,
     color: "var(--color-lime)",

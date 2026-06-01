@@ -34,7 +34,7 @@ export const GET = withSecurity(async () => {
     .filter((t) => (t.type === "PURCHASE" || t.type === "EARNING") && t.reference_id)
     .map((t) => t.reference_id)
 
-  let betslipMap: Record<string, { sportsbook: string; bet_type: string; odds: number } | null> = {}
+  const betslipMap: Record<string, { sportsbook: string; bet_type: string; odds: number } | null> = {}
 
   if (referenceIds.length > 0) {
     const { data: betslips } = await supabase

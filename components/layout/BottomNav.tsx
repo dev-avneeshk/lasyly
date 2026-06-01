@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, PieChart, X } from "lucide-react"
+import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, PieChart, X, Medal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -18,6 +18,7 @@ const moreNav = [
   { icon: BarChart2, href: "/bets", label: "My Bets" },
   { icon: MessageSquare, href: "/rooms", label: "Rooms" },
   { icon: PieChart, href: "/dashboard", label: "Dashboard" },
+  { icon: Medal, href: "/leaderboard", label: "Leaderboard" },
   { icon: Wallet, href: "/wallet", label: "Wallet" },
   { icon: User, href: "/profile", label: "Profile" },
 ]
@@ -53,12 +54,12 @@ export default function BottomNav() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed bottom-0 left-0 right-0 z-[101]"
             >
-              <div className="mx-4 mb-[max(1.25rem,env(safe-area-inset-bottom))] rounded-2xl border border-white/10 bg-[var(--color-surface)] p-4 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+              <div className="mx-4 mb-[max(1.25rem,env(safe-area-inset-bottom))] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
                 <div className="flex items-center justify-between mb-4 px-2">
-                  <span className="text-sm font-semibold text-white/70">More</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-muted)]">More</span>
                   <button
                     onClick={() => setShowMore(false)}
-                    className="p-1.5 rounded-full hover:bg-white/10 text-white/60"
+                    className="p-1.5 rounded-full hover:bg-[var(--color-border)]/30 text-[var(--color-text-muted)]"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -75,7 +76,7 @@ export default function BottomNav() {
                           "flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors",
                           isActive
                             ? "bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
-                            : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5"
+                            : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/20"
                         )}
                       >
                         <item.icon className="w-5 h-5" />
@@ -92,7 +93,7 @@ export default function BottomNav() {
 
       {/* Bottom nav bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-8 pointer-events-none">
-        <div className="pointer-events-auto flex items-center justify-between rounded-2xl border border-white/10 bg-[var(--color-surface)]/90 px-6 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+        <div className="pointer-events-auto flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/90 px-6 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
           {primaryNav.map((item) => {
             const isActive = pathname.startsWith(item.href)
             return (
@@ -101,7 +102,7 @@ export default function BottomNav() {
                 href={item.href}
                 className={cn(
                   "relative p-2 flex items-center justify-center transition-colors",
-                  isActive ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)] hover:text-white"
+                  isActive ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 )}
               >
                 <item.icon className={cn("w-6 h-6 z-10 relative", isActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
@@ -121,7 +122,7 @@ export default function BottomNav() {
             onClick={() => setShowMore(true)}
             className={cn(
               "relative p-2 flex items-center justify-center transition-colors",
-              isMoreActive ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)] hover:text-white"
+              isMoreActive ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
             )}
           >
             <MoreHorizontal className={cn("w-6 h-6 z-10 relative", isMoreActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />

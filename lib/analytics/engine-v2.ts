@@ -160,6 +160,12 @@ export interface MatchupScopedOptions {
   matchup?: string
   /** Override today's date (ISO date string, defaults to UTC today) */
   todayDate?: string
+  /** Minimum minutes threshold — only include games where player played >= this many minutes */
+  minMinutes?: number
+  /** Only use games vs the upcoming opponent for stat computation */
+  vsOpponent?: boolean
+  /** Exclude games where this teammate played (show stats without them) */
+  withoutPlayer?: string
 }
 
 /**
@@ -372,10 +378,15 @@ export async function fetchBatchPlayerStats(
     }
   }
 
-  // Filter out players with fewer than 5 recent games
-  // AND players whose most recent game is older than 14 days (inactive/injured)
+  // Filter out players with insufficient recent activity.
+  // Rules:
+  //   1. Must have at least 5 games with minutes > 0 in the 90-day window
+  //   2. Most recent game must be within 14 days
+  //   3. Must have played meaningful minutes (>= 10 min) in at least 3 of last 5 games
+  //      This excludes end-of-bench / garbage-time-only players (e.g. Topić, Biyombo)
   const now = new Date()
   const recencyCutoffMs = 14 * 24 * 60 * 60 * 1000 // 14 days
+  const MIN_MEANINGFUL_MINUTES = 10
 
   for (const [playerName, games] of playerMap) {
     if (games.length < 5) {
@@ -385,6 +396,13 @@ export async function fetchBatchPlayerStats(
     // games[0] is the most recent (sorted desc from DB)
     const mostRecentDate = new Date(games[0].gameDate)
     if (now.getTime() - mostRecentDate.getTime() > recencyCutoffMs) {
+      playerMap.delete(playerName)
+      continue
+    }
+    // Check meaningful minutes in last 5 games — at least 3 must have >= 10 min
+    const last5 = games.slice(0, 5)
+    const meaningfulGames = last5.filter((g) => g.minutes >= MIN_MEANINGFUL_MINUTES)
+    if (meaningfulGames.length < 3) {
       playerMap.delete(playerName)
     }
   }
@@ -618,18 +636,22 @@ export async function computeMatchupScopedProps(
   stat: string,
   options: MatchupScopedOptions
 ): Promise<MatchupScopedResult> {
-  const { direction, matchup, todayDate } = options
+  const { direction, matchup, todayDate, minMinutes, vsOpponent, withoutPlayer } = options
 
   // Determine today's date in UTC
   const today = todayDate ?? new Date().toISOString().split("T")[0]
 
-  // Cache key includes date to avoid serving stale yesterday's data
+  // Cache key includes date and filters to avoid serving stale data
   // Direction is NOT included — engine returns both over and under, filtering happens at API layer
-  const cacheKey = `matchup-props:${sport}:${stat}:${today}`
+  const hasFilters = (minMinutes && minMinutes > 0) || vsOpponent || (withoutPlayer && withoutPlayer.trim())
+  const filterSuffix = hasFilters
+    ? `:f${minMinutes ?? 0}-${vsOpponent ? "1" : "0"}-${(withoutPlayer ?? "").toLowerCase().replace(/\s+/g, "_")}`
+    : ""
+  const cacheKey = `matchup-props:${sport}:${stat}:${today}${filterSuffix}`
 
   return cached(
     cacheKey,
-    () => computeMatchupScopedPropsUncached(sport, stat, direction, matchup, today),
+    () => computeMatchupScopedPropsUncached(sport, stat, direction, matchup, today, { minMinutes, vsOpponent, withoutPlayer }),
     60_000
   )
 }
@@ -642,7 +664,8 @@ async function computeMatchupScopedPropsUncached(
   stat: string,
   direction: "over" | "under",
   matchup: string | undefined,
-  today: string
+  today: string,
+  filters?: { minMinutes?: number; vsOpponent?: boolean; withoutPlayer?: string }
 ): Promise<MatchupScopedResult> {
   const startTime = Date.now()
 
@@ -697,6 +720,84 @@ async function computeMatchupScopedPropsUncached(
       props: [],
       todayGames,
       computeTimeMs: Date.now() - startTime,
+    }
+  }
+
+  // ─── Apply NBA Filters at game-row level ──────────────────────────────────
+  const filterMinMinutes = filters?.minMinutes ?? 0
+  const filterVsOpponent = filters?.vsOpponent ?? false
+  const filterWithoutPlayer = (filters?.withoutPlayer ?? "").trim().toLowerCase()
+
+  // Build a set of game dates where the "without player" teammate played
+  // (so we can exclude those games from the target player's stats)
+  let withoutPlayerGameDates: Set<string> | null = null
+  if (filterWithoutPlayer) {
+    withoutPlayerGameDates = new Set<string>()
+    // Look through all players in the map to find the teammate
+    for (const [name, games] of playerStatsMap) {
+      if (name.toLowerCase() === filterWithoutPlayer) {
+        for (const g of games) {
+          withoutPlayerGameDates.add(g.gameDate)
+        }
+        break
+      }
+    }
+    // If teammate not found in current batch, try a targeted DB query
+    if (withoutPlayerGameDates.size === 0) {
+      try {
+        const supabase = createAdminClient()
+        const cutoffDate = new Date()
+        cutoffDate.setDate(cutoffDate.getDate() - 90)
+        const cutoff = cutoffDate.toISOString().split("T")[0]
+        const { data: teammateGames } = await supabase
+          .from("nba_player_stats")
+          .select("nba_games!inner(game_date)")
+          .ilike("player_name", `%${filterWithoutPlayer}%`)
+          .gte("nba_games.game_date", cutoff)
+          .limit(200)
+        if (teammateGames) {
+          for (const row of teammateGames as any[]) {
+            withoutPlayerGameDates!.add(row.nba_games.game_date)
+          }
+        }
+      } catch {
+        // Non-critical — skip filter if lookup fails
+        withoutPlayerGameDates = null
+      }
+    }
+  }
+
+  // Build today's matchup map early for vsOpponent filter
+  const todayMatchupMapForFilter = new Map<string, string>()
+  for (const game of todayGames) {
+    todayMatchupMapForFilter.set(game.homeTeam, game.awayTeam)
+    todayMatchupMapForFilter.set(game.awayTeam, game.homeTeam)
+  }
+
+  // Apply filters to each player's game rows
+  if (filterMinMinutes > 0 || filterVsOpponent || withoutPlayerGameDates) {
+    for (const [playerName, games] of playerStatsMap) {
+      const playerTeam = games[0]?.team
+      const upcomingOpp = todayMatchupMapForFilter.get(playerTeam) ?? null
+
+      const filtered = games.filter((g) => {
+        // Minutes filter: exclude games below threshold
+        if (filterMinMinutes > 0 && g.minutes < filterMinMinutes) return false
+        // Vs opponent filter: only keep games against the upcoming opponent
+        if (filterVsOpponent && upcomingOpp) {
+          if (g.opponent !== upcomingOpp) return false
+        }
+        // Without teammate filter: exclude games where teammate played
+        if (withoutPlayerGameDates && withoutPlayerGameDates.has(g.gameDate)) return false
+        return true
+      })
+
+      if (filtered.length < 3) {
+        // Not enough data after filtering — remove player
+        playerStatsMap.delete(playerName)
+      } else {
+        playerStatsMap.set(playerName, filtered)
+      }
     }
   }
 
@@ -1046,7 +1147,7 @@ async function computeMatchupScopedPropsUncached(
 
   // Step 7: Show both over and under props — sort by projection strength (strongest signal first)
   // Direction filtering is handled at the API/UI layer, not here
-  let filteredProps = props
+  const filteredProps = props
 
   // Sort by projection deviation from prop line (strongest signal first)
   filteredProps.sort((a, b) => {

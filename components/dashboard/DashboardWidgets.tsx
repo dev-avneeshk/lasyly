@@ -47,17 +47,17 @@ export function PillMetric({
   iconBg: string 
 }) {
   return (
-    <div className="bg-[var(--color-dash-surface)] rounded-full p-2 pr-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors">
+    <div className="bg-[var(--color-dash-surface)] rounded-full p-2 pr-4 flex items-center justify-between cursor-pointer hover:bg-[var(--color-border)]/30 transition-colors">
       <div className="flex items-center gap-3">
         <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0", iconBg)}>
-          <Icon className={cn("w-5 h-5", iconBg.includes('lime') ? 'text-black' : 'text-white')} />
+          <Icon className={cn("w-5 h-5", iconBg.includes('lime') ? 'text-black' : 'text-[var(--color-text-primary)]')} />
         </div>
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-[var(--color-text-muted)] font-medium">{title}</span>
-            <span className="text-[8px] bg-white/10 text-white px-1.5 py-0.5 rounded-sm">{trend}</span>
+            <span className="text-[8px] bg-[var(--color-border)]/50 text-[var(--color-text-primary)] px-1.5 py-0.5 rounded-sm">{trend}</span>
           </div>
-          <span className="text-base font-bold text-white leading-tight">{value}</span>
+          <span className="text-base font-bold text-[var(--color-text-primary)] leading-tight">{value}</span>
         </div>
       </div>
       <ArrowUpRight className="w-3 h-3 text-[var(--color-text-muted)]" />
@@ -194,7 +194,7 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
   return (
     <div className="bg-[var(--color-dash-surface)] rounded-2xl p-4 h-full min-h-[200px]">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-semibold text-white">Transactions</h3>
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Transactions</h3>
         <button><span className="text-lg leading-none text-[var(--color-text-muted)]">≡</span></button>
       </div>
 
@@ -203,28 +203,28 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
           <p className="text-sm text-[var(--color-text-muted)] py-4 text-center">No transactions yet.</p>
         ) : (
           transactions.map(t => (
-          <div key={t.id} className="flex items-center justify-between bg-white/5 p-2 rounded-xl">
+          <div key={t.id} className="flex items-center justify-between bg-[var(--color-border)]/20 p-2 rounded-xl">
             <div className="flex items-center gap-3">
-              <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0", t.isPositive ? "bg-[var(--color-lime)] text-black" : "bg-white/10 text-white")}>
+              <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0", t.isPositive ? "bg-[var(--color-lime)] text-black" : "bg-[var(--color-border)]/30 text-[var(--color-text-primary)]")}>
                 <span className="font-bold">$</span>
               </div>
               <div>
-                <div className="text-[11px] font-bold text-white">{t.type}</div>
+                <div className="text-[11px] font-bold text-[var(--color-text-primary)]">{t.type}</div>
                 <div className="flex items-center gap-1 mt-0.5">
                   <div className="flex -space-x-1.5">
                     {t.avatars.map((avatar, i) => (
-                      <img key={i} src={avatar} className="w-4 h-4 rounded-full border border-black" />
+                      <img key={i} src={avatar} className="w-4 h-4 rounded-full border border-[var(--color-surface)]" />
                     ))}
                   </div>
                   {t.badge && (
-                    <span className="text-[9px] bg-white text-black px-1.5 rounded-full font-bold ml-1">{t.badge}</span>
+                    <span className="text-[9px] bg-[var(--color-text-primary)] text-[var(--color-surface)] px-1.5 rounded-full font-bold ml-1">{t.badge}</span>
                   )}
                 </div>
               </div>
             </div>
             <div className="text-right">
               <div className="text-[8px] text-[var(--color-text-muted)] mb-1">{t.date}</div>
-              <div className={cn("text-sm font-bold", t.isPositive ? "text-[var(--color-lime)]" : "text-white")}>
+              <div className={cn("text-sm font-bold", t.isPositive ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]")}>
                 {t.isPositive ? '+' : '-'}{Math.abs(t.amount)}
               </div>
             </div>

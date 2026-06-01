@@ -58,6 +58,13 @@ jobs:
             scripts/logs/
           retention-days: 7
 
+      - name: Settle parlay legs with new stats
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.SITE_URL }}/api/cron/settle-parlays" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" || true
+
   # ─── 2. Tennis ───────────────────────────────────────────────────────────────
   scrape-tennis:
     name: Tennis — Active Tournaments

@@ -5,14 +5,14 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { sanitizeText, isSpamMessage } from "@/lib/sanitize"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
-const MESSAGE_TTL_HOURS = 24
+const MESSAGE_TTL_DAYS = 30
 
 const messageSchema = z.object({
   content: z.string().min(1).max(1000),
 })
 
 export const GET = withSecurity(async (
-  _request: Request,
+  request: Request,
   context?: { params: Promise<Record<string, string>> }
 ) => {
   const { roomId } = await context!.params
@@ -47,9 +47,14 @@ export const GET = withSecurity(async (
     }
   }
 
-  const cutoff = new Date(Date.now() - MESSAGE_TTL_HOURS * 60 * 60 * 1000).toISOString()
+  const cutoff = new Date(Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
-  const { data: messages, error } = await supabase
+  // Support cursor-based pagination for older messages
+  const url = new URL(request.url)
+  const cursor = url.searchParams.get("before") // ISO timestamp cursor
+  const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 100)
+
+  let query = supabase
     .from("messages")
     .select(`
       id,
@@ -61,8 +66,14 @@ export const GET = withSecurity(async (
     `)
     .eq("room_id", roomId)
     .gte("created_at", cutoff)
-    .order("created_at", { ascending: true })
-    .limit(50)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (cursor) {
+    query = query.lt("created_at", cursor)
+  }
+
+  const { data: messages, error } = await query
 
   if (error) {
     return NextResponse.json({ error: "Failed to fetch messages." }, { status: 500 })
@@ -86,7 +97,15 @@ export const GET = withSecurity(async (
     }
   })
 
-  return NextResponse.json({ messages: formatted })
+  // Reverse so oldest is first (we fetched DESC for cursor pagination)
+  formatted.reverse()
+
+  const hasMore = (messages ?? []).length === limit
+  const nextCursor = hasMore && messages && messages.length > 0
+    ? messages[messages.length - 1].created_at
+    : null
+
+  return NextResponse.json({ messages: formatted, hasMore, nextCursor })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 export const POST = withSecurity(async (
@@ -123,6 +142,16 @@ export const POST = withSecurity(async (
   if (!burstCheck.allowed) {
     return NextResponse.json(
       { error: "You're sending messages too fast. Please wait a moment." },
+      { status: 429 }
+    )
+  }
+
+  // Global flood protection: max 30 messages per 5 minutes across all rooms
+  const floodKey = `chat-flood:${user.id}`
+  const floodCheck = checkRateLimit(floodKey, RATE_LIMITS.chatFlood)
+  if (!floodCheck.allowed) {
+    return NextResponse.json(
+      { error: "You've sent too many messages. Please wait a few minutes." },
       { status: 429 }
     )
   }
@@ -164,6 +193,23 @@ export const POST = withSecurity(async (
   if (!membership) {
     return NextResponse.json(
       { error: "You must be a member of this room to send messages." },
+      { status: 403 }
+    )
+  }
+
+  // Check if user is muted
+  const { data: muteCheck } = await supabase
+    .from("room_mutes")
+    .select("muted_until")
+    .eq("room_id", roomId)
+    .eq("user_id", user.id)
+    .gt("muted_until", new Date().toISOString())
+    .maybeSingle()
+
+  if (muteCheck) {
+    const until = new Date(muteCheck.muted_until).toLocaleString()
+    return NextResponse.json(
+      { error: `You are muted in this room until ${until}.` },
       { status: 403 }
     )
   }

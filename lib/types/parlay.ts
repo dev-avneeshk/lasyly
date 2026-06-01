@@ -16,6 +16,7 @@ export interface Parlay {
   stake: number | null
   custom_note: string | null
   combined_hit_rate: number | null
+  is_logged: boolean
   created_at: string
   resolved_at: string | null
 }
@@ -30,6 +31,8 @@ export interface ParlayLeg {
   l10_hit_rate: number | null
   leg_order: number
   sport: string
+  result?: "pending" | "won" | "lost" | "push"
+  game_id?: string | null
 }
 
 // --- Composite Types ---
@@ -85,6 +88,7 @@ export interface SaveParlayPayload {
   stake: number | null
   custom_note: string | null
   combined_hit_rate: number | null
+  is_logged?: boolean
 }
 
 // --- Component Props Types ---

@@ -20,9 +20,11 @@ function getDateRange(): { label: string; date: string; isToday: boolean; dayNam
   for (let i = -1; i <= 1; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
+    // Use local date string (YYYY-MM-DD) to match user's actual day
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
     result.push({
       label: i === 0 ? "Today" : i === -1 ? "Yesterday" : "Tomorrow",
-      date: d.toISOString().split("T")[0],
+      date: dateStr,
       isToday: i === 0,
       dayName: days[d.getDay()],
     })

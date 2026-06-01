@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { z } from "zod"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 
 const signupSchema = z.object({
   userId: z.string().uuid(),
@@ -30,6 +31,16 @@ const signupSchema = z.object({
  * Duplicate calls are safe: we use upsert with conflict on id.
  */
 export async function POST(request: Request) {
+  // Rate limit signup attempts to prevent abuse under high concurrency
+  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+  const rateCheck = checkRateLimit(`signup:${clientIp}`, RATE_LIMITS.auth)
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "Too many signup attempts. Please wait a moment." },
+      { status: 429 }
+    )
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -83,6 +94,13 @@ export async function POST(request: Request) {
   )
 
   if (error) {
+    // Handle unique constraint violation on username (concurrent signup race)
+    if (error.code === "23505" && error.message?.includes("username")) {
+      return NextResponse.json(
+        { error: "This username was just taken. Please choose another." },
+        { status: 409 }
+      )
+    }
     console.error("Profile creation error:", error.message, error.code, error.details)
     return NextResponse.json(
       { error: `Profile creation failed: ${error.message} (code: ${error.code})` },

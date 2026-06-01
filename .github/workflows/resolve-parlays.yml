@@ -1,0 +1,15 @@
+name: Resolve Parlays
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # Every 2 hours
+  workflow_dispatch:
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger parlay settlement
+        run: |
+          curl -X POST "${{ secrets.SITE_URL }}/api/cron/resolve-parlays" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"

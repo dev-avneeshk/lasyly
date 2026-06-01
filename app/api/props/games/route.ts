@@ -15,8 +15,8 @@ export const GET = withSecurity(async (request: Request) => {
   const injectionCheck = checkQueryParams({ sport: searchParams.get("sport"), date: dateParam })
   if (injectionCheck) return injectionCheck
 
-  // Use date param or default to today
-  const targetDate = dateParam ?? new Date().toISOString().split("T")[0]
+  // Use date param or default to today in US Eastern Time (NBA/sports schedules use ET)
+  const targetDate = dateParam ?? new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
   const cacheKey = `games:${sport}:${targetDate}`
 
   const games = await cached(cacheKey, () => fetchGames(sport, targetDate), GAMES_CACHE_TTL)

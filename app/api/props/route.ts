@@ -7,6 +7,7 @@ import { computeTeamProps, TeamPropStat } from "@/lib/analytics/engine-team-prop
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
 import { AdvancedFilterState } from "@/lib/analytics/types"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -61,10 +62,11 @@ const VALID_SPORTS = new Set(["NBA", "Tennis", "Soccer", "NFL", "NHL"])
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns today's date in UTC as YYYY-MM-DD.
+ * Returns today's date in US Eastern Time as YYYY-MM-DD.
+ * NBA games are scheduled in ET, so we use ET to match game_date in the database.
  */
-function getTodayUTC(): string {
-  return new Date().toISOString().split("T")[0]
+function getTodayET(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
 }
 
 /**
@@ -95,6 +97,10 @@ export const GET = withSecurity(async (request: Request) => {
   const direction = (searchParams.get("direction") ?? "all") as "over" | "under" | "all"
   const hitRateMin = Math.max(0, Math.min(100, parseInt(searchParams.get("hitRateMin") ?? "0", 10) || 0))
   const hitRateMax = Math.max(0, Math.min(100, parseInt(searchParams.get("hitRateMax") ?? "100", 10) || 100))
+
+  // ─── NBA-specific Filter Parameters ────────────────────────────────────────
+  const minMinutes = Math.max(0, Math.min(48, parseInt(searchParams.get("minMinutes") ?? "0", 10) || 0))
+  const vsOpponent = searchParams.get("vsOpponent") === "true"
 
   // ─── Injection Check ────────────────────────────────────────────────────────
   const injectionCheck = checkQueryParams({
@@ -160,11 +166,13 @@ export const GET = withSecurity(async (request: Request) => {
     direction,
     hitRateMin,
     hitRateMax,
+    minMinutes,
+    vsOpponent,
   }
 
   // ─── NBA Path: Use Engine V2 ───────────────────────────────────────────────
   if (sport === "NBA") {
-    const todayDate = getTodayUTC()
+    const todayDate = getTodayET()
 
     // When stat=all, fetch top stat categories in parallel and merge
     const nbaStatsToFetch = stat === "all"
@@ -172,7 +180,8 @@ export const GET = withSecurity(async (request: Request) => {
       : [stat]
 
     // Cache NBA props for 30 seconds to avoid recomputing on every request
-    const nbaCacheKey = `nba-props:${stat}:${direction}:${matchup ?? "all"}:${todayDate}`
+    const filterKey = `${minMinutes}-${vsOpponent ? "1" : "0"}-${withoutPlayer.toLowerCase().replace(/\s+/g, "_")}`
+    const nbaCacheKey = `nba-props:${stat}:${direction}:${matchup ?? "all"}:${todayDate}:${filterKey}`
     const results = await cached(nbaCacheKey, () =>
       Promise.all(
         nbaStatsToFetch.map((s) =>
@@ -180,6 +189,9 @@ export const GET = withSecurity(async (request: Request) => {
             direction: direction === "all" ? "over" : direction,
             matchup,
             todayDate,
+            minMinutes,
+            vsOpponent,
+            withoutPlayer,
           })
         )
       ),
@@ -192,28 +204,48 @@ export const GET = withSecurity(async (request: Request) => {
     const fallbackMode = results[0]?.fallbackMode ?? false
     const computeTimeMs = Math.max(...results.map((r) => r.computeTimeMs))
 
+    // If no games today (fallback mode), return empty props instead of showing
+    // stale data from random recent games that aren't actually scheduled
+    if (fallbackMode) {
+      return NextResponse.json({
+        props: [],
+        todayGames: [],
+        fallbackMode: true,
+        meta: {
+          sport,
+          stat,
+          total: 0,
+          timestamp: new Date().toISOString(),
+          computeTimeMs,
+          gamesCount: 0,
+          noGamesToday: true,
+        },
+      })
+    }
+
     // Deduplicate: if same player appears in multiple stats, keep all (they have different IDs)
     let filtered = allProps as any[]
 
     // ─── Activity Filter ────────────────────────────────────────────────────
     // Exclude low-activity players from the default browse view.
     // Rules:
-    //   - Played only 1 game in last 5  → exclude
-    //   - Played only 2 games in last 10 → exclude
-    // This keeps the default feed relevant. Search bypasses this filter so
-    // users can still look up any player directly.
+    //   - Must have at least 3 total games
+    //   - Must have played meaningful minutes (>= 10 min) in at least 3 of last 5 games
+    //   - This filters out DNP / garbage-time-only players (Topić, Biyombo, etc.)
+    // Search bypasses this filter so users can still look up any player directly.
     if (!search || search.length < 2) {
+      const MIN_MEANINGFUL_MINUTES = 10
       filtered = filtered.filter((p: any) => {
         const games: any[] = p.lastGames ?? []
         const totalGames: number = p.hitRate?.total ?? games.length
-        // lastGames is capped at the most recent 10 games.
-        // If total games played < 3, the player has too little activity to show.
-        // Specifically: < 2 in last 5 means they played 0 or 1 out of 5 schedules slots.
-        // We approximate: if total (up to 10) < 3, they fail both thresholds.
+        // Must have at least 3 total games of data
         if (totalGames < 3) return false
-        // Check last-5 specifically: count games in last 5 entries of lastGames
-        const last5Count = Math.min(5, games.length)
-        if (last5Count < 2) return false
+        // Check last 5 games for meaningful playing time (>= 10 min)
+        const last5 = games.slice(-5) // lastGames is chronological (oldest first)
+        const meaningfulCount = last5.filter(
+          (g: any) => g.minutes != null && g.minutes >= MIN_MEANINGFUL_MINUTES
+        ).length
+        if (meaningfulCount < 3) return false
         return true
       })
     }
@@ -248,6 +280,100 @@ export const GET = withSecurity(async (request: Request) => {
     // Apply limit
     const limited = filtered.slice(0, Math.min(limit, 100))
 
+    // ─── Bulk fetch headshot URLs for NBA players ───────────────────────────
+    if (limited.length > 0) {
+      try {
+        const supabase = createAdminClient()
+        const playerNames = [...new Set(limited.map((p: any) => p.player as string))]
+
+        // First try espn_players table
+        const { data: playerRows } = await supabase
+          .from("espn_players")
+          .select("name, espn_id, headshot_url")
+          .in("name", playerNames)
+
+        const headshotMap = new Map<string, string>()
+        if (playerRows && playerRows.length > 0) {
+          for (const row of playerRows as any[]) {
+            const url = row.headshot_url
+              || `https://a.espncdn.com/i/headshots/nba/players/full/${row.espn_id}.png`
+            headshotMap.set(row.name, url)
+          }
+        }
+
+        // For players not found in DB, fetch from ESPN roster API by team
+        const missingPlayers = playerNames.filter((n) => !headshotMap.has(n))
+        if (missingPlayers.length > 0) {
+          // Group missing players by team
+          const teamPlayers = new Map<string, string[]>()
+          for (const prop of limited) {
+            const p = prop as any
+            if (missingPlayers.includes(p.player)) {
+              const team = (p.team ?? "").toLowerCase()
+              if (!teamPlayers.has(team)) teamPlayers.set(team, [])
+              teamPlayers.get(team)!.push(p.player)
+            }
+          }
+
+          // NBA team abbreviation to ESPN slug
+          const NBA_SLUG: Record<string, string> = {
+            atl: "atl", bos: "bos", bkn: "bkn", cha: "cha", chi: "chi",
+            cle: "cle", dal: "dal", den: "den", det: "det", gsw: "gs",
+            hou: "hou", ind: "ind", lac: "lac", lal: "lal", mem: "mem",
+            mia: "mia", mil: "mil", min: "min", nop: "no", nyk: "ny",
+            okc: "okc", orl: "orl", phi: "phi", phx: "phx", por: "por",
+            sac: "sac", sas: "sa", tor: "tor", uta: "utah", was: "wsh",
+          }
+
+          // Fetch rosters in parallel (max 6 teams at a time), cached for 24h
+          const teamEntries = [...teamPlayers.entries()].slice(0, 6)
+          await Promise.allSettled(
+            teamEntries.map(async ([teamAbbr, players]) => {
+              const slug = NBA_SLUG[teamAbbr] ?? teamAbbr
+              const rosterCacheKey = `nba-roster:${slug}`
+              const athletes: any[] = await cached(rosterCacheKey, async () => {
+                const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${slug}/roster`
+                const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+                if (!res.ok) return []
+                const data = await res.json()
+                const result: any[] = []
+                for (const group of data.athletes ?? []) {
+                  if (group.items) result.push(...group.items)
+                  else if (group.id) result.push(group)
+                }
+                return result
+              }, 86_400_000) // 24h cache
+
+              for (const athlete of athletes) {
+                const displayName = athlete.displayName ?? athlete.fullName ?? ""
+                const displayLower = displayName.toLowerCase()
+                const lastNameESPN = displayLower.split(" ").pop() ?? ""
+                for (const p of players) {
+                  if (headshotMap.has(p)) continue
+                  const pLower = p.toLowerCase()
+                  const lastNameP = pLower.split(" ").pop() ?? ""
+                  if (pLower === displayLower || lastNameP === lastNameESPN) {
+                    const espnId = String(athlete.id)
+                    headshotMap.set(p, `https://a.espncdn.com/i/headshots/nba/players/full/${espnId}.png`)
+                  }
+                }
+              }
+            })
+          )
+        }
+
+        // Apply headshots to props
+        for (const prop of limited) {
+          const p = prop as any
+          if (!p.headshotUrl) {
+            p.headshotUrl = headshotMap.get(p.player) ?? null
+          }
+        }
+      } catch {
+        // Non-critical — props still work without headshots
+      }
+    }
+
     return NextResponse.json({
       props: limited,
       todayGames,
@@ -271,6 +397,41 @@ export const GET = withSecurity(async (request: Request) => {
 
     // Soccer is TEAM PROPS ONLY — always route through team props engine
     if (sport === "Soccer") {
+      // First check if there are games today — if not, return empty
+      const todayET = getTodayET()
+      const adminClient = createAdminClient()
+      const { data: todayGamesCheck } = await adminClient
+        .from("espn_games")
+        .select("home_team, away_team")
+        .in("league", ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "usa.1"])
+        .eq("match_date", todayET)
+        .in("status", ["scheduled", "in_progress"])
+        .limit(50)
+
+      const todaySoccerTeams = new Set<string>()
+      if (todayGamesCheck && todayGamesCheck.length > 0) {
+        for (const g of todayGamesCheck) {
+          todaySoccerTeams.add(g.home_team)
+          todaySoccerTeams.add(g.away_team)
+        }
+      }
+
+      // If no soccer games today, return empty props
+      if (todaySoccerTeams.size === 0) {
+        return NextResponse.json({
+          props: [],
+          meta: {
+            sport,
+            stat,
+            total: 0,
+            timestamp: new Date().toISOString(),
+            computeTimeMs: 0,
+            isTeamProps: true,
+            noGamesToday: true,
+          },
+        })
+      }
+
       // Map "all" and player stat keys to team prop equivalents
       const soccerTeamStatsMap: Record<string, string[]> = {
         all: ["team_totalGoals", "team_matchGoals", "team_cards", "team_corners"],
@@ -300,6 +461,9 @@ export const GET = withSecurity(async (request: Request) => {
 
       let teamFiltered = teamResults.flatMap((r) => r.props) as any[]
       const teamComputeTimeMs = Math.max(...teamResults.map((r) => r.computeTimeMs))
+
+      // Only show teams that have a game today
+      teamFiltered = teamFiltered.filter((p: any) => todaySoccerTeams.has(p.team))
 
       // Apply direction filter
       if (direction && direction !== "all") {

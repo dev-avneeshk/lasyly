@@ -170,6 +170,21 @@ class TennisDatabase:
             ).execute()
             return True
         except Exception as e:
+            # If the error is a type mismatch (columns still INTEGER), retry with int-cast values
+            err_msg = str(e)
+            if "22P02" in err_msg and "integer" in err_msg:
+                try:
+                    int_stats = dict(stats)
+                    for col in ("games_won", "games_lost", "sets_won", "sets_lost", "win_pct"):
+                        if col in int_stats and int_stats[col] is not None:
+                            int_stats[col] = int(round(float(int_stats[col])))
+                    self.client.table("tennis_raw_stats").upsert(
+                        int_stats, on_conflict="player_name,surface,stat_year"
+                    ).execute()
+                    return True
+                except Exception as e2:
+                    self.logger.error(f"DB raw stats upsert failed (retry): {e2}")
+                    return False
             self.logger.error(f"DB raw stats upsert failed: {e}")
             return False
 

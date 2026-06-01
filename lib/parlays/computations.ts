@@ -97,6 +97,7 @@ export function computeStreak(parlays: ParlayWithLegs[]): {
 
 /**
  * Compute comprehensive parlay statistics.
+ * Excludes parlays with is_logged=true from stats computation.
  *
  * - win_rate = (won / (won + lost)) × 100 rounded to 1 decimal. null when both are 0.
  * - net_profit_loss = sum of (stake × (odds - 1)) for won parlays minus sum of stake for lost parlays.
@@ -108,10 +109,13 @@ export function computeStreak(parlays: ParlayWithLegs[]): {
  * - by_leg_count: bucket parlays into "2-leg", "3-leg", "4+-leg". Win rate per bucket = won/total resolved in bucket, rounded to nearest integer. null if no resolved in bucket.
  */
 export function computeParlayStats(parlays: ParlayWithLegs[]): ParlayStats {
-  const total = parlays.length
-  const won = parlays.filter((p) => p.status === "won").length
-  const lost = parlays.filter((p) => p.status === "lost").length
-  const pending = parlays.filter((p) => p.status === "pending").length
+  // Filter out logged parlays from stats computation
+  const statsParlays = parlays.filter((p) => !p.is_logged)
+
+  const total = statsParlays.length
+  const won = statsParlays.filter((p) => p.status === "won").length
+  const lost = statsParlays.filter((p) => p.status === "lost").length
+  const pending = statsParlays.filter((p) => p.status === "pending").length
 
   // Win rate
   const win_rate =
@@ -122,7 +126,7 @@ export function computeParlayStats(parlays: ParlayWithLegs[]): ParlayStats {
   // Net profit/loss — only parlays with both stake and odds defined
   let profit = 0
   let lossSum = 0
-  for (const p of parlays) {
+  for (const p of statsParlays) {
     if (p.stake != null && p.odds != null) {
       if (p.status === "won") {
         profit += p.stake * (p.odds - 1)
@@ -137,16 +141,16 @@ export function computeParlayStats(parlays: ParlayWithLegs[]): ParlayStats {
   const avg_legs =
     total === 0
       ? null
-      : Math.round((parlays.reduce((sum, p) => sum + p.legs.length, 0) / total) * 10) / 10
+      : Math.round((statsParlays.reduce((sum, p) => sum + p.legs.length, 0) / total) * 10) / 10
 
   // Most common sport
-  const most_common_sport = computeMostCommonSport(parlays)
+  const most_common_sport = computeMostCommonSport(statsParlays)
 
   // Streaks
-  const { best, current } = computeStreak(parlays)
+  const { best, current } = computeStreak(statsParlays)
 
   // By leg count buckets
-  const by_leg_count = computeByLegCount(parlays)
+  const by_leg_count = computeByLegCount(statsParlays)
 
   return {
     total,

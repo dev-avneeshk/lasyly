@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { validateCreateParlay } from "@/lib/parlays/validation"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
@@ -117,6 +118,64 @@ export const POST = withSecurity(async (request: Request) => {
     stake?: number | null
     custom_note?: string | null
     combined_hit_rate?: number | null
+    is_logged?: boolean
+  }
+
+  // Server-side player validation: verify players exist in our database
+  const adminClient = createAdminClient()
+  const nbaPlayers = payload.legs.filter((l) => l.sport === "NBA").map((l) => l.player_name)
+  const tennisPlayers = payload.legs.filter((l) => l.sport === "Tennis").map((l) => l.player_name)
+
+  const invalidPlayers: string[] = []
+
+  if (nbaPlayers.length > 0) {
+    const uniqueNba = [...new Set(nbaPlayers)]
+    const { data: foundNba } = await adminClient
+      .from("nba_player_stats")
+      .select("player_name")
+      .in("player_name", uniqueNba)
+      .limit(uniqueNba.length)
+
+    const foundNames = new Set((foundNba ?? []).map((r: { player_name: string }) => r.player_name))
+    for (const name of uniqueNba) {
+      if (!foundNames.has(name)) {
+        invalidPlayers.push(name)
+      }
+    }
+  }
+
+  if (tennisPlayers.length > 0) {
+    const uniqueTennis = [...new Set(tennisPlayers)]
+    const { data: foundTennis } = await adminClient
+      .from("tennis_matches")
+      .select("player1_name, player2_name")
+      .or(uniqueTennis.map((n) => `player1_name.eq.${n},player2_name.eq.${n}`).join(","))
+      .limit(uniqueTennis.length * 2)
+
+    const foundTennisNames = new Set<string>()
+    for (const row of foundTennis ?? []) {
+      foundTennisNames.add((row as { player1_name: string; player2_name: string }).player1_name)
+      foundTennisNames.add((row as { player1_name: string; player2_name: string }).player2_name)
+    }
+    for (const name of uniqueTennis) {
+      if (!foundTennisNames.has(name)) {
+        invalidPlayers.push(name)
+      }
+    }
+  }
+
+  if (invalidPlayers.length > 0) {
+    return NextResponse.json(
+      {
+        error: "Validation failed.",
+        code: "VALIDATION_ERROR",
+        details: invalidPlayers.map((name) => ({
+          field: "legs.player_name",
+          message: `Player "${name}" not found in our database. Please select a player from the analysis page.`,
+        })),
+      },
+      { status: 400 }
+    )
   }
 
   // Insert parlay row
@@ -129,6 +188,7 @@ export const POST = withSecurity(async (request: Request) => {
       stake: payload.stake ?? null,
       custom_note: payload.custom_note ?? null,
       combined_hit_rate: payload.combined_hit_rate ?? null,
+      is_logged: payload.is_logged ?? false,
       status: "pending",
     })
     .select()

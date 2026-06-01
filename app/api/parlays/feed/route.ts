@@ -6,16 +6,6 @@ import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/ro
 
 export const GET = withSecurity(async (request: Request) => {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Authentication required." },
-      { status: 401 }
-    )
-  }
 
   // Parse query params
   const url = new URL(request.url)
@@ -82,6 +72,11 @@ export const GET = withSecurity(async (request: Request) => {
   const { data: parlays, error: parlaysError } = await query
 
   if (parlaysError) {
+    // If table doesn't exist yet, return empty feed instead of error
+    if (parlaysError.code === "PGRST205" || parlaysError.code === "42P01") {
+      return NextResponse.json({ parlays: [], nextCursor: null })
+    }
+    console.error("[parlays/feed] Query error:", parlaysError.message, parlaysError.code)
     return NextResponse.json(
       { error: "Failed to fetch feed." },
       { status: 500 }

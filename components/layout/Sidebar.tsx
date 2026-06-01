@@ -4,7 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, PieChart, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, PieChart, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -13,11 +13,13 @@ const navItems = [
   { icon: Trophy, label: "Live Scores", href: "/scores", comingSoon: false },
   { icon: Newspaper, label: "News", href: "/news", comingSoon: false },
   { icon: Target, label: "Props", href: "/analysis", comingSoon: false },
-  { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: true },
-  { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: true },
-  { icon: PieChart, label: "Dashboard", href: "/dashboard", comingSoon: true },
+  { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: false },
+  { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: false },
+  { icon: PieChart, label: "Dashboard", href: "/dashboard", comingSoon: false },
+  { icon: Medal, label: "Leaderboard", href: "/leaderboard", comingSoon: false },
+  { icon: Store, label: "Tipsters", href: "/marketplace", comingSoon: false },
   { icon: Wallet, label: "Wallet", href: "/wallet", comingSoon: true },
-  { icon: User, label: "Profile", href: "/profile", comingSoon: true },
+  { icon: User, label: "Profile", href: "/profile", comingSoon: false },
 ]
 
 export default function Sidebar() {
@@ -47,7 +49,7 @@ export default function Sidebar() {
       <div className={cn("flex items-center gap-3 mb-10", collapsed ? "justify-center px-0" : "px-2")}>
         <div className="w-9 h-9 rounded-xl bg-[var(--color-lime)] shadow-[0_0_20px_rgba(212,255,0,0.3)] flex items-center justify-center flex-shrink-0 overflow-hidden">
           <Image
-            src="/lasyly_logo.png"
+            src="/lasyly_logo_128.png"
             alt="Lasyly"
             width={36}
             height={36}
@@ -56,7 +58,7 @@ export default function Sidebar() {
           />
         </div>
         {!collapsed && (
-          <span className="text-lg font-black text-white tracking-tight">las<span className="text-[var(--color-lime)]">yly</span></span>
+          <span className="text-lg font-black text-[var(--color-text-primary)] tracking-tight">las<span className="text-[var(--color-lime)]">yly</span></span>
         )}
       </div>
 
@@ -75,8 +77,8 @@ export default function Sidebar() {
                 isActive 
                   ? "bg-[var(--color-lime)]/10 text-[var(--color-lime)] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]" 
                   : item.comingSoon
-                  ? "text-[var(--color-text-muted)]/50 hover:text-white/60 hover:bg-white/5"
-                  : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5"
+                  ? "text-[var(--color-text-muted)]/50 hover:text-[var(--color-text-primary)]/60 hover:bg-[var(--color-border)]/20"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/20"
               )}
             >
               {isActive && (
@@ -117,7 +119,7 @@ export default function Sidebar() {
           type="button"
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            "flex items-center gap-4 w-full rounded-xl text-[var(--color-text-muted)] hover:text-white hover:bg-white/5 transition-colors",
+            "flex items-center gap-4 w-full rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/20 transition-colors",
             collapsed ? "justify-center px-0 py-3" : "px-4 py-3"
           )}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}

@@ -38,6 +38,21 @@ export const POST = withSecurity(async (
     )
   }
 
+  // Check if user is banned from this room
+  const { data: banCheck } = await supabase
+    .from("room_bans")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (banCheck) {
+    return NextResponse.json(
+      { error: "You are banned from this room." },
+      { status: 403 }
+    )
+  }
+
   const { data: existing, error: lookupError } = await supabase
     .from("room_members")
     .select("id")
@@ -91,7 +106,7 @@ export const POST = withSecurity(async (
     .select("*", { count: "exact", head: true })
     .eq("room_id", roomId)
 
-  invalidateCachePrefix(`feed-graph:${user.id}`)
+  invalidateCachePrefix(`feed-graph:${user.id}`).catch(() => {})
 
   return NextResponse.json({
     joined: !existing,

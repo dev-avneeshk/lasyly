@@ -9,8 +9,9 @@ export interface GaugeSegment {
   icon: string
 }
 
-export function GaugeChart({ segments, totalLabel }: { segments: GaugeSegment[], totalLabel: string }) {
+export function GaugeChart({ segments, totalLabel, totalValue }: { segments: GaugeSegment[], totalLabel: string, totalValue?: number }) {
   const total = segments.reduce((sum, s) => sum + s.value, 0)
+  const displayValue = totalValue ?? total
   const radius = 90
   const pathLength = Math.PI * radius // approx 282.74
 
@@ -77,7 +78,7 @@ export function GaugeChart({ segments, totalLabel }: { segments: GaugeSegment[],
       </svg>
       
       <div className="absolute bottom-8 flex flex-col items-center">
-        <span className="text-3xl font-black text-white">${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        <span className="text-3xl font-black text-white">${displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         <span className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-widest mt-1">{totalLabel}</span>
       </div>
     </div>

@@ -19,7 +19,7 @@ export default function TermsOfServicePage() {
       <h2>1. Eligibility</h2>
       <ul>
         <li>You must be at least 18 years old to use Lasyly.</li>
-        <li>You must comply with all applicable laws in your jurisdiction regarding sports betting and related activities.</li>
+        <li>You must comply with all applicable laws in your jurisdiction regarding sports analytics and related activities.</li>
         <li>You are responsible for ensuring that your use of Lasyly does not violate any local, state, or national laws.</li>
       </ul>
 
@@ -38,21 +38,21 @@ export default function TermsOfServicePage() {
         <li>We do not accept, place, or facilitate bets or wagers.</li>
         <li>We do not offer odds, accept stakes, or pay out winnings.</li>
         <li>Prop lines displayed on the platform are computed from historical player performance data for informational and analytical purposes only.</li>
-        <li>Any betting decisions you make based on information from Lasyly are entirely your own responsibility.</li>
+        <li>Any decisions you make based on information from Lasyly are entirely your own responsibility.</li>
         <li>We do not guarantee the accuracy, completeness, or timeliness of any analytics, scores, or data displayed.</li>
       </ul>
 
-      <h2>4. Tipster Marketplace</h2>
+      <h2>4. Pick Marketplace</h2>
       <h3>4.1 For Buyers</h3>
       <ul>
         <li>Purchases of premium picks are made using wallet credits and are non-refundable once the pick is revealed.</li>
-        <li>Tipster picks are opinions and analysis — not guaranteed outcomes.</li>
-        <li>Past performance of a tipster does not guarantee future results.</li>
+        <li>Premium picks are opinions and analysis — not guaranteed outcomes.</li>
+        <li>Past performance of a seller does not guarantee future results.</li>
       </ul>
-      <h3>4.2 For Tipsters</h3>
+      <h3>4.2 For Sellers</h3>
       <ul>
-        <li>Tipsters earn 85% of the purchase price; Lasyly retains a 15% platform fee.</li>
-        <li>Tipsters must provide honest analysis. Deliberately misleading picks or manipulation of performance stats will result in account termination.</li>
+        <li>Sellers earn 85% of the purchase price; Lasyly retains a 15% platform fee.</li>
+        <li>Sellers must provide honest analysis. Deliberately misleading picks or manipulation of performance stats will result in account termination.</li>
         <li>Earnings are subject to applicable tax obligations in your jurisdiction. You are responsible for reporting your income.</li>
         <li>We reserve the right to adjust the revenue split with 30 days&apos; notice.</li>
       </ul>
@@ -71,7 +71,7 @@ export default function TermsOfServicePage() {
       <p>You agree not to:</p>
       <ul>
         <li>Post spam, harassment, hate speech, or illegal content in rooms or chat</li>
-        <li>Impersonate other users, tipsters, or Lasyly staff</li>
+        <li>Impersonate other users, sellers, or Lasyly staff</li>
         <li>Attempt to manipulate analytics, hit rates, or leaderboard rankings</li>
         <li>Scrape, crawl, or programmatically access the Service without permission</li>
         <li>Reverse engineer, decompile, or attempt to extract source code</li>
@@ -99,8 +99,8 @@ export default function TermsOfServicePage() {
       <ul>
         <li>The Service is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind.</li>
         <li>We do not guarantee uninterrupted access, accuracy of data, or specific outcomes from using our analytics.</li>
-        <li>Sports data, prop lines, and analytics are for informational purposes only and should not be considered financial or betting advice.</li>
-        <li>We are not responsible for any losses incurred from betting decisions made using information from the Service.</li>
+        <li>Sports data, prop lines, and analytics are for informational purposes only and should not be considered financial advice.</li>
+        <li>We are not responsible for any losses incurred from decisions made using information from the Service.</li>
       </ul>
 
       <h2>9. Limitation of Liability</h2>

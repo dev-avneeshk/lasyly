@@ -89,8 +89,10 @@ export function PropCard({
           <p className="text-sm font-semibold text-white truncate">{prop.player}</p>
           <p className="text-xs text-[var(--color-text-muted)]">
             {prop.sport === "Soccer" || (prop as any).isTeamProp || (prop as any).position === "Team"
-              ? `${(prop as any).league || ""} · Team${prop.upcomingOpponent ? ` · vs ${prop.upcomingOpponent}` : ""}`
-              : `${prop.team} · ${(prop as any).position || ""}`
+              ? `${(prop as any).league || ""} · Team${(prop.upcomingOpponent || prop.matchup) ? ` · vs ${prop.upcomingOpponent || prop.matchup}` : ""}`
+              : prop.sport === "Tennis"
+              ? `${prop.team}${(prop.upcomingOpponent || prop.matchup) ? ` · vs ${prop.upcomingOpponent || prop.matchup}` : ""}`
+              : `${prop.team}${(prop as any).position ? ` · ${(prop as any).position}` : ""}${(prop.upcomingOpponent || prop.matchup) ? ` · vs ${prop.upcomingOpponent || prop.matchup}` : ""}`
             }
           </p>
         </div>

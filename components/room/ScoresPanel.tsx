@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Radio, Trophy, X } from "lucide-react"
+import { Plus, X, Trophy } from "lucide-react"
 import { LiveMatch } from "@/types"
+import { cn } from "@/lib/utils"
 
 type RoomMatch = {
   id: string
@@ -18,6 +19,15 @@ type ScoresPanelProps = {
   isOwner?: boolean
 }
 
+const SPORTS = [
+  { label: "All", emoji: "◎" },
+  { label: "Football", emoji: "⚽" },
+  { label: "Basketball", emoji: "🏀" },
+  { label: "Tennis", emoji: "🎾" },
+  { label: "American Football", emoji: "🏈" },
+  { label: "Hockey", emoji: "🏒" },
+]
+
 export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProps) {
   const [allMatches, setAllMatches] = useState<LiveMatch[]>([])
   const [roomMatches, setRoomMatches] = useState<RoomMatch[]>([])
@@ -25,21 +35,6 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
   const [showPicker, setShowPicker] = useState(false)
   const [activeSport, setActiveSport] = useState("All")
 
-  const sports = [
-    { label: "All", symbol: "◎" },
-    { label: "Football", symbol: "⚽" },
-    { label: "Basketball", symbol: "🏀" },
-    { label: "Tennis", symbol: "🎾" },
-    { label: "American Football", symbol: "🏈" },
-    { label: "Hockey", symbol: "🏒" },
-    { label: "Baseball", symbol: "⚾" },
-    { label: "F1", symbol: "🏎️" },
-    { label: "MMA", symbol: "🥊" },
-    { label: "Golf", symbol: "⛳" },
-    { label: "Cricket", symbol: "🏏" },
-  ]
-
-  // Fetch live scores
   const fetchScores = useCallback(async () => {
     try {
       const res = await fetch("/api/scores")
@@ -53,7 +48,6 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
     }
   }, [])
 
-  // Fetch room's pinned matches
   const fetchRoomMatches = useCallback(async () => {
     if (!roomId) return
     try {
@@ -71,7 +65,6 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
     fetchScores()
     fetchRoomMatches()
 
-    // Poll scores only when tab is visible
     let interval: ReturnType<typeof setInterval> | null = null
 
     const startPolling = () => {
@@ -90,7 +83,7 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
       if (document.hidden) {
         stopPolling()
       } else {
-        fetchScores() // Refresh immediately when tab becomes visible
+        fetchScores()
         startPolling()
       }
     }
@@ -104,17 +97,14 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
     }
   }, [fetchScores, fetchRoomMatches])
 
-  // Filter matches: if room has pinned matches, show only those with live data
   const pinnedMatchIds = new Set(roomMatches.map((rm) => rm.match_id))
   const hasRoomMatches = roomMatches.length > 0
 
   let displayMatches: LiveMatch[]
   if (hasRoomMatches) {
-    // Show pinned matches with live score data merged in
     displayMatches = roomMatches.map((rm) => {
       const live = allMatches.find((m) => m.id === rm.match_id)
       if (live) return live
-      // If no live data yet, show as "Not Started"
       return {
         id: rm.match_id,
         homeTeam: rm.home_team,
@@ -130,12 +120,10 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
     displayMatches = allMatches
   }
 
-  // Apply sport filter
   const filteredMatches = activeSport === "All"
     ? displayMatches
     : displayMatches.filter((m) => m.sport === activeSport)
 
-  // Available matches for the picker (not already pinned)
   const availableForPicker = allMatches.filter((m) => !pinnedMatchIds.has(m.id))
 
   const handleAddMatch = async (match: LiveMatch) => {
@@ -166,76 +154,66 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
   }
 
   function getMatchTime(match: LiveMatch) {
+    if (match.status === "Not Started") {
+      return match.startTime
+        ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : "Upcoming"
+    }
     if (match.clock) return match.clock
-    if (match.status === "Not Started") return "Upcoming"
     return match.status
   }
 
   return (
-    <div className="flex min-h-full min-w-0 flex-col overflow-hidden rounded-[1.35rem] border border-[#7957ff]/35 bg-[#110035] text-white shadow-[0_18px_50px_rgba(41,14,116,0.35)]">
+    <div className="p-4">
       {/* Header */}
-      <div className="shrink-0 bg-[linear-gradient(180deg,#190547_0%,#120033_100%)] px-4 pb-3 pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-2xl font-black text-white">
-                {hasRoomMatches ? "Room Matches" : "Live Scores"}
-              </h2>
-              {filteredMatches.some(isLive) && (
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-black text-[#140339]">
-                  <span className="h-2 w-2 rounded-full bg-[#25d65f]" />
-                  Live
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-xs font-medium text-white/45">
-              {hasRoomMatches ? `${roomMatches.length} match${roomMatches.length !== 1 ? "es" : ""} pinned` : "Live odds and scores"}
-            </p>
-          </div>
-          {isOwner && (
-            <button
-              onClick={() => setShowPicker(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-[#7957ff] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#6a4de6] transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add Match
-            </button>
-          )}
-        </div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-[14px] font-bold text-[#f2f3f5]">
+          {hasRoomMatches ? "📌 Pinned Matches" : "🏆 Live Scoreboard"}
+        </h2>
+        {isOwner && (
+          <button
+            onClick={() => setShowPicker(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#5865f2] text-[11px] font-medium text-white hover:bg-[#4752c4] transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            Pin Match
+          </button>
+        )}
+      </div>
 
-        {/* Sport filter tabs */}
-        <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-          {sports.map((sport) => {
-            const isActive = activeSport === sport.label
-            return (
-              <button
-                key={sport.label}
-                type="button"
-                onClick={() => setActiveSport(sport.label)}
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-all ${
-                  isActive
-                    ? "border-transparent bg-[linear-gradient(135deg,#16d89b,#2ca8ff_55%,#7a5cff)] text-white shadow-[0_0_22px_rgba(44,168,255,0.42)]"
-                    : "border-white/10 bg-white/10 text-white/65 hover:bg-white/15 hover:text-white"
-                }`}
-              >
-                <span className="text-xl leading-none">{sport.symbol}</span>
-              </button>
-            )
-          })}
-        </div>
+      {/* Sport filter */}
+      <div className="flex gap-1 flex-wrap mb-4">
+        {SPORTS.map((sport) => (
+          <button
+            key={sport.label}
+            type="button"
+            onClick={() => setActiveSport(sport.label)}
+            className={cn(
+              "px-2.5 py-1 rounded text-[11px] font-medium transition-colors",
+              activeSport === sport.label
+                ? "bg-[#5865f2] text-white"
+                : "bg-[#2b2d31] text-[#949ba4] hover:text-[#dbdee1] hover:bg-[#35373c]"
+            )}
+          >
+            {sport.emoji} {sport.label !== "All" ? sport.label : ""}
+          </button>
+        ))}
       </div>
 
       {/* Match List */}
-      <div className="space-y-3 bg-[#0c0028] p-4 flex-1 overflow-y-auto">
+      <div className="space-y-2">
         {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl border border-white/10 bg-white/10" />
-          ))
+          <div className="text-center py-8">
+            <div className="w-5 h-5 border-2 border-[#5865f2]/30 border-t-[#5865f2] rounded-full animate-spin mx-auto" />
+            <p className="text-[12px] text-[#949ba4] mt-2">Loading scores...</p>
+          </div>
         ) : filteredMatches.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-6 text-center text-sm text-white/55">
-            {hasRoomMatches ? "No matches for this sport filter." : "No live matches available."}
-            {isOwner && !hasRoomMatches && (
-              <p className="mt-2 text-xs">Click &quot;Add Match&quot; to pin matches to this room.</p>
-            )}
+          <div className="text-center py-8">
+            <Trophy className="w-8 h-8 text-[#949ba4] mx-auto mb-2 opacity-50" />
+            <p className="text-[13px] text-[#949ba4]">
+              {hasRoomMatches ? "No matches for this filter." : "No live matches right now."}
+            </p>
+            <p className="text-[11px] text-[#949ba4]/60 mt-1">Check back during game time.</p>
           </div>
         ) : (
           filteredMatches.map((match) => (
@@ -252,36 +230,43 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
 
       {/* Match Picker Modal */}
       {showPicker && (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#1c0758] rounded-2xl border border-[#7957ff]/50 w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              <h3 className="font-bold text-white">Select a Match</h3>
-              <button onClick={() => setShowPicker(false)} className="text-white/60 hover:text-white">
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-[#313338] rounded-lg border border-[#1e1f22] w-full max-w-md max-h-[70vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-4 py-3 border-b border-[#1e1f22] flex items-center justify-between">
+              <h3 className="text-[15px] font-bold text-[#f2f3f5]">Pin a Match</h3>
+              <button
+                onClick={() => setShowPicker(false)}
+                className="w-7 h-7 rounded flex items-center justify-center hover:bg-[#35373c] transition-colors"
+              >
+                <X className="w-4 h-4 text-[#b5bac1]" />
               </button>
             </div>
-            <div className="p-4 overflow-y-auto flex-1 space-y-2">
+            <div className="p-3 overflow-y-auto flex-1 space-y-1.5">
               {availableForPicker.length === 0 ? (
-                <p className="text-sm text-white/50 text-center py-6">No available matches to add.</p>
+                <p className="text-[13px] text-[#949ba4] text-center py-8">No available matches to pin.</p>
               ) : (
                 availableForPicker.map((match) => (
                   <button
                     key={match.id}
                     onClick={() => handleAddMatch(match)}
-                    className="w-full p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-left"
+                    className="w-full p-3 rounded bg-[#2b2d31] hover:bg-[#35373c] transition-colors text-left"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm font-bold text-white">{match.homeTeam} vs {match.awayTeam}</div>
-                        <div className="text-xs text-white/50 mt-0.5">{match.league} · {match.sport}</div>
+                        <div className="text-[13px] font-medium text-[#f2f3f5]">
+                          {match.homeTeam} vs {match.awayTeam}
+                        </div>
+                        <div className="text-[11px] text-[#949ba4] mt-0.5">
+                          {match.league} · {match.sport}
+                        </div>
                       </div>
-                      <div className="text-right">
-                        {isLive(match) ? (
-                          <span className="text-xs font-bold text-[#25d65f]">{match.homeScore} - {match.awayScore}</span>
-                        ) : (
-                          <span className="text-xs text-white/40">{getMatchTime(match)}</span>
-                        )}
-                      </div>
+                      {isLive(match) ? (
+                        <span className="text-[12px] font-bold text-[#57f287]">
+                          {match.homeScore} - {match.awayScore}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-[#949ba4]">{getMatchTime(match)}</span>
+                      )}
                     </div>
                   </button>
                 ))
@@ -294,56 +279,79 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
   )
 }
 
-function MatchCard({ match, isOwner, isPinned, onRemove }: { match: LiveMatch; isOwner: boolean; isPinned: boolean; onRemove: () => void }) {
+function MatchCard({
+  match,
+  isOwner,
+  isPinned,
+  onRemove,
+}: {
+  match: LiveMatch
+  isOwner: boolean
+  isPinned: boolean
+  onRemove: () => void
+}) {
   const live = match.status !== "Finished" && match.status !== "Not Started"
-  const clock = match.clock ?? (match.status === "Not Started" ? "Upcoming" : match.status)
+  const clock = match.status === "Not Started"
+    ? (match.startTime ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Upcoming")
+    : (match.clock ?? match.status)
 
   return (
-    <article className="min-w-0 rounded-[1.15rem] bg-[#1b0753] p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] relative group">
+    <div className="rounded-lg bg-[#2b2d31] p-3 relative group hover:bg-[#35373c] transition-colors">
       {isOwner && isPinned && (
         <button
           onClick={onRemove}
-          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/40"
+          className="absolute top-2 right-2 w-5 h-5 rounded bg-[#ed4245]/20 text-[#ed4245] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#ed4245]/30"
         >
           <X className="w-3 h-3" />
         </button>
       )}
 
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="rounded-full bg-[linear-gradient(135deg,#16d89b,#2ca8ff_70%,#7a5cff)] px-2.5 py-0.5 text-xs font-black text-white">
-            {match.sport}
-          </span>
-          <span className="min-w-0 truncate text-xs text-white/60">{match.league}</span>
-        </div>
+      {/* League + Status */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-medium text-[#949ba4] truncate">
+          {match.league}
+        </span>
         {live ? (
-          <Radio className="h-4 w-4 shrink-0 text-[#25d65f] animate-pulse" />
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#ed4245] animate-pulse" />
+            <span className="text-[10px] font-bold text-[#ed4245]">{clock}</span>
+          </div>
         ) : (
-          <Trophy className="h-4 w-4 shrink-0 text-white/40" />
+          <span className="text-[10px] text-[#949ba4]">{clock}</span>
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 space-y-2 flex-1">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-white truncate">{match.homeTeam}</span>
-            <span className={`text-sm font-black ${match.homeScore > match.awayScore ? "text-white" : "text-white/55"}`}>
-              {match.homeScore}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-white truncate">{match.awayTeam}</span>
-            <span className={`text-sm font-black ${match.awayScore > match.homeScore ? "text-white" : "text-white/55"}`}>
-              {match.awayScore}
-            </span>
-          </div>
+      {/* Teams */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <span className={cn(
+            "text-[13px] font-medium truncate pr-2",
+            match.homeScore > match.awayScore ? "text-[#f2f3f5]" : "text-[#949ba4]"
+          )}>
+            {match.homeTeam}
+          </span>
+          <span className={cn(
+            "text-[14px] font-bold tabular-nums",
+            match.homeScore > match.awayScore ? "text-[#f2f3f5]" : "text-[#949ba4]"
+          )}>
+            {match.homeScore}
+          </span>
         </div>
-        <div className="shrink-0 text-right">
-          <span className={`text-[10px] font-black ${live ? "text-[#25d65f]" : "text-white/40"}`}>
-            {clock}
+        <div className="flex items-center justify-between">
+          <span className={cn(
+            "text-[13px] font-medium truncate pr-2",
+            match.awayScore > match.homeScore ? "text-[#f2f3f5]" : "text-[#949ba4]"
+          )}>
+            {match.awayTeam}
+          </span>
+          <span className={cn(
+            "text-[14px] font-bold tabular-nums",
+            match.awayScore > match.homeScore ? "text-[#f2f3f5]" : "text-[#949ba4]"
+          )}>
+            {match.awayScore}
           </span>
         </div>
       </div>
-    </article>
+    </div>
   )
 }

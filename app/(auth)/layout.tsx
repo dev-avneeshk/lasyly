@@ -13,7 +13,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div>
           <Link href="/" className="flex items-center gap-3 mb-16">
             <div className="w-10 h-10 rounded-xl bg-[var(--color-lime)] shadow-[0_0_30px_rgba(212,255,0,0.4)] flex items-center justify-center overflow-hidden">
-              <Image src="/lasyly_logo.png" alt="Lasyly" width={40} height={40} className="w-full h-full object-cover" priority />
+              <Image src="/lasyly_logo_128.png" alt="Lasyly" width={40} height={40} className="w-full h-full object-cover" priority />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">Lasyly</span>
           </Link>
@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <span className="text-white/40">Own the pick.</span>
           </h1>
           <p className="mt-6 text-lg text-white/40 max-w-md leading-relaxed">
-            The social platform for sports bettors. Join rooms, track live scores, and win together in real-time.
+            The social platform for sports fans. Join rooms, track live scores, and win together in real-time.
           </p>
         </div>
 
@@ -36,7 +36,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Mobile logo */}
         <div className="md:hidden flex items-center gap-3 mb-12 justify-center">
           <div className="w-8 h-8 rounded-xl bg-[var(--color-lime)] flex items-center justify-center overflow-hidden">
-            <Image src="/lasyly_logo.png" alt="Lasyly" width={32} height={32} className="w-full h-full object-cover" priority />
+            <Image src="/lasyly_logo_128.png" alt="Lasyly" width={32} height={32} className="w-full h-full object-cover" priority />
           </div>
           <span className="text-xl font-bold text-white tracking-tight">Lasyly</span>
         </div>
