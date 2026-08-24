@@ -56,13 +56,13 @@ export async function GET(request: NextRequest) {
 
         {/* Prop line */}
         <div style={{ display: "flex", alignItems: "baseline", gap: "16px", marginBottom: "48px" }}>
-          <div style={{ color: dirColor, fontSize: "20px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex" }}>{direction}</div>
+          <div style={{ color: dirColor, fontSize: "20px", fontWeight: 700, letterSpacing: "0.1em", display: "flex" }}>{direction.toUpperCase()}</div>
           <div style={{ color: "#D4FF00", fontSize: "72px", fontWeight: 900, display: "flex" }}>{line}</div>
           <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "28px", fontWeight: 600, display: "flex" }}>{stat}</div>
         </div>
 
         {/* Stats row */}
-        <div style={{ display: "flex", gap: "40px", marginBottom: "auto" }}>
+        <div style={{ display: "flex", gap: "40px", marginBottom: "60px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px", fontWeight: 600, letterSpacing: "0.1em", display: "flex" }}>HIT RATE</div>
             <div style={{ color: hitRateColor, fontSize: "36px", fontWeight: 800, display: "flex" }}>{hitRate}%</div>
@@ -75,12 +75,12 @@ export async function GET(request: NextRequest) {
             <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px", fontWeight: 600, letterSpacing: "0.1em", display: "flex" }}>CONFIDENCE</div>
             <div style={{ color: "#D4FF00", fontSize: "28px", display: "flex" }}>{stars}</div>
           </div>
-          {matchupGrade && (
+          {matchupGrade ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px", fontWeight: 600, letterSpacing: "0.1em", display: "flex" }}>MATCHUP</div>
               <div style={{ color: matchupGrade === "A" || matchupGrade === "B" ? "#22c55e" : matchupGrade === "D" || matchupGrade === "F" ? "#ef4444" : "#ffffff", fontSize: "36px", fontWeight: 800, display: "flex" }}>{matchupGrade}</div>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Footer */}
