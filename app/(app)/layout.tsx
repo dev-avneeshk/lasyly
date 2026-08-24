@@ -1,3 +1,4 @@
+import { PushPrompt } from "@/components/notifications/PushPrompt"
 import Sidebar from "@/components/layout/Sidebar"
 import BottomNav from "@/components/layout/BottomNav"
 import TopBar from "@/components/layout/TopBar"
@@ -27,6 +28,7 @@ export default function AppLayout({
         {children}
       </main>
       <BottomNav />
+      <PushPrompt />
     </div>
   )
 }
