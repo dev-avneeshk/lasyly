@@ -13,7 +13,10 @@
     "loadtest": "k6 run load-tests/load.js",
     "loadtest:stress": "k6 run load-tests/stress.js",
     "loadtest:spike": "k6 run load-tests/spike.js",
-    "loadtest:soak": "k6 run load-tests/soak.js"
+    "loadtest:soak": "k6 run load-tests/soak.js",
+    "test:e2e": "vitest run __tests__/e2e/ __tests__/integration/api.test.ts",
+    "test:integration": "vitest run __tests__/integration/",
+    "test:all": "vitest run --config vitest.config.ts --exclude \"\""
   },
   "browserslist": [
     "last 2 Chrome versions",
