@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Plus, BookmarkPlus, Trophy } from "lucide-react"
+import { Plus, BookmarkPlus, Trophy, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
@@ -174,7 +174,7 @@ export function PropCard({
         />
       </div>
 
-      {/* Action Buttons: Add to Parlay + Log Pick */}
+      {/* Action Buttons: Add to Parlay + Log Pick + Share */}
       <div className="mt-auto pt-4 flex items-center gap-2">
         <button
           type="button"
@@ -189,7 +189,7 @@ export function PropCard({
           aria-label="Add to Parlay"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add to Parlay
+          Parlay
         </button>
         <button
           type="button"
@@ -198,7 +198,58 @@ export function PropCard({
           aria-label="Log Pick"
         >
           <BookmarkPlus className="w-3.5 h-3.5" />
-          Log Pick
+          Log
+        </button>
+        <button
+          type="button"
+          onClick={async (e) => {
+            e.stopPropagation()
+            const params = new URLSearchParams({
+              player: prop.player,
+              stat: prop.statCategory,
+              line: String(prop.propLine),
+              hitRate: String(prop.hitRate?.over && prop.hitRate?.total ? Math.round((prop.hitRate.over / prop.hitRate.total) * 100) : 0),
+              direction: prop.direction ?? "over",
+              trend: prop.trend ?? "neutral",
+              confidence: String(prop.confidence?.stars ?? 3),
+              team: prop.team ?? "",
+              sport: prop.sport ?? "NBA",
+              grade: prop.matchupGrade ?? "",
+            })
+            const imageUrl = `/api/props/share-image?${params.toString()}`
+            const playerSlug = prop.player.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+            const pageUrl = `https://www.lasyly.me/players/${playerSlug}`
+            const shareText = `${prop.player} ${(prop.direction ?? "over").toUpperCase()} ${prop.propLine} ${prop.statCategory} — ${prop.hitRate?.over && prop.hitRate?.total ? Math.round((prop.hitRate.over / prop.hitRate.total) * 100) : "?"}% hit rate 🔥\n\nFree prop analytics on Lasyly`
+
+            if (navigator.share) {
+              try {
+                // Try sharing with image (mobile)
+                const res = await fetch(imageUrl)
+                const blob = await res.blob()
+                const file = new File([blob], `${playerSlug}-prop.png`, { type: "image/png" })
+                await navigator.share({ text: shareText, url: pageUrl, files: [file] })
+              } catch {
+                // Fallback: share without image
+                try {
+                  await navigator.share({ text: shareText, url: pageUrl })
+                } catch { /* user cancelled */ }
+              }
+            } else {
+              // Desktop fallback: copy to clipboard
+              try {
+                await navigator.clipboard.writeText(`${shareText}\n${pageUrl}`)
+                // Visual feedback via the parent's toast (if available)
+                const btn = e.currentTarget
+                btn.textContent = "Copied!"
+                setTimeout(() => { btn.innerHTML = '<svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Share' }, 2000)
+              } catch { /* clipboard failed */ }
+            }
+          }}
+          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/5 text-[var(--color-text-secondary)] hover:bg-white/10 border border-[var(--color-border)] transition-colors"
+          aria-label="Share prop card"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          Share
         </button>
       </div>
     </div>
