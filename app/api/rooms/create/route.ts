@@ -32,7 +32,7 @@ export const POST = withSecurity(async (request: Request) => {
   if (validationError) return validationError
 
   // Rate limit room creation
-  const rateCheck = checkRateLimit(`room-create:${user.id}`, RATE_LIMITS.roomCreate)
+  const rateCheck = await checkRateLimit(`room-create:${user.id}`, RATE_LIMITS.roomCreate)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "You can only create 5 rooms per hour." },

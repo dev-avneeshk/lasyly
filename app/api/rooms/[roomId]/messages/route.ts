@@ -128,7 +128,7 @@ export const POST = withSecurity(async (
 
   // Rate limit: 1 message per 2 seconds
   const rateLimitKey = `chat:${user.id}:${roomId}`
-  const rateCheck = checkRateLimit(rateLimitKey, RATE_LIMITS.chat)
+  const rateCheck = await checkRateLimit(rateLimitKey, RATE_LIMITS.chat)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Slow down. You can send 1 message every 2 seconds." },
@@ -138,7 +138,7 @@ export const POST = withSecurity(async (
 
   // Burst limit: max 10 messages per 30 seconds
   const burstKey = `chat-burst:${user.id}:${roomId}`
-  const burstCheck = checkRateLimit(burstKey, RATE_LIMITS.chatBurst)
+  const burstCheck = await checkRateLimit(burstKey, RATE_LIMITS.chatBurst)
   if (!burstCheck.allowed) {
     return NextResponse.json(
       { error: "You're sending messages too fast. Please wait a moment." },
@@ -148,7 +148,7 @@ export const POST = withSecurity(async (
 
   // Global flood protection: max 30 messages per 5 minutes across all rooms
   const floodKey = `chat-flood:${user.id}`
-  const floodCheck = checkRateLimit(floodKey, RATE_LIMITS.chatFlood)
+  const floodCheck = await checkRateLimit(floodKey, RATE_LIMITS.chatFlood)
   if (!floodCheck.allowed) {
     return NextResponse.json(
       { error: "You've sent too many messages. Please wait a few minutes." },

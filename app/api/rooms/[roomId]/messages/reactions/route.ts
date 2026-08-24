@@ -29,7 +29,7 @@ export const POST = withSecurity(async (
   }
 
   // Rate limit: 30 reactions per minute
-  const rateCheck = checkRateLimit(`reactions:${user.id}`, { maxRequests: 30, windowMs: 60000 })
+  const rateCheck = await checkRateLimit(`reactions:${user.id}`, { maxRequests: 30, windowMs: 60000 })
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Too many reactions. Please slow down." },

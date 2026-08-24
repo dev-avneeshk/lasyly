@@ -33,7 +33,7 @@ const signupSchema = z.object({
 export async function POST(request: Request) {
   // Rate limit signup attempts to prevent abuse under high concurrency
   const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-  const rateCheck = checkRateLimit(`signup:${clientIp}`, RATE_LIMITS.auth)
+  const rateCheck = await checkRateLimit(`signup:${clientIp}`, RATE_LIMITS.auth)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Too many signup attempts. Please wait a moment." },

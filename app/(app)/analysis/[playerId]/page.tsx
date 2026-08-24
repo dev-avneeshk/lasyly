@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { cachedFetch } from "@/lib/clientCache"
+import { NHL_TEAM_SLUG_MAP, NFL_TEAM_SLUG_MAP, NBA_ESPN_TEAM_MAP, getTeamLogoUrl } from "@/lib/constants/teams"
+import { PlayerDashboardSkeleton } from "@/components/analysis/PlayerDashboardSkeleton"
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, ReferenceLine,
   ResponsiveContainer, Tooltip, Cell,
@@ -306,36 +308,10 @@ export default function PlayerDashboardPage() {
             .catch(() => {})
         }
         // Also set team logo from ESPN CDN for the corner badge
-        const nhlTeamSlugMap: Record<string, string> = {
-          "carolina hurricanes": "car", "florida panthers": "fla", "dallas stars": "dal",
-          "edmonton oilers": "edm", "new york rangers": "nyr", "winnipeg jets": "wpg",
-          "colorado avalanche": "col", "vegas golden knights": "vgk", "toronto maple leafs": "tor",
-          "boston bruins": "bos", "new jersey devils": "njd", "tampa bay lightning": "tb",
-          "los angeles kings": "la", "minnesota wild": "min", "vancouver canucks": "van",
-          "new york islanders": "nyi", "ottawa senators": "ott", "detroit red wings": "det",
-          "nashville predators": "nsh", "st. louis blues": "stl", "seattle kraken": "sea",
-          "pittsburgh penguins": "pit", "washington capitals": "wsh", "calgary flames": "cgy",
-          "philadelphia flyers": "phi", "montreal canadiens": "mtl", "buffalo sabres": "buf",
-          "utah hockey club": "utah", "columbus blue jackets": "cbj",
-          "chicago blackhawks": "chi", "anaheim ducks": "ana", "san jose sharks": "sj",
-        }
-        const nflTeamSlugMap: Record<string, string> = {
-          "kansas city chiefs": "kc", "buffalo bills": "buf", "baltimore ravens": "bal",
-          "san francisco 49ers": "sf", "detroit lions": "det", "dallas cowboys": "dal",
-          "philadelphia eagles": "phi", "miami dolphins": "mia", "green bay packers": "gb",
-          "cleveland browns": "cle", "houston texans": "hou", "jacksonville jaguars": "jax",
-          "pittsburgh steelers": "pit", "los angeles rams": "lar", "seattle seahawks": "sea",
-          "cincinnati bengals": "cin", "minnesota vikings": "min", "tampa bay buccaneers": "tb",
-          "new york jets": "nyj", "new york giants": "nyg", "los angeles chargers": "lac",
-          "indianapolis colts": "ind", "denver broncos": "den", "atlanta falcons": "atl",
-          "new orleans saints": "no", "chicago bears": "chi", "arizona cardinals": "ari",
-          "washington commanders": "wsh", "tennessee titans": "ten", "carolina panthers": "car",
-          "new england patriots": "ne", "las vegas raiders": "lv",
-        }
         const teamLower = prop.team.toLowerCase()
         const slug = sportParam === "NHL"
-          ? nhlTeamSlugMap[teamLower]
-          : nflTeamSlugMap[teamLower]
+          ? NHL_TEAM_SLUG_MAP[teamLower]
+          : NFL_TEAM_SLUG_MAP[teamLower]
         if (slug) {
           const logoSport = sportParam === "NHL" ? "nhl" : "nfl"
           setTeamLogo(`https://a.espncdn.com/i/teamlogos/${logoSport}/500/${slug}.png`)
@@ -363,15 +339,7 @@ export default function PlayerDashboardPage() {
 
     // Set team logo from ESPN CDN (predictable URL pattern)
     const teamAbbr = prop.team?.toLowerCase() ?? ""
-    // Map common 3-letter to ESPN 2/3-letter format
-    const espnTeamMap: Record<string, string> = {
-      sas: "sa", phx: "phx", nyk: "ny", nop: "no", gsw: "gs", okc: "okc",
-      lac: "lac", lal: "lal", mil: "mil", bos: "bos", den: "den", min: "min",
-      cle: "cle", dal: "dal", mem: "mem", mia: "mia", atl: "atl", chi: "chi",
-      hou: "hou", ind: "ind", orl: "orl", phi: "phi", por: "por", sac: "sac",
-      tor: "tor", uta: "utah", was: "wsh", bkn: "bkn", cha: "cha", det: "det",
-    }
-    const espnAbbr = espnTeamMap[teamAbbr] ?? teamAbbr
+    const espnAbbr = NBA_ESPN_TEAM_MAP[teamAbbr] ?? teamAbbr
     setTeamLogo(`https://a.espncdn.com/i/teamlogos/nba/500/${espnAbbr}.png`)
 
     // Use cachedFetch for headshot — persists across navigations (5 min cache)
@@ -386,97 +354,7 @@ export default function PlayerDashboardPage() {
   }, [prop?.player, prop?.team, isSoccer])
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] p-4 flex flex-col gap-4 overflow-x-hidden font-sans">
-        {/* Back Button Skeleton */}
-        <div className="h-4 w-16 rounded bg-white/5 animate-pulse" />
-
-        {/* Row 1: Player Profile Skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[280px]">
-          <div className="lg:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4 animate-pulse">
-            <div className="flex justify-between items-start mb-6">
-              <div className="h-12 w-28 rounded bg-white/5" />
-              <div className="w-14 h-14 rounded-full bg-white/5" />
-            </div>
-            <div className="flex justify-center mb-4">
-              <div className="h-[120px] w-[100px] rounded-lg bg-white/5" />
-            </div>
-            <div className="grid grid-cols-3 gap-2 border-t border-[var(--color-border)] pt-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <div className="h-3 w-10 rounded bg-white/5" />
-                  <div className="h-5 w-8 rounded bg-white/5" />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="lg:col-span-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4 animate-pulse">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-white/5" />
-                <div className="h-4 w-24 rounded bg-white/5" />
-              </div>
-              <div className="h-5 w-12 rounded bg-white/5" />
-            </div>
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-12 rounded bg-white/5" />
-              ))}
-            </div>
-          </div>
-          <div className="lg:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4 animate-pulse">
-            <div className="h-5 w-20 rounded bg-white/5 mx-auto mb-4" />
-            <div className="flex justify-between items-center px-4 my-6">
-              <div className="w-16 h-16 rounded-full bg-white/5" />
-              <div className="h-6 w-16 rounded bg-white/5" />
-              <div className="w-16 h-16 rounded-full bg-white/5" />
-            </div>
-            <div className="h-4 w-32 rounded bg-white/5 mx-auto" />
-          </div>
-        </div>
-
-        {/* Row 2: Stat Selector Skeleton */}
-        <div className="flex gap-2 overflow-hidden">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="h-10 w-20 rounded-md bg-white/5 animate-pulse shrink-0" />
-          ))}
-        </div>
-
-        {/* Row 3: Performance Chart Skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-9 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4 animate-pulse">
-            <div className="flex justify-between items-center mb-4">
-              <div className="h-5 w-28 rounded bg-white/5" />
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-32 rounded bg-white/5" />
-                <div className="h-5 w-10 rounded bg-white/5" />
-              </div>
-            </div>
-            <div className="h-[320px] flex items-end gap-2 px-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t bg-white/5"
-                  style={{ height: `${30 + Math.random() * 60}%` }}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="lg:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4 animate-pulse">
-            <div className="h-5 w-32 rounded bg-white/5 mx-auto mb-4" />
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="flex justify-between">
-                  <div className="h-4 w-12 rounded bg-white/5" />
-                  <div className="h-4 w-8 rounded bg-white/5" />
-                  <div className="h-4 w-8 rounded bg-white/5" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <PlayerDashboardSkeleton />
   }
 
   if (!prop) {

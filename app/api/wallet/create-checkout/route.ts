@@ -26,7 +26,7 @@ export const POST = withSecurity(async (req: Request) => {
   }
 
   // Rate limit wallet operations
-  const rateCheck = checkRateLimit(`wallet:${user.id}`, RATE_LIMITS.wallet)
+  const rateCheck = await checkRateLimit(`wallet:${user.id}`, RATE_LIMITS.wallet)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Too many wallet operations. Please wait a moment." },

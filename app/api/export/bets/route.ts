@@ -16,7 +16,7 @@ export const GET = withSecurity(async () => {
   }
 
   // Rate limit: 1 export per minute
-  const rateCheck = checkRateLimit(`export-bets:${user.id}`, EXPORT_RATE_LIMIT)
+  const rateCheck = await checkRateLimit(`export-bets:${user.id}`, EXPORT_RATE_LIMIT)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Rate limited. Please wait before exporting again." },

@@ -27,7 +27,7 @@ export const POST = withSecurity(async (request: Request) => {
   if (validationError) return validationError
 
   // Rate limit
-  const rateCheck = checkRateLimit(`follow:${user.id}`, RATE_LIMITS.follow)
+  const rateCheck = await checkRateLimit(`follow:${user.id}`, RATE_LIMITS.follow)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Too many follow actions. Please slow down." },

@@ -70,7 +70,7 @@ export const PATCH = withSecurity(async (request: Request) => {
   }
 
   // Rate limit
-  const rateCheck = checkRateLimit(`notifications:${user.id}`, RATE_LIMITS.general)
+  const rateCheck = await checkRateLimit(`notifications:${user.id}`, RATE_LIMITS.general)
   if (!rateCheck.allowed) {
     return NextResponse.json({ error: "Too many requests." }, { status: 429 })
   }
