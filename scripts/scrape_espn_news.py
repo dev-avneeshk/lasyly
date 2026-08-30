@@ -59,9 +59,10 @@ ESPN_FEEDS = [
     {"name": "NBA", "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/news?limit=15", "category": "NBA"},
     {"name": "NFL", "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=10", "category": "NFL"},
     {"name": "UFC", "url": "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/news?limit=8", "category": "UFC"},
-    {"name": "Tennis", "url": "https://site.api.espn.com/apis/site/v2/sports/tennis/news?limit=8", "category": "Tennis"},
+    {"name": "Tennis", "url": "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/news?limit=8", "category": "Tennis"},
     {"name": "F1", "url": "https://site.api.espn.com/apis/site/v2/sports/racing/f1/news?limit=8", "category": "F1"},
-    {"name": "Cricket", "url": "https://site.api.espn.com/apis/site/v2/sports/cricket/news?limit=8", "category": "Cricket"},
+    # Cricket removed: ESPN no longer serves a cricket news feed (all known
+    # endpoints 404/403). Re-add if a working endpoint is found.
 ]
 
 
@@ -84,12 +85,8 @@ def pick_best_image(images: list) -> str | None:
 def fetch_full_article(article_id: str) -> dict | None:
     """Fetch full article story from ESPN core API."""
     try:
-        resp = requests.get(
-            f"https://now.core.api.espn.com/v1/sports/news/{article_id}",
-            headers={"User-Agent": "Lasyly/1.0"},
-            timeout=10,
-        )
-        if resp.status_code != 200:
+        resp = _espn_get(f"https://now.core.api.espn.com/v1/sports/news/{article_id}", timeout=10)
+        if resp is None or resp.status_code != 200:
             return None
         data = resp.json()
         headlines = data.get("headlines", [])
@@ -105,12 +102,35 @@ def fetch_full_article(article_id: str) -> dict | None:
         return None
 
 
+def _espn_get(url: str, timeout: int = 15, retries: int = 3):
+    """
+    GET an ESPN endpoint with retry.
+
+    IMPORTANT: we do NOT send a custom User-Agent. ESPN's edge now returns 403
+    for "Lasyly/1.0" and for browser-spoofing UAs, but serves 200 for the
+    default requests UA. Overriding the UA here is what silently broke the news
+    feed for ~30 days, so leave it alone.
+    """
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            if resp.status_code == 200:
+                return resp
+            # 403/429/5xx: back off and retry
+            logger.warning(f"GET {url} returned {resp.status_code} (attempt {attempt + 1}/{retries})")
+        except Exception as e:
+            logger.warning(f"GET {url} failed: {e} (attempt {attempt + 1}/{retries})")
+        time.sleep(2 * (attempt + 1))
+    return None
+
+
 def fetch_feed(feed: dict) -> list[dict]:
     """Fetch articles from one ESPN feed."""
     try:
-        resp = requests.get(feed["url"], headers={"User-Agent": "Lasyly/1.0"}, timeout=15)
-        if resp.status_code != 200:
-            logger.warning(f"Feed {feed['name']} returned {resp.status_code}")
+        resp = _espn_get(feed["url"], timeout=15)
+        if resp is None or resp.status_code != 200:
+            code = resp.status_code if resp is not None else "no response"
+            logger.warning(f"Feed {feed['name']} returned {code}")
             return []
         data = resp.json()
         articles = data.get("articles", [])
@@ -193,6 +213,17 @@ def main():
 
     logger.info(f"Total articles fetched: {len(all_articles)}")
 
+    # Fail loudly if every feed came back empty. Previously the scraper exited 0
+    # even when ESPN blocked every request, so the workflow stayed green and the
+    # news feed silently went stale for ~30 days. Exiting non-zero makes the
+    # GitHub Action go red so the failure is visible.
+    if not all_articles:
+        logger.error(
+            "Fetched 0 articles from every feed. ESPN likely blocked the request "
+            "(check for 403s above). Not writing to the database."
+        )
+        sys.exit(1)
+
     # Fetch full stories for headline articles
     logger.info("Fetching full stories for HeadlineNews articles...")
     headline_articles = [a for a in all_articles if a.get("article_type") == "HeadlineNews"]
@@ -203,6 +234,10 @@ def main():
     logger.info("Upserting to Supabase...")
     count = upsert_to_supabase(all_articles)
     logger.info(f"  → Upserted {count} articles")
+
+    if count == 0:
+        logger.error("Upserted 0 articles despite fetching some. Check Supabase errors above.")
+        sys.exit(1)
 
     logger.info("Done!")
 
