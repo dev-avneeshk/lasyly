@@ -1,11 +1,24 @@
 "use client"
 
-import { useEffect, useState, useMemo, useRef } from "react"
+import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import ScoresPanel from "@/components/room/ScoresPanel"
 import AdminPanel from "@/components/room/AdminPanel"
+import { MessageRow, getUserColor, getInitials, type ChatMessage } from "@/components/room/MessageRow"
+import { ChatInput } from "@/components/room/ChatInput"
+import { ChannelSidebar } from "@/components/room/ChannelSidebar"
+import ChannelManager from "@/components/room/ChannelManager"
+import { UpgradeModal } from "@/components/room/UpgradeModal"
+import type { Channel, Subchannel } from "@/lib/types/channel"
+
+/**
+ * Max messages kept in memory. The initial fetch returns up to 50; realtime
+ * appends grow the array over a long session. Capping prevents unbounded
+ * memory growth and keeps the (non-virtualized) DOM list bounded.
+ */
+const MAX_MESSAGES = 200
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -36,15 +49,6 @@ type ChatProfile = {
   avatar_url: string | null
 }
 
-type ChatMessage = {
-  id: string
-  content: string
-  is_system: boolean
-  created_at: string
-  user_id: string
-  profile: ChatProfile | null
-}
-
 type CurrentUser = {
   id: string
   profile: ChatProfile | null
@@ -52,40 +56,8 @@ type CurrentUser = {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const CHANNELS = [
-  { id: "general", name: "general-chat", icon: "💬", category: "General" },
-  { id: "match-day", name: "match-day", icon: "🏟️", category: "General" },
-  { id: "hot-tips", name: "hot-tips", icon: "🔥", category: "Tips & Analysis", locked: true },
-  { id: "stats", name: "stats-analysis", icon: "📊", category: "Tips & Analysis" },
-  { id: "predictions", name: "predictions", icon: "🎯", category: "Tips & Analysis" },
-  { id: "bankroll", name: "bankroll-talk", icon: "💰", category: "Community" },
-  { id: "leaderboard", name: "leaderboard", icon: "🏆", category: "Community" },
-  { id: "live-scores", name: "live-scores", icon: "📺", category: "Live" },
-]
-
 const SPORT_EMOJI: Record<string, string> = {
   Football: "⚽", Basketball: "🏀", Tennis: "🎾", Mixed: "🔥", Other: "🎯",
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function getUserColor(userId: string): string {
-  const colors = ["#B8FF4F", "#60A5FA", "#F87171", "#FBBF24", "#34D399", "#A78BFA", "#F472B6", "#FB923C"]
-  let hash = 0
-  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash)
-  return colors[Math.abs(hash) % colors.length]
-}
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr)
-  const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  return isToday ? `Today ${time}` : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${time}`
-}
-
-function getInitials(name: string): string {
-  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -105,10 +77,18 @@ export default function RoomPage() {
   const [joining, setJoining] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<MemberProfile[]>([])
-  const [activeChannel, setActiveChannel] = useState("general")
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [activeSubchannelId, setActiveSubchannelId] = useState<string | null>(null)
+  const [showLiveScores, setShowLiveScores] = useState(false)
+  const [managerMode, setManagerMode] = useState<
+    | { kind: "new-channel" }
+    | { kind: "new-subchannel"; channelId: string }
+    | { kind: "manage-subchannel"; sub: Subchannel }
+    | null
+  >(null)
+  const [upgradeLimit, setUpgradeLimit] = useState<"channels" | "subchannels" | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
@@ -118,6 +98,24 @@ export default function RoomPage() {
 
   const feedRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null)
+  // Cache of user_id -> profile so incoming realtime rows (which carry no join)
+  // can render an avatar/name without an extra fetch per message.
+  const profileCacheRef = useRef<Map<string, ChatProfile>>(new Map())
+
+  // Load (or refresh) the room's channels. On first load, auto-selects the
+  // first sub-channel so the feed has something to show. Declared before the
+  // load effect that calls it to avoid a temporal-dead-zone reference.
+  const loadChannels = useCallback(async (selectFirst = false) => {
+    const res = await fetch(`/api/rooms/${roomId}/channels`)
+    if (!res.ok) return
+    const data = await res.json()
+    const list: Channel[] = data.channels ?? []
+    setChannels(list)
+    if (selectFirst) {
+      const firstSub = list.flatMap((c) => c.subchannels)[0]
+      if (firstSub) setActiveSubchannelId((prev) => prev ?? firstSub.id)
+    }
+  }, [roomId])
 
   // ─── Load Room ──────────────────────────────────────────────────────────────
 
@@ -152,15 +150,19 @@ export default function RoomPage() {
         }
       }
 
+      // Load channels and pick the first sub-channel as active.
+      await loadChannels(true)
+
       setLoading(false)
     }
     load()
-  }, [supabase, roomId])
+  }, [supabase, roomId, loadChannels])
 
   // Members are loaded in the main load effect above
 
   // ─── Load Messages + Realtime ───────────────────────────────────────────────
 
+  // Resolve current user's profile once.
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -170,49 +172,117 @@ export default function RoomPage() {
       }
     }
     getUser()
+  }, [supabase])
+
+  // Fetch messages + subscribe to realtime for the ACTIVE sub-channel.
+  useEffect(() => {
+    // No sub-channel selected yet (channels still loading) — nothing to fetch.
+    if (!activeSubchannelId) return
+
+    // Clear the feed on channel switch so streams don't bleed together.
+    setMessages([])
 
     const fetchMessages = async () => {
-      const res = await fetch(`/api/rooms/${roomId}/messages`)
+      const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
       const data = await res.json()
-      if (res.ok && data.messages) setMessages(data.messages)
+      if (res.ok && data.messages) setMessages(data.messages.slice(-MAX_MESSAGES))
     }
     fetchMessages()
 
-    const channel = supabase.channel(`room-chat-${roomId}`)
+    // Realtime via broadcast, scoped per sub-channel so each stream is
+    // independent. Receivers dedupe by id and cap the array.
+    const channel = supabase
+      .channel(`room-sub-${activeSubchannelId}`)
       .on("broadcast", { event: "new_message" }, (payload) => {
         const msg = payload.payload as ChatMessage
-        setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
-      }).subscribe()
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev
+          const withProfile: ChatMessage = {
+            ...msg,
+            profile: msg.profile ?? profileCacheRef.current.get(msg.user_id) ?? null,
+          }
+          const next = [...prev, withProfile]
+          return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next
+        })
+      })
+      .subscribe()
     channelRef.current = channel
 
     return () => { supabase.removeChannel(channel); channelRef.current = null }
-  }, [supabase, roomId])
+  }, [supabase, roomId, activeSubchannelId])
 
-  useEffect(() => { feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" }) }, [messages])
+  // Keep the profile cache fed from members + any messages that already carry
+  // a profile, so realtime INSERTs can be rendered with a name/avatar.
+  useEffect(() => {
+    const cache = profileCacheRef.current
+    for (const m of members) {
+      cache.set(m.id, { username: m.username, display_name: m.display_name, avatar_url: m.avatar_url })
+    }
+  }, [members])
+
+  useEffect(() => {
+    const cache = profileCacheRef.current
+    for (const msg of messages) {
+      if (msg.profile && !cache.has(msg.user_id)) cache.set(msg.user_id, msg.profile)
+    }
+  }, [messages])
+
+  // Auto-scroll only when the user is already near the bottom, so we don't
+  // yank them down while they're reading history. Instant (no smooth) to avoid
+  // layout thrash on every append.
+  useEffect(() => {
+    const el = feedRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (nearBottom) el.scrollTop = el.scrollHeight
+  }, [messages])
 
   // ─── Send Message ───────────────────────────────────────────────────────────
 
-  const handleSend = async () => {
-    if (!input.trim() || !currentUser || sending) return
-    const content = input.trim()
-    setInput("")
+  const handleSend = useCallback(async (content: string) => {
+    if (!content || !currentUser || sending) return
     setSending(true)
 
-    const optimistic: ChatMessage = { id: `temp-${Date.now()}`, content, is_system: false, created_at: new Date().toISOString(), user_id: currentUser.id, profile: currentUser.profile }
-    setMessages(prev => [...prev, optimistic])
+    const tempId = `temp-${Date.now()}`
+    const optimistic: ChatMessage = {
+      id: tempId, content, is_system: false,
+      created_at: new Date().toISOString(), user_id: currentUser.id, profile: currentUser.profile,
+    }
+    setMessages(prev => {
+      const next = [...prev, optimistic]
+      return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next
+    })
 
     try {
-      const res = await fetch(`/api/rooms/${roomId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) })
+      const res = await fetch(`/api/rooms/${roomId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, subchannelId: activeSubchannelId ?? undefined }),
+      })
       if (res.ok) {
         const saved = await res.json()
-        setMessages(prev => prev.map(m => m.id === optimistic.id ? { ...optimistic, id: saved.id, created_at: saved.created_at } : m))
-        channelRef.current?.send({ type: "broadcast", event: "new_message", payload: { id: saved.id, content, is_system: false, created_at: saved.created_at, user_id: currentUser.id, profile: currentUser.profile } })
+        // Reconcile the optimistic row to the real id.
+        setMessages(prev =>
+          prev.map(m => (m.id === tempId ? { ...optimistic, id: saved.id, created_at: saved.created_at } : m))
+        )
+        // Relay to other clients in the active sub-channel.
+        channelRef.current?.send({
+          type: "broadcast",
+          event: "new_message",
+          payload: {
+            id: saved.id, content, is_system: false,
+            created_at: saved.created_at, user_id: currentUser.id, profile: currentUser.profile,
+          },
+        })
       } else {
-        setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+        setMessages(prev => prev.filter(m => m.id !== tempId))
       }
-    } catch { setMessages(prev => prev.filter(m => m.id !== optimistic.id)) }
-    finally { setSending(false) }
-  }
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+    } finally {
+      setSending(false)
+    }
+  }, [currentUser, sending, roomId, activeSubchannelId])
 
   const handleJoinLeave = async () => {
     if (!userId) return
@@ -226,11 +296,39 @@ export default function RoomPage() {
 
   const isAdmin = userRole === "owner" || userRole === "moderator"
 
-  const handleContextMenu = (e: React.MouseEvent, messageId: string, messageUserId: string) => {
+  // The active sub-channel object + whether the current user may post in it.
+  const activeSub = useMemo(
+    () => channels.flatMap((c) => c.subchannels).find((s) => s.id === activeSubchannelId) ?? null,
+    [channels, activeSubchannelId]
+  )
+  const canPost = Boolean(
+    currentUser &&
+    activeSub &&
+    (activeSub.post_policy === "admins" ? isAdmin : isMember)
+  )
+
+  // Precompute per-message "grouped" flag once per messages change (not per
+  // render). A message is grouped under the previous one when it's the same
+  // author within 7 minutes — this drives the compact (headerless) row style.
+  const renderedMessages = useMemo(() => {
+    return messages.map((message, i) => {
+      const prev = messages[i - 1]
+      const grouped = Boolean(
+        prev &&
+        !prev.is_system &&
+        !message.is_system &&
+        prev.user_id === message.user_id &&
+        new Date(message.created_at).getTime() - new Date(prev.created_at).getTime() < 7 * 60 * 1000
+      )
+      return { message, grouped }
+    })
+  }, [messages])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, messageId: string, messageUserId: string) => {
     if (!isAdmin && messageUserId !== userId) return
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, messageId, isOwnMessage: messageUserId === userId })
-  }
+  }, [isAdmin, userId])
 
   const handlePinMessage = async (messageId: string) => {
     setContextMenu(null)
@@ -288,7 +386,8 @@ export default function RoomPage() {
   )
 
   const sportEmoji = SPORT_EMOJI[room.sport_tag ?? "Other"] ?? "🎯"
-  const categories = [...new Set(CHANNELS.map(c => c.category))]
+
+  const selectSub = (id: string) => { setShowLiveScores(false); setActiveSubchannelId(id) }
 
   return (
     <div className="flex h-[calc(100dvh-64px)] overflow-hidden bg-[#0A0A0A]">
@@ -305,32 +404,28 @@ export default function RoomPage() {
         </div>
 
         {/* Channels */}
-        <div className="flex-1 px-2 pb-4">
-          {categories.map(cat => (
-            <div key={cat} className="mb-4">
-              <div className="flex items-center gap-1 px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-white/25 select-none">
-                <span className="text-[8px]">▼</span> {cat}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {CHANNELS.filter(c => c.category === cat).map(ch => (
-                  <button
-                    key={ch.id}
-                    onClick={() => setActiveChannel(ch.id)}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-left transition-all text-[13px]",
-                      activeChannel === ch.id
-                        ? "bg-[rgba(184,255,79,0.12)] text-white/90"
-                        : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
-                    )}
-                  >
-                    <span className="text-[15px] w-5 text-center">{ch.icon}</span>
-                    <span className="flex-1 font-medium truncate">{ch.name}</span>
-                    {ch.locked && <span className="text-[10px] text-white/20">🔒</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+        <ChannelSidebar
+          channels={channels}
+          activeSubchannelId={showLiveScores ? null : activeSubchannelId}
+          isAdmin={isAdmin}
+          onSelect={selectSub}
+          onAddChannel={() => setManagerMode({ kind: "new-channel" })}
+          onAddSubchannel={(channelId) => setManagerMode({ kind: "new-subchannel", channelId })}
+          onManageSubchannel={(sub) => setManagerMode({ kind: "manage-subchannel", sub })}
+        />
+
+        {/* Live Scores (special view) */}
+        <div className="px-2 pb-2">
+          <button
+            onClick={() => setShowLiveScores(true)}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-left transition-all text-[13px]",
+              showLiveScores ? "bg-[rgba(184,255,79,0.12)] text-white/90" : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+            )}
+          >
+            <span className="text-[15px] w-5 text-center">📺</span>
+            <span className="flex-1 font-medium truncate">live-scores</span>
+          </button>
         </div>
 
         {/* Bottom user area */}
@@ -351,8 +446,8 @@ export default function RoomPage() {
         <div className="h-[56px] shrink-0 flex items-center px-5 border-b border-white/[0.06] gap-4">
           <button onClick={() => setDrawerOpen(true)} className="md:hidden text-white/60 text-lg">☰</button>
           <div className="flex items-center gap-2 text-[15px] font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>
-            <span className="text-[15px]">{CHANNELS.find(c => c.id === activeChannel)?.icon ?? "💬"}</span>
-            {CHANNELS.find(c => c.id === activeChannel)?.name ?? "general-chat"}
+            <span className="text-[15px]">{showLiveScores ? "📺" : activeSub?.icon ?? "#"}</span>
+            {showLiveScores ? "live-scores" : activeSub?.name ?? "general"}
           </div>
 
           <div className="flex-1" />
@@ -386,7 +481,7 @@ export default function RoomPage() {
         </div>
 
         {/* Content: Chat or Scores */}
-        {activeChannel === "live-scores" ? (
+        {showLiveScores ? (
           <div className="flex-1 overflow-y-auto">
             <ScoresPanel roomId={roomId} isOwner={isOwner} />
           </div>
@@ -397,88 +492,40 @@ export default function RoomPage() {
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="w-[60px] h-[60px] rounded-2xl bg-[#1A1A1A] border border-white/[0.06] flex items-center justify-center mb-3 text-2xl">{sportEmoji}</div>
-                  <p className="text-[14px] font-semibold text-white/80">Welcome to #{CHANNELS.find(c => c.id === activeChannel)?.name}</p>
+                  <p className="text-[14px] font-semibold text-white/80">Welcome to #{activeSub?.name ?? "general"}</p>
                   <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">This is the start of the channel. Share picks, discuss games, and react to tips.</p>
                 </div>
               )}
 
-              {messages.map((msg, i) => {
-                if (msg.is_system) return (
-                  <div key={msg.id} className="flex items-center gap-2 py-1 px-2">
-                    <span className="text-[12px] text-white/30">{msg.content}</span>
-                  </div>
-                )
-
-                const name = msg.profile?.display_name || msg.profile?.username || "User"
-                const color = getUserColor(msg.user_id)
-                const prevMsg = messages[i - 1]
-                const isGrouped = prevMsg && !prevMsg.is_system && prevMsg.user_id === msg.user_id &&
-                  (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime()) < 7 * 60 * 1000
-                const isPinned = pinnedMessages.has(msg.id)
-
-                if (isGrouped) {
-                  return (
-                    <div
-                      key={msg.id}
-                      className={cn("flex gap-4 px-4 hover:bg-white/[0.02] rounded-xl group relative", isPinned && "border-l-2 border-[#FBBF24]/40")}
-                      onContextMenu={(e) => handleContextMenu(e, msg.id, msg.user_id)}
-                    >
-                      <div className="w-10 shrink-0 flex items-center justify-center">
-                        <span className="text-[10px] text-white/20 opacity-0 group-hover:opacity-100 transition-opacity font-mono">
-                          {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                      <p className="text-[14px] text-white/80 leading-[1.7] break-words whitespace-pre-wrap">{msg.content}</p>
-                      {isPinned && <span className="absolute top-1 right-2 text-[10px] text-[#FBBF24]/50">📌</span>}
-                    </div>
-                  )
-                }
-
-                return (
-                  <div
-                    key={msg.id}
-                    className={cn("flex gap-4 px-4 py-3 hover:bg-white/[0.02] rounded-xl mt-2 first:mt-0 relative", isPinned && "border-l-2 border-[#FBBF24]/40")}
-                    onContextMenu={(e) => handleContextMenu(e, msg.id, msg.user_id)}
-                  >
-                    <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-[13px] font-semibold" style={{ background: `${color}20`, color }}>
-                      {msg.profile?.avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={msg.profile.avatar_url} alt="" className="w-full h-full rounded-xl object-cover" />
-                      ) : getInitials(name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-                        <span className="text-[14px] font-semibold" style={{ color }}>{name}</span>
-                        <span className="text-[11px] text-white/20">{formatTime(msg.created_at)}</span>
-                        {isPinned && <span className="text-[10px] text-[#FBBF24]/60">📌 pinned</span>}
-                      </div>
-                      <p className="text-[14px] text-white/80 leading-[1.7] break-words whitespace-pre-wrap">{msg.content}</p>
-                    </div>
-                  </div>
-                )
-              })}
+              {renderedMessages.map(({ message, grouped }) => (
+                <MessageRow
+                  key={message.id}
+                  message={message}
+                  grouped={grouped}
+                  pinned={pinnedMessages.has(message.id)}
+                  onContextMenu={handleContextMenu}
+                />
+              ))}
             </div>
 
-            {/* Message Input */}
-            <div className="shrink-0 px-5 pb-5 pt-2">
-              <div className="flex items-center gap-3 bg-[#1A1A1A] border border-white/[0.06] rounded-2xl px-5 py-1.5 focus-within:border-[rgba(184,255,79,0.2)] transition-colors">
-                <button className="text-white/20 hover:text-white/40 text-lg transition-colors shrink-0">＋</button>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                  placeholder={currentUser ? `Message #${CHANNELS.find(c => c.id === activeChannel)?.name ?? "general"}` : "Sign in to chat"}
-                  disabled={!currentUser}
-                  maxLength={1000}
-                  className="flex-1 bg-transparent text-[14px] text-white/90 placeholder:text-white/20 focus:outline-none py-2.5 disabled:opacity-40"
-                />
-                <div className="flex gap-1 shrink-0">
-                  <button className="w-8 h-8 rounded-lg text-white/20 hover:text-white/40 flex items-center justify-center text-sm transition-colors">GIF</button>
-                  <button className="w-8 h-8 rounded-lg text-white/20 hover:text-white/40 flex items-center justify-center text-sm transition-colors">😀</button>
+            {/* Message Input (isolated component — keystrokes don't re-render the feed) */}
+            {canPost ? (
+              <ChatInput
+                disabled={!currentUser}
+                placeholder={`Message #${activeSub?.name ?? "general"}`}
+                onSend={handleSend}
+              />
+            ) : (
+              <div className="shrink-0 px-5 pb-5 pt-2">
+                <div className="flex items-center justify-center gap-2 bg-[#1A1A1A] border border-white/[0.06] rounded-2xl px-5 py-3 text-[13px] text-white/30">
+                  {!currentUser
+                    ? "Sign in to chat"
+                    : activeSub?.post_policy === "admins"
+                      ? "Only admins can post in this channel"
+                      : "Join this room to chat"}
                 </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
@@ -545,25 +592,22 @@ export default function RoomPage() {
               <h2 className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</h2>
               <button onClick={() => setDrawerOpen(false)} className="text-white/30 text-lg">✕</button>
             </div>
-            <div className="flex-1 px-2 py-4">
-              {categories.map(cat => (
-                <div key={cat} className="mb-4">
-                  <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-white/25">▼ {cat}</div>
-                  {CHANNELS.filter(c => c.category === cat).map(ch => (
-                    <button
-                      key={ch.id}
-                      onClick={() => { setActiveChannel(ch.id); setDrawerOpen(false) }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-left text-[13px] transition-all",
-                        activeChannel === ch.id ? "bg-[rgba(184,255,79,0.12)] text-white/90" : "text-white/40"
-                      )}
-                    >
-                      <span className="text-[15px]">{ch.icon}</span>
-                      <span className="font-medium">{ch.name}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+            <ChannelSidebar
+              channels={channels}
+              activeSubchannelId={showLiveScores ? null : activeSubchannelId}
+              isAdmin={isAdmin}
+              onSelect={(id) => { selectSub(id); setDrawerOpen(false) }}
+              onAddChannel={() => { setDrawerOpen(false); setManagerMode({ kind: "new-channel" }) }}
+              onAddSubchannel={(channelId) => { setDrawerOpen(false); setManagerMode({ kind: "new-subchannel", channelId }) }}
+              onManageSubchannel={(sub) => { setDrawerOpen(false); setManagerMode({ kind: "manage-subchannel", sub }) }}
+            />
+            <div className="px-2 pb-4">
+              <button
+                onClick={() => { setShowLiveScores(true); setDrawerOpen(false) }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-left text-[13px] text-white/40"
+              >
+                <span className="text-[15px]">📺</span><span className="font-medium">live-scores</span>
+              </button>
             </div>
           </div>
         </>
@@ -615,6 +659,20 @@ export default function RoomPage() {
           onMembersChanged={refreshMembers}
         />
       )}
+
+      {/* ─── Channel Manager (create/manage channels & sub-channels) ─── */}
+      {managerMode && (
+        <ChannelManager
+          roomId={roomId}
+          mode={managerMode}
+          onClose={() => setManagerMode(null)}
+          onChanged={() => loadChannels()}
+          onLimitReached={(limit) => setUpgradeLimit(limit)}
+        />
+      )}
+
+      {/* ─── Upgrade Modal (free-tier limits) ─── */}
+      <UpgradeModal open={upgradeLimit !== null} limit={upgradeLimit} onClose={() => setUpgradeLimit(null)} />
     </div>
   )
 }

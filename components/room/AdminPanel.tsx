@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { X, Shield, Crown, UserMinus, Ban, Pin, Trash2, RotateCcw, VolumeX } from "lucide-react"
+import { X, Shield, Crown, UserMinus, Ban, Pin, Trash2, RotateCcw, VolumeX, UserPlus, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Member = {
@@ -39,13 +39,21 @@ type AdminPanelProps = {
   onMembersChanged: () => void
 }
 
-type Tab = "members" | "bans" | "pins"
+type JoinRequestRow = {
+  id: string
+  subchannelName: string | null
+  requestedAt: string
+  profile: { username: string | null; display_name: string | null; avatar_url: string | null } | null
+}
+
+type Tab = "members" | "requests" | "bans" | "pins"
 
 export default function AdminPanel({ roomId, currentUserId, userRole, onClose, onMembersChanged }: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("members")
   const [members, setMembers] = useState<Member[]>([])
   const [bans, setBans] = useState<BannedUser[]>([])
   const [pins, setPins] = useState<PinnedMessage[]>([])
+  const [requests, setRequests] = useState<JoinRequestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
@@ -73,10 +81,32 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     }
   }, [roomId])
 
+  const fetchRequests = useCallback(async () => {
+    const res = await fetch(`/api/rooms/${roomId}/requests`)
+    if (res.ok) {
+      const data = await res.json()
+      setRequests(data.requests ?? [])
+    }
+  }, [roomId])
+
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetchMembers(), fetchBans(), fetchPins()]).finally(() => setLoading(false))
-  }, [fetchMembers, fetchBans, fetchPins])
+    Promise.all([fetchMembers(), fetchBans(), fetchPins(), fetchRequests()]).finally(() => setLoading(false))
+  }, [fetchMembers, fetchBans, fetchPins, fetchRequests])
+
+  const handleDecideRequest = async (requestId: string, approve: boolean) => {
+    setActionLoading(requestId)
+    const res = await fetch(`/api/rooms/${roomId}/requests/${requestId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approve }),
+    })
+    if (res.ok) {
+      await fetchRequests()
+      if (approve) { await fetchMembers(); onMembersChanged() }
+    }
+    setActionLoading(null)
+  }
 
   const handleRoleChange = async (userId: string, newRole: "moderator" | "member") => {
     setActionLoading(userId)
@@ -169,6 +199,7 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "members", label: "Members", icon: <Shield className="w-3.5 h-3.5" /> },
+    { id: "requests", label: "Requests", icon: <UserPlus className="w-3.5 h-3.5" /> },
     { id: "bans", label: "Bans", icon: <Ban className="w-3.5 h-3.5" /> },
     { id: "pins", label: "Pins", icon: <Pin className="w-3.5 h-3.5" /> },
   ]
@@ -208,6 +239,9 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
               {t.id === "bans" && bans.length > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 rounded bg-[#F87171]/20 text-[#F87171] text-[10px]">{bans.length}</span>
               )}
+              {t.id === "requests" && requests.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded bg-[#B8FF4F]/20 text-[#B8FF4F] text-[10px]">{requests.length}</span>
+              )}
             </button>
           ))}
         </div>
@@ -229,6 +263,12 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
               onKick={handleKick}
               onBan={handleBan}
               onMute={handleMute}
+            />
+          ) : tab === "requests" ? (
+            <RequestsTab
+              requests={requests}
+              actionLoading={actionLoading}
+              onDecide={handleDecideRequest}
             />
           ) : tab === "bans" ? (
             <BansTab
@@ -480,6 +520,59 @@ function PinsTab({
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Requests Tab ───────────────────────────────────────────────────────────
+
+function RequestsTab({
+  requests, actionLoading, onDecide,
+}: {
+  requests: JoinRequestRow[]
+  actionLoading: string | null
+  onDecide: (requestId: string, approve: boolean) => void
+}) {
+  if (requests.length === 0) {
+    return <p className="text-[13px] text-white/30 text-center py-8">No pending join requests.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {requests.map((r) => {
+        const name = r.profile?.display_name || r.profile?.username || "User"
+        const busy = actionLoading === r.id
+        return (
+          <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+            <div className="w-8 h-8 rounded-lg bg-[#B8FF4F]/15 flex items-center justify-center text-[11px] font-semibold text-[#B8FF4F] overflow-hidden shrink-0">
+              {r.profile?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={r.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+              ) : name.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-white/80 truncate">{name}</p>
+              {r.subchannelName && <p className="text-[11px] text-white/30 truncate">wants to join #{r.subchannelName}</p>}
+            </div>
+            <button
+              onClick={() => onDecide(r.id, true)}
+              disabled={busy}
+              className="w-8 h-8 rounded-lg bg-[#34D399]/15 text-[#34D399] hover:bg-[#34D399]/25 flex items-center justify-center transition-colors disabled:opacity-40"
+              title="Approve"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onDecide(r.id, false)}
+              disabled={busy}
+              className="w-8 h-8 rounded-lg bg-[#F87171]/15 text-[#F87171] hover:bg-[#F87171]/25 flex items-center justify-center transition-colors disabled:opacity-40"
+              title="Deny"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )
       })}
