@@ -11,7 +11,7 @@ import { ChatInput } from "@/components/room/ChatInput"
 import { ChannelSidebar } from "@/components/room/ChannelSidebar"
 import ChannelManager from "@/components/room/ChannelManager"
 import { UpgradeModal } from "@/components/room/UpgradeModal"
-import type { Channel, Subchannel } from "@/lib/types/channel"
+import type { Subchannel } from "@/lib/types/channel"
 
 /**
  * Max messages kept in memory. The initial fetch returns up to 50; realtime
@@ -77,16 +77,15 @@ export default function RoomPage() {
   const [joining, setJoining] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<MemberProfile[]>([])
-  const [channels, setChannels] = useState<Channel[]>([])
+  const [subchannels, setSubchannels] = useState<Subchannel[]>([])
   const [activeSubchannelId, setActiveSubchannelId] = useState<string | null>(null)
   const [showLiveScores, setShowLiveScores] = useState(false)
   const [managerMode, setManagerMode] = useState<
-    | { kind: "new-channel" }
-    | { kind: "new-subchannel"; channelId: string }
+    | { kind: "new-subchannel" }
     | { kind: "manage-subchannel"; sub: Subchannel }
     | null
   >(null)
-  const [upgradeLimit, setUpgradeLimit] = useState<"channels" | "subchannels" | null>(null)
+  const [upgradeLimit, setUpgradeLimit] = useState<"rooms" | "subchannels" | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [sending, setSending] = useState(false)
@@ -109,11 +108,10 @@ export default function RoomPage() {
     const res = await fetch(`/api/rooms/${roomId}/channels`)
     if (!res.ok) return
     const data = await res.json()
-    const list: Channel[] = data.channels ?? []
-    setChannels(list)
-    if (selectFirst) {
-      const firstSub = list.flatMap((c) => c.subchannels)[0]
-      if (firstSub) setActiveSubchannelId((prev) => prev ?? firstSub.id)
+    const list: Subchannel[] = data.subchannels ?? []
+    setSubchannels(list)
+    if (selectFirst && list[0]) {
+      setActiveSubchannelId((prev) => prev ?? list[0].id)
     }
   }, [roomId])
 
@@ -298,9 +296,11 @@ export default function RoomPage() {
 
   // The active sub-channel object + whether the current user may post in it.
   const activeSub = useMemo(
-    () => channels.flatMap((c) => c.subchannels).find((s) => s.id === activeSubchannelId) ?? null,
-    [channels, activeSubchannelId]
+    () => subchannels.find((s) => s.id === activeSubchannelId) ?? null,
+    [subchannels, activeSubchannelId]
   )
+  // Free tier: default sub-channel + 2 extra = 3 total.
+  const extraSubCount = useMemo(() => subchannels.filter((s) => !s.is_default).length, [subchannels])
   const canPost = Boolean(
     currentUser &&
     activeSub &&
@@ -405,12 +405,12 @@ export default function RoomPage() {
 
         {/* Channels */}
         <ChannelSidebar
-          channels={channels}
+          subchannels={subchannels}
           activeSubchannelId={showLiveScores ? null : activeSubchannelId}
           isAdmin={isAdmin}
+          canAddMore={extraSubCount < 2}
           onSelect={selectSub}
-          onAddChannel={() => setManagerMode({ kind: "new-channel" })}
-          onAddSubchannel={(channelId) => setManagerMode({ kind: "new-subchannel", channelId })}
+          onAddSubchannel={() => setManagerMode({ kind: "new-subchannel" })}
           onManageSubchannel={(sub) => setManagerMode({ kind: "manage-subchannel", sub })}
         />
 
@@ -593,12 +593,12 @@ export default function RoomPage() {
               <button onClick={() => setDrawerOpen(false)} className="text-white/30 text-lg">✕</button>
             </div>
             <ChannelSidebar
-              channels={channels}
+              subchannels={subchannels}
               activeSubchannelId={showLiveScores ? null : activeSubchannelId}
               isAdmin={isAdmin}
+              canAddMore={extraSubCount < 2}
               onSelect={(id) => { selectSub(id); setDrawerOpen(false) }}
-              onAddChannel={() => { setDrawerOpen(false); setManagerMode({ kind: "new-channel" }) }}
-              onAddSubchannel={(channelId) => { setDrawerOpen(false); setManagerMode({ kind: "new-subchannel", channelId }) }}
+              onAddSubchannel={() => { setDrawerOpen(false); setManagerMode({ kind: "new-subchannel" }) }}
               onManageSubchannel={(sub) => { setDrawerOpen(false); setManagerMode({ kind: "manage-subchannel", sub }) }}
             />
             <div className="px-2 pb-4">

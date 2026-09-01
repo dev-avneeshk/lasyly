@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Lock, Globe, Zap, Check, Hash } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { UpgradeModal } from "@/components/room/UpgradeModal"
 
 const ROOM_TYPES = [
   { value: "Public" as const, label: "Public", description: "Anyone can find and join this room", icon: Globe },
@@ -26,6 +27,7 @@ export default function CreateRoomPage() {
   const [sportTag, setSportTag] = useState("Football")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -44,6 +46,13 @@ export default function CreateRoomPage() {
       })
 
       const data = await res.json()
+
+      if (res.status === 402 && data.error === "LIMIT_REACHED") {
+        // Free tier caps rooms at 2 — show the upgrade modal instead of an error.
+        setShowUpgrade(true)
+        setIsLoading(false)
+        return
+      }
 
       if (!res.ok) {
         setError(data.error || "Something went wrong.")
@@ -197,6 +206,8 @@ export default function CreateRoomPage() {
           </form>
         </div>
       </div>
+
+      <UpgradeModal open={showUpgrade} limit="rooms" onClose={() => setShowUpgrade(false)} />
     </div>
   )
 }

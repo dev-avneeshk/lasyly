@@ -18,13 +18,7 @@ export type Subchannel = {
   is_default: boolean
 }
 
-export type Channel = {
-  id: string
-  name: string
-  icon: string | null
-  position: number
-  subchannels: Subchannel[]
-}
+
 
 export type JoinRequest = {
   id: string

@@ -6,12 +6,13 @@ import { X, Sparkles, Check } from "lucide-react"
 type UpgradeModalProps = {
   open: boolean
   /** What the user hit the wall on, for a tailored headline. */
-  limit?: "channels" | "subchannels" | null
+  limit?: "rooms" | "subchannels" | null
   onClose: () => void
 }
 
 const PERKS = [
-  "Unlimited channels & sub-channels",
+  "Unlimited rooms",
+  "More sub-channels per room",
   "Private invite-only channels",
   "Priority support",
 ]
@@ -25,10 +26,10 @@ function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
   if (!open) return null
 
   const headline =
-    limit === "channels"
-      ? "You've reached 2 channels"
+    limit === "rooms"
+      ? "You've reached 2 rooms"
       : limit === "subchannels"
-        ? "You've reached 2 sub-channels"
+        ? "You've reached the sub-channel limit"
         : "Upgrade to Pro"
 
   return (
@@ -49,7 +50,8 @@ function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
           </div>
           <h3 className="text-[17px] font-semibold text-white/90 leading-tight">{headline}</h3>
           <p className="text-[13px] text-white/40 mt-1.5 leading-relaxed">
-            Free rooms include 2 channels with 2 sub-channels each. Go Pro to unlock more.
+            Free accounts can create 2 rooms, each with a main channel plus 2 extra
+            sub-channels. Go Pro to unlock more.
           </p>
 
           <div className="mt-5 flex flex-col gap-2.5">

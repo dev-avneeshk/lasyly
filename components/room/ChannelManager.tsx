@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils"
 import type { Subchannel, PostPolicy, JoinPolicy, SubchannelVisibility } from "@/lib/types/channel"
 
 type Mode =
-  | { kind: "new-channel" }
-  | { kind: "new-subchannel"; channelId: string }
+  | { kind: "new-subchannel" }
   | { kind: "manage-subchannel"; sub: Subchannel }
 
 type ChannelManagerProps = {
@@ -16,7 +15,7 @@ type ChannelManagerProps = {
   onClose: () => void
   onChanged: () => void
   /** Called with the limit type when the API returns 402 (show upgrade modal). */
-  onLimitReached: (limit: "channels" | "subchannels") => void
+  onLimitReached: (limit: "rooms" | "subchannels") => void
 }
 
 const POST_POLICIES: { value: PostPolicy; label: string }[] = [
@@ -91,7 +90,7 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
 
   const handleLimit = useCallback((res: Response, body: { limit?: string }) => {
     if (res.status === 402) {
-      onLimitReached((body.limit as "channels" | "subchannels") ?? "subchannels")
+      onLimitReached((body.limit as "rooms" | "subchannels") ?? "subchannels")
       onClose()
       return true
     }
@@ -103,18 +102,8 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
     setError(null)
     setBusy(true)
     try {
-      if (mode.kind === "new-channel") {
-        const res = await fetch(`/api/rooms/${roomId}/channels`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
-        })
-        const body = await res.json().catch(() => ({}))
-        if (handleLimit(res, body)) return
-        if (!res.ok) throw new Error(body.error || "Failed to create channel.")
-        onChanged(); onClose()
-      } else if (mode.kind === "new-subchannel") {
-        const res = await fetch(`/api/rooms/${roomId}/channels/${mode.channelId}/subchannels`, {
+      if (mode.kind === "new-subchannel") {
+        const res = await fetch(`/api/rooms/${roomId}/subchannels`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, visibility, post_policy: postPolicy, join_policy: joinPolicy }),
@@ -163,12 +152,8 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
     onChanged(); onClose()
   }, [mode, roomId, onChanged, onClose])
 
-  const title =
-    mode.kind === "new-channel" ? "New channel"
-      : mode.kind === "new-subchannel" ? "New sub-channel"
-        : "Sub-channel settings"
-
-  const showSubFields = mode.kind !== "new-channel"
+  const title = mode.kind === "new-subchannel" ? "New sub-channel" : "Sub-channel settings"
+  const showSubFields = true
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
@@ -189,7 +174,7 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
               onChange={(e) => setName(e.target.value)}
               maxLength={40}
               autoFocus
-              placeholder={mode.kind === "new-channel" ? "Tips & Analysis" : "hot-tips"}
+              placeholder="hot-tips"
               className="mt-1.5 w-full bg-[#0E0E0E] border border-white/[0.06] rounded-lg px-3 py-2.5 text-[14px] text-white/90 placeholder:text-white/20 focus:outline-none focus:border-[#B8FF4F]/30"
             />
           </div>

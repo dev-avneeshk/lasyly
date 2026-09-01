@@ -4,11 +4,10 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 /**
- * POST /api/rooms/[roomId]/channels/[channelId]/subchannels
- * Create a sub-channel (the actual chat stream) inside a channel.
- * Admin-only + free-tier limit (<=2 per channel) enforced in the RPC.
- * Returns the new slug and (for private) the invite token once, so the
- * creator can copy the link immediately.
+ * POST /api/rooms/[roomId]/subchannels
+ * Create a sub-channel directly under the room (flat, single-level model).
+ * Admin-only + free-tier limit (max 2 extra beyond the default) enforced in
+ * the room_create_subchannel RPC. Returns slug + (private) invite token once.
  */
 
 const createSubchannelSchema = z.object({
@@ -24,7 +23,7 @@ export const POST = withSecurity(async (
   request: Request,
   context?: { params: Promise<Record<string, string>> }
 ) => {
-  const { channelId } = await context!.params
+  const { roomId } = await context!.params
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,7 +34,7 @@ export const POST = withSecurity(async (
   if (validationError) return validationError
 
   const { data: result, error } = await supabase.rpc("room_create_subchannel", {
-    p_channel_id: channelId,
+    p_room_id: roomId,
     p_name: data.name,
     p_visibility: data.visibility,
     p_post_policy: data.post_policy,
