@@ -3,7 +3,7 @@ import "server-only"
 import { fetchLiveScores } from "@/lib/services/sportsApi"
 import { fetchESPNScores } from "@/lib/services/espn"
 import { cached, CACHE_TTL } from "@/lib/cache"
-import { getMatchesWithFreshness, upsertMatches } from "@/lib/services/matchStorage"
+import { getMatchesWithFreshnessRange, upsertMatches } from "@/lib/services/matchStorage"
 import type { LiveMatch } from "@/types"
 
 /**
@@ -46,9 +46,67 @@ export function isValidYYYYMMDD(date: string): boolean {
   return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day
 }
 
+/** Shift a YYYYMMDD string by `days` calendar days (UTC), returning YYYYMMDD. */
+export function shiftYYYYMMDD(date: string, days: number): string {
+  const y = parseInt(date.slice(0, 4), 10)
+  const m = parseInt(date.slice(4, 6), 10)
+  const d = parseInt(date.slice(6, 8), 10)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  return `${dt.getUTCFullYear()}${String(dt.getUTCMonth() + 1).padStart(2, "0")}${String(dt.getUTCDate()).padStart(2, "0")}`
+}
+
+/** De-duplicate matches by id, keeping the first occurrence. */
+function dedupeById(matches: LiveMatch[]): LiveMatch[] {
+  const seen = new Set<string>()
+  const out: LiveMatch[] = []
+  for (const m of matches) {
+    if (seen.has(m.id)) continue
+    seen.add(m.id)
+    out.push(m)
+  }
+  return out
+}
+
 export function getTodayYYYYMMDD(): string {
   const now = new Date()
   return `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}${String(now.getUTCDate()).padStart(2, "0")}`
+}
+
+/**
+ * In-progress match statuses. Matches with any of these are excluded from the
+ * scores section — we only surface upcoming ("Not Started") games and results
+ * ("Finished"/"Postponed"). Kept in one place so every consumer stays in sync.
+ */
+const LIVE_STATUSES = new Set([
+  "In Progress",
+  "Halftime",
+  "First Half",
+  "Second Half",
+  "Q1",
+  "Q2",
+  "Q3",
+  "Q4",
+  "OT",
+])
+
+/** True when a match is currently being played (i.e. not upcoming or a result). */
+export function isLiveMatch(match: LiveMatch): boolean {
+  return LIVE_STATUSES.has(match.status)
+}
+
+/**
+ * True when a match has no real team/competitor names. ESPN returns "TBD"
+ * placeholders for events that don't fit a two-team head-to-head shape
+ * (F1 races, golf tournaments, undrawn bracket slots). These shouldn't render
+ * as score cards.
+ */
+export function isPlaceholderMatch(match: LiveMatch): boolean {
+  const home = (match.homeTeam ?? "").trim().toUpperCase()
+  const away = (match.awayTeam ?? "").trim().toUpperCase()
+  const isBlankOrTBD = (name: string) => name === "" || name === "TBD"
+  // Drop only when BOTH sides are missing — a real match always has two names.
+  return isBlankOrTBD(home) && isBlankOrTBD(away)
 }
 
 /**
@@ -70,33 +128,45 @@ export async function getScoresForDate(
   let scores: LiveMatch[]
   let source: ScoresSource = "db"
 
-  const { matches: dbMatches, isFresh, hasLive } = await getMatchesWithFreshness(date)
+  // Read a ±1 day window: `match_date` is a UTC calendar date, but the UI
+  // groups by the viewer's LOCAL day, so games that belong on the selected
+  // local day may be stored under the neighboring UTC date. The client
+  // re-buckets by local time; we just make sure it has the data to do so.
+  const { matches: dbMatches, isFresh } = await getMatchesWithFreshnessRange(date)
 
   if (isFresh && dbMatches.length > 0) {
     scores = dbMatches
     source = "db"
   } else {
     const isToday = date === getTodayYYYYMMDD()
+    const prevDate = shiftYYYYMMDD(date, -1)
+    const nextDate = shiftYYYYMMDD(date, 1)
 
     if (isToday) {
-      scores = await cached(
-        `scores:espn:${date}`,
-        () => fetchLiveScores(),
-        CACHE_TTL.scores
-      )
+      // "today" (live) plus the adjacent UTC days so the local-day window is
+      // complete. fetchLiveScores() already covers the current scoreboard.
+      const [live, prev, next] = await Promise.all([
+        cached(`scores:espn:${date}`, () => fetchLiveScores(), CACHE_TTL.scores),
+        cached(`scores:espn:${prevDate}`, () => fetchESPNScores(prevDate), 60_000),
+        cached(`scores:espn:${nextDate}`, () => fetchESPNScores(nextDate), 60_000),
+      ])
+      scores = dedupeById([...live, ...prev, ...next])
     } else {
-      scores = await cached(
-        `scores:espn:${date}`,
-        () => fetchESPNScores(date),
-        60_000
-      )
+      const [center, prev, next] = await Promise.all([
+        cached(`scores:espn:${date}`, () => fetchESPNScores(date), 60_000),
+        cached(`scores:espn:${prevDate}`, () => fetchESPNScores(prevDate), 60_000),
+        cached(`scores:espn:${nextDate}`, () => fetchESPNScores(nextDate), 60_000),
+      ])
+      scores = dedupeById([...center, ...prev, ...next])
     }
 
     source = "espn_cached"
 
     if (scores.length > 0) {
-      // Fire-and-forget; don't block the response on persistence.
-      upsertMatches(scores, "espn", date).catch(() => {})
+      // Fire-and-forget; don't block the response on persistence. Each match
+      // is stored under its own UTC match_date (derived from startTime), not
+      // the requested `date`, so neighboring-day games are filed correctly.
+      upsertMatches(scores, "espn").catch(() => {})
     }
 
     if (scores.length === 0 && dbMatches.length > 0) {
@@ -105,8 +175,11 @@ export async function getScoresForDate(
     }
   }
 
+  // Exclude in-progress matches (scores section shows only upcoming games and
+  // results) and "TBD vs TBD" placeholder events. Applied for every consumer.
+  let filtered = scores.filter((m) => !isLiveMatch(m) && !isPlaceholderMatch(m))
+
   // Sport filter
-  let filtered = scores
   if (sportFilter && sportFilter !== "All") {
     const matched = SUPPORTED_SPORTS.find(
       (s) => s.toLowerCase() === sportFilter.toLowerCase()
@@ -114,7 +187,7 @@ export async function getScoresForDate(
     if (!matched || matched === "All") {
       filtered = []
     } else {
-      filtered = scores.filter(
+      filtered = filtered.filter(
         (m) => m.sport.toLowerCase() === matched.toLowerCase()
       )
     }
@@ -122,6 +195,7 @@ export async function getScoresForDate(
 
   return {
     data: filtered,
-    meta: { date, source, hasLive },
+    // Live games are never surfaced, so `hasLive` is always false here.
+    meta: { date, source, hasLive: false },
   }
 }

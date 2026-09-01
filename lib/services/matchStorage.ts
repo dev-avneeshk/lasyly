@@ -18,7 +18,7 @@ export async function upsertMatches(matches: LiveMatch[], source: string = "espn
 
   const supabase = createAdminClient()
 
-  const matchDate = date ? formatDateParam(date) : getTodayDate()
+  const fallbackDate = date ? formatDateParam(date) : getTodayDate()
 
   const rows = matches.map((m) => ({
     id: m.id,
@@ -37,7 +37,12 @@ export async function upsertMatches(matches: LiveMatch[], source: string = "espn
     status: m.status,
     clock: m.clock ?? null,
     start_time: m.startTime ?? null,
-    match_date: matchDate,
+    // Derive each row's bucket from its OWN kickoff (UTC date) rather than the
+    // requested `date`. A single call can carry games from several UTC days
+    // (we widen the query to ±1 day), so keying every row to one date would
+    // misfile the neighbors. Fall back to the passed date / today only when a
+    // match has no usable startTime.
+    match_date: matchDateFromStartTime(m.startTime) ?? fallbackDate,
     source,
     updated_at: new Date().toISOString(),
   }))
@@ -153,6 +158,108 @@ export async function getMatchesWithFreshness(
 }
 
 /**
+ * The UTC calendar date (YYYY-MM-DD) of a match's kickoff, used as its
+ * `match_date` bucket. Returns null when startTime is missing/unparseable.
+ */
+function matchDateFromStartTime(startTime: string | null | undefined): string | null {
+  if (!startTime) return null
+  const d = new Date(startTime)
+  if (isNaN(d.getTime())) return null
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
+}
+
+/**
+ * Shift a YYYYMMDD (or YYYY-MM-DD) date string by `days` calendar days,
+ * returning YYYY-MM-DD. Uses UTC so it matches how `match_date` is stored.
+ */
+function shiftDate(date: string, days: number): string {
+  const formatted = formatDateParam(date)
+  const [y, m, d] = formatted.split("-").map((n) => parseInt(n, 10))
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`
+}
+
+/**
+ * Like `getMatchesWithFreshness`, but reads a ±1 day window around the
+ * requested UTC date instead of a single day.
+ *
+ * Why: `match_date` is a UTC calendar date, but the UI groups games by the
+ * viewer's LOCAL day. A game that is "tonight" in a US timezone is stored
+ * under the next UTC date, so a single-day query misses games that belong on
+ * the viewer's selected local day. By returning the neighboring days too, the
+ * client can re-bucket by local time (see ScoresClient `localDateKey`) and
+ * every game lands under the tab whose label matches the card's own time.
+ *
+ * Freshness is derived from the requested (center) day only, so we don't
+ * re-fetch ESPN just because a neighboring day happens to be stale.
+ */
+export async function getMatchesWithFreshnessRange(
+  date: string,
+  sport?: string
+): Promise<{ matches: LiveMatch[]; isFresh: boolean; hasLive: boolean }> {
+  const supabase = createAdminClient()
+  const center = formatDateParam(date)
+  const start = shiftDate(date, -1)
+  const end = shiftDate(date, 1)
+  const today = getTodayDate()
+
+  let query = supabase
+    .from("matches")
+    .select("*")
+    .gte("match_date", start)
+    .lte("match_date", end)
+
+  if (sport && sport !== "All") {
+    query = query.eq("sport", sport)
+  }
+
+  const { data, error } = await query
+
+  if (error || !data || data.length === 0) {
+    return { matches: [], isFresh: false, hasLive: false }
+  }
+
+  const matches = data.map(mapRowToLiveMatch)
+
+  // Freshness is judged on the CENTER day's rows only.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const centerRows = data.filter((r: any) => r.match_date === center)
+  const isPast = center < today
+  const isFuture = center > today
+
+  if (centerRows.length === 0) {
+    // No rows for the requested day itself — treat as not fresh so the caller
+    // falls back to ESPN for that specific date.
+    return { matches, isFresh: false, hasLive: false }
+  }
+
+  if (isPast) {
+    return { matches, isFresh: true, hasLive: false }
+  }
+
+  const latestUpdate = getLatestUpdate(centerRows)
+
+  if (isFuture) {
+    const isFresh = latestUpdate > Date.now() - 5 * 60 * 1000
+    return { matches, isFresh, hasLive: false }
+  }
+
+  const centerMatches = centerRows.map(mapRowToLiveMatch)
+  const liveStatuses = ["In Progress", "Halftime", "First Half", "Second Half", "Q1", "Q2", "Q3", "Q4", "OT"]
+  const hasLive = centerMatches.some((m) => liveStatuses.includes(m.status))
+  const allFinished = centerMatches.every((m) => m.status === "Finished" || m.status === "Postponed")
+
+  if (allFinished) {
+    const isFresh = latestUpdate > Date.now() - 2 * 60 * 1000
+    return { matches, isFresh, hasLive: false }
+  }
+
+  const isFresh = latestUpdate > Date.now() - 30_000
+  return { matches, isFresh, hasLive }
+}
+
+/**
  * Store team logo info for future use.
  */
 export async function upsertTeamLogo(
@@ -264,6 +371,46 @@ function formatDateParam(date: string): string {
   return date
 }
 
+/**
+ * Normalize a stored status string to the app's MatchStatus vocabulary.
+ *
+ * The `matches` table is written by two producers with different vocabularies:
+ *   - The TS layer writes LiveMatch statuses ("Finished", "Not Started", ...).
+ *   - The Python scraper writes lowercase states ("completed", "scheduled",
+ *     "in_progress", "postponed").
+ * Reading them back verbatim meant scraper rows matched neither the live-status
+ * set nor the "Finished" check. Normalizing here gives every consumer one
+ * consistent representation.
+ */
+function normalizeStatus(raw: string | null | undefined): LiveMatch["status"] {
+  if (!raw) return "Not Started"
+  switch (raw.toLowerCase()) {
+    case "completed":
+    case "final":
+    case "full_time":
+    case "ft":
+      return "Finished"
+    case "scheduled":
+    case "not started":
+    case "pre":
+      return "Not Started"
+    case "in_progress":
+    case "in progress":
+    case "live":
+      return "In Progress"
+    case "postponed":
+    case "canceled":
+    case "cancelled":
+    case "suspended":
+    case "abandoned":
+      return "Postponed"
+    default:
+      // Already a valid LiveMatch status (e.g. "Finished", "Halftime", "Q3")
+      // passes through unchanged.
+      return raw as LiveMatch["status"]
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapRowToLiveMatch(row: any): LiveMatch {
   return {
@@ -274,7 +421,7 @@ function mapRowToLiveMatch(row: any): LiveMatch {
     awayScore: row.away_score ?? 0,
     clock: row.clock ?? undefined,
     startTime: row.start_time ?? undefined,
-    status: row.status ?? "Not Started",
+    status: normalizeStatus(row.status),
     league: row.league,
     sport: row.sport,
     homeLogo: row.home_logo ?? undefined,
