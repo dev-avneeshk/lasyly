@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { sanitizeText, isSpamMessage } from "@/lib/sanitize"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
-import { cached, invalidateCache } from "@/lib/cache"
+
 
 const MESSAGE_TTL_DAYS = 30
 
@@ -86,13 +86,11 @@ export const GET = withSecurity(async (
     return query
   }
 
-  // Cache only the base (non-paginated) load. Keyed by sub-channel (or room)
-  // so each stream is cached independently. Short TTL; POST invalidates.
-  const scopeKey = subchannelId ? `sub:${subchannelId}` : `room:${roomId}`
-  const cacheKey = `chat:messages:${scopeKey}:${limit}`
-  let { data: messages, error } = cursor
-    ? await fetchMessages()
-    : await cached(cacheKey, fetchMessages, 5_000)
+  // Chat history is fetched fresh every time — no caching. A short cache here
+  // caused just-sent messages to briefly vanish on refetch (the cached
+  // pre-message snapshot was served back). Chat is realtime and the query is
+  // cheap (indexed on subchannel_id, created_at), so we always hit the DB.
+  let { data: messages, error } = await fetchMessages()
 
   // Backward-compat: if the sub-channel columns aren't migrated yet, retry
   // room-scoped without them so chat keeps working.
@@ -330,14 +328,6 @@ export const POST = withSecurity(async (
       { status: denied ? 403 : 500 }
     )
   }
-
-  // Bust the cached initial-load pages for this scope so a fresh open reflects
-  // the new message immediately (default and max page sizes).
-  const scope = subchannelId ? `sub:${subchannelId}` : `room:${roomId}`
-  await Promise.all([
-    invalidateCache(`chat:messages:${scope}:50`),
-    invalidateCache(`chat:messages:${scope}:100`),
-  ])
 
   return NextResponse.json(message, { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

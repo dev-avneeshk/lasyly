@@ -180,10 +180,13 @@ export default function RoomPage() {
     // Clear the feed on channel switch so streams don't bleed together.
     setMessages([])
 
+    // Guard against stale responses: if the sub-channel changes (or we unmount)
+    // before this fetch resolves, don't let its result overwrite newer state.
+    let ignore = false
     const fetchMessages = async () => {
       const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
       const data = await res.json()
-      if (res.ok && data.messages) setMessages(data.messages.slice(-MAX_MESSAGES))
+      if (!ignore && res.ok && data.messages) setMessages(data.messages.slice(-MAX_MESSAGES))
     }
     fetchMessages()
 
@@ -206,7 +209,7 @@ export default function RoomPage() {
       .subscribe()
     channelRef.current = channel
 
-    return () => { supabase.removeChannel(channel); channelRef.current = null }
+    return () => { ignore = true; supabase.removeChannel(channel); channelRef.current = null }
   }, [supabase, roomId, activeSubchannelId])
 
   // Keep the profile cache fed from members + any messages that already carry
@@ -304,7 +307,14 @@ export default function RoomPage() {
   const canPost = Boolean(
     currentUser &&
     activeSub &&
-    (activeSub.post_policy === "admins" ? isAdmin : isMember)
+    (
+      // Admins (owner/moderator) can always post.
+      isAdmin ||
+      // admins-only channel: non-admins can't post.
+      (activeSub.post_policy !== "admins" &&
+        // "everyone" = any signed-in user; "members" = room members.
+        (activeSub.post_policy === "everyone" || isMember))
+    )
   )
 
   // Precompute per-message "grouped" flag once per messages change (not per
