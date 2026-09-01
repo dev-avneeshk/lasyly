@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { fetchWithRetry } from "./fetch-with-retry"
+
 /**
  * Service-role Supabase client that bypasses RLS.
  * Only use in server-side contexts (webhooks, background jobs).
@@ -16,6 +18,9 @@ export function createAdminClient() {
   }
 
   return createClient(url, serviceRoleKey, {
+    global: {
+      fetch: fetchWithRetry,
+    },
     auth: {
       autoRefreshToken: false,
       persistSession: false,

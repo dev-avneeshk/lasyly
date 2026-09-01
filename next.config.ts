@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // Next 16.3.x reads `experimental.instantInsights.validationLevel` in
+  // base-server without optional chaining, so it crashes at request time when
+  // the field is absent (TypeError: cannot read 'validationLevel' of
+  // undefined). Defining it explicitly gives the runtime the shape it expects.
+  experimental: {
+    instantInsights: { validationLevel: "warning" },
+  } as NextConfig["experimental"],
   allowedDevOrigins: ["192.168.31.195"],
   logging: false,
   poweredByHeader: false,
