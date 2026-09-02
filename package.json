@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:check": "node scripts/db/check-schema.mjs",
+    "db:check-rls": "node scripts/db/check-rls.mjs",
     "db:apply": "scripts/db/apply-migration.sh",
     "loadtest:smoke": "k6 run load-tests/smoke.js",
     "loadtest": "k6 run load-tests/load.js",
