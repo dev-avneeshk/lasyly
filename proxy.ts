@@ -31,6 +31,19 @@ const PUBLIC_ROUTES = [
   "/news",
 ]
 
+// Routes that need a REAL account — a signed guest cookie is not enough.
+//
+// The auth gate below treats `user || isGuest` as authenticated, which is right
+// for browsing but wrong for pages whose only purpose is a write. Guests could
+// reach /rooms/create and fill in the whole form, because the "Create Room"
+// button is hidden for them but the route itself was never gated. Submitting
+// then failed with 401 from POST /api/rooms/create (which correctly requires a
+// Supabase user, and is additionally backstopped by the rooms_insert_own RLS
+// policy). No data was ever at risk; it was a dead end.
+//
+// Prefixes are matched with startsWith, same as PUBLIC_ROUTES.
+const ACCOUNT_REQUIRED_ROUTES = ["/rooms/create"]
+
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
 ].filter(Boolean)
@@ -298,7 +311,13 @@ export async function proxy(request: NextRequest) {
       !isApiRoute &&
       !isPublicRoute
 
-    if (needsAuthGuard && !isAuthed) {
+    // Write-only pages need a real Supabase user, so a guest cookie does not
+    // satisfy them even though it satisfies needsAuthGuard.
+    const needsRealAccount =
+      !isApiRoute &&
+      ACCOUNT_REQUIRED_ROUTES.some((route) => pathname.startsWith(route))
+
+    if ((needsAuthGuard && !isAuthed) || (needsRealAccount && !user)) {
       const loginUrl = new URL("/login", request.url)
       loginUrl.searchParams.set("redirect", pathname)
       const redirectResponse = NextResponse.redirect(loginUrl)
