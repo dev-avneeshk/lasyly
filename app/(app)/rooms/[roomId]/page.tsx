@@ -2,15 +2,15 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { Hash, Settings, Menu, LogOut, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { cn } from "@/lib/utils"
-import ScoresPanel from "@/components/room/ScoresPanel"
 import AdminPanel from "@/components/room/AdminPanel"
 import { MessageRow, getUserColor, getInitials, type ChatMessage } from "@/components/room/MessageRow"
 import { ChatInput } from "@/components/room/ChatInput"
 import { ChannelSidebar } from "@/components/room/ChannelSidebar"
 import ChannelManager from "@/components/room/ChannelManager"
 import { UpgradeModal } from "@/components/room/UpgradeModal"
+import { TopBetPanel } from "@/components/room/TopBetPanel"
 import type { Subchannel } from "@/lib/types/channel"
 
 /**
@@ -56,10 +56,6 @@ type CurrentUser = {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const SPORT_EMOJI: Record<string, string> = {
-  Football: "⚽", Basketball: "🏀", Tennis: "🎾", Mixed: "🔥", Other: "🎯",
-}
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function RoomPage() {
@@ -79,7 +75,6 @@ export default function RoomPage() {
   const [members, setMembers] = useState<MemberProfile[]>([])
   const [subchannels, setSubchannels] = useState<Subchannel[]>([])
   const [activeSubchannelId, setActiveSubchannelId] = useState<string | null>(null)
-  const [showLiveScores, setShowLiveScores] = useState(false)
   const [managerMode, setManagerMode] = useState<
     | { kind: "new-subchannel" }
     | { kind: "manage-subchannel"; sub: Subchannel }
@@ -295,7 +290,10 @@ export default function RoomPage() {
     } catch {} finally { setJoining(false) }
   }
 
-  const isAdmin = userRole === "owner" || userRole === "moderator"
+  // The creator is always an owner/admin/member, even before the members list
+  // resolves — don't let a fetch race leave the owner locked out of their own room.
+  const isAdmin = isOwner || userRole === "owner" || userRole === "moderator"
+  const isEffectiveMember = isOwner || isMember
 
   // The active sub-channel object + whether the current user may post in it.
   const activeSub = useMemo(
@@ -313,7 +311,7 @@ export default function RoomPage() {
       // admins-only channel: non-admins can't post.
       (activeSub.post_policy !== "admins" &&
         // "everyone" = any signed-in user; "members" = room members.
-        (activeSub.post_policy === "everyone" || isMember))
+        (activeSub.post_policy === "everyone" || isEffectiveMember))
     )
   )
 
@@ -395,9 +393,7 @@ export default function RoomPage() {
     </div>
   )
 
-  const sportEmoji = SPORT_EMOJI[room.sport_tag ?? "Other"] ?? "🎯"
-
-  const selectSub = (id: string) => { setShowLiveScores(false); setActiveSubchannelId(id) }
+  const selectSub = (id: string) => setActiveSubchannelId(id)
 
   return (
     <div className="flex h-[calc(100dvh-64px)] overflow-hidden bg-[#0A0A0A]">
@@ -416,27 +412,13 @@ export default function RoomPage() {
         {/* Channels */}
         <ChannelSidebar
           subchannels={subchannels}
-          activeSubchannelId={showLiveScores ? null : activeSubchannelId}
+          activeSubchannelId={activeSubchannelId}
           isAdmin={isAdmin}
           canAddMore={extraSubCount < 2}
           onSelect={selectSub}
           onAddSubchannel={() => setManagerMode({ kind: "new-subchannel" })}
           onManageSubchannel={(sub) => setManagerMode({ kind: "manage-subchannel", sub })}
         />
-
-        {/* Live Scores (special view) */}
-        <div className="px-2 pb-2">
-          <button
-            onClick={() => setShowLiveScores(true)}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-left transition-all text-[13px]",
-              showLiveScores ? "bg-[rgba(184,255,79,0.12)] text-white/90" : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
-            )}
-          >
-            <span className="text-[15px] w-5 text-center">📺</span>
-            <span className="flex-1 font-medium truncate">live-scores</span>
-          </button>
-        </div>
 
         {/* Bottom user area */}
         <div className="px-3 py-3 border-t border-white/[0.06] flex items-center gap-2.5">
@@ -454,56 +436,61 @@ export default function RoomPage() {
       <div className="flex-1 flex flex-col min-w-0 bg-[#0A0A0A]">
         {/* Chat Header */}
         <div className="h-[56px] shrink-0 flex items-center px-5 border-b border-white/[0.06] gap-4">
-          <button onClick={() => setDrawerOpen(true)} className="md:hidden text-white/60 text-lg">☰</button>
-          <div className="flex items-center gap-2 text-[15px] font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>
-            <span className="text-[15px]">{showLiveScores ? "📺" : activeSub?.icon ?? "#"}</span>
-            {showLiveScores ? "live-scores" : activeSub?.name ?? "general"}
+          <button onClick={() => setDrawerOpen(true)} className="md:hidden text-white/50 hover:text-white/80 transition-colors"><Menu className="w-5 h-5" /></button>
+          <div className="flex items-center gap-1.5 text-[15px] font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>
+            <Hash className="w-4 h-4 text-white/30" />
+            {activeSub?.name ?? "general"}
           </div>
+          {activeSub?.topic && (
+            <span className="hidden md:block text-[12px] text-white/30 truncate max-w-[240px] border-l border-white/[0.08] pl-3">
+              {activeSub.topic}
+            </span>
+          )}
 
           <div className="flex-1" />
 
-          {/* Join/Leave */}
-          {userId && (
+          {/* Non-members join; owners/members don't see a redundant leave. */}
+          {userId && !isMember && !isOwner && (
             <button
               onClick={handleJoinLeave}
               disabled={joining}
-              className={cn(
-                "px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition-all",
-                isMember
-                  ? "text-white/40 border border-white/[0.06] hover:text-[#F87171] hover:border-[#F87171]/30"
-                  : "bg-[#B8FF4F] text-black"
-              )}
+              className="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold bg-[#B8FF4F] text-black transition-all disabled:opacity-50"
             >
-              {joining ? "..." : isMember ? "Leave" : "Join"}
+              {joining ? "Joining..." : "Join"}
             </button>
           )}
-          <button className="w-8 h-8 rounded-lg text-white/25 hover:text-white/50 hover:bg-white/[0.04] flex items-center justify-center text-sm transition-colors">🔍</button>
-          <button className="w-8 h-8 rounded-lg text-white/25 hover:text-white/50 hover:bg-white/[0.04] flex items-center justify-center text-sm transition-colors">👥</button>
+          {userId && isMember && !isOwner && (
+            <button
+              onClick={handleJoinLeave}
+              disabled={joining}
+              className="w-8 h-8 rounded-lg text-white/25 hover:text-[#F87171] hover:bg-[#F87171]/5 flex items-center justify-center transition-colors"
+              title="Leave room"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => setAdminOpen(true)}
-              className="w-8 h-8 rounded-lg text-white/25 hover:text-[#B8FF4F] hover:bg-[#B8FF4F]/5 flex items-center justify-center text-sm transition-colors"
-              title="Room Settings"
+              className="w-8 h-8 rounded-lg text-white/30 hover:text-[#B8FF4F] hover:bg-[#B8FF4F]/5 flex items-center justify-center transition-colors"
+              title="Room settings"
             >
-              ⚙️
+              <Settings className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        {/* Content: Chat or Scores */}
-        {showLiveScores ? (
-          <div className="flex-1 overflow-y-auto">
-            <ScoresPanel roomId={roomId} isOwner={isOwner} />
-          </div>
-        ) : (
-          <>
+        {/* Chat */}
+        <>
             {/* Message Feed */}
             <div ref={feedRef} className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-1 scrollbar-hide">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="w-[60px] h-[60px] rounded-2xl bg-[#1A1A1A] border border-white/[0.06] flex items-center justify-center mb-3 text-2xl">{sportEmoji}</div>
+                  <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
+                    <Hash className="w-6 h-6 text-white/25" />
+                  </div>
                   <p className="text-[14px] font-semibold text-white/80">Welcome to #{activeSub?.name ?? "general"}</p>
-                  <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">This is the start of the channel. Share picks, discuss games, and react to tips.</p>
+                  <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">This is the start of the channel. Share picks and talk through the slate.</p>
                 </div>
               )}
 
@@ -537,42 +524,28 @@ export default function RoomPage() {
               </div>
             )}
           </>
-        )}
       </div>
 
       {/* ─── Right Panel ─── */}
       <div className="hidden lg:flex w-[280px] shrink-0 flex-col bg-[#111111] border-l border-white/[0.06] overflow-y-auto scrollbar-hide">
-        {/* Live Match Widget */}
+        {/* Top Bet */}
         <div className="p-5 border-b border-white/[0.06]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-white/25 mb-3">Live Match</p>
-          <div className="bg-[#1A1A1A] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[12px] font-semibold text-white/70 flex items-center gap-1.5">
-                <span className="w-6 h-6 rounded-lg bg-[#222] flex items-center justify-center text-[12px]">{sportEmoji}</span>
-                {room.sport_tag ?? "Match"}
-              </span>
-              <span className="text-[10px] font-semibold text-[#F87171] flex items-center gap-1">
-                <span className="w-[5px] h-[5px] rounded-full bg-[#F87171] animate-pulse" />LIVE
-              </span>
-            </div>
-            <div className="text-center py-2">
-              <p className="text-[11px] text-white/30 mb-1">No live match data</p>
-              <p className="text-[10px] text-white/20">Check the Scores channel</p>
-            </div>
-          </div>
+          <TopBetPanel roomId={roomId} isAdmin={isAdmin} />
         </div>
 
         {/* Members */}
         <div className="p-5 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-white/25 mb-3">Online — {members.length}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/25 mb-3">
+            Members — {members.length}
+          </p>
           <div className="flex flex-col gap-0.5">
             {members.slice(0, 20).map(member => {
               const name = member.display_name || member.username || "User"
               const color = getUserColor(member.id)
               return (
-                <div key={member.id} className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer">
-                  <div className="relative">
-                    <div className="w-[30px] h-[30px] rounded-[10px] flex items-center justify-center text-[10px] font-semibold overflow-hidden" style={{ background: `${color}15`, color }}>
+                <div key={member.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer">
+                  <div className="relative shrink-0">
+                    <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-[10px] font-semibold overflow-hidden" style={{ background: `${color}18`, color }}>
                       {member.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -580,15 +553,17 @@ export default function RoomPage() {
                     </div>
                     <div className="absolute -bottom-0.5 -right-0.5 w-[9px] h-[9px] rounded-full bg-[#34D399] border-2 border-[#111111]" />
                   </div>
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className="text-[12px] text-white/40 font-medium truncate">{name}</span>
-                    {member.role === "owner" && <span className="text-[9px] shrink-0" title="Owner">👑</span>}
-                    {member.role === "moderator" && <span className="text-[9px] shrink-0" title="Moderator">🛡️</span>}
-                  </div>
+                  <span className="text-[13px] text-white/55 font-medium truncate flex-1">{name}</span>
+                  {member.role === "owner" && (
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-[#B8FF4F]/70 shrink-0">Owner</span>
+                  )}
+                  {member.role === "moderator" && (
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-[#60A5FA]/70 shrink-0">Mod</span>
+                  )}
                 </div>
               )
             })}
-            {members.length === 0 && <p className="text-[11px] text-white/20 px-2">Loading...</p>}
+            {members.length === 0 && <p className="text-[12px] text-white/20 px-2">No members yet</p>}
           </div>
         </div>
       </div>
@@ -600,25 +575,17 @@ export default function RoomPage() {
           <div className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
             <div className="px-5 pt-6 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
               <h2 className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</h2>
-              <button onClick={() => setDrawerOpen(false)} className="text-white/30 text-lg">✕</button>
+              <button onClick={() => setDrawerOpen(false)} className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <ChannelSidebar
               subchannels={subchannels}
-              activeSubchannelId={showLiveScores ? null : activeSubchannelId}
+              activeSubchannelId={activeSubchannelId}
               isAdmin={isAdmin}
               canAddMore={extraSubCount < 2}
               onSelect={(id) => { selectSub(id); setDrawerOpen(false) }}
               onAddSubchannel={() => { setDrawerOpen(false); setManagerMode({ kind: "new-subchannel" }) }}
               onManageSubchannel={(sub) => { setDrawerOpen(false); setManagerMode({ kind: "manage-subchannel", sub }) }}
             />
-            <div className="px-2 pb-4">
-              <button
-                onClick={() => { setShowLiveScores(true); setDrawerOpen(false) }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-left text-[13px] text-white/40"
-              >
-                <span className="text-[15px]">📺</span><span className="font-medium">live-scores</span>
-              </button>
-            </div>
           </div>
         </>
       )}
