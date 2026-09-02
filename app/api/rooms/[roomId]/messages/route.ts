@@ -287,6 +287,17 @@ export const POST = withSecurity(async (
       .eq("is_default", true)
       .maybeSingle()
     subchannelId = def?.id ?? null
+
+    // No default channel yet (room predates the AFTER INSERT trigger added in
+    // 20260904_repair_room_features.sql). Create it rather than inserting a
+    // message with a NULL subchannel_id, which violates NOT NULL and surfaced
+    // as an opaque "Failed to send message."
+    if (!subchannelId) {
+      const { data: healed } = await supabase.rpc("room_ensure_default_subchannel", {
+        p_room_id: roomId,
+      })
+      if (typeof healed === "string") subchannelId = healed
+    }
   }
 
   // Insert message. Include the new columns when we have a sub-channel; RLS

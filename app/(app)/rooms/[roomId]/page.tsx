@@ -81,6 +81,9 @@ export default function RoomPage() {
     | null
   >(null)
   const [upgradeLimit, setUpgradeLimit] = useState<"rooms" | "subchannels" | null>(null)
+  // Distinguishes "channels not fetched yet" from "this room genuinely has no
+  // channels", so the composer can explain itself instead of guessing.
+  const [channelsLoaded, setChannelsLoaded] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [sending, setSending] = useState(false)
@@ -105,6 +108,7 @@ export default function RoomPage() {
     const data = await res.json()
     const list: Subchannel[] = data.subchannels ?? []
     setSubchannels(list)
+    setChannelsLoaded(true)
     if (selectFirst && list[0]) {
       setActiveSubchannelId((prev) => prev ?? list[0].id)
     }
@@ -315,6 +319,22 @@ export default function RoomPage() {
     )
   )
 
+  // Why the composer is hidden, in the user's terms. Previously this fell
+  // through to "Join this room to chat" for every unhandled case, which lied to
+  // owners when the room simply had no sub-channel to post into.
+  const composerNotice = useMemo(() => {
+    if (!currentUser) return "Sign in to chat"
+    if (!channelsLoaded) return "Loading channels..."
+    if (!activeSub) {
+      return isAdmin
+        ? "This room has no channel yet — create one to start chatting"
+        : "This room has no channel yet"
+    }
+    if (activeSub.post_policy === "admins") return "Only admins can post in this channel"
+    if (!isEffectiveMember) return "Join this room to chat"
+    return "You can't post in this channel"
+  }, [currentUser, channelsLoaded, activeSub, isAdmin, isEffectiveMember])
+
   // Precompute per-message "grouped" flag once per messages change (not per
   // render). A message is grouped under the previous one when it's the same
   // author within 7 minutes — this drives the compact (headerless) row style.
@@ -437,9 +457,11 @@ export default function RoomPage() {
         {/* Chat Header */}
         <div className="h-[56px] shrink-0 flex items-center px-5 border-b border-white/[0.06] gap-4">
           <button onClick={() => setDrawerOpen(true)} className="md:hidden text-white/50 hover:text-white/80 transition-colors"><Menu className="w-5 h-5" /></button>
+          {/* No "general" fallback: inventing a channel name hid the fact that
+              the room had no sub-channel at all. */}
           <div className="flex items-center gap-1.5 text-[15px] font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>
             <Hash className="w-4 h-4 text-white/30" />
-            {activeSub?.name ?? "general"}
+            {activeSub?.name ?? (channelsLoaded ? "no channel" : "...")}
           </div>
           {activeSub?.topic && (
             <span className="hidden md:block text-[12px] text-white/30 truncate max-w-[240px] border-l border-white/[0.08] pl-3">
@@ -489,8 +511,21 @@ export default function RoomPage() {
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
                     <Hash className="w-6 h-6 text-white/25" />
                   </div>
-                  <p className="text-[14px] font-semibold text-white/80">Welcome to #{activeSub?.name ?? "general"}</p>
-                  <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">This is the start of the channel. Share picks and talk through the slate.</p>
+                  {activeSub ? (
+                    <>
+                      <p className="text-[14px] font-semibold text-white/80">Welcome to #{activeSub.name}</p>
+                      <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">This is the start of the channel. Share picks and talk through the slate.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[14px] font-semibold text-white/80">No channel yet</p>
+                      <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">
+                        {isAdmin
+                          ? "Add a sub-channel from the sidebar to start the conversation."
+                          : "The room owner hasn't set up a channel yet."}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -515,11 +550,7 @@ export default function RoomPage() {
             ) : (
               <div className="shrink-0 px-5 pb-5 pt-2">
                 <div className="flex items-center justify-center gap-2 bg-[#1A1A1A] border border-white/[0.06] rounded-2xl px-5 py-3 text-[13px] text-white/30">
-                  {!currentUser
-                    ? "Sign in to chat"
-                    : activeSub?.post_policy === "admins"
-                      ? "Only admins can post in this channel"
-                      : "Join this room to chat"}
+                  {composerNotice}
                 </div>
               </div>
             )}

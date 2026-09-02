@@ -26,16 +26,40 @@ export const GET = withSecurity(async (
   const { roomId } = await context!.params
   const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from("room_subchannels")
-    .select("id, name, topic, icon, position, visibility, post_policy, join_policy, slug, is_default")
-    .eq("room_id", roomId)
-    .order("is_default", { ascending: false })
-    .order("position", { ascending: true })
+  const SELECT =
+    "id, name, topic, icon, position, visibility, post_policy, join_policy, slug, is_default"
+
+  const query = () =>
+    supabase
+      .from("room_subchannels")
+      .select(SELECT)
+      .eq("room_id", roomId)
+      .order("is_default", { ascending: false })
+      .order("position", { ascending: true })
+
+  const { data, error } = await query()
 
   if (error) {
     if (isMissingSchema(error)) return NextResponse.json({ subchannels: [], migrated: false })
     return NextResponse.json({ error: "Failed to load channels." }, { status: 500 })
+  }
+
+  // Self-heal: a room with zero sub-channels leaves the client with no channel
+  // to post into, which used to surface as "Join this room to chat" even for the
+  // owner. Rooms created before the AFTER INSERT trigger in
+  // 20260904_repair_room_features.sql are in exactly that state, so create the
+  // default sub-channel on first read. The RPC is idempotent and only ever
+  // touches the room's own default channel.
+  if ((data ?? []).length === 0) {
+    const { error: healError } = await supabase.rpc("room_ensure_default_subchannel", {
+      p_room_id: roomId,
+    })
+    // Missing RPC just means the repair migration hasn't run; fall through with
+    // an empty list rather than failing the whole request.
+    if (!healError) {
+      const { data: healed } = await query()
+      if (healed?.length) return NextResponse.json({ subchannels: healed, migrated: true })
+    }
   }
 
   return NextResponse.json({ subchannels: data ?? [], migrated: true })
