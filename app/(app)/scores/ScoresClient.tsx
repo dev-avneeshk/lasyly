@@ -1,16 +1,16 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { Radio, Trophy, Clock, CheckCircle } from "lucide-react"
+import { Trophy, Clock, CheckCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { LiveMatch } from "@/types"
+import { formatMatchTime } from "@/lib/datetime"
 import MatchDetailModal from "@/components/scores/MatchDetailModal"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SPORT_CATEGORIES = [
   { id: "popular", label: "All", emoji: "🔥" },
-  { id: "live", label: "Live", emoji: "🔴" },
   { id: "Football", label: "Soccer", emoji: "⚽" },
   { id: "Basketball", label: "Basketball", emoji: "🏀" },
   { id: "American Football", label: "Football", emoji: "🏈" },
@@ -23,26 +23,30 @@ const SPORT_CATEGORIES = [
   { id: "Cricket", label: "Cricket", emoji: "🏏" },
 ]
 
-type MatchTab = "all" | "live" | "upcoming" | "finished"
+type MatchTab = "all" | "upcoming" | "finished"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function isLiveStatus(status: string): boolean {
-  return (
-    status === "In Progress" ||
-    status === "Halftime" ||
-    status === "First Half" ||
-    status === "Second Half" ||
-    status === "Q1" ||
-    status === "Q2" ||
-    status === "Q3" ||
-    status === "Q4" ||
-    status === "OT"
-  )
-}
-
 function formatYYYYMMDD(d: Date): string {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`
+}
+
+/**
+ * The viewer-local calendar date (YYYYMMDD) for a match's kickoff.
+ *
+ * The server buckets matches by a UTC `match_date`, but the week-strip tabs
+ * and the card times are rendered in the viewer's local timezone (see
+ * lib/datetime.ts). Without re-bucketing, a US night game stored under a UTC
+ * date lands under the wrong local tab — the card then reads e.g. "18 Sep" or
+ * "4 Oct" while sitting under the "Sep 1" tab. We re-derive the day from the
+ * real UTC `startTime` so the bucket always agrees with the label and the
+ * card's own displayed time. Returns null when there's no usable startTime.
+ */
+function localDateKey(startTime: string | undefined): string | null {
+  if (!startTime) return null
+  const d = new Date(startTime)
+  if (isNaN(d.getTime())) return null
+  return formatYYYYMMDD(d)
 }
 
 function getWeekDays(): { day: string; date: number; fullDate: string; isToday: boolean }[] {
@@ -135,36 +139,40 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
 
   // ─── Filtered Matches ──────────────────────────────────────────────────────
 
-  const filteredMatches = useMemo(() => {
-    let filtered = scores
+  // Re-bucket to the viewer's local day. The server returns rows for a UTC
+  // date bucket; we keep only the ones that actually fall on `selectedDate`
+  // in the viewer's timezone. Matches with no parseable startTime are kept so
+  // we never hide data we can't place (rare, e.g. TBD schedules).
+  const dateScopedScores = useMemo(() => {
+    return scores.filter((m) => {
+      const key = localDateKey(m.startTime)
+      return key === null || key === selectedDate
+    })
+  }, [scores, selectedDate])
 
-    if (activeSport === "live") {
-      filtered = filtered.filter((m) => isLiveStatus(m.status))
-    } else if (activeSport !== "popular") {
+  const filteredMatches = useMemo(() => {
+    let filtered = dateScopedScores
+
+    if (activeSport !== "popular") {
       filtered = filtered.filter((m) => m.sport === activeSport)
     }
 
-    if (activeTab === "live") {
-      filtered = filtered.filter((m) => isLiveStatus(m.status))
-    } else if (activeTab === "upcoming") {
+    if (activeTab === "upcoming") {
       filtered = filtered.filter((m) => m.status === "Not Started")
     } else if (activeTab === "finished") {
       filtered = filtered.filter((m) => m.status === "Finished")
     }
 
     return filtered
-  }, [scores, activeSport, activeTab])
+  }, [dateScopedScores, activeSport, activeTab])
 
   const sportFilteredScores = useMemo(() => {
-    if (activeSport === "live") {
-      return scores.filter((m) => isLiveStatus(m.status))
-    } else if (activeSport !== "popular") {
-      return scores.filter((m) => m.sport === activeSport)
+    if (activeSport !== "popular") {
+      return dateScopedScores.filter((m) => m.sport === activeSport)
     }
-    return scores
-  }, [scores, activeSport])
+    return dateScopedScores
+  }, [dateScopedScores, activeSport])
 
-  const liveCount = sportFilteredScores.filter((m) => isLiveStatus(m.status)).length
   const upcomingCount = sportFilteredScores.filter((m) => m.status === "Not Started").length
   const finishedCount = sportFilteredScores.filter((m) => m.status === "Finished").length
 
@@ -231,21 +239,6 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
           >
             <span>All</span>
             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 font-black">{scores.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("live")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-all",
-              activeTab === "live"
-                ? "bg-[#25d65f]/20 text-[#25d65f]"
-                : "text-white/40 hover:text-white/70"
-            )}
-          >
-            <Radio className="h-3 w-3" />
-            <span>Live</span>
-            {liveCount > 0 && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#25d65f]/20 font-black text-[#25d65f]">{liveCount}</span>
-            )}
           </button>
           <button
             onClick={() => setActiveTab("upcoming")}
@@ -343,7 +336,6 @@ function getUserVote(matchId: string): "1" | "X" | "2" | null {
 // ─── Match Card with 1X2 Voting ─────────────────────────────────────────────
 
 function MatchCard({ match, onSelect }: { match: LiveMatch; onSelect: () => void }) {
-  const live = isLiveStatus(match.status)
   const finished = match.status === "Finished"
   const allowDraw = DRAW_SPORTS.has(match.sport)
 
@@ -371,9 +363,7 @@ function MatchCard({ match, onSelect }: { match: LiveMatch; onSelect: () => void
     <div
       className={cn(
         "rounded-2xl p-4 border transition-all",
-        live
-          ? "bg-gradient-to-r from-[#25d65f]/[0.04] to-transparent border-[#25d65f]/20 hover:border-[#25d65f]/40"
-          : finished
+        finished
           ? "bg-[var(--color-surface)] border-white/[0.06] hover:border-white/15"
           : "bg-[var(--color-surface)] border-white/[0.06] hover:border-[var(--color-lime)]/20"
       )}
@@ -384,20 +374,14 @@ function MatchCard({ match, onSelect }: { match: LiveMatch; onSelect: () => void
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold text-white/50 uppercase truncate">{match.league}</span>
           <div className="flex items-center gap-1.5">
-            {live && (
-              <>
-                <div className="w-1.5 h-1.5 rounded-full bg-[#25d65f] animate-pulse" />
-                <span className="text-[10px] font-bold text-[#25d65f]">{match.clock || "LIVE"}</span>
-              </>
-            )}
             {finished && (
               <span className="text-[10px] font-bold text-white/30 bg-white/5 rounded-full px-2 py-0.5">FT</span>
             )}
             {match.status === "Not Started" && (
-              <span className="text-[10px] font-medium text-white/40">
+              <span className="text-[10px] font-medium text-white/40" suppressHydrationWarning>
                 {match.startTime
-                  ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-                  : match.clock || "Scheduled"}
+                  ? formatMatchTime(match.startTime)
+                  : "Scheduled"}
               </span>
             )}
           </div>
@@ -423,7 +407,7 @@ function MatchCard({ match, onSelect }: { match: LiveMatch; onSelect: () => void
             </span>
             <span className={cn(
               "text-lg font-black tabular-nums min-w-[24px] text-right",
-              live ? "text-white" : finished ? (match.homeScore > match.awayScore ? "text-white" : "text-white/50") : "text-white/30"
+              finished ? (match.homeScore > match.awayScore ? "text-white" : "text-white/50") : "text-white/30"
             )}>
               {match.status === "Not Started" ? "-" : match.homeScore}
             </span>
@@ -447,7 +431,7 @@ function MatchCard({ match, onSelect }: { match: LiveMatch; onSelect: () => void
             </span>
             <span className={cn(
               "text-lg font-black tabular-nums min-w-[24px] text-right",
-              live ? "text-white" : finished ? (match.awayScore > match.homeScore ? "text-white" : "text-white/50") : "text-white/30"
+              finished ? (match.awayScore > match.homeScore ? "text-white" : "text-white/50") : "text-white/30"
             )}>
               {match.status === "Not Started" ? "-" : match.awayScore}
             </span>

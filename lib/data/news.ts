@@ -21,9 +21,8 @@ const ESPN_FEEDS: { name: string; url: string; category: string }[] = [
   { name: "NBA", url: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/news?limit=15", category: "NBA" },
   { name: "NFL", url: "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=10", category: "NFL" },
   { name: "UFC", url: "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/news?limit=8", category: "UFC" },
-  { name: "Tennis", url: "https://site.api.espn.com/apis/site/v2/sports/tennis/news?limit=8", category: "Tennis" },
+  { name: "Tennis", url: "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/news?limit=8", category: "Tennis" },
   { name: "F1", url: "https://site.api.espn.com/apis/site/v2/sports/racing/f1/news?limit=8", category: "F1" },
-  { name: "Cricket", url: "https://site.api.espn.com/apis/site/v2/sports/cricket/news?limit=8", category: "Cricket" },
 ]
 
 interface ESPNArticle {
@@ -83,8 +82,9 @@ async function fetchFromESPN(category: string | null): Promise<NewsItem[]> {
   const results = await Promise.all(
     feedsToFetch.map(async (feed) => {
       try {
+        // No custom User-Agent: ESPN's edge returns 403 for "Lasyly/1.0"
+        // (and browser-spoof UAs) but serves 200 for the default fetch UA.
         const res = await fetch(feed.url, {
-          headers: { "User-Agent": "Lasyly/1.0" },
           next: { revalidate: 300 },
         })
         if (!res.ok) return [] as NewsItem[]

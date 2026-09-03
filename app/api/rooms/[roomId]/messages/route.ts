@@ -5,11 +5,18 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { sanitizeText, isSpamMessage } from "@/lib/sanitize"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
+
 const MESSAGE_TTL_DAYS = 30
 
 const messageSchema = z.object({
-  content: z.string().min(1).max(1000),
-})
+  content: z.string().max(1000).optional().default(""),
+  subchannelId: z.string().uuid().optional(),
+  kind: z.enum(["text", "betslip"]).optional().default("text"),
+  betslipId: z.string().uuid().optional(),
+}).refine(
+  (v) => v.kind === "betslip" ? Boolean(v.betslipId) : v.content.trim().length > 0,
+  { message: "Text messages need content; betslip messages need a betslipId." }
+)
 
 export const GET = withSecurity(async (
   request: Request,
@@ -47,46 +54,85 @@ export const GET = withSecurity(async (
     }
   }
 
-  const cutoff = new Date(Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
-
   // Support cursor-based pagination for older messages
   const url = new URL(request.url)
   const cursor = url.searchParams.get("before") // ISO timestamp cursor
   const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 100)
+  const subchannelId = url.searchParams.get("subchannelId") // optional; scopes to a sub-channel
 
-  let query = supabase
-    .from("messages")
-    .select(`
-      id,
-      content,
-      is_system,
-      created_at,
-      user_id,
-      profiles:user_id (username, display_name, avatar_url)
-    `)
-    .eq("room_id", roomId)
-    .gte("created_at", cutoff)
-    .order("created_at", { ascending: false })
-    .limit(limit)
+  const fetchMessages = async () => {
+    const cutoff = new Date(Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    let query = supabase
+      .from("messages")
+      .select(`
+        id,
+        content,
+        is_system,
+        created_at,
+        user_id,
+        kind,
+        betslip_id,
+        profiles:user_id (username, display_name, avatar_url)
+      `)
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false })
+      .limit(limit)
 
-  if (cursor) {
-    query = query.lt("created_at", cursor)
+    // Scope to a sub-channel when provided; otherwise the whole room.
+    if (subchannelId) query = query.eq("subchannel_id", subchannelId)
+    else query = query.eq("room_id", roomId)
+
+    if (cursor) query = query.lt("created_at", cursor)
+    return query
   }
 
-  const { data: messages, error } = await query
+  // Chat history is fetched fresh every time — no caching. A short cache here
+  // caused just-sent messages to briefly vanish on refetch (the cached
+  // pre-message snapshot was served back). Chat is realtime and the query is
+  // cheap (indexed on subchannel_id, created_at), so we always hit the DB.
+  let { data: messages, error } = await fetchMessages()
+
+  // Backward-compat: if the sub-channel columns aren't migrated yet, retry
+  // room-scoped without them so chat keeps working.
+  if (error && (error.code === "42703" || error.message?.includes("does not exist"))) {
+    const fallback = await supabase
+      .from("messages")
+      .select(`id, content, is_system, created_at, user_id, profiles:user_id (username, display_name, avatar_url)`)
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+    messages = fallback.data as typeof messages
+    error = fallback.error
+  }
 
   if (error) {
     return NextResponse.json({ error: "Failed to fetch messages." }, { status: 500 })
   }
 
+  // Hydrate betslip cards in one query (avoids N+1) for kind='betslip' rows.
+  const betslipIds = (messages ?? [])
+    .map((m) => (m as { betslip_id?: string }).betslip_id)
+    .filter((id): id is string => Boolean(id))
+  const betslipMap = new Map<string, unknown>()
+  if (betslipIds.length > 0) {
+    const { data: parlays } = await supabase
+      .from("parlays")
+      .select("id, odds, stake, status, custom_note, combined_hit_rate")
+      .in("id", betslipIds)
+    for (const p of parlays ?? []) betslipMap.set(p.id, p)
+  }
+
   const formatted = (messages ?? []).map((msg) => {
     const profile = Array.isArray(msg.profiles) ? msg.profiles[0] ?? null : msg.profiles
+    const m = msg as typeof msg & { kind?: string; betslip_id?: string }
     return {
       id: msg.id,
       content: msg.content,
       is_system: msg.is_system,
       created_at: msg.created_at,
       user_id: msg.user_id,
+      kind: m.kind ?? "text",
+      betslip: m.betslip_id ? betslipMap.get(m.betslip_id) ?? null : null,
       profile: profile
         ? {
             username: profile.username,
@@ -160,22 +206,37 @@ export const POST = withSecurity(async (
   const [data, validationError] = validateRequestBody(body, messageSchema)
   if (validationError) return validationError
 
-  // Sanitize: strip HTML, trim, enforce max length
-  const content = sanitizeText(data.content, 1000)
+  const isBetslip = data.kind === "betslip"
 
-  if (content.length === 0) {
+  // Sanitize: strip HTML, trim, enforce max length. Betslip cards may have no
+  // text body (the card is the content), so empty is allowed for those.
+  const content = sanitizeText(data.content ?? "", 1000)
+
+  if (!isBetslip && content.length === 0) {
     return NextResponse.json(
       { error: "Message content cannot be empty after sanitization." },
       { status: 400 }
     )
   }
 
-  // Spam detection
-  if (isSpamMessage(content)) {
+  // Spam detection (text messages only)
+  if (!isBetslip && isSpamMessage(content)) {
     return NextResponse.json(
       { error: "Message flagged as spam. Please write a normal message." },
       { status: 400 }
     )
+  }
+
+  // For betslip shares, verify the parlay belongs to the sender.
+  if (isBetslip) {
+    const { data: parlay } = await supabase
+      .from("parlays")
+      .select("id, user_id")
+      .eq("id", data.betslipId!)
+      .maybeSingle()
+    if (!parlay || parlay.user_id !== user.id) {
+      return NextResponse.json({ error: "You can only share your own betslip." }, { status: 403 })
+    }
   }
 
   // Check membership
@@ -214,20 +275,69 @@ export const POST = withSecurity(async (
     )
   }
 
-  // Insert message
-  const { data: message, error: insertErr } = await supabase
+  // Resolve the target sub-channel: the one provided, else the room's default.
+  // If the channels schema isn't migrated, this resolves to null and we insert
+  // a room-scoped message (legacy behavior).
+  let subchannelId: string | null = data.subchannelId ?? null
+  if (!subchannelId) {
+    const { data: def } = await supabase
+      .from("room_subchannels")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("is_default", true)
+      .maybeSingle()
+    subchannelId = def?.id ?? null
+
+    // No default channel yet (room predates the AFTER INSERT trigger added in
+    // 20260904_repair_room_features.sql). Create it rather than inserting a
+    // message with a NULL subchannel_id, which violates NOT NULL and surfaced
+    // as an opaque "Failed to send message."
+    if (!subchannelId) {
+      const { data: healed } = await supabase.rpc("room_ensure_default_subchannel", {
+        p_room_id: roomId,
+      })
+      if (typeof healed === "string") subchannelId = healed
+    }
+  }
+
+  // Insert message. Include the new columns when we have a sub-channel; RLS
+  // (can_post_subchannel) enforces posting rights at the DB level.
+  const insertPayload: Record<string, unknown> = {
+    room_id: roomId,
+    user_id: user.id,
+    content,
+    is_system: false,
+  }
+  if (subchannelId) {
+    insertPayload.subchannel_id = subchannelId
+    insertPayload.kind = data.kind
+    if (isBetslip) insertPayload.betslip_id = data.betslipId
+  }
+
+  let { data: message, error: insertErr } = await supabase
     .from("messages")
-    .insert({
-      room_id: roomId,
-      user_id: user.id,
-      content,
-      is_system: false,
-    })
+    .insert(insertPayload)
     .select()
     .single()
 
+  // Backward-compat: columns not migrated yet → retry the legacy shape.
+  if (insertErr && (insertErr.code === "42703" || insertErr.message?.includes("does not exist"))) {
+    const legacy = await supabase
+      .from("messages")
+      .insert({ room_id: roomId, user_id: user.id, content, is_system: false })
+      .select()
+      .single()
+    message = legacy.data
+    insertErr = legacy.error
+  }
+
   if (insertErr) {
-    return NextResponse.json({ error: "Failed to send message." }, { status: 500 })
+    // RLS rejection (e.g. admins-only channel) surfaces as a policy violation.
+    const denied = insertErr.code === "42501" || insertErr.message?.toLowerCase().includes("policy")
+    return NextResponse.json(
+      { error: denied ? "You don't have permission to post in this channel." : "Failed to send message." },
+      { status: denied ? 403 : 500 }
+    )
   }
 
   return NextResponse.json(message, { status: 201 })

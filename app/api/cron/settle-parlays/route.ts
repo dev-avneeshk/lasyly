@@ -23,6 +23,13 @@ export async function POST(request: Request) {
   try {
     const result = await settleParlayLegs()
 
+    if (result.skipped) {
+      // Settlement couldn't run (e.g. missing migration). Surface it loudly so
+      // the cron log shows the reason, but don't 500 — the request itself
+      // succeeded, there's just nothing we can settle until it's fixed.
+      console.warn(`[settle-parlays] skipped: ${result.skipped}`)
+    }
+
     return NextResponse.json({
       success: true,
       ...result,

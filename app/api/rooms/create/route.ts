@@ -31,11 +31,21 @@ export const POST = withSecurity(async (request: Request) => {
   const [data, validationError] = validateRequestBody(body, createRoomSchema)
   if (validationError) return validationError
 
-  // Rate limit room creation
+  // Free-tier cap: max 2 rooms per user (3rd requires Pro). Enforced in the DB
+  // so the count is authoritative. 402 tells the client to show the upgrade UI.
+  const { data: gate } = await supabase.rpc("can_create_room", { p_user_id: user.id })
+  if (gate && gate.allowed === false) {
+    if (gate.error === "LIMIT_REACHED") {
+      return NextResponse.json({ error: "LIMIT_REACHED", limit: "rooms" }, { status: 402 })
+    }
+    return NextResponse.json({ error: gate.error || "Not allowed." }, { status: 403 })
+  }
+
+  // Anti-spam rate limit (separate from the tier cap): burst protection only.
   const rateCheck = await checkRateLimit(`room-create:${user.id}`, RATE_LIMITS.roomCreate)
   if (!rateCheck.allowed) {
     return NextResponse.json(
-      { error: "You can only create 5 rooms per hour." },
+      { error: "You're creating rooms too fast. Please wait a bit." },
       { status: 429 }
     )
   }

@@ -35,6 +35,32 @@ interface SettlementResult {
   parlaysResolved: number
   parlaysExpired: number
   errors: number
+  /**
+   * Set when settlement could not run because a required schema object is
+   * missing (e.g. the `20250531_add_result_to_parlay_legs.sql` migration was
+   * never applied). Lets the cron report the problem instead of 500ing.
+   */
+  skipped?: string
+}
+
+/**
+ * True when a Postgres/PostgREST error means a required column or table for
+ * settlement is missing — i.e. the settlement migration hasn't been applied.
+ * `42703` = undefined_column, `42P01` = undefined_table. PostgREST also
+ * surfaces schema-cache misses as `PGRST204`/`PGRST205` with a message that
+ * mentions the missing column/relation.
+ */
+function isMissingSchema(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  if (error.code === "42703" || error.code === "42P01") return true
+  if (error.code === "PGRST204" || error.code === "PGRST205") return true
+  const msg = error.message?.toLowerCase() ?? ""
+  return (
+    msg.includes("does not exist") ||
+    msg.includes("could not find") ||
+    msg.includes("relation") ||
+    msg.includes("column")
+  )
 }
 
 // ─── Stat Category Mapping ──────────────────────────────────────────────────
@@ -106,8 +132,16 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
     .limit(500)
 
   if (legsError) {
-    if (legsError.code === "42P01" || legsError.message?.includes("relation")) {
-      return { ...result, errors: 0 } // Table doesn't exist yet
+    if (isMissingSchema(legsError)) {
+      // The `parlay_legs.result`/`game_id` columns (or the table itself) don't
+      // exist yet — the settlement migration hasn't been applied. Don't throw:
+      // report it so the cron logs a clear reason instead of returning 500 and
+      // silently leaving every bet unsettled.
+      const reason =
+        "parlay_legs settlement schema missing — apply migration " +
+        "20250531_add_result_to_parlay_legs.sql (result/game_id columns)"
+      console.error(`[settlement] ${reason}. Underlying error: ${legsError.message}`)
+      return { ...result, skipped: reason }
     }
     throw new Error(`Failed to fetch pending legs: ${legsError.message}`)
   }

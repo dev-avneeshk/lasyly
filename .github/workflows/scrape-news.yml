@@ -5,6 +5,11 @@ on:
     - cron: '0 */2 * * *'  # Every 2 hours
   workflow_dispatch:
 
+# Needed so the failure step can open/update a tracking issue.
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   scrape-news:
     name: ESPN News Feed
@@ -37,3 +42,47 @@ jobs:
           name: espn-news-logs-${{ github.run_number }}
           path: scripts/logs/espn_news_scraper.log
           retention-days: 1
+
+      # If the scrape fails (e.g. ESPN starts blocking again and the script
+      # exits non-zero), open or update a tracking issue so the failure is
+      # visible instead of silently going stale. Uses the built-in token, no
+      # extra secrets needed.
+      - name: Flag failure via GitHub issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "News scraper failing"
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            const body = [
+              "The ESPN news scraper failed and did not refresh the news feed.",
+              "",
+              "This usually means ESPN changed their blocking rules or a feed URL moved.",
+              `Check the run: ${runUrl}`,
+              "",
+              `Last failure: ${new Date().toISOString()}`,
+            ].join("\n")
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "scraper-alert",
+            })
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body,
+              })
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["scraper-alert"],
+              })
+            }

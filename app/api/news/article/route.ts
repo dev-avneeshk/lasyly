@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
+import { fetchWithRetry } from "@/lib/supabase/fetch-with-retry"
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
@@ -14,7 +16,9 @@ export async function GET(request: Request) {
 
   try {
     // Try Supabase first
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { fetch: fetchWithRetry },
+    })
     const { data } = await supabase
       .from("espn_news")
       .select("*")

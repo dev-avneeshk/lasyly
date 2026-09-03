@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { AUTH_COOKIE_OPTIONS } from './auth-config'
+import { fetchWithRetry } from './fetch-with-retry'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -9,6 +10,9 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: fetchWithRetry,
+      },
       auth: {
         flowType: 'pkce',
         autoRefreshToken: true,
