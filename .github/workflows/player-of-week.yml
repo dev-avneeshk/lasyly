@@ -1,0 +1,54 @@
+name: Player of the Week (Weekly)
+
+# Computes the NBA Player of the Week from a rolling 7-day window.
+#
+# Runs Mondays at 09:00 UTC — after Sunday games are scraped and after the
+# daily 08:00 rankings job. POTW uses its OWN 7-day formula (recent game
+# production + efficiency + availability + team wins), separate from the
+# season-long LPI ranking.
+#
+# Upserts one row per (window_start, window_end, 'ALL') into
+# nba_player_of_week, so re-runs for the same week overwrite rather than
+# duplicate, and past weeks are preserved for the UI.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # 09:00 UTC every Monday
+  workflow_dispatch:
+    inputs:
+      window_end:
+        description: 'Inclusive window end date YYYY-MM-DD (blank = latest game date)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Compute without writing (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  player-of-week:
+    name: Compute Player of the Week
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger POTW computation
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SITE_URL }}/api/jobs/player-of-week" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "window_end": "${{ github.event.inputs.window_end }}",
+              "dry_run": ${{ github.event.inputs.dry_run || 'false' }}
+            }')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Player of the Week returned status $http_code"
+            exit 1
+          fi

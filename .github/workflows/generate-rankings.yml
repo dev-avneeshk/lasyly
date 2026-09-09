@@ -1,0 +1,58 @@
+name: Generate NBA Rankings (Daily)
+
+# Regenerates NBA player + team rankings once per day.
+#
+# Runs at 08:00 UTC — a few hours after the 00:00 stats scrape in
+# scrape-sports.yml, so it always ranks off fresh box-score/season data.
+#
+# The pipeline is idempotent per ranking_version: it upserts into the fixed
+# in-season projection version (2026-27-v1), so daily runs overwrite rather than
+# accumulate. Early-season qualification thresholds ramp automatically inside
+# the pipeline (see resolveQualification), so the board is never empty in
+# October/November.
+#
+# include_historical is false: the completed 2025-26 season never changes, so it
+# is seeded once (manually or via a one-off dispatch), not regenerated daily.
+# The pipeline also refuses to overwrite a *published* historical version.
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 08:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Compute without writing (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-rankings:
+    name: Regenerate rankings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger ranking pipeline (historical + projection)
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SITE_URL }}/api/jobs/generate-rankings" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "season": "2026-27",
+              "historical_season": "2025-26",
+              "version": "2026-27-v1",
+              "is_projection": true,
+              "include_historical": false,
+              "dry_run": ${{ github.event.inputs.dry_run || 'false' }}
+            }')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Ranking generation returned status $http_code"
+            exit 1
+          fi
