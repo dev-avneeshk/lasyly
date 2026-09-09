@@ -229,7 +229,14 @@ def parse_player_table(page, table_id: str, logger: logging.Logger) -> list[dict
             if not col_name or col_name in skip_cols:
                 continue
 
-            text = td.text.strip()
+            # IMPORTANT: use get_all_text(), NOT .text. Basketball Reference
+            # bolds the league leader in every column (<td><strong>9.4</strong>),
+            # and lxml's `.text` returns only the node's DIRECT text — which is
+            # empty when the value sits inside a child <strong>. That silently
+            # nulled exactly the stats each star LEADS the league in (Wemby's
+            # blk%/drb%/dbpm/dws, Jokić's bpm/vorp/obpm/ast%, etc.).
+            # get_all_text() gathers descendant text, so bolded values survive.
+            text = (td.get_all_text() or "").strip()
             if not text:
                 stats[col_name] = None
                 continue

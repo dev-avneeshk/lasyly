@@ -889,12 +889,22 @@ def parse_advanced_stats(page, logger: logging.Logger) -> dict:
     if not target_row:
         return stats
 
-    def get_stat(stat_name: str) -> float | None:
+    # Use get_all_text(), NOT .text: Basketball Reference bolds league leaders
+    # (<td><strong>...</strong>), and lxml's .text returns only direct node
+    # text — empty when the value is inside a child <strong>. See the matching
+    # fix in scrape_player_stats.py.
+    def _cell_text(stat_name: str) -> str | None:
         cells = target_row.css(f'td[data-stat="{stat_name}"]')
         if not len(cells):
             return None
-        text = cells.first.text.strip()
-        if not text or text == "-" or text == "":
+        text = (cells.first.get_all_text() or "").strip()
+        if not text or text == "-":
+            return None
+        return text
+
+    def get_stat(stat_name: str) -> float | None:
+        text = _cell_text(stat_name)
+        if text is None:
             return None
         try:
             return float(text)
@@ -902,11 +912,8 @@ def parse_advanced_stats(page, logger: logging.Logger) -> dict:
             return None
 
     def get_int_stat(stat_name: str) -> int | None:
-        cells = target_row.css(f'td[data-stat="{stat_name}"]')
-        if not len(cells):
-            return None
-        text = cells.first.text.strip()
-        if not text or text == "-" or text == "":
+        text = _cell_text(stat_name)
+        if text is None:
             return None
         try:
             return int(text)
