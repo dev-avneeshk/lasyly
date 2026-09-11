@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, X, Medal } from "lucide-react"
+import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, X, Medal, Gamepad2, Store } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -16,8 +16,10 @@ const primaryNav = [
 
 const moreNav = [
   { icon: Medal, href: "/rankings", label: "Rankings" },
+  { icon: Gamepad2, href: "/arena", label: "Auction" },
   { icon: BarChart2, href: "/bets", label: "My Bets" },
   { icon: MessageSquare, href: "/rooms", label: "Rooms" },
+  { icon: Store, href: "/marketplace", label: "Tipsters" },
   { icon: Wallet, href: "/wallet", label: "Wallet" },
   { icon: User, href: "/profile", label: "Profile" },
 ]
