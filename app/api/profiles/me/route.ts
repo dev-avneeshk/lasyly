@@ -119,5 +119,16 @@ export const PATCH = withSecurity(async (request: Request) => {
     )
   }
 
+  // Grant the one-time starter Coins bonus. Idempotent (keyed on a
+  // SIGNUP_BONUS ledger row), so calling it on every profile update is a
+  // no-op after the first. Best-effort: never fail onboarding if this
+  // errors — the bonus can be re-granted later.
+  const { error: bonusErr } = await supabase.rpc("grant_signup_bonus", {
+    p_user_id: user.id,
+  })
+  if (bonusErr) {
+    console.error("Signup bonus grant error:", bonusErr.message)
+  }
+
   return NextResponse.json(profile)
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

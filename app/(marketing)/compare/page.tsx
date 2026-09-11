@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Lasyly vs Competitors — Free Prop Analytics Comparison",
     description:
-      "Compare Lasyly with the top sports betting tools. Hit rates, matchup grades, community, and live scores — all free.",
+      "Compare Lasyly with the top sports analytics tools. Hit rates, matchup grades, community, and live scores — all free.",
   },
   alternates: { canonical: "https://lasyly.me/compare" },
 }
@@ -24,7 +24,7 @@ export default function ComparePage() {
           "@type": "WebPage",
           name: "Lasyly Comparisons",
           url: "https://lasyly.me/compare",
-          description: "Compare Lasyly with other sports betting analytics tools.",
+          description: "Compare Lasyly with other sports analytics tools.",
           publisher: { "@type": "Organization", name: "Lasyly", url: "https://lasyly.me" },
         }}
       />

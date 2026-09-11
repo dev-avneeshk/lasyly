@@ -273,10 +273,12 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
     .order("season", { ascending: false })
     .limit(1)
 
-  // 4c. Query season per_game and advanced stats for full season context
+  // 4c. Query season per_game and advanced stats for full season context.
+  // Ordered by season DESC + limit 1 → always the LATEST season present. When
+  // 2026-27 rows get scraped they win automatically; until then this is 2025-26.
   const { data: perGameStats } = await supabase
     .from("nba_player_season_stats")
-    .select("stats")
+    .select("season, stats")
     .ilike("player_name", player)
     .eq("stat_type", "per_game")
     .eq("is_playoff", isPlayoff)
@@ -285,12 +287,20 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
 
   const { data: advancedSeasonStats } = await supabase
     .from("nba_player_season_stats")
-    .select("stats")
+    .select("season, stats")
     .ilike("player_name", player)
     .eq("stat_type", "advanced")
     .eq("is_playoff", isPlayoff)
     .order("season", { ascending: false })
     .limit(1)
+
+  // The season the displayed season-stats belong to (per_game preferred).
+  const statsSeason: string | null =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (perGameStats?.[0] as any)?.season ??
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (advancedSeasonStats?.[0] as any)?.season ??
+    null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const advanced = advancedStats && advancedStats.length > 0 ? advancedStats[0] as any : null
@@ -336,6 +346,15 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
     offRtg: advancedRaw?.off_rtg != null ? Number(advancedRaw.off_rtg) : null,
     defRtg: advancedRaw?.def_rtg != null ? Number(advancedRaw.def_rtg) : null,
     tovPct: advancedRaw?.tov_pct != null ? Number(advancedRaw.tov_pct) : null,
+    // Extended advanced metrics (raw Basketball-Reference advanced JSON)
+    wsPer48: advancedRaw?.ws_per_48 != null ? Number(advancedRaw.ws_per_48) : null,
+    ows: advancedRaw?.ows != null ? Number(advancedRaw.ows) : null,
+    dws: advancedRaw?.dws != null ? Number(advancedRaw.dws) : null,
+    stlPct: advancedRaw?.stl_pct != null ? Number(advancedRaw.stl_pct) : null,
+    blkPct: advancedRaw?.blk_pct != null ? Number(advancedRaw.blk_pct) : null,
+    trbPct: advancedRaw?.trb_pct != null ? Number(advancedRaw.trb_pct) : null,
+    orbPct: advancedRaw?.orb_pct != null ? Number(advancedRaw.orb_pct) : null,
+    drbPct: advancedRaw?.drb_pct != null ? Number(advancedRaw.drb_pct) : null,
   } : null
 
   // Build shooting zone accuracy from the shooting page data
@@ -464,6 +483,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
     rollingAverages,
     shootingZones,
     seasonStats,
+    statsSeason,
     gameBreakdown,
   }
 }

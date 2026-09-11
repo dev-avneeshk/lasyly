@@ -68,3 +68,4 @@ scripts/.next/
 /private/
 
 .backups/
+.env*.local

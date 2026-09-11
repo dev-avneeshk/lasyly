@@ -80,12 +80,39 @@ async function fetchGames(sport: string, date: string): Promise<Game[]> {
     }))
   }
 
-  // Soccer, NFL, NHL — fetch from espn_games table
-  if (sport === "Soccer" || sport === "NFL" || sport === "NHL") {
+  // NFL — fetch from the dedicated nfl_games table (mirrors NBA's nba_games)
+  if (sport === "NFL") {
+    const { data, error } = await supabase
+      .from("nfl_games")
+      .select("id, home_team, away_team, home_abbr, away_abbr, game_date, status, home_score, away_score")
+      .eq("game_date", date)
+      .neq("home_abbr", "TBD")
+      .order("start_time", { ascending: true })
+      .limit(20)
+
+    if (error || !data) {
+      console.error("Error fetching NFL games:", error)
+      return []
+    }
+
+    return data.map((g) => ({
+      id: String(g.id),
+      homeTeam: g.home_abbr ?? g.home_team ?? "TBD",
+      awayTeam: g.away_abbr ?? g.away_team ?? "TBD",
+      gameTime: g.game_date ?? "",
+      status: mapGameStatus(g.status),
+      homeScore: g.home_score ?? undefined,
+      awayScore: g.away_score ?? undefined,
+      homeLogo: getNFLLogo(g.home_abbr ?? g.home_team),
+      awayLogo: getNFLLogo(g.away_abbr ?? g.away_team),
+    }))
+  }
+
+  // Soccer, NHL — fetch from espn_games table
+  if (sport === "Soccer" || sport === "NHL") {
     // Map sport to ESPN league codes
     const leagueMap: Record<string, string[]> = {
       Soccer: ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "usa.1"],
-      NFL: ["nfl"],
       NHL: ["nhl"],
     }
     const leagues = leagueMap[sport] ?? []
@@ -191,4 +218,18 @@ const NBA_NAME_TO_ABBR: Record<string, string> = {
 
 function getNBAAbbrFromName(name: string): string {
   return NBA_NAME_TO_ABBR[name] ?? name
+}
+
+// ESPN NFL logo slugs are the lowercased team abbreviation, with a couple of
+// exceptions where ESPN's slug differs from the stats-feed abbreviation.
+const NFL_LOGO_SLUG: Record<string, string> = {
+  WSH: "wsh", WAS: "wsh", LAR: "lar", LAC: "lac", LV: "lv", JAX: "jax",
+  GB: "gb", KC: "kc", NE: "ne", NO: "no", SF: "sf", TB: "tb",
+}
+
+function getNFLLogo(team: string | null | undefined): string {
+  if (!team) return ""
+  const key = team.toUpperCase()
+  const slug = NFL_LOGO_SLUG[key] ?? key.toLowerCase()
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png`
 }

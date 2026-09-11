@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
-import { sanitizeText, isSpamMessage } from "@/lib/sanitize"
+import { checkRateLimitBatch, RATE_LIMITS } from "@/lib/rateLimit"
+import { sanitizeText, isSpamMessage, maskProfanity } from "@/lib/sanitize"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 
@@ -122,6 +122,25 @@ export const GET = withSecurity(async (
     for (const p of parlays ?? []) betslipMap.set(p.id, p)
   }
 
+  // Hydrate reactions in ONE query (avoids the per-row N+1 the old client-side
+  // MessageReactions component would have caused — one SELECT per visible row).
+  const messageIds = (messages ?? []).map((m) => m.id)
+  const reactionsByMessage = new Map<
+    string,
+    { id: string; user_id: string; emoji: string }[]
+  >()
+  if (messageIds.length > 0) {
+    const { data: reactions } = await supabase
+      .from("message_reactions")
+      .select("id, message_id, user_id, emoji")
+      .in("message_id", messageIds)
+    for (const r of reactions ?? []) {
+      const list = reactionsByMessage.get(r.message_id) ?? []
+      list.push({ id: r.id, user_id: r.user_id, emoji: r.emoji })
+      reactionsByMessage.set(r.message_id, list)
+    }
+  }
+
   const formatted = (messages ?? []).map((msg) => {
     const profile = Array.isArray(msg.profiles) ? msg.profiles[0] ?? null : msg.profiles
     const m = msg as typeof msg & { kind?: string; betslip_id?: string }
@@ -133,6 +152,7 @@ export const GET = withSecurity(async (
       user_id: msg.user_id,
       kind: m.kind ?? "text",
       betslip: m.betslip_id ? betslipMap.get(m.betslip_id) ?? null : null,
+      reactions: reactionsByMessage.get(msg.id) ?? [],
       profile: profile
         ? {
             username: profile.username,
@@ -172,34 +192,28 @@ export const POST = withSecurity(async (
     )
   }
 
-  // Rate limit: 1 message per 2 seconds
-  const rateLimitKey = `chat:${user.id}:${roomId}`
-  const rateCheck = await checkRateLimit(rateLimitKey, RATE_LIMITS.chat)
-  if (!rateCheck.allowed) {
-    return NextResponse.json(
-      { error: "Slow down. You can send 1 message every 2 seconds." },
-      { status: 429 }
-    )
-  }
-
-  // Burst limit: max 10 messages per 30 seconds
-  const burstKey = `chat-burst:${user.id}:${roomId}`
-  const burstCheck = await checkRateLimit(burstKey, RATE_LIMITS.chatBurst)
-  if (!burstCheck.allowed) {
-    return NextResponse.json(
-      { error: "You're sending messages too fast. Please wait a moment." },
-      { status: 429 }
-    )
-  }
-
-  // Global flood protection: max 30 messages per 5 minutes across all rooms
-  const floodKey = `chat-flood:${user.id}`
-  const floodCheck = await checkRateLimit(floodKey, RATE_LIMITS.chatFlood)
-  if (!floodCheck.allowed) {
-    return NextResponse.json(
-      { error: "You've sent too many messages. Please wait a few minutes." },
-      { status: 429 }
-    )
+  // Layered rate limits, checked in ONE Redis pipeline instead of three
+  // sequential round-trips:
+  //   0) per-message   — 1 msg / 2s in this room
+  //   1) burst         — 10 msgs / 30s in this room
+  //   2) flood         — 30 msgs / 5min across all rooms
+  // failClosed: chat is abuse-sensitive, so a Redis outage must NOT silently
+  // disable flood protection — block instead.
+  const RATE_MESSAGES = [
+    "Slow down. You can send 1 message every 2 seconds.",
+    "You're sending messages too fast. Please wait a moment.",
+    "You've sent too many messages. Please wait a few minutes.",
+  ]
+  const limited = await checkRateLimitBatch(
+    [
+      { key: `chat:${user.id}:${roomId}`, config: RATE_LIMITS.chat },
+      { key: `chat-burst:${user.id}:${roomId}`, config: RATE_LIMITS.chatBurst },
+      { key: `chat-flood:${user.id}`, config: RATE_LIMITS.chatFlood },
+    ],
+    { failClosed: true }
+  )
+  if (limited) {
+    return NextResponse.json({ error: RATE_MESSAGES[limited.index] }, { status: 429 })
   }
 
   const body = await request.json()
@@ -210,22 +224,28 @@ export const POST = withSecurity(async (
 
   // Sanitize: strip HTML, trim, enforce max length. Betslip cards may have no
   // text body (the card is the content), so empty is allowed for those.
-  const content = sanitizeText(data.content ?? "", 1000)
+  const sanitized = sanitizeText(data.content ?? "", 1000)
 
-  if (!isBetslip && content.length === 0) {
+  if (!isBetslip && sanitized.length === 0) {
     return NextResponse.json(
       { error: "Message content cannot be empty after sanitization." },
       { status: 400 }
     )
   }
 
-  // Spam detection (text messages only)
-  if (!isBetslip && isSpamMessage(content)) {
+  // Spam detection (text messages only). Runs on the raw sanitized text so
+  // masking below can't defeat the flood/repetition heuristics.
+  if (!isBetslip && isSpamMessage(sanitized)) {
     return NextResponse.json(
       { error: "Message flagged as spam. Please write a normal message." },
       { status: 400 }
     )
   }
+
+  // Profanity: mask (rather than reject) so a single slur/cuss doesn't block
+  // the whole message. Stored + broadcast content is the masked version, so
+  // every client renders it clean without extra client-side work.
+  const content = isBetslip ? sanitized : maskProfanity(sanitized)
 
   // For betslip shares, verify the parlay belongs to the sender.
   if (isBetslip) {

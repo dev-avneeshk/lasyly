@@ -8,7 +8,7 @@ const ALLOWED_EMOJIS = ["🔥", "💰", "🎯", "👀", "💪", "❤️"] as con
 
 type Reaction = {
   id: string
-  message_id: string
+  message_id?: string
   user_id: string
   emoji: string
 }
@@ -23,25 +23,32 @@ type MessageReactionsProps = {
   messageId: string
   roomId: string
   currentUserId: string | null
+  /**
+   * Reactions hydrated by the parent (batched in the messages GET query). This
+   * avoids the N+1 that a per-row fetch-on-mount would cause — one SELECT per
+   * visible message. The component only hits the network on user toggles.
+   */
+  initialReactions?: Reaction[]
 }
 
-export default function MessageReactions({ messageId, roomId, currentUserId }: MessageReactionsProps) {
-  const [reactions, setReactions] = useState<Reaction[]>([])
+export default function MessageReactions({ messageId, roomId, currentUserId, initialReactions = [] }: MessageReactionsProps) {
+  const [reactions, setReactions] = useState<Reaction[]>(initialReactions)
   const [showPicker, setShowPicker] = useState(false)
   const [loading, setLoading] = useState(false)
   const supabase = useMemo(() => createClient(), [])
 
+  // Re-sync when the parent pushes fresh reactions (e.g. after a refetch or a
+  // realtime message update). Keyed on a stable signature so we don't clobber
+  // an in-flight optimistic toggle on unrelated re-renders.
+  const initialSignature = useMemo(
+    () => initialReactions.map((r) => `${r.user_id}:${r.emoji}`).sort().join("|"),
+    [initialReactions]
+  )
   useEffect(() => {
-    const fetchReactions = async () => {
-      const { data } = await supabase
-        .from("message_reactions")
-        .select("id, message_id, user_id, emoji")
-        .eq("message_id", messageId)
-
-      if (data) setReactions(data)
-    }
-    fetchReactions()
-  }, [supabase, messageId])
+    setReactions(initialReactions)
+    // initialReactions is captured via signature to avoid identity churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSignature])
 
   const grouped: ReactionGroup[] = useMemo(() => {
     const map = new Map<string, { count: number; hasReacted: boolean }>()

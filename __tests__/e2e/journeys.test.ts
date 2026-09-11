@@ -147,7 +147,6 @@ describe("E2E Journey: Auth Enforcement Across Resources", () => {
     { method: "GET", path: "/api/bets" },
     { method: "GET", path: "/api/parlays" },
     { method: "GET", path: "/api/profiles/me" },
-    { method: "GET", path: "/api/dashboard" },
     { method: "GET", path: "/api/notifications" },
     { method: "POST", path: "/api/betslips" },
     { method: "POST", path: "/api/parlays" },

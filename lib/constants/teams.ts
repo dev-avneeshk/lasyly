@@ -109,6 +109,46 @@ export const NBA_ESPN_TEAM_MAP: Record<string, string> = {
   det: "det",
 }
 
+/** NBA 3-letter abbreviation → full team name. */
+export const NBA_TEAM_FULL_NAME: Record<string, string> = {
+  atl: "Atlanta Hawks",
+  bos: "Boston Celtics",
+  bkn: "Brooklyn Nets",
+  cha: "Charlotte Hornets",
+  chi: "Chicago Bulls",
+  cle: "Cleveland Cavaliers",
+  dal: "Dallas Mavericks",
+  den: "Denver Nuggets",
+  det: "Detroit Pistons",
+  gsw: "Golden State Warriors",
+  hou: "Houston Rockets",
+  ind: "Indiana Pacers",
+  lac: "LA Clippers",
+  lal: "Los Angeles Lakers",
+  mem: "Memphis Grizzlies",
+  mia: "Miami Heat",
+  mil: "Milwaukee Bucks",
+  min: "Minnesota Timberwolves",
+  nop: "New Orleans Pelicans",
+  nyk: "New York Knicks",
+  okc: "Oklahoma City Thunder",
+  orl: "Orlando Magic",
+  phi: "Philadelphia 76ers",
+  phx: "Phoenix Suns",
+  por: "Portland Trail Blazers",
+  sac: "Sacramento Kings",
+  sas: "San Antonio Spurs",
+  tor: "Toronto Raptors",
+  uta: "Utah Jazz",
+  was: "Washington Wizards",
+}
+
+/** Resolve an NBA team abbreviation to its full name, falling back to the input. */
+export function getNbaTeamFullName(abbr: string | null | undefined): string | null {
+  if (!abbr) return null
+  return NBA_TEAM_FULL_NAME[abbr.toLowerCase()] ?? abbr
+}
+
 /**
  * Get the ESPN CDN logo URL for a team.
  * @param teamIdentifier - Team name (NHL/NFL) or 3-letter abbreviation (NBA)

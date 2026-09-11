@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
+import type { User } from "@supabase/supabase-js"
 import {
   checkIPBlock,
   trackIPRequest,
@@ -269,9 +270,26 @@ export async function proxy(request: NextRequest) {
     pathname === "/manifest.json" ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|ico|webp|woff2?|ttf|css|js)$/)
 
-  // Refresh session tokens for all non-static requests (pages AND API routes).
+  // Supabase keeps the session in cookies named `sb-<project-ref>-auth-token`,
+  // split into `...auth-token.0` / `.1` chunks when the JWT is too big for one
+  // cookie. Their presence is the cheapest available signal that there is a
+  // session worth validating.
+  const hasSupabaseSessionCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"))
+
+  // Refresh session tokens for non-static requests (pages AND API routes).
   // Without this, API routes can't read the session when the access token expires.
-  const needsSessionRefresh = !isStaticAsset
+  //
+  // But `getUser()` validates the JWT against the Supabase Auth API, and that
+  // network round-trip is serialized in front of every HTML response — it is
+  // pure TTFB, which propagates straight into FCP. When the request carries no
+  // session cookie there is nothing to validate or refresh, so skip building
+  // the client at all. The guest check below is local HMAC work and still runs,
+  // so guests and signed-out visitors are gated exactly as before.
+  const needsSessionRefresh = !isStaticAsset && hasSupabaseSessionCookie
+
+  let user: User | null = null
 
   if (needsSessionRefresh) {
     const supabase = createServerClient(
@@ -295,10 +313,17 @@ export async function proxy(request: NextRequest) {
       }
     )
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    // Assigns the outer `user` — this used to be a `const` destructure, which
+    // shadowed it and kept the value trapped inside this block.
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  }
 
+  // ── 9. Auth guard (no network calls — safe to run on every request) ───────
+  // Previously nested inside the session-refresh block. Hoisting it means the
+  // guard no longer depends on whether we chose to talk to Supabase, so
+  // skipping the round-trip above cannot accidentally open a protected route.
+  if (!isStaticAsset) {
     // Verify the HMAC-signed guest cookie.
     const isGuest = verifyGuestToken(
       request.cookies.get(GUEST_COOKIE_NAME)?.value
@@ -336,10 +361,23 @@ export async function proxy(request: NextRequest) {
 // Skip Next-internal prefetches so we don't burn nonces (and rate-limit budget)
 // on hidden link previews. Static asset paths and Next image optimization are
 // also skipped so they can stay cacheable at the CDN.
+//
+// The extension list matters more than it looks: proxy runs on `public/` folder
+// assets too, not just routes, so every image, font, and icon request was
+// invoking the edge function before the CDN could answer it. That is latency
+// added to the exact resources on the critical rendering path.
+//
+// `svg` is deliberately NOT excluded. An SVG opened by direct navigation is a
+// document and can execute script, so those responses should keep the CSP that
+// section 7 sets. The public SVGs are ~1 KB and off the critical path, so the
+// proxy hop costs nothing there. Everything excluded here still receives
+// nosniff / X-Frame-Options / HSTS from next.config.ts `headers()`, which
+// applies to `/(.*)` independently of this matcher.
 export const config = {
   matcher: [
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json).*)",
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|.*\\.(?:png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|css|js|map|txt|xml|webmanifest)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

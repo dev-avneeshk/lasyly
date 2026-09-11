@@ -1,0 +1,76 @@
+name: Scrape NFL (Daily)
+
+# NFL data from ESPN's public API (pure HTTP — no browser, cron-safe).
+# Football Reference is behind a Cloudflare JS challenge and can't be scraped
+# headlessly, so ESPN is the source.
+#
+# Runs daily at 09:00 UTC (after the previous night's games are final).
+# Manual runs support a full 2024+2025 backfill via the workflow_dispatch input.
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # 09:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Scraper mode'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - schedule
+          - boxscores
+          - backfill
+      seasons:
+        description: 'Comma-separated seasons (e.g. 2024,2025). Blank = default for mode.'
+        required: false
+        default: ''
+
+jobs:
+  scrape-nfl:
+    name: NFL — Schedule + Scores + Boxscores + Prop Lines
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Create .env.local
+        run: echo "${{ secrets.ENV_LOCAL }}" > .env.local
+
+      - name: Scrape NFL
+        run: |
+          MODE="${{ github.event.inputs.mode || 'daily' }}"
+          SEASONS="${{ github.event.inputs.seasons }}"
+          ARGS="$MODE --delay 1"
+          if [ -n "$SEASONS" ]; then
+            ARGS="$ARGS --seasons $SEASONS"
+          fi
+          echo "Running: python scripts/scrape_nfl.py $ARGS"
+          python scripts/scrape_nfl.py $ARGS
+        timeout-minutes: 75
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-scraper-logs-${{ github.run_number }}
+          path: scripts/logs/nfl_scraper.log
+          retention-days: 7
+
+      - name: Settle parlay legs with new stats
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.SITE_URL }}/api/cron/settle-parlays" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" || true

@@ -112,8 +112,14 @@ export default function AnalysisClient({ isAuthenticated }: AnalysisClientProps)
     if (sportPropsCache?.props?.length) {
       setProps(sportPropsCache.props)
       setLoading(false)
-      if (sport === "NBA" && sportPropsCache.todayGames) {
-        setTodayGames(sportPropsCache.todayGames)
+      if ((sport === "NBA" || sport === "NFL") && sportPropsCache.todayGames) {
+        const cg = sportPropsCache.todayGames as (TodayGame & { gameDate?: string })[]
+        setTodayGames(cg.map((g) => ({
+          homeTeam: g.homeTeam,
+          awayTeam: g.awayTeam,
+          gameTime: g.gameTime ?? g.gameDate ?? "",
+          status: g.status,
+        })) as TodayGame[])
         setMatchupStripLoading(false)
       }
     } else {
@@ -152,15 +158,15 @@ export default function AnalysisClient({ isAuthenticated }: AnalysisClientProps)
     // Only show skeleton if we don't already have props displayed
     if (props.length === 0) {
       setLoading(true)
-      if (sport === "NBA") setMatchupStripLoading(true)
+      if (sport === "NBA" || sport === "NFL") setMatchupStripLoading(true)
     }
     const params = new URLSearchParams()
     params.set("sport", sport)
     params.set("stat", stat)
     params.set("direction", directionToggle)
 
-    // Matchup filter (NBA only)
-    if (sport === "NBA" && selectedMatchup) {
+    // Matchup filter (NBA + NFL)
+    if ((sport === "NBA" || sport === "NFL") && selectedMatchup) {
       params.set("matchup", selectedMatchup)
     }
 
@@ -180,17 +186,25 @@ export default function AnalysisClient({ isAuthenticated }: AnalysisClientProps)
     try {
       const url = `/api/props?${params.toString()}`
       // Cache props for 60 seconds
-      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[] }>(url, 60_000)
+      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; todayGames?: (TodayGame & { gameDate?: string })[] }>(url, 60_000)
       setProps(data.props ?? [])
-      // Extract todayGames from NBA response
-      if (sport === "NBA" && data.todayGames) {
-        setTodayGames(data.todayGames)
+      // Extract todayGames for NBA + NFL (both drive the MatchupStrip).
+      if ((sport === "NBA" || sport === "NFL") && data.todayGames) {
+        // NFL engine returns { homeTeam, awayTeam, gameDate, status };
+        // normalize gameDate → gameTime so MatchupStrip renders consistently.
+        const normalized = data.todayGames.map((g) => ({
+          homeTeam: g.homeTeam,
+          awayTeam: g.awayTeam,
+          gameTime: g.gameTime ?? g.gameDate ?? "",
+          status: g.status,
+        })) as TodayGame[]
+        setTodayGames(normalized)
       }
     } catch {
       // silently fail
     } finally {
       setLoading(false)
-      if (sport === "NBA") setMatchupStripLoading(false)
+      if (sport === "NBA" || sport === "NFL") setMatchupStripLoading(false)
     }
   }, [sport, stat, selectedMatchup, directionToggle, debouncedNbaFilters, props.length])
 
@@ -634,80 +648,80 @@ export default function AnalysisClient({ isAuthenticated }: AnalysisClientProps)
         {/* Game Strip with Date Navigation (all sports) */}
         <GameStrip games={games} loading={gamesLoading} sport={sport} />
 
-            {/* NBA Matchup Filter (select a specific game to filter props) */}
-            {sport === "NBA" && !matchupStripLoading && todayGames.length > 0 && (
-              <MatchupStrip
-                games={todayGames}
-                selectedMatchup={selectedMatchup}
-                onSelectMatchup={setSelectedMatchup}
-              />
-            )}
+        {/* Matchup Filter (NBA + NFL): select a specific game to filter props */}
+        {(sport === "NBA" || sport === "NFL") && !matchupStripLoading && todayGames.length > 0 && (
+          <MatchupStrip
+            games={todayGames}
+            selectedMatchup={selectedMatchup}
+            onSelectMatchup={setSelectedMatchup}
+          />
+        )}
 
-            {/* Stat Filters */}
-            <StatFilters filters={statFilters} activeStat={stat} onStatChange={setStat} />
+        {/* Stat Filters */}
+        <StatFilters filters={statFilters} activeStat={stat} onStatChange={setStat} />
 
-            {/* Over / Under / All Direction Toggle */}
-            <div className="flex items-center gap-1 bg-[var(--color-surface)] rounded-xl p-1 border border-white/5 w-fit">
-              <button
-                onClick={() => handleDirectionToggle("all")}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  directionToggle === "all"
-                    ? "bg-white/10 text-white"
-                    : "text-white/40 hover:text-white/70"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => handleDirectionToggle("over")}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  directionToggle === "over"
-                    ? "bg-[var(--color-lime)]/20 text-[var(--color-lime)]"
-                    : "text-white/40 hover:text-white/70"
-                }`}
-              >
-                Over
-              </button>
-              <button
-                onClick={() => handleDirectionToggle("under")}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  directionToggle === "under"
-                    ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
-                    : "text-white/40 hover:text-white/70"
-                }`}
-              >
-                Under
-              </button>
-            </div>
+        {/* Over / Under / All Direction Toggle */}
+        <div className="flex items-center gap-1 bg-[var(--color-surface)] rounded-xl p-1 border border-white/5 w-fit">
+          <button
+            onClick={() => handleDirectionToggle("all")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              directionToggle === "all"
+                ? "bg-white/10 text-white"
+                : "text-white/40 hover:text-white/70"
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => handleDirectionToggle("over")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              directionToggle === "over"
+                ? "bg-[var(--color-lime)]/20 text-[var(--color-lime)]"
+                : "text-white/40 hover:text-white/70"
+            }`}
+          >
+            Over
+          </button>
+          <button
+            onClick={() => handleDirectionToggle("under")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              directionToggle === "under"
+                ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
+                : "text-white/40 hover:text-white/70"
+            }`}
+          >
+            Under
+          </button>
+        </div>
 
-            {/* Search */}
-            <PlayerSearch sport={sport} />
+        {/* Search */}
+        <PlayerSearch sport={sport} />
 
-            {/* NBA Advanced Filters */}
-            {sport === "NBA" && (
-              <NBAFilters
-                values={nbaFilters}
-                onChange={setNbaFilters}
-              />
-            )}
+        {/* NBA Advanced Filters */}
+        {sport === "NBA" && (
+          <NBAFilters
+            values={nbaFilters}
+            onChange={setNbaFilters}
+          />
+        )}
 
-            {/* Props Grid */}
-            <PropCardGrid
-              props={props}
-              loading={loading}
-              onAddToParlay={handleAddToParlay}
-              onLogPick={handleLogPick}
-              onVote={handleVote}
-              onAIExpand={handleAIExpand}
-              onCorrelationTap={handleCorrelationTap}
-              onAIRetry={handleAIRetry}
-              onPropCardClick={handlePropCardClick}
-              isAuthenticated={isAuthenticated}
-              parlayPropIds={parlayPropIds}
-              parlayFull={parlayFull}
-              aiWriteups={aiWriteups}
-              emptyMessage={emptyMessage}
-            />
+        {/* Props Grid */}
+        <PropCardGrid
+          props={props}
+          loading={loading}
+          onAddToParlay={handleAddToParlay}
+          onLogPick={handleLogPick}
+          onVote={handleVote}
+          onAIExpand={handleAIExpand}
+          onCorrelationTap={handleCorrelationTap}
+          onAIRetry={handleAIRetry}
+          onPropCardClick={handlePropCardClick}
+          isAuthenticated={isAuthenticated}
+          parlayPropIds={parlayPropIds}
+          parlayFull={parlayFull}
+          aiWriteups={aiWriteups}
+          emptyMessage={emptyMessage}
+        />
       </div>
 
       {/* Parlay Builder Bottom Sheet */}

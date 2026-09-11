@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Globe, Lock, X, Loader2, DollarSign, AlertCircle } from "lucide-react"
+import { Globe, Lock, X, Loader2, Coins, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { computePayout } from "@/lib/parlays/computations"
 import type {
@@ -49,7 +49,7 @@ function validateFields(
     if (isNaN(stakeNum)) {
       errors.stake = "Stake must be a valid number"
     } else if (stakeNum < STAKE_MIN || stakeNum > STAKE_MAX) {
-      errors.stake = `Stake must be between $${STAKE_MIN} and $${STAKE_MAX.toLocaleString()}`
+      errors.stake = `Stake must be between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()} Coins`
     }
   }
 
@@ -279,15 +279,15 @@ export function SaveParlayDialog({
                 htmlFor="parlay-stake"
                 className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
               >
-                Stake <span className="opacity-60">(optional)</span>
+                Stake <span className="opacity-60">(optional, in Coins)</span>
               </label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+                <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
                 <input
                   id="parlay-stake"
                   type="text"
                   inputMode="decimal"
-                  placeholder="e.g. 50.00"
+                  placeholder="e.g. 50 Coins"
                   value={stake}
                   onChange={(e) => {
                     setStake(e.target.value)
@@ -318,7 +318,7 @@ export function SaveParlayDialog({
                   Potential Payout
                 </p>
                 <p className="text-sm font-semibold text-[var(--color-lime)]">
-                  ${potentialPayout.toFixed(2)}
+                  {potentialPayout.toFixed(0)} Coins
                 </p>
               </div>
             )}

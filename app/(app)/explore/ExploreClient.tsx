@@ -7,6 +7,7 @@ import Image from "next/image"
 import dynamic from "next/dynamic"
 import type { LiveMatch } from "@/types"
 import type { NewsItem } from "@/types/news"
+import { formatMatchTime, formatRelative } from "@/lib/datetime"
 
 const MatchDetailModal = dynamic(() => import("@/components/scores/MatchDetailModal"), { ssr: false })
 
@@ -169,17 +170,16 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
             </div>
           ) : (
             scores.slice(0, 20).map((match) => {
-              const isLive = match.status !== "Finished" && match.status !== "Not Started"
               const isFinished = match.status === "Finished"
               return (
                 <div
                   key={match.id}
                   onClick={() => setSelectedMatch(match)}
-                  className={`min-w-[220px] flex-shrink-0 bg-[var(--color-surface)] border rounded-xl p-3 cursor-pointer transition-colors hover:border-[var(--color-lime)]/30 ${isLive ? "border-[#25d65f]/30" : "border-[var(--color-border)]"}`}
+                  className="min-w-[220px] flex-shrink-0 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 cursor-pointer transition-colors hover:border-[var(--color-lime)]/30"
                 >
                   <div className="flex justify-between text-[11px] text-[var(--color-text-muted)] mb-2">
-                    <span className={isLive ? "text-[#25d65f] font-bold" : ""}>
-                      {isLive ? `● ${match.clock || "LIVE"}` : isFinished ? "FT" : match.clock || (match.startTime ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Scheduled")}
+                    <span suppressHydrationWarning>
+                      {isFinished ? "FT" : match.startTime ? formatMatchTime(match.startTime) : (match.clock || "Scheduled")}
                     </span>
                     <span className="truncate ml-2">{match.league}</span>
                   </div>
@@ -195,7 +195,7 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
                       <span className={`flex-1 font-medium truncate ${isFinished && match.homeScore > match.awayScore ? "text-white" : ""}`}>
                         {match.homeTeam}
                       </span>
-                      <span className={`font-bold ${isLive ? "text-white" : isFinished && match.homeScore > match.awayScore ? "text-white" : "text-white/70"}`}>
+                      <span className={`font-bold ${isFinished && match.homeScore > match.awayScore ? "text-white" : "text-white/70"}`}>
                         {match.status === "Not Started" ? "-" : match.homeScore}
                       </span>
                     </div>
@@ -210,7 +210,7 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
                       <span className={`flex-1 font-medium truncate ${isFinished && match.awayScore > match.homeScore ? "text-white" : ""}`}>
                         {match.awayTeam}
                       </span>
-                      <span className={`font-bold ${isLive ? "text-white" : isFinished && match.awayScore > match.homeScore ? "text-white" : "text-white/70"}`}>
+                      <span className={`font-bold ${isFinished && match.awayScore > match.homeScore ? "text-white" : "text-white/70"}`}>
                         {match.status === "Not Started" ? "-" : match.awayScore}
                       </span>
                     </div>
@@ -277,14 +277,12 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
 }
 
 
-/** Featured Game — picks the hottest live or upcoming match */
+/** Featured Game — picks the hottest upcoming match (falls back to a result) */
 function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
   const popularSports = ["Basketball", "Football", "American Football", "Tennis", "MMA"]
-  const liveMatches = scores.filter((m) => m.status !== "Finished" && m.status !== "Not Started")
   const upcomingMatches = scores.filter((m) => m.status === "Not Started")
-  const popularLive = liveMatches.find((m) => popularSports.includes(m.sport))
   const popularUpcoming = upcomingMatches.find((m) => popularSports.includes(m.sport))
-  const hotMatch = popularLive || liveMatches[0] || popularUpcoming || upcomingMatches[0] || scores[0]
+  const hotMatch = popularUpcoming || upcomingMatches[0] || scores[0]
 
   if (!hotMatch) return null
 
@@ -299,8 +297,8 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
           <h3 className="text-xl md:text-2xl font-extrabold tracking-wide mb-1">
             {hotMatch.homeTeam} vs {hotMatch.awayTeam}
           </h3>
-          <p className="text-xs text-[var(--color-text-muted)] mb-1">
-            {hotMatch.league} · {hotMatch.status === "Not Started" ? (hotMatch.clock || "Upcoming") : `${hotMatch.homeScore} - ${hotMatch.awayScore}`}
+          <p className="text-xs text-[var(--color-text-muted)] mb-1" suppressHydrationWarning>
+            {hotMatch.league} · {hotMatch.status === "Not Started" ? (hotMatch.startTime ? formatMatchTime(hotMatch.startTime) : "Upcoming") : `${hotMatch.homeScore} - ${hotMatch.awayScore}`}
           </p>
           {hotMatch.venue && (
             <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
@@ -309,11 +307,6 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
           )}
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {(hotMatch.status !== "Finished" && hotMatch.status !== "Not Started") && (
-            <div className="flex items-center gap-2 bg-[var(--color-surface)] border border-[#25d65f]/30 rounded-full px-4 py-2 text-sm font-semibold">
-              <span className="text-[#25d65f]">● LIVE</span>
-            </div>
-          )}
           {hotMatch.status === "Not Started" && (
             <div className="flex items-center gap-2 bg-[var(--color-surface)] border border-[var(--color-lime)]/30 rounded-full px-4 py-2 text-sm font-semibold">
               <span className="text-[var(--color-lime)]">UPCOMING</span>
@@ -396,7 +389,7 @@ function MiniLeaderboard() {
           {leaders.map((entry, i) => (
             <Link
               key={entry.user_id}
-              href={`/u/${entry.username}`}
+              href={`/l/${entry.username}`}
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group"
             >
               <span className={`text-xs font-bold w-5 text-center ${i === 0 ? "text-yellow-400" : i === 1 ? "text-gray-300" : i === 2 ? "text-amber-600" : "text-[var(--color-text-muted)]"}`}>
@@ -853,17 +846,7 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: string) => vo
     setTimeout(() => setCopiedBet(false), 2000)
   }
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return "now"
-    if (mins < 60) return `${mins}m`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}h`
-    const days = Math.floor(hours / 24)
-    if (days < 7) return `${days}d`
-    return new Date(dateStr).toLocaleDateString()
-  }
+  const timeAgo = (dateStr: string) => formatRelative(dateStr)
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-5 transition-colors hover:border-white/10">
@@ -878,7 +861,7 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: string) => vo
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <Link href={`/u/${post.profile?.username ?? ""}`} className="text-sm font-semibold text-white hover:text-[var(--color-lime)] transition-colors">
+          <Link href={`/l/${post.profile?.username ?? ""}`} className="text-sm font-semibold text-white hover:text-[var(--color-lime)] transition-colors">
             {post.profile?.display_name || post.profile?.username || "Anonymous"}
           </Link>
           <p className="text-[11px] text-[var(--color-text-muted)]">

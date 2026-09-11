@@ -12,7 +12,6 @@ type CreateBetslipModalProps = {
 }
 
 const BET_TYPES = ["Single", "Accumulator", "System", "Lucky"] as const
-const SPORTSBOOKS = ["Bet365", "DraftKings", "FanDuel", "Betway", "1xBet", "William Hill", "Paddy Power", "Other"]
 
 export default function CreateBetslipModal({ onClose, onCreated, roomId }: CreateBetslipModalProps) {
   const [sportsbook, setSportsbook] = useState("")
@@ -56,7 +55,7 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
     }
 
     const payload: Record<string, unknown> = {
-      sportsbook,
+      sportsbook: sportsbook.trim() || undefined,
       bet_type: betType,
       odds: parseFloat(odds),
       matches: validMatches,
@@ -115,20 +114,17 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Sportsbook */}
+          {/* Source (optional) */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-white/90">Sportsbook</label>
-            <select
+            <label className="text-sm font-medium text-white/90">Source <span className="text-[var(--color-text-muted)] font-normal">(optional)</span></label>
+            <Input
+              type="text"
               value={sportsbook}
               onChange={(e) => setSportsbook(e.target.value)}
-              required
-              className="w-full h-11 bg-black/20 border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all appearance-none"
-            >
-              <option value="">Select sportsbook...</option>
-              {SPORTSBOOKS.map((sb) => (
-                <option key={sb} value={sb}>{sb}</option>
-              ))}
-            </select>
+              placeholder="e.g. where you tracked this pick"
+              maxLength={60}
+              className="bg-black/20 border-white/10 h-11"
+            />
           </div>
 
           {/* Bet Type + Odds */}
@@ -201,14 +197,14 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
 
           {/* Stake (optional) */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-white/90">Stake (optional)</label>
+            <label className="text-sm font-medium text-white/90">Stake <span className="text-[var(--color-text-muted)] font-normal">(optional, in Coins)</span></label>
             <Input
               type="number"
-              step="0.01"
+              step="1"
               min="0"
               value={stake}
               onChange={(e) => setStake(e.target.value)}
-              placeholder="$0.00"
+              placeholder="0 Coins"
               className="bg-black/20 border-white/10 h-11"
             />
           </div>
@@ -231,8 +227,8 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
               <div className="flex items-center gap-3">
                 <Lock className="w-5 h-5 text-[var(--color-primary)]" />
                 <div>
-                  <span className="text-sm font-medium text-white">Premium Pick</span>
-                  <p className="text-xs text-[var(--color-text-muted)]">Lock selections behind a paywall</p>
+                  <span className="text-sm font-medium text-white">Paid pick</span>
+                  <p className="text-xs text-[var(--color-text-muted)]">Members pay to view this pick</p>
                 </div>
               </div>
               <input
@@ -244,17 +240,20 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
             </label>
             {isForSale && (
               <div className="mt-3 pt-3 border-t border-white/5">
-                <label className="text-xs font-medium text-white/70 mb-1 block">Price ($)</label>
+                <label className="text-xs font-medium text-white/70 mb-1 block">Price (Coins)</label>
                 <Input
                   type="number"
-                  step="0.50"
-                  min="0.50"
+                  step="1"
+                  min="1"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  placeholder="e.g. 5.00"
+                  placeholder="e.g. 50 Coins"
                   required={isForSale}
                   className="bg-black/30 border-white/10 h-10"
                 />
+                <p className="mt-2 text-[11px] text-[var(--color-text-muted)] leading-relaxed">
+                  Members pay for access to your pick and analysis — not to place a bet. Availability of paid picks depends on your region.
+                </p>
               </div>
             )}
           </div>
@@ -262,7 +261,7 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
           {/* Submit */}
           <Button
             type="submit"
-            disabled={isLoading || !sportsbook || !odds}
+            disabled={isLoading || !odds}
             className="w-full h-12 text-base font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-all border-none shadow-[0_0_15px_rgba(108,99,255,0.4)]"
           >
             {isLoading ? "Posting..." : "Share Pick"}

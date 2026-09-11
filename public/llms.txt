@@ -28,14 +28,14 @@ Think of it as PrizePicks analytics + Discord-style rooms + a tipster marketplac
 
 ## Sports Covered
 
-- NBA (basketball-reference.com data: box scores, player stats, team defense ratings)
-- Tennis (tennisabstract.com data: serve stats, return stats, surface splits)
-- Football/Soccer (fbref.com data: player stats, standings for top 5 European leagues)
+- NBA (box scores, player stats, team defense ratings)
+- Tennis (serve/return stats, surface splits, matches, bios, odds)
+- Football/Soccer (player stats, standings for top 5 European leagues)
 - NFL, NHL, MLB, F1, UFC, Golf, Cricket (live scores via ESPN)
 
 ## How Analytics Work
 
-All prop lines and analytics are computed from real scraped historical data — no paid odds feeds. Scrapers run automatically via GitHub Actions. Hit rates, matchup grades, confidence scores, and correlations are all derived from actual player performance history.
+All prop lines and analytics are calculated in-house from publicly available historical sports statistics — no paid odds feeds. Hit rates, matchup grades, confidence scores, and correlations are all derived from historical player performance.
 
 ## Business Model
 
@@ -48,7 +48,7 @@ All prop lines and analytics are computed from real scraped historical data — 
 - Next.js 16 (App Router), TypeScript 5, Tailwind CSS v4, Framer Motion 12
 - Supabase (Postgres + Row Level Security + Realtime)
 - Stripe (Checkout Sessions + Webhooks)
-- Python scrapers (Scrapling library) on GitHub Actions
+- Automated data pipelines on GitHub Actions
 - Radix UI, Lucide Icons, Vitest
 
 ## Important Pages
@@ -69,6 +69,7 @@ All prop lines and analytics are computed from real scraped historical data — 
 - [Signup](https://lasyly.me/signup): Create a new account
 - [Privacy Policy](https://lasyly.me/privacy): Privacy policy
 - [Terms of Service](https://lasyly.me/terms): Terms of service
+- [Data Sources](https://lasyly.me/data-sources): How analytics are produced and third-party attribution
 
 ## Contact
 

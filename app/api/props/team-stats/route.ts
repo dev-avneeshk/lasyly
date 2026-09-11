@@ -6,7 +6,8 @@
  * - NFL: Yards/game, TD rate, turnover margin, red zone efficiency
  * - NHL: Goals/game, shots/game, power play, penalty kill, save %
  *
- * All stats computed from espn_games + espn_player_stats tables.
+ * Soccer/NHL stats come from espn_games + espn_player_stats. NFL uses the
+ * dedicated nfl_games + nfl_player_stats tables (clean numeric columns).
  */
 
 import { NextResponse } from "next/server"
@@ -259,38 +260,38 @@ async function computeSoccerStats(supabase: any, team: string): Promise<TeamStat
 // ─── NFL Stats ──────────────────────────────────────────────────────────────
 
 async function computeNFLStats(supabase: any, team: string): Promise<TeamStatsResult | null> {
+  // Read the dedicated nfl_games + nfl_player_stats tables (abbreviation-keyed,
+  // clean numeric columns) — same source as the NFL props engine.
   const { data: games } = await supabase
-    .from("espn_games")
-    .select("id, home_team, away_team, home_score, away_score, league, match_date, home_logo, away_logo")
-    .eq("league", "nfl")
+    .from("nfl_games")
+    .select("id, home_team, away_team, home_abbr, away_abbr, home_score, away_score, game_date")
     .eq("status", "completed")
-    .or(`home_team.eq.${team},away_team.eq.${team}`)
-    .order("match_date", { ascending: false })
+    .or(`home_abbr.eq.${team},away_abbr.eq.${team}`)
+    .order("game_date", { ascending: false })
     .limit(20)
 
   if (!games || games.length === 0) return null
 
-  // Fetch player stats for yards, TDs, etc.
+  // Fetch this team's player stats to aggregate team yards/TDs/turnovers.
   const { data: playerStats } = await supabase
-    .from("espn_player_stats")
-    .select("game_id, team, stats")
+    .from("nfl_player_stats")
+    .select("game_id, team, pass_yds, rush_yds, rec_yds, pass_td, rush_td, rec_td, pass_int, fumbles_lost, sacks")
     .eq("team", team)
-    .eq("league", "nfl")
-    .order("match_date", { ascending: false })
-    .limit(500)
+    .order("game_date", { ascending: false })
+    .limit(1000)
 
-  // Aggregate per-game
+  // Aggregate per-game. Team yards = pass_yds + rush_yds (rec_yds would double
+  // count with pass_yds); TDs = pass + rush + rec; turnovers = INT + fumbles lost.
   const gameStatMap = new Map<string, { yards: number; tds: number; turnovers: number; sacks: number }>()
   if (playerStats) {
     for (const row of playerStats) {
-      const s = typeof row.stats === "string" ? JSON.parse(row.stats) : row.stats
       const gid = row.game_id
       if (!gameStatMap.has(gid)) gameStatMap.set(gid, { yards: 0, tds: 0, turnovers: 0, sacks: 0 })
       const g = gameStatMap.get(gid)!
-      g.yards += Number(s?.YDS ?? 0) || 0
-      g.tds += Number(s?.TD ?? 0) || 0
-      g.turnovers += (Number(s?.INT ?? 0) || 0) + (Number(s?.FUM ?? 0) || 0)
-      g.sacks += Number(s?.SACKS ?? 0) || 0
+      g.yards += (Number(row.pass_yds) || 0) + (Number(row.rush_yds) || 0)
+      g.tds += (Number(row.pass_td) || 0) + (Number(row.rush_td) || 0) + (Number(row.rec_td) || 0)
+      g.turnovers += (Number(row.pass_int) || 0) + (Number(row.fumbles_lost) || 0)
+      g.sacks += Number(row.sacks) || 0
     }
   }
 
@@ -303,11 +304,14 @@ async function computeNFLStats(supabase: any, team: string): Promise<TeamStatsRe
   let logoUrl: string | null = null
 
   for (const game of games) {
-    const isHome = game.home_team === team
+    const isHome = game.home_abbr === team
     const pf = isHome ? (game.home_score ?? 0) : (game.away_score ?? 0)
     const pa = isHome ? (game.away_score ?? 0) : (game.home_score ?? 0)
-    const opponent = isHome ? game.away_team : game.home_team
-    if (!logoUrl) logoUrl = isHome ? game.home_logo : game.away_logo
+    const opponent = isHome ? (game.away_abbr ?? game.away_team) : (game.home_abbr ?? game.home_team)
+    if (!logoUrl) {
+      const slug = team.toLowerCase()
+      logoUrl = `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png`
+    }
 
     pointsFor.push(pf)
     pointsAgainst.push(pa)
@@ -317,7 +321,7 @@ async function computeNFLStats(supabase: any, team: string): Promise<TeamStatsRe
     turnovers.push(gs?.turnovers ?? 0)
 
     gameLog.push({
-      date: game.match_date, opponent, goalsFor: pf, goalsAgainst: pa,
+      date: game.game_date, opponent, goalsFor: pf, goalsAgainst: pa,
       result: pf > pa ? "W" : pf < pa ? "L" : "D",
       stats: { pointsFor: pf, pointsAgainst: pa, yards: gs?.yards ?? 0, tds: gs?.tds ?? 0, turnovers: gs?.turnovers ?? 0 },
     })

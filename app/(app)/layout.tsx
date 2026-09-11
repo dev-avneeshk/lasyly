@@ -4,6 +4,7 @@ import BottomNav from "@/components/layout/BottomNav"
 import TopBar from "@/components/layout/TopBar"
 import AppScrollRestorer from "@/components/layout/AppScrollRestorer"
 import AuthListener from "@/components/AuthListener"
+import { ToastProvider } from "@/components/ui/Toast"
 
 export default function AppLayout({
   children,
@@ -11,6 +12,7 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
+    <ToastProvider>
     <div className="flex h-screen overflow-hidden bg-[var(--color-background)] relative w-full max-w-full">
       {/* Premium background hint — kept lightweight to avoid blocking paint.
           Single, smaller, lower blur radius; hidden on small screens where
@@ -30,5 +32,6 @@ export default function AppLayout({
       <BottomNav />
       <PushPrompt />
     </div>
+    </ToastProvider>
   )
 }

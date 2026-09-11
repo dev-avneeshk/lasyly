@@ -50,6 +50,78 @@ export async function checkRateLimit(
 }
 
 /**
+ * Check several rate limits at once for the SAME logical action (e.g. chat's
+ * per-message + burst + flood windows). This collapses what would otherwise be
+ * N sequential Redis round-trips into a single pipeline, cutting latency on hot
+ * paths like message sending.
+ *
+ * Returns the first limit that is exceeded (so the caller can surface the right
+ * message), or `null` when every limit allows the request.
+ *
+ * `failClosed` controls Redis-error behavior: pass `true` on abuse-sensitive
+ * paths (chat send) so an outage can't silently disable flood protection.
+ */
+export async function checkRateLimitBatch(
+  checks: { key: string; config: RateLimitConfig }[],
+  opts: { failClosed?: boolean } = {}
+): Promise<{ index: number; result: RateLimitResult } | null> {
+  const redis = getRedisClient()
+
+  if (!redis) {
+    // In-memory fallback: cheap, run sequentially.
+    for (let i = 0; i < checks.length; i++) {
+      const result = checkRateLimitMemory(checks[i].key, checks[i].config)
+      if (!result.allowed) return { index: i, result }
+    }
+    return null
+  }
+
+  const now = Date.now()
+
+  try {
+    // Phase 1: prune + count every window in one pipeline.
+    const readPipe = redis.pipeline()
+    for (const { key, config } of checks) {
+      const redisKey = `rl:biz:${key}`
+      readPipe.zremrangebyscore(redisKey, 0, now - config.windowMs)
+      readPipe.zcard(redisKey)
+    }
+    const readResults = await readPipe.exec()
+
+    // Each check contributes 2 results; the zcard is the odd index.
+    for (let i = 0; i < checks.length; i++) {
+      const count = (readResults[i * 2 + 1] as number) ?? 0
+      if (count >= checks[i].config.maxRequests) {
+        return {
+          index: i,
+          result: { allowed: false, remaining: 0, retryAfterMs: checks[i].config.windowMs },
+        }
+      }
+    }
+
+    // Phase 2: all windows have room — record this request against each in one pipeline.
+    const writePipe = redis.pipeline()
+    for (const { key, config } of checks) {
+      const redisKey = `rl:biz:${key}`
+      const member = `${now}:${Math.random().toString(36).slice(2, 8)}`
+      writePipe.zadd(redisKey, { score: now, member })
+      writePipe.expire(redisKey, Math.ceil(config.windowMs / 1000) + 10)
+    }
+    await writePipe.exec()
+
+    return null
+  } catch (error) {
+    if (opts.failClosed) {
+      console.error("[rateLimit] Redis batch check failed, failing CLOSED:", error)
+      // Block the request; index 0 is a reasonable "primary limit" attribution.
+      return { index: 0, result: { allowed: false, remaining: 0, retryAfterMs: 2000 } }
+    }
+    console.warn("[rateLimit] Redis batch check failed, allowing request:", error)
+    return null
+  }
+}
+
+/**
  * Synchronous rate limit check using in-memory store.
  * Only reliable on single-instance deployments (local dev, Docker).
  * On serverless (Vercel), this resets on every cold start — use Redis.
@@ -185,4 +257,6 @@ export const RATE_LIMITS = {
   roomCreate: { maxRequests: 5, windowMs: 3600000 },
   /** Admin actions: 20 per minute (kick/ban/mute/role) */
   adminAction: { maxRequests: 20, windowMs: 60000 },
+  /** Arena auction bids: high-frequency by nature — 120 per minute per user */
+  arenaBid: { maxRequests: 120, windowMs: 60000 },
 } as const

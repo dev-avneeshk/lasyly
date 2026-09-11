@@ -4,6 +4,7 @@ import { Betslip } from "@/types"
 import { MessageSquare, Share2, Flame, Copy, Lock, Unlock, TrendingUp, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 interface BetslipCardProps {
   betslip: Betslip
@@ -63,6 +64,7 @@ function timeAgo(dateStr: string) {
 }
 
 export default function BetslipCard({ betslip }: BetslipCardProps) {
+  const router = useRouter()
   const [isUnlocking, setIsUnlocking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLocked, setIsLocked] = useState(betslip.isForSale === true)
@@ -83,15 +85,31 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           betslipId: betslip.id,
-          price: betslip.price,
           tipsterId: betslip.userId,
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
+
+      if (!res.ok) {
+        // Parse the JSON { error } shape the API returns. Keep the pick
+        // LOCKED on any failure — never reveal paid content on error
+        // (e.g. insufficient Coins / 402, already unlocked / 409).
+        let message = "Unable to unlock this pick."
+        try {
+          const body = (await res.json()) as { error?: string }
+          if (body?.error) message = body.error
+        } catch {
+          // non-JSON response; keep the default message
+        }
+        setError(message)
+        return
+      }
+
+      // Success: reveal the pick and refresh so the balance pill and
+      // redacted selections update from the server.
       setIsLocked(false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to unlock this pick")
-      setTimeout(() => setIsLocked(false), 500)
+      router.refresh()
+    } catch {
+      setError("Unable to unlock this pick. Please try again.")
     } finally {
       setIsUnlocking(false)
     }
@@ -200,7 +218,7 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
         {betslip.stake != null && (
           <div className="text-right">
             <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-widest mb-0.5">Stake</p>
-            <p className="text-xl font-black text-white">${betslip.stake.toLocaleString()}</p>
+            <p className="text-xl font-black text-white">{betslip.stake.toLocaleString()} Coins</p>
           </div>
         )}
         {betslip.payout != null && (
@@ -216,7 +234,7 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
                   betslip.status === "Won" ? "text-[var(--color-success)]" : "text-white"
                 )}
               >
-                ${betslip.payout.toLocaleString()}
+                {betslip.payout.toLocaleString()} Coins
               </p>
             </div>
           </>
@@ -272,7 +290,7 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
                   ) : (
                     <>
                       <Unlock className="w-4 h-4" />
-                      Unlock for ${betslip.price?.toFixed(2)}
+                      Unlock for {betslip.price?.toFixed(0)} Coins
                     </>
                   )}
                 </button>

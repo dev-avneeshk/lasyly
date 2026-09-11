@@ -74,6 +74,11 @@ interface ESPNEvent {
     type: {
       name: string
       shortDetail: string
+      // ESPN's authoritative lifecycle field: "pre" | "in" | "post".
+      // More reliable than `name`, which has many finished variants
+      // (STATUS_FINAL, STATUS_FINAL_PEN, STATUS_FULL_TIME, ...).
+      state?: string
+      completed?: boolean
     }
   }
   competitions: Array<{
@@ -250,11 +255,15 @@ async function fetchTennisScoreboard(config: LeagueConfig, date?: string): Promi
         const competitions = grouping.competitions ?? []
 
         for (const comp of competitions) {
-          const statusName = comp.status?.type?.name ?? "STATUS_SCHEDULED"
-          const isLive = statusName === "STATUS_IN_PROGRESS"
+          const statusType = comp.status?.type ?? {}
+          const state = statusType.state
+          const statusName = statusType.name ?? "STATUS_SCHEDULED"
+          // Use ESPN's authoritative `state` field with a name fallback so
+          // finished variants (STATUS_FINAL_PEN, etc.) are handled correctly.
+          const isLive = state === "in" || statusName === "STATUS_IN_PROGRESS"
           const isRecent = comp.recent === true
-          const isScheduled = statusName === "STATUS_SCHEDULED"
-          const isFinal = statusName === "STATUS_FINAL"
+          const isScheduled = state === "pre" || statusName === "STATUS_SCHEDULED"
+          const isFinal = state === "post" || statusType.completed === true
 
           // Include: all live, recent finished, and some upcoming
           if (!isLive && !isRecent && !isScheduled) continue
@@ -309,8 +318,7 @@ function mapTennisCompetition(comp: any, config: LeagueConfig, tournamentName: s
     setScores.push(`${Math.round(h)}-${Math.round(a)}`)
   }
 
-  const statusName = comp.status?.type?.name ?? "STATUS_SCHEDULED"
-  const status = mapESPNStatus(statusName, "tennis")
+  const status = mapESPNStatus(comp.status?.type ?? {}, "tennis")
   const round = comp.round?.displayName ?? ""
 
   // Use country flag as "logo" for tennis players
@@ -351,7 +359,7 @@ export function mapESPNEvent(event: ESPNEvent, config: LeagueConfig): LiveMatch 
     awayScore: parseInt(away?.score ?? "0", 10) || 0,
     clock: mapESPNClock(event),
     startTime: event.date || undefined,
-    status: mapESPNStatus(event.status.type.name, config.sport),
+    status: mapESPNStatus(event.status.type, config.sport),
     league: getLeagueDisplayName(config.league),
     sport: config.displaySport,
     homeLogo: home?.team.logo || undefined,
@@ -364,37 +372,72 @@ export function mapESPNEvent(event: ESPNEvent, config: LeagueConfig): LiveMatch 
 }
 
 function mapESPNClock(event: ESPNEvent): string | undefined {
-  const statusName = event.status.type.name
-  const shortDetail = event.status.type.shortDetail
+  const type = event.status.type
+  const statusName = type.name
+  const shortDetail = type.shortDetail
 
-  if (statusName === "STATUS_SCHEDULED") {
+  // Finished games (any variant) carry no clock — otherwise a "FT-Pens"
+  // shortDetail lingers on the card.
+  if (type.completed === true || type.state === "post") return undefined
+  if (type.state === "pre" || statusName === "STATUS_SCHEDULED") {
     // shortDetail might have the time (e.g. "7:30 PM ET")
     return shortDetail || undefined
   }
-  if (statusName === "STATUS_FINAL" || statusName === "STATUS_FULL_TIME") return undefined
   if (statusName === "STATUS_POSTPONED" || statusName === "STATUS_CANCELED") return undefined
 
   // For live games, shortDetail has the clock info (e.g. "Q3 4:22", "65'", "HT")
   return shortDetail || undefined
 }
 
-function mapESPNStatus(statusName: string, sport: string): MatchStatus {
+/**
+ * Map an ESPN status into our MatchStatus.
+ *
+ * `state` ("pre" | "in" | "post") and `completed` are ESPN's authoritative
+ * lifecycle fields and are checked FIRST — this correctly handles the many
+ * finished variants (STATUS_FINAL, STATUS_FINAL_PEN, STATUS_FULL_TIME,
+ * STATUS_FINAL_AET, ...) that a name-only switch would miss and wrongly
+ * report as "In Progress" (e.g. the PSG–Arsenal penalty final that got
+ * stuck showing LIVE for months).
+ *
+ * The name switch is only a fallback for the rare case where `state` is
+ * absent, and even then we default to "Not Started" rather than "In Progress"
+ * so an unknown status can never masquerade as a live game.
+ */
+function mapESPNStatus(
+  statusType: { name?: string; state?: string; completed?: boolean },
+  _sport: string
+): MatchStatus {
+  const state = statusType.state
+  const completed = statusType.completed
+  const statusName = statusType.name ?? ""
+
+  // 1. Authoritative lifecycle fields.
+  if (completed === true || state === "post") return "Finished"
+  if (state === "pre") return "Not Started"
+  // state === "in" falls through to the name switch so we can distinguish
+  // Halftime from generic In Progress.
+
+  // 2. Name-based refinement / fallback.
   switch (statusName) {
     case "STATUS_SCHEDULED":
       return "Not Started"
-    case "STATUS_IN_PROGRESS":
-      return sport === "soccer" ? "In Progress" : "In Progress"
     case "STATUS_HALFTIME":
       return "Halftime"
     case "STATUS_FINAL":
     case "STATUS_FULL_TIME":
+    case "STATUS_FINAL_PEN":
+    case "STATUS_FINAL_AET":
       return "Finished"
     case "STATUS_POSTPONED":
     case "STATUS_CANCELED":
     case "STATUS_SUSPENDED":
+    case "STATUS_ABANDONED":
       return "Postponed"
-    default:
+    case "STATUS_IN_PROGRESS":
       return "In Progress"
+    default:
+      // If ESPN says it's live, trust that; otherwise never assume live.
+      return state === "in" ? "In Progress" : "Not Started"
   }
 }
 

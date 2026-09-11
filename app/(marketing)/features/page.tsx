@@ -4,208 +4,270 @@ import { JsonLd } from "@/components/seo/JsonLd"
 
 export const metadata: Metadata = {
   title: "Features — Lasyly Sports Analytics Platform",
-  description: "Explore every feature inside Lasyly — prop analytics with hit rates and matchup grades, real-time rooms, live scores across 10+ sports, a pick marketplace, pick tracker, and curated news.",
-  openGraph: { title: "Features — Lasyly Sports Analytics Platform", description: "Prop analytics, real-time rooms, live scores, pick marketplace, pick tracker, and curated news. All free.", type: "website" },
+  description: "Everything inside Lasyly: prop analytics with hit rates and matchup grades, real-time rooms, live scores across 10+ sports, creator rooms, a pick tracker, and curated news.",
+  openGraph: { title: "Features — Lasyly Sports Analytics Platform", description: "Prop analytics, real-time rooms, live scores, creator rooms, a pick tracker, and curated news. All free.", type: "website" },
   alternates: { canonical: "https://lasyly.me/features" },
 }
 
-const features = [
-  { color: "var(--color-lime)", label: "Rooms", headline: "Real-time community", desc: "Join or create topic-based rooms organized by sport. Share picks, react to slips, and chat with others in real-time.", bullets: ["Real-time chat via Supabase", "Slip sharing with emoji reactions", "Public, private, and premium rooms", "Live member indicators and sport tags"] },
-  { color: "#6C63FF", label: "Props & Analytics", headline: "Data-backed prop research", desc: "Every player prop card is powered by real scraped historical data. Compute your own edge instead of relying on gut feel.", bullets: ["Hit rates: L5, L10, L15, L20, season", "Matchup grades A–F (defensive stats)", "Confidence scores 1–5 stars", "Trend arrows, streak dots, line movement", "Correlated parlay builder", "AI-generated writeups"] },
-  { color: "#00D4AA", label: "Live Scores", headline: "10+ sports, real-time", desc: "A SofaScore-style live scores experience with date navigation, real-time polling, ESPN team logos, and YouTube highlights.", bullets: ["Adaptive polling — faster when live", "Past, today, future date navigation", "ESPN team logos and colors", "Match detail modals + highlights", "Historical match cache"] },
-  { color: "#F59E0B", label: "Pick Tracker", headline: "Your personal performance ledger", desc: "Log every pick with player, stat type, line, direction, odds, and stake. Track win rate, ROI, net profit.", bullets: ["Log picks in seconds", "Track win rate, ROI, net profit", "Best signals analysis — your edge", "Filter by sport, date range, status"] },
-  { color: "#EC4899", label: "Pick Marketplace", headline: "Buy and sell premium picks", desc: "A Stripe-backed credits system that powers the pick economy. Load credits to purchase premium picks from verified sellers.", bullets: ["Top up via Stripe ($10–$100+)", "Browse picks by seller stats and sport", "Sellers keep 85% — we take 15%", "Full transaction history and earnings"] },
-  { color: "#14B8A6", label: "Lasyly Daily", headline: "Curated sports news, instantly", desc: "Sports news aggregated from ESPN and major sources, scraped and served from our own database. Zero third-party latency.", bullets: ["ESPN and major source aggregation", "8 sport categories", "Clean editorial newspaper layout", "Updated continuously via scrapers"] },
+type Spec = { k: string; v: string }
+type Feature = {
+  no: string
+  label: string
+  headline: string
+  desc: string
+  href: string
+  specs: Spec[]
+}
+
+const features: Feature[] = [
+  {
+    no: "01",
+    label: "Rooms",
+    headline: "Real-time community",
+    desc: "Topic-based rooms organized by sport. Share picks, react to slips, and talk through games as they happen, without leaving the app.",
+    href: "/explore",
+    specs: [
+      { k: "Chat", v: "Realtime, Supabase-backed" },
+      { k: "Slips", v: "Shared with emoji reactions" },
+      { k: "Access", v: "Public, private, premium" },
+      { k: "Metadata", v: "Live member counts, sport tags" },
+    ],
+  },
+  {
+    no: "02",
+    label: "Props & analytics",
+    headline: "Data-backed prop research",
+    desc: "Every prop card is calculated in-house from historical sports statistics, so you work out your own edge instead of trusting a gut call.",
+    href: "/analysis",
+    specs: [
+      { k: "Hit rates", v: "L5, L10, L15, L20, season" },
+      { k: "Matchup grade", v: "A to F, from defensive splits" },
+      { k: "Confidence", v: "1 to 5 stars" },
+      { k: "Signals", v: "Trend, streak, line movement" },
+      { k: "Parlays", v: "Correlated builder" },
+    ],
+  },
+  {
+    no: "03",
+    label: "Live scores",
+    headline: "10+ sports in one view",
+    desc: "Date navigation across past, present, and upcoming fixtures, with ESPN logos and colors and a match detail view for every game.",
+    href: "/scores",
+    specs: [
+      { k: "Polling", v: "Adaptive, faster on live games" },
+      { k: "Dates", v: "Past, today, upcoming" },
+      { k: "Detail", v: "Team stats, box score, odds" },
+      { k: "Media", v: "YouTube highlights" },
+    ],
+  },
+  {
+    no: "04",
+    label: "Pick tracker",
+    headline: "Your performance ledger",
+    desc: "Log every pick with player, stat, line, direction, odds, and stake. Over time it shows you where your edge actually is.",
+    href: "/bets",
+    specs: [
+      { k: "Entry", v: "Full pick in seconds" },
+      { k: "Metrics", v: "Win rate, ROI, net profit" },
+      { k: "Insight", v: "Best-performing signals" },
+      { k: "Filters", v: "Sport, date range, status" },
+    ],
+  },
+  {
+    no: "05",
+    label: "Creator rooms",
+    headline: "Share what you know",
+    desc: "Independent creators run their own rooms and share their analysis and picks. Where creator monetization is available, members pay for access to a creator's content and community — not to place any bet. Availability varies by region.",
+    href: "/tipsters",
+    specs: [
+      { k: "Discovery", v: "By creator stats and sport" },
+      { k: "Track record", v: "Public and verifiable" },
+      { k: "Payment", v: "For content access only" },
+      { k: "Availability", v: "Varies by region" },
+    ],
+  },
+  {
+    no: "06",
+    label: "Lasyly Daily",
+    headline: "Curated news, no latency",
+    desc: "Sports news from ESPN and other major sources, aggregated and served from our own database so it loads without a third-party round trip.",
+    href: "/news",
+    specs: [
+      { k: "Sources", v: "ESPN and major outlets" },
+      { k: "Categories", v: "8 sports" },
+      { k: "Layout", v: "Editorial, newspaper-style" },
+      { k: "Refresh", v: "Continuous" },
+    ],
+  },
 ]
+
+const sports = ["NBA", "NFL", "Soccer", "Tennis", "NHL", "MLB", "Formula 1", "UFC", "Golf", "Cricket"]
+
+const comparisonRows: [string, string, string, string, string][] = [
+  ["Prop analytics with hit rates", "yes", "partial", "no", "no"],
+  ["Matchup grades (A to F)", "yes", "no", "no", "no"],
+  ["Real-time rooms", "yes", "no", "yes", "no"],
+  ["Slip sharing and reactions", "yes", "no", "no", "no"],
+  ["Creator rooms (where available)", "yes", "no", "no", "no"],
+  ["Live scores, 10+ sports", "yes", "partial", "no", "no"],
+  ["Correlated parlay builder", "yes", "no", "no", "no"],
+  ["Pick tracker with ROI", "yes", "yes", "no", "no"],
+  ["Free to use", "yes", "freemium", "yes", "no"],
+]
+
+function Cell({ value }: { value: string }) {
+  if (value === "yes") return <span className="text-[var(--color-lime)] font-semibold">Yes</span>
+  if (value === "no") return <span className="text-white/20">No</span>
+  return <span className="text-[var(--color-text-muted)] text-xs capitalize">{value}</span>
+}
 
 export default function FeaturesPage() {
   const baseUrl = "https://lasyly.me"
   return (
-    <div className="min-h-screen">
+    <main className="min-h-screen">
       <JsonLd data={{
         "@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Lasyly", "url": baseUrl,
         "applicationCategory": "SportsApplication", "operatingSystem": "Web",
-        "description": "Real-time social platform for sports fans — prop analytics, community rooms, live scores, pick marketplace, and curated news.",
+        "description": "Real-time social platform for sports fans: prop analytics, community rooms, live scores, creator rooms, and curated news.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "featureList": features.map((f) => f.headline),
         "publisher": { "@type": "Organization", "name": "Lasyly", "url": baseUrl },
       }} />
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-20">
-        <div className="max-w-3xl">
-          <span className="inline-block text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--color-lime)] bg-[var(--color-lime)]/8 px-3 py-1.5 rounded-full border border-[var(--color-lime)]/15 mb-5">
-            Everything in one place
-          </span>
-          <h1 className="text-[2.5rem] sm:text-[3.5rem] md:text-[4.5rem] font-bold font-serif tracking-tight text-white leading-[1.05] mb-6">
-            Every tool you need, zero effort
-          </h1>
-          <p className="text-lg text-white/50 max-w-[52ch] leading-relaxed mb-10">
-            No more juggling 4–6 apps to make one informed pick. Lasyly combines real-time analytics, community, live scores, news, and a pick marketplace — all free.
-          </p>
-          <div className="flex items-center gap-4 flex-wrap">
-            <Link href="/signup" className="inline-flex items-center gap-2 bg-[var(--color-lime)] text-black font-bold text-sm px-6 py-3 rounded-full hover:scale-[0.98] active:scale-[0.96] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-              Get started free
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </Link>
-            <Link href="/explore" className="inline-block border border-[var(--color-border)] text-white font-medium text-sm px-6 py-3 rounded-full hover:border-white/20 transition-colors duration-300">
-              Explore rooms
-            </Link>
-          </div>
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 pt-20 sm:pt-28 pb-14">
+        <p className="text-[13px] font-medium text-[var(--color-lime)] mb-6">Features</p>
+        <h1 className="text-[2.4rem] sm:text-[3.25rem] md:text-[4rem] font-bold font-serif tracking-tight text-white leading-[1.04] max-w-[16ch]">
+          Six tools most people pay for, in one place
+        </h1>
+        <p className="mt-6 text-lg text-white/55 max-w-[58ch] leading-relaxed">
+          Most fans run four to six apps to research a single informed pick. Lasyly folds analytics, community, live scores, news, and creator rooms into one product, and none of it sits behind a paywall.
+        </p>
+        <div className="mt-9 flex items-center gap-6 flex-wrap">
+          <Link href="/signup" className="inline-flex items-center gap-2 bg-[var(--color-lime)] text-black font-semibold text-sm px-6 py-3 rounded-full hover:scale-[0.98] active:scale-[0.96] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+            Get started free
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </Link>
+          <Link href="/explore" className="text-sm font-medium text-white/70 hover:text-white transition-colors duration-200 underline underline-offset-4 decoration-white/20 hover:decoration-white/50">
+            Explore rooms
+          </Link>
         </div>
       </section>
 
-      {/* Divider */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6"><div className="h-[1px] bg-gradient-to-r from-[var(--color-border)] via-[var(--color-border)] to-transparent" /></div>
-
-      {/* Feature grid — varied layout to break monotony */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
-        {/* Row 1: one wide feature */}
-        <div className="mb-4">
-          <div className="rounded-[1.5rem] p-[1px] bg-gradient-to-b from-white/6 to-transparent">
-            <div className="rounded-[calc(1.5rem-1px)] bg-[var(--color-surface)] p-7 md:p-10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
-              <div className="grid md:grid-cols-[1fr_1.2fr] gap-8 items-start">
-                <div>
-                  <div className="w-2.5 h-2.5 rounded-full mb-5" style={{ background: features[0].color, boxShadow: `0 0 12px ${features[0].color}60` }} />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2 block" style={{ color: features[0].color }}>{features[0].label}</span>
-                  <h2 className="text-xl font-bold text-white font-serif tracking-tight mb-3">{features[0].headline}</h2>
-                  <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">{features[0].desc}</p>
-                </div>
-                <ul className="space-y-2 md:pt-8">
-                  {features[0].bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2.5 text-sm text-[var(--color-text-muted)]">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--color-lime)] shrink-0" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
+      {/* Feature index — editorial, numbered, hairline dividers */}
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 pb-8">
+        <div className="border-t border-[var(--color-border)]">
+          {features.map((f) => (
+            <article
+              key={f.no}
+              className="group grid md:grid-cols-[auto_1fr_minmax(0,22rem)] gap-x-8 gap-y-4 py-10 sm:py-12 border-b border-[var(--color-border)]"
+            >
+              {/* Number + label */}
+              <div className="flex md:flex-col items-baseline md:items-start gap-3 md:gap-2 md:w-24">
+                <span className="font-serif text-3xl sm:text-4xl font-bold text-white/15 tabular-nums leading-none">{f.no}</span>
+                <span className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-muted)]">{f.label}</span>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Row 2: two cards */}
-        <div className="grid md:grid-cols-2 gap-4 mb-4">
-          {features.slice(1, 3).map((f) => (
-            <div key={f.label} className="rounded-[1.5rem] p-[1px] bg-gradient-to-b from-white/6 to-transparent">
-              <div className="rounded-[calc(1.5rem-1px)] bg-[var(--color-surface)] p-7 h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
-                <div className="w-2.5 h-2.5 rounded-full mb-5" style={{ background: f.color, boxShadow: `0 0 12px ${f.color}60` }} />
-                <span className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2 block" style={{ color: f.color }}>{f.label}</span>
-                <h2 className="text-lg font-bold text-white font-serif tracking-tight mb-3">{f.headline}</h2>
-                <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-5">{f.desc}</p>
-                <ul className="space-y-2">
-                  {f.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2.5 text-sm text-[var(--color-text-muted)]">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--color-lime)] shrink-0" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
+              {/* Headline + description */}
+              <div className="max-w-[46ch]">
+                <h2 className="text-xl sm:text-2xl font-bold font-serif tracking-tight text-white mb-3">
+                  <Link href={f.href} className="hover:text-[var(--color-lime)] transition-colors duration-200">
+                    {f.headline}
+                  </Link>
+                </h2>
+                <p className="text-[15px] text-[var(--color-text-muted)] leading-relaxed">{f.desc}</p>
+                <Link
+                  href={f.href}
+                  className="mt-4 inline-block text-[13px] font-medium text-white/50 group-hover:text-[var(--color-lime)] transition-colors duration-200"
+                >
+                  Open {f.label.toLowerCase()} →
+                </Link>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Row 3: three compact cards */}
-        <div className="grid sm:grid-cols-3 gap-4">
-          {features.slice(3).map((f) => (
-            <div key={f.label} className="rounded-[1.5rem] p-[1px] bg-gradient-to-b from-white/6 to-transparent">
-              <div className="rounded-[calc(1.5rem-1px)] bg-[var(--color-surface)] p-6 h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
-                <div className="w-2.5 h-2.5 rounded-full mb-4" style={{ background: f.color, boxShadow: `0 0 12px ${f.color}60` }} />
-                <span className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2 block" style={{ color: f.color }}>{f.label}</span>
-                <h2 className="text-base font-bold text-white font-serif tracking-tight mb-2">{f.headline}</h2>
-                <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-4">{f.desc}</p>
-                <ul className="space-y-1.5">
-                  {f.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2 text-[13px] text-[var(--color-text-muted)]">
-                      <span className="mt-1.5 w-1 h-1 rounded-full bg-[var(--color-lime)] shrink-0" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Sports coverage */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6"><div className="h-[1px] bg-gradient-to-r from-transparent via-[var(--color-border)] to-transparent" /></div>
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
-        <span className="inline-block text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-4">Sports covered</span>
-        <h2 className="text-3xl font-bold font-serif tracking-tight text-white mb-10">Analytics and live scores across every major sport</h2>
-        <div className="flex flex-wrap justify-center gap-3">
-          {["NBA", "NFL", "Soccer", "Tennis", "NHL", "MLB", "Formula 1", "UFC / MMA", "Golf", "Cricket"].map((sport) => (
-            <span key={sport} className="px-4 py-2.5 rounded-full border border-[var(--color-border)] text-sm text-[var(--color-text-muted)] font-medium hover:border-white/15 hover:text-white/80 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-              {sport}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* Comparison */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6"><div className="h-[1px] bg-gradient-to-r from-transparent via-[var(--color-border)] to-transparent" /></div>
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-24 sm:py-32">
-        <div className="mb-12">
-          <span className="inline-block text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--color-lime)] mb-3">The honest comparison</span>
-          <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight text-white">vs. everything else</h2>
-        </div>
-        <div className="rounded-[1.5rem] p-[1px] bg-gradient-to-b from-white/8 to-transparent overflow-hidden">
-          <div className="rounded-[calc(1.5rem-1px)] bg-[var(--color-surface)] overflow-x-auto shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
-            <table className="w-full text-sm border-separate border-spacing-0">
-              <thead>
-                <tr>
-                  <th className="text-left py-4 px-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] border-b border-[var(--color-border)]">Feature</th>
-                  <th className="py-4 px-5 text-[var(--color-lime)] font-bold text-[10px] uppercase tracking-[0.15em] border-b border-[var(--color-border)]">Lasyly</th>
-                  <th className="py-4 px-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] border-b border-[var(--color-border)]">Action Network</th>
-                  <th className="py-4 px-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] border-b border-[var(--color-border)]">Discord</th>
-                  <th className="py-4 px-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-muted)] border-b border-[var(--color-border)]">PrizePicks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ["Prop analytics + hit rates", "Y", "Partial", "—", "—"],
-                  ["Matchup grades (A–F)", "Y", "—", "—", "—"],
-                  ["Real-time rooms", "Y", "—", "Y", "—"],
-                  ["Slip sharing + reactions", "Y", "—", "—", "—"],
-                  ["Seller monetization (85%)", "Y", "—", "—", "—"],
-                  ["Live scores (10+ sports)", "Y", "Partial", "—", "—"],
-                  ["Correlated parlay builder", "Y", "—", "—", "—"],
-                  ["Pick tracker + ROI", "Y", "Y", "—", "—"],
-                  ["Free to use", "Y", "Freemium", "Y", "—"],
-                ].map(([feat, ...vals]) => (
-                  <tr key={feat as string} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3.5 px-5 text-white/80 border-b border-[var(--color-border)]">{feat}</td>
-                    {(vals as string[]).map((v, i) => (
-                      <td key={i} className="py-3.5 px-5 text-center border-b border-[var(--color-border)]">
-                        <span className={v === "Y" ? "text-[var(--color-lime)] font-bold" : v === "—" ? "text-[var(--color-text-muted)] opacity-30" : "text-[var(--color-text-muted)] text-xs"}>
-                          {v === "Y" ? "✓" : v}
-                        </span>
-                      </td>
-                    ))}
-                  </tr>
+              {/* Spec rows — key/value, not bullet dots */}
+              <dl className="md:pt-1">
+                {f.specs.map((s, i) => (
+                  <div
+                    key={s.k}
+                    className={`flex items-baseline justify-between gap-4 py-2 text-[13px] ${i < f.specs.length - 1 ? "border-b border-white/[0.05]" : ""}`}
+                  >
+                    <dt className="text-white/40 shrink-0">{s.k}</dt>
+                    <dd className="text-white/75 text-right font-medium">{s.v}</dd>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </dl>
+            </article>
+          ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28">
-        <div className="rounded-[2rem] p-[1px] bg-gradient-to-br from-[var(--color-lime)]/25 via-transparent to-[#6C63FF]/15">
-          <div className="rounded-[calc(2rem-1px)] bg-[var(--color-surface)] p-10 sm:p-14 text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
-            <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight text-white mb-4">All of it. Free.</h2>
-            <p className="text-[var(--color-text-muted)] max-w-md mx-auto mb-8">
-              No subscription. No paywall on analytics. Create an account and start researching props in under a minute.
-            </p>
-            <Link href="/signup" className="inline-flex items-center gap-2 bg-[var(--color-lime)] text-black font-bold px-8 py-3.5 rounded-full text-sm hover:scale-[0.98] active:scale-[0.96] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
-              Create free account
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </Link>
+      {/* Sports coverage — inline typographic list, not pill soup */}
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 py-16 sm:py-20">
+        <div className="grid md:grid-cols-[minmax(0,20rem)_1fr] gap-8 md:gap-16 items-start">
+          <div>
+            <p className="text-[13px] font-medium text-[var(--color-lime)] mb-3">Coverage</p>
+            <h2 className="text-2xl sm:text-3xl font-bold font-serif tracking-tight text-white leading-tight">
+              Analytics and scores across every major sport
+            </h2>
           </div>
+          <ul className="flex flex-wrap gap-x-8 gap-y-3 md:pt-2">
+            {sports.map((sport) => (
+              <li key={sport} className="text-base text-white/70 font-medium">
+                {sport}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
-    </div>
+
+      {/* Comparison — plain, confident table */}
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 py-16 sm:py-24">
+        <p className="text-[13px] font-medium text-[var(--color-lime)] mb-3">The honest comparison</p>
+        <h2 className="text-2xl sm:text-3xl font-bold font-serif tracking-tight text-white mb-10">
+          How we stack up
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse min-w-[560px]">
+            <thead>
+              <tr className="text-left">
+                <th className="py-3 pr-4 font-medium text-[var(--color-text-muted)] text-xs">Capability</th>
+                <th className="py-3 px-4 font-bold text-[var(--color-lime)] text-center">Lasyly</th>
+                <th className="py-3 px-4 font-medium text-[var(--color-text-muted)] text-xs text-center">Action Network</th>
+                <th className="py-3 px-4 font-medium text-[var(--color-text-muted)] text-xs text-center">Discord</th>
+                <th className="py-3 px-4 font-medium text-[var(--color-text-muted)] text-xs text-center">PrizePicks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map(([feat, ...vals]) => (
+                <tr key={feat} className="border-t border-[var(--color-border)]">
+                  <td className="py-3.5 pr-4 text-white/80">{feat}</td>
+                  {vals.map((v, i) => (
+                    <td key={i} className="py-3.5 px-4 text-center">
+                      <Cell value={v} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* CTA — restrained, no gradient-border card */}
+      <section className="max-w-5xl mx-auto px-5 sm:px-6 pb-24 sm:pb-32">
+        <div className="border-t border-[var(--color-border)] pt-16 sm:pt-20">
+          <h2 className="text-3xl sm:text-4xl font-bold font-serif tracking-tight text-white max-w-[18ch] leading-tight">
+            All of it, free
+          </h2>
+          <p className="mt-5 text-[var(--color-text-muted)] max-w-[52ch] text-base leading-relaxed">
+            No subscription, no paywall on analytics. Create an account and research your first prop in under a minute.
+          </p>
+          <Link href="/signup" className="mt-8 inline-flex items-center gap-2 bg-[var(--color-lime)] text-black font-semibold px-7 py-3.5 rounded-full text-sm hover:scale-[0.98] active:scale-[0.96] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+            Create free account
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </Link>
+        </div>
+      </section>
+    </main>
   )
 }

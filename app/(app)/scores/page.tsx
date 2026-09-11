@@ -1,4 +1,5 @@
-import { getScoresForDate, getTodayYYYYMMDD } from "@/lib/data/scores"
+import { getTodayYYYYMMDD } from "@/lib/data/scores"
+import { getScoresSnapshot } from "@/lib/data/isr-snapshots"
 import ScoresClient from "./ScoresClient"
 import type { Metadata } from "next"
 
@@ -15,8 +16,13 @@ export const metadata: Metadata = {
   },
 }
 
-// Re-render at most every 10s; matches the in-memory cache TTL for live data.
-export const revalidate = 10
+// This server component only provides the initial server-rendered snapshot;
+// live freshness is handled entirely by ScoresClient, which polls the
+// CDN-cached /api/scores endpoint every ~15s on the client. A 10s ISR window
+// forced the shell HTML to regenerate constantly for data the client already
+// refreshes, so we relax it to 5 minutes. The initial paint is still recent
+// and the client hydrates fresh scores immediately after mount.
+export const revalidate = 300
 
 /**
  * Server component shell for /scores.
@@ -28,11 +34,13 @@ export const revalidate = 10
  */
 export default async function ScoresPage() {
   const initialDate = getTodayYYYYMMDD()
-  let initialScores: Awaited<ReturnType<typeof getScoresForDate>>["data"] = []
+  let initialScores: Awaited<ReturnType<typeof getScoresSnapshot>> = []
 
   try {
-    const result = await getScoresForDate(initialDate)
-    initialScores = result.data
+    // ISR-safe snapshot (see lib/data/isr-snapshots.ts): reads through an
+    // unstable_cache boundary so the Redis-backed data layer's no-store fetch
+    // doesn't force this page to render dynamically on every request.
+    initialScores = await getScoresSnapshot()
   } catch {
     // If the data layer fails on the server, render with an empty list and
     // let the client component refetch on mount.

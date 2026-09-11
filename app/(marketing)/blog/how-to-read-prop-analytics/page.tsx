@@ -310,7 +310,7 @@ export default function PropAnalyticsGuidePost() {
               <div className="rounded-[calc(2rem-1px)] bg-[var(--color-surface)] p-8 md:p-10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
                 <p className="text-xl font-bold text-[var(--color-text-primary)] mb-2">See these metrics in action</p>
                 <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6 max-w-[44ch]">
-                  Every player prop card on Lasyly shows all the metrics above — updated from real scraped data. Free to explore.
+                  Every player prop card on Lasyly shows all the metrics above — calculated in-house from historical sports statistics. Free to explore.
                 </p>
                 <Link
                   href="/signup"

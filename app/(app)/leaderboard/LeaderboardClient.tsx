@@ -131,7 +131,7 @@ export default function LeaderboardClient() {
             leaderboard.map((entry, index) => (
               <Link
                 key={entry.user_id}
-                href={`/u/${entry.username}`}
+                href={`/l/${entry.username}`}
                 className="flex items-center gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-4 hover:border-[var(--color-lime)]/20 hover:bg-[var(--color-lime)]/5 transition-all group"
               >
                 {/* Rank */}

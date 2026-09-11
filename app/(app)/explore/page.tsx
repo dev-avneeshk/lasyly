@@ -1,5 +1,4 @@
-import { getScoresForDate, getTodayYYYYMMDD } from "@/lib/data/scores"
-import { getNews } from "@/lib/data/news"
+import { getScoresSnapshot, getTopNewsSnapshot } from "@/lib/data/isr-snapshots"
 import ExploreClient from "./ExploreClient"
 import type { Metadata } from "next"
 
@@ -16,7 +15,11 @@ export const metadata: Metadata = {
   },
 }
 
-export const revalidate = 30
+// Only the initial server snapshot needs this; ExploreClient polls for live
+// score/news updates on the client after mount. A 30s ISR window regenerated
+// the shell far more often than the data meaningfully changed, so relax it to
+// 5 minutes to cut ISR writes without affecting perceived freshness.
+export const revalidate = 300
 
 /**
  * Server component shell for /explore.
@@ -27,18 +30,17 @@ export const revalidate = 30
  * card; the client only does background polling and category swaps.
  */
 export default async function ExplorePage() {
-  // Kick off both requests in parallel.
-  const today = getTodayYYYYMMDD()
+  // ISR-safe snapshots (see lib/data/isr-snapshots.ts): both reads go through
+  // an unstable_cache boundary so the Redis-backed data layer's no-store fetch
+  // doesn't force this page to render dynamically on every request. Live
+  // updates arrive via ExploreClient's client-side polling after hydration.
   const [scoresResult, newsResult] = await Promise.allSettled([
-    getScoresForDate(today),
-    getNews(null),
+    getScoresSnapshot(),
+    getTopNewsSnapshot(),
   ])
 
-  const initialScores = scoresResult.status === "fulfilled" ? scoresResult.value.data : []
-  const initialArticle =
-    newsResult.status === "fulfilled" && newsResult.value.items.length > 0
-      ? newsResult.value.items[0]
-      : null
+  const initialScores = scoresResult.status === "fulfilled" ? scoresResult.value : []
+  const initialArticle = newsResult.status === "fulfilled" ? newsResult.value : null
 
   return <ExploreClient initialScores={initialScores} initialArticle={initialArticle} />
 }

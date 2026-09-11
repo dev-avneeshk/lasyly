@@ -5,8 +5,13 @@ import { getPublicPlayerBySlug } from "@/lib/data/public-players"
 import { generatePlayerTitle, generatePlayerDescription } from "@/lib/seo/metadata"
 import { JsonLd } from "@/components/seo/JsonLd"
 
-// ISR: revalidate every 5 minutes
-export const revalidate = 300
+// ISR: player prop lines and game stats are refreshed by the scraper crons at
+// most a few times per day, so there is no reason to regenerate every 5 minutes.
+// A short window here meant every crawler hit to any of the ~200+ player URLs
+// forced a fresh ISR write even though the underlying data was unchanged.
+// Regenerate at most once per day — new stats land well within this window via
+// the twice-daily scrape, and a redeploy always busts the cache.
+export const revalidate = 86400
 
 // ─── Metadata ───────────────────────────────────────────────────────────────
 

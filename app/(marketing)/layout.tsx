@@ -63,7 +63,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 <span className="font-bold text-white">Lasyly</span>
               </div>
               <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-                Win more. Do less.
+                Know more. Do less.
               </p>
             </div>
             <div>
@@ -90,12 +90,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               <ul className="space-y-2.5 text-sm text-[var(--color-text-muted)]">
                 <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
                 <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
+                <li><Link href="/data-sources" className="hover:text-white transition-colors">Data Sources</Link></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-[var(--color-border)] pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-center md:text-left">
+          <div className="border-t border-[var(--color-border)] pt-6 flex flex-col gap-4">
+            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed max-w-4xl">
+              Lasyly is a sports analytics and community platform. We do not accept wagers, hold betting funds, set odds, settle bets, or pay winnings, and we are not a sportsbook or gambling operator. Analytics are historical and informational only and do not predict or guarantee outcomes. Creator content reflects the creator&apos;s own views. You are responsible for following the laws that apply where you are.
+            </p>
             <p className="text-xs text-[var(--color-text-muted)]">© 2026 Lasyly. All rights reserved.</p>
-            <p className="text-xs text-[var(--color-text-muted)]">Not a sportsbook. For entertainment and analytics purposes only.</p>
           </div>
         </div>
       </footer>

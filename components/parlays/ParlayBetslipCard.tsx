@@ -328,7 +328,7 @@ function ExpandedVariant({
           {payout != null && (
             <div className="flex flex-col items-end">
               <span className="text-[10px] text-zinc-500 uppercase font-medium">Payout</span>
-              <span className="text-sm font-bold text-lime-400">${payout.toFixed(2)}</span>
+              <span className="text-sm font-bold text-lime-400">{payout.toFixed(0)} Coins</span>
             </div>
           )}
         </div>

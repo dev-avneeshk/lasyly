@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { cachedFetch } from "@/lib/clientCache"
 import { NHL_TEAM_SLUG_MAP, NFL_TEAM_SLUG_MAP, NBA_ESPN_TEAM_MAP, getTeamLogoUrl } from "@/lib/constants/teams"
 import { PlayerDashboardSkeleton } from "@/components/analysis/PlayerDashboardSkeleton"
+import { NFLMatchupPanels } from "@/components/analysis/NFLMatchupPanels"
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, ReferenceLine,
   ResponsiveContainer, Tooltip, Cell,
@@ -33,6 +34,8 @@ interface PropData {
     leagueAverage: number
     grade: string
     paceRating: string
+    rank?: number
+    rankOf?: number
   } | null
   projection?: {
     baseAvg: number
@@ -53,6 +56,11 @@ interface PropData {
       l10Avg: number
       seasonAvg: number
     }
+  } | null
+  seriesRecord?: {
+    team: number
+    opponent: number
+    type: string
   } | null
 }
 
@@ -101,6 +109,8 @@ export default function PlayerDashboardPage() {
   const [shotChartMode, setShotChartMode] = useState<"heatmap" | "zones">("heatmap")
   const [shotChartOpen, setShotChartOpen] = useState(true)
   const [seasonType, setSeasonType] = useState<"regular" | "playoffs">("regular")
+  // NFL season filter for the performance graph: "all" | "2025" | "2024".
+  const [nflSeason, setNflSeason] = useState<"all" | "2025" | "2024">("all")
   const [teamAnalytics, setTeamAnalytics] = useState<any>(null)
   const [seriesRecord, setSeriesRecord] = useState<{ team: number; opponent: number; type: string } | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -366,7 +376,15 @@ export default function PlayerDashboardPage() {
   }
 
   // Build chart data from real game history (already in chronological order from API)
-  const gameHistory = prop.lastGames
+  let gameHistory = prop.lastGames
+  // NFL season filter: a season spans two calendar years (e.g. 2025 → Sep 2025..Feb 2026).
+  if (sportParam === "NFL" && nflSeason !== "all") {
+    const y = parseInt(nflSeason, 10)
+    gameHistory = gameHistory.filter(g => {
+      const gy = parseInt((g.date ?? "").slice(0, 4), 10)
+      return gy === y || gy === y + 1
+    })
+  }
   // Apply time range filter - take the most recent N games
   const timeRangeNum = parseInt(timeRange.replace("L", ""))
   const filteredHistory = gameHistory.slice(-timeRangeNum)
@@ -398,7 +416,6 @@ export default function PlayerDashboardPage() {
         { key: "team_totalGoals", label: "Team Goals", propLine: activeStat === "team_totalGoals" ? prop.propLine : null },
         { key: "team_matchGoals", label: "Match Goals", propLine: activeStat === "team_matchGoals" ? prop.propLine : null },
         { key: "team_cards", label: "Cards", propLine: activeStat === "team_cards" ? prop.propLine : null },
-        { key: "team_corners", label: "Corners", propLine: activeStat === "team_corners" ? prop.propLine : null },
       ]
       : sportParam === "NFL" ? [
         { key: "YDS", label: "Yards", propLine: activeStat === "YDS" ? prop.propLine : null },
@@ -435,8 +452,12 @@ export default function PlayerDashboardPage() {
       ]
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] p-4 flex flex-col gap-4 overflow-x-hidden font-sans">
-      {/* Back Button */}
+    <div className={cn(
+      "min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] px-4 pb-4 overflow-x-hidden font-sans flex flex-col",
+      sportParam === "NFL" ? "pt-3 gap-3" : "p-4 gap-4"
+    )}>
+      {/* Back Button — standalone for non-NFL (NFL folds it into the header row) */}
+      {sportParam !== "NFL" && (
       <button
         onClick={() => router.push("/analysis")}
         className="flex items-center gap-1 text-[var(--color-text-muted)] hover:text-white transition-colors w-fit"
@@ -444,8 +465,75 @@ export default function PlayerDashboardPage() {
         <ChevronLeft className="w-4 h-4" />
         <span className="text-xs font-semibold tracking-wider uppercase">Back</span>
       </button>
+      )}
+
+      {/* Row 1 (NFL): compact horizontal profile header with back + season filter */}
+      {sportParam === "NFL" && (
+        <div className="flex items-center gap-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-3 py-2.5">
+          {/* Back */}
+          <button
+            onClick={() => router.push("/analysis")}
+            aria-label="Back to props"
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-white hover:bg-white/[0.04] transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {/* Headshot */}
+          <div className="relative shrink-0">
+            <div className="w-12 h-12 rounded-full bg-[var(--color-surface-elevated)] border border-[var(--color-border)] overflow-hidden flex items-center justify-center">
+              {headshot ? (
+                <img src={headshot} alt={prop.player} className="w-full h-full object-cover object-top" />
+              ) : (
+                <span className="text-sm font-black text-[var(--color-text-muted)]">
+                  {prop.player.split(" ").map(n => n[0]).join("")}
+                </span>
+              )}
+            </div>
+            {teamLogo && (
+              <img src={teamLogo} alt={prop.team} className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-surface)] p-0.5 border border-[var(--color-border)] object-contain" />
+            )}
+          </div>
+          {/* Name + position */}
+          <div className="min-w-0">
+            <h1 className="text-lg font-black tracking-tight text-white truncate leading-none">{prop.player}</h1>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[var(--color-text-muted)]">
+              <span className="px-1.5 py-0.5 rounded bg-[var(--color-surface-elevated)] font-semibold text-white">{prop.position ?? "—"}</span>
+              <span>{prop.team}</span>
+            </div>
+          </div>
+          {/* Season filter */}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:flex bg-[var(--color-surface-elevated)] rounded-lg border border-[var(--color-border)] p-0.5">
+              {([["all", "All"], ["2025", "2025-26"], ["2024", "2024-25"]] as const).map(([v, l]) => (
+                <button
+                  key={v}
+                  onClick={() => setNflSeason(v)}
+                  className={cn(
+                    "px-2.5 py-1 text-[11px] rounded-md font-semibold transition-colors whitespace-nowrap",
+                    nflSeason === v ? "bg-[var(--color-lime)] text-black" : "text-[var(--color-text-muted)] hover:text-white"
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            {/* Quick stats */}
+            {[
+              { label: "L5", value: prop.l5Avg, accent: true },
+              { label: "L10", value: prop.l10Avg },
+              { label: "Line", value: prop.propLine },
+            ].map((s) => (
+              <div key={s.label} className="text-center px-2.5 py-1 rounded-lg bg-white/[0.02] border border-[var(--color-border)] min-w-[52px]">
+                <div className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)]">{s.label}</div>
+                <div className={cn("text-sm font-bold tabular-nums leading-tight", s.accent ? "text-[var(--color-lime)]" : "text-white")}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Row 1: Player Profile | Injury Report | Matchup */}
+      {sportParam !== "NFL" && (
       <div className={cn("grid grid-cols-1 gap-4 lg:h-[280px]", isESPNSport ? "lg:grid-cols-4" : isTennis ? "lg:grid-cols-2" : "lg:grid-cols-12")}>
         {/* Player Profile Card — REAL DATA */}
         <div className={cn("flex flex-col relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md", isESPNSport ? "lg:col-span-4" : isTennis ? "lg:col-span-1" : "lg:col-span-3")}>
@@ -665,6 +753,64 @@ export default function PlayerDashboardPage() {
         </div>
         )}
       </div>
+      )}
+
+      {/* NFL Matchup Header: Team VS Opponent · grade · pace · series */}
+      {sportParam === "NFL" && prop?.defensiveMatchup && (() => {
+        const dm = prop.defensiveMatchup as any
+        const opp = dm.opponentTeam
+        const gradeColor = dm.grade === "A" || dm.grade === "B" ? "bg-emerald-500/20 text-emerald-400"
+          : dm.grade === "C" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+        const teamLogoUrl = (t: string) => `https://a.espncdn.com/i/teamlogos/nfl/500/${t.toLowerCase()}.png`
+        const sr = prop.seriesRecord
+        const gradeLabel: Record<string, string> = { A: "Elite matchup", B: "Good matchup", C: "Neutral matchup", D: "Tough matchup", F: "Avoid" }
+        return (
+          <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3">
+            <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary)]/10 to-transparent pointer-events-none" />
+            <div className="relative z-10 flex items-center gap-4">
+              {/* Player's team */}
+              <div className="flex items-center gap-2 shrink-0">
+                <img src={teamLogoUrl(prop.team)} alt={prop.team} className="w-9 h-9 object-contain" />
+                <span className="text-sm font-bold text-white">{prop.team}</span>
+              </div>
+
+              <span className="text-[var(--color-text-muted)] text-xs">vs</span>
+
+              {/* Opponent */}
+              <div className="flex items-center gap-2 shrink-0">
+                <img src={teamLogoUrl(opp)} alt={opp} className="w-9 h-9 object-contain" />
+                <span className="text-sm font-bold text-white">{opp}</span>
+              </div>
+
+              {/* Grade + detail, centered in remaining space */}
+              <div className="flex items-center gap-3 mx-auto">
+                <span className={cn("text-base font-black px-2.5 py-1 rounded-lg", gradeColor)}>{dm.grade}</span>
+                <div className="leading-tight">
+                  <div className="text-sm font-bold text-white">{gradeLabel[dm.grade] ?? "Matchup"}</div>
+                  <div className="text-[10px] text-[var(--color-text-muted)]">
+                    {opp} allows <span className="text-white font-semibold tabular-nums">{dm.statAllowedPerGame}</span> {prop.statCategory}/g · avg {dm.leagueAverage}
+                  </div>
+                </div>
+              </div>
+
+              {/* Chips */}
+              <div className="hidden md:flex items-center gap-1.5 text-[10px] shrink-0">
+                <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+                  Rank <span className="text-white font-semibold tabular-nums">#{dm.rank}/{dm.rankOf}</span>
+                </span>
+                <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+                  Pace <span className="text-white font-semibold capitalize">{dm.paceRating}</span>
+                </span>
+                {sr && (sr.team + sr.opponent) > 0 && (
+                  <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+                    H2H <span className="text-white font-semibold tabular-nums">{sr.team}-{sr.opponent}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Row 2: Stat Selector */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -738,6 +884,12 @@ export default function PlayerDashboardPage() {
 
           {/* Chart */}
           <div className="w-full h-[320px]">
+            {chartData.length === 0 ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-1">
+                <span className="text-sm text-[var(--color-text-muted)]">No games in {nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}</span>
+                <button onClick={() => setNflSeason("all")} className="text-xs text-[var(--color-lime)] hover:underline">Show all seasons</button>
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height={320}>
               <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
                 <XAxis
@@ -800,6 +952,7 @@ export default function PlayerDashboardPage() {
                 </Bar>
               </ComposedChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -1342,6 +1495,29 @@ export default function PlayerDashboardPage() {
         )}
       </div>
       )}
+
+      {/* NFL Matchup Panels: Opponent (Defense Allowed) · H2H · Splits */}
+      {sportParam === "NFL" && prop && (() => {
+        // prop.matchup is "TEAM-OPP"; derive the opponent abbreviation.
+        const parts = (prop.matchup ?? "").toUpperCase().split("-")
+        const opp = parts.length === 2
+          ? (parts[0] === (prop.team ?? "").toUpperCase() ? parts[1] : parts[0])
+          : ""
+        if (!opp) return null
+        // Map the active stat / position to a defense position + H2H stat key.
+        const pos = (prop.position ?? playerAnalytics?.position ?? "RB").toUpperCase()
+        const h2hStat = ["YDS", "TD", "REC", "CAR", "INT"].includes(activeStat) ? activeStat : "YDS"
+        return (
+          <NFLMatchupPanels
+            player={prop.player}
+            team={prop.team}
+            opponent={opp}
+            position={pos}
+            stat={h2hStat}
+            line={prop.propLine}
+          />
+        )
+      })()}
 
       {/* Row 3.5: Per Game (left) | Projected + Matchup (right) — NBA only */}
       {!isESPNSport && !isTennis && (

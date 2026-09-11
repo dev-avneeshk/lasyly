@@ -110,8 +110,3 @@ export interface ParlayBetslipCardProps {
   showActions?: boolean
   currentUserId?: string
 }
-
-export interface DashboardParlayWidgetProps {
-  initialParlays: ParlayWithLegs[]
-  initialStats: ParlayStats
-}

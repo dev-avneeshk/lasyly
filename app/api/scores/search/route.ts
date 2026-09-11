@@ -2,6 +2,12 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, CACHE_CONTROL, checkQueryParams } from "@/lib/security/routeHelpers"
 
+/** Drop "TBD vs TBD" placeholder rows (golf/racing events with no head-to-head). */
+function isPlaceholderMatch(m: { homeTeam?: string; awayTeam?: string }): boolean {
+  const blank = (n?: string) => !n || n.trim().toUpperCase() === "TBD" || n.trim() === ""
+  return blank(m.homeTeam) || blank(m.awayTeam)
+}
+
 /**
  * GET /api/scores/search?q=<query>&sport=<sport>&limit=<limit>
  * Search matches by team name or player name.
@@ -49,7 +55,7 @@ async function handleGET(request: Request) {
       )
     }
 
-    const matches = (data ?? []).map(mapRowToMatch)
+    const matches = (data ?? []).map(mapRowToMatch).filter((m) => !isPlaceholderMatch(m))
 
     return NextResponse.json(
       { data: matches, success: true, meta: { query, count: matches.length } },

@@ -180,7 +180,6 @@ export default async function ScoresPage({ params }: PageProps) {
   }
 
   const matches = await getScoresForSport(sportSlug)
-  const hasLive = matches.some((m) => normalizeStatus(m.status) === "live")
   const liveCount = matches.filter((m) => normalizeStatus(m.status) === "live").length
   const upcomingCount = matches.filter((m) => normalizeStatus(m.status) === "upcoming").length
   const finishedCount = matches.filter((m) => normalizeStatus(m.status) === "finished").length
@@ -253,7 +252,7 @@ export default async function ScoresPage({ params }: PageProps) {
           <div className="rounded-[calc(1rem-1px)] bg-[var(--color-surface)] p-8 text-center">
             <h2 className="text-xl font-bold text-white mb-2">Get real-time score updates</h2>
             <p className="text-sm text-[var(--color-text-muted)] mb-5 max-w-md mx-auto">
-              Sign up for free to get live score notifications, prop analytics, and join betting rooms with other fans.
+              Sign up for free to get live score notifications, prop analytics, and join community rooms with other fans.
             </p>
             <Link
               href="/signup"
@@ -273,21 +272,14 @@ export default async function ScoresPage({ params }: PageProps) {
 
 // ─── ISR Configuration ───────────────────────────────────────────────────────
 
-// Dynamic revalidation: we export a function that checks for live matches.
-// Next.js App Router uses the `revalidate` export for ISR timing.
-// We set a short revalidation when live matches might exist (30s),
-// and a longer one otherwise (300s / 5 minutes).
-// Since we can't dynamically set revalidate per-request in a static export,
-// we use the shorter interval to ensure live matches are fresh.
-// The page will still be fast due to ISR caching.
-
-// Note: We use a dynamic approach — if the page detects live matches during render,
-// it uses 30s revalidation. Otherwise 300s.
-// In Next.js App Router, we achieve this via `revalidate` in the route segment config.
-// Since we need conditional revalidation, we'll use the minimum (30s) as default
-// and rely on ISR to serve cached pages quickly.
-
-export const revalidate = 30
+// These are SEO landing pages, not the live in-app scoreboard. The underlying
+// `espn_games` table is refreshed by the live-scores scraper cron every 10
+// minutes, so regenerating this static page every 30s just produced ~20 ISR
+// writes per data change, per sport slug, driven by crawler traffic.
+// Match the ISR window to the scraper cadence (10 min). Users who want
+// second-by-second updates use the in-app /scores route, which polls the
+// CDN-cached /api/scores endpoint client-side rather than regenerating HTML.
+export const revalidate = 600
 
 // ─── Match Card Component ────────────────────────────────────────────────────
 

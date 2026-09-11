@@ -177,9 +177,16 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 📦 Alternate Architecture Options
+## 📚 Documentation
 
-See [ROADMAP.md](./ROADMAP.md) for alternate solutions considered and the full build plan.
+Project docs live in [`docs/`](./docs/README.md):
+
+- **[`docs/product/`](./docs/product/)** — product overview, positioning, and pitch
+- **[`docs/reports/`](./docs/reports/)** — point-in-time audits and verification reports
+- **[`docs/SUPABASE_AUTH_CONFIG.md`](./docs/SUPABASE_AUTH_CONFIG.md)** — Supabase auth setup
+- **[`docs/nba-ranking-engine.md`](./docs/nba-ranking-engine.md)** — ranking engine design
+
+See [`docs/README.md`](./docs/README.md) for the full index.
 
 ---
 

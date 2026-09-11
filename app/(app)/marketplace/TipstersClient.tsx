@@ -155,7 +155,7 @@ export default function TipstersClient() {
 function TipsterCard({ tipster }: { tipster: Tipster }) {
   return (
     <Link
-      href={`/u/${tipster.username}`}
+      href={`/l/${tipster.username}`}
       className="block rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 backdrop-blur-sm p-5 hover:border-[var(--color-lime)]/30 hover:bg-[var(--color-surface)]/80 transition-all group"
     >
       {/* Header */}

@@ -6,7 +6,7 @@ import {
   TrendingDown,
   Trophy,
   Target,
-  DollarSign,
+  Coins,
   Filter,
   CheckCircle,
   XCircle,
@@ -126,9 +126,9 @@ export function BetTrackerView({ bets, stats, onUpdateStatus, isUpdating }: BetT
           color={stats.roi >= 0 ? "text-green-400" : "text-red-400"}
         />
         <StatCard
-          icon={DollarSign}
+          icon={Coins}
           label="Net Profit"
-          value={`${stats.netProfit >= 0 ? "+" : ""}$${stats.netProfit.toFixed(2)}`}
+          value={`${stats.netProfit >= 0 ? "+" : ""}${stats.netProfit.toFixed(0)} Coins`}
           color={stats.netProfit >= 0 ? "text-green-400" : "text-red-400"}
         />
       </div>
@@ -348,7 +348,7 @@ function BetCard({
               Odds: <span className="text-white font-medium">{formatOdds(bet.odds)}</span>
             </span>
             <span className="text-[var(--color-text-muted)]">
-              Stake: <span className="text-white font-medium">${Number(bet.stake).toFixed(2)}</span>
+              Stake: <span className="text-white font-medium">{Number(bet.stake).toFixed(0)} Coins</span>
             </span>
             <div className="flex items-center gap-0.5">
               {Array.from({ length: bet.confidence_score }, (_, i) => (

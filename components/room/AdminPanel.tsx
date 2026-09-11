@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { X, Shield, Crown, UserMinus, Ban, Pin, Trash2, RotateCcw, VolumeX, UserPlus, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ConfirmDialog, type ConfirmField } from "@/components/ui/ConfirmDialog"
+import { useToast } from "@/components/ui/Toast"
 
 type Member = {
   id: string
@@ -48,7 +50,22 @@ type JoinRequestRow = {
 
 type Tab = "members" | "requests" | "bans" | "pins"
 
+/** Which moderation action is awaiting in-app confirmation. */
+type PendingAction =
+  | { type: "kick"; userId: string; name: string }
+  | { type: "ban"; userId: string; name: string }
+  | { type: "mute"; userId: string; name: string }
+  | null
+
+const MUTE_OPTIONS = [
+  { value: "5", label: "5 minutes" },
+  { value: "15", label: "15 minutes" },
+  { value: "60", label: "1 hour" },
+  { value: "1440", label: "1 day" },
+]
+
 export default function AdminPanel({ roomId, currentUserId, userRole, onClose, onMembersChanged }: AdminPanelProps) {
+  const { toast } = useToast()
   const [tab, setTab] = useState<Tab>("members")
   const [members, setMembers] = useState<Member[]>([])
   const [bans, setBans] = useState<BannedUser[]>([])
@@ -56,6 +73,8 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
   const [requests, setRequests] = useState<JoinRequestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [pending, setPending] = useState<PendingAction>(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
 
   const fetchMembers = useCallback(async () => {
     const res = await fetch(`/api/rooms/${roomId}/members`)
@@ -104,6 +123,9 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     if (res.ok) {
       await fetchRequests()
       if (approve) { await fetchMembers(); onMembersChanged() }
+      toast(approve ? "Request approved" : "Request denied", approve ? "success" : "info")
+    } else {
+      toast("Couldn't update the request", "error")
     }
     setActionLoading(null)
   }
@@ -118,13 +140,16 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     if (res.ok) {
       await fetchMembers()
       onMembersChanged()
+      toast(newRole === "moderator" ? "Promoted to moderator" : "Demoted to member", "success")
+    } else {
+      toast("Couldn't change the role", "error")
     }
     setActionLoading(null)
   }
 
-  const handleKick = async (userId: string) => {
-    if (!confirm("Are you sure you want to kick this user?")) return
-    setActionLoading(userId)
+  // ─── In-app confirmed actions ──────────────────────────────────────────────
+
+  const runKick = async (userId: string) => {
     const res = await fetch(`/api/rooms/${roomId}/members/kick`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -133,13 +158,13 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     if (res.ok) {
       await fetchMembers()
       onMembersChanged()
+      toast("Member kicked", "success")
+    } else {
+      toast("Couldn't kick this member", "error")
     }
-    setActionLoading(null)
   }
 
-  const handleBan = async (userId: string) => {
-    const reason = prompt("Ban reason (optional):")
-    setActionLoading(userId)
+  const runBan = async (userId: string, reason?: string) => {
     const res = await fetch(`/api/rooms/${roomId}/members/ban`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -148,16 +173,15 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     if (res.ok) {
       await Promise.all([fetchMembers(), fetchBans()])
       onMembersChanged()
+      toast("Member banned", "success")
+    } else {
+      toast("Couldn't ban this member", "error")
     }
-    setActionLoading(null)
   }
 
-  const handleMute = async (userId: string) => {
-    const durationStr = prompt("Mute duration in minutes (5, 15, 60, 1440=1day):", "15")
-    if (!durationStr) return
-    const duration = parseInt(durationStr, 10)
+  const runMute = async (userId: string, minutesStr?: string) => {
+    const duration = parseInt(minutesStr ?? "15", 10)
     if (isNaN(duration) || duration < 1) return
-    setActionLoading(userId)
     const res = await fetch(`/api/rooms/${roomId}/members/mute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -165,8 +189,26 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     })
     if (res.ok) {
       await fetchMembers()
+      toast("Member muted", "success")
+    } else {
+      toast("Couldn't mute this member", "error")
     }
-    setActionLoading(null)
+  }
+
+  /** Executes the pending action after the user confirms in the dialog. */
+  const confirmPending = async (value?: string) => {
+    if (!pending) return
+    setConfirmBusy(true)
+    setActionLoading(pending.userId)
+    try {
+      if (pending.type === "kick") await runKick(pending.userId)
+      else if (pending.type === "ban") await runBan(pending.userId, value)
+      else if (pending.type === "mute") await runMute(pending.userId, value)
+    } finally {
+      setConfirmBusy(false)
+      setActionLoading(null)
+      setPending(null)
+    }
   }
 
   const handleUnban = async (userId: string) => {
@@ -178,6 +220,9 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     })
     if (res.ok) {
       await fetchBans()
+      toast("Ban lifted", "success")
+    } else {
+      toast("Couldn't lift the ban", "error")
     }
     setActionLoading(null)
   }
@@ -191,6 +236,9 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     })
     if (res.ok) {
       await fetchPins()
+      toast("Message unpinned", "success")
+    } else {
+      toast("Couldn't unpin the message", "error")
     }
     setActionLoading(null)
   }
@@ -204,52 +252,88 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     { id: "pins", label: "Pins", icon: <Pin className="w-3.5 h-3.5" /> },
   ]
 
+  // Dialog config derived from the pending action.
+  const dialogConfig: {
+    title: string
+    description: React.ReactNode
+    confirmLabel: string
+    destructive: boolean
+    field?: ConfirmField
+  } | null = pending
+    ? pending.type === "kick"
+      ? {
+          title: `Kick ${pending.name}?`,
+          description: "They'll be removed from the room but can rejoin later.",
+          confirmLabel: "Kick",
+          destructive: true,
+        }
+      : pending.type === "ban"
+        ? {
+            title: `Ban ${pending.name}?`,
+            description: "They'll be removed and blocked from rejoining. Add an optional reason.",
+            confirmLabel: "Ban",
+            destructive: true,
+            field: { kind: "text", placeholder: "Reason (optional)", optional: true, maxLength: 200 },
+          }
+        : {
+            title: `Mute ${pending.name}`,
+            description: "Pick how long they'll be unable to send messages.",
+            confirmLabel: "Mute",
+            destructive: false,
+            field: { kind: "options", options: MUTE_OPTIONS, defaultValue: "15" },
+          }
+    : null
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-      <div className="bg-[#1A1A1A] rounded-2xl border border-white/[0.08] w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+      <div className="bg-[#151515] rounded-2xl border border-white/[0.08] w-full max-w-lg max-h-[82vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#B8FF4F]" />
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-[#B8FF4F]/12 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-[#B8FF4F]" />
+            </span>
             <h2 className="text-[15px] font-semibold text-white/90">Room Settings</h2>
           </div>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition-colors"
+            aria-label="Close"
           >
             <X className="w-4 h-4 text-white/40" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-5 pt-3 flex gap-1 border-b border-white/[0.06]">
+        <div className="px-3 pt-2 flex gap-1 border-b border-white/[0.06]">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-[12px] font-medium transition-colors -mb-px border-b-2",
-                tab === t.id
-                  ? "text-[#B8FF4F] border-[#B8FF4F] bg-[#B8FF4F]/5"
-                  : "text-white/40 border-transparent hover:text-white/60"
+                "relative flex items-center gap-1.5 px-3 py-2.5 rounded-t-lg text-[12px] font-medium transition-colors",
+                tab === t.id ? "text-[#B8FF4F]" : "text-white/40 hover:text-white/70"
               )}
             >
               {t.icon}
               {t.label}
               {t.id === "bans" && bans.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded bg-[#F87171]/20 text-[#F87171] text-[10px]">{bans.length}</span>
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[#F87171]/20 text-[#F87171] text-[10px] font-semibold">{bans.length}</span>
               )}
               {t.id === "requests" && requests.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded bg-[#B8FF4F]/20 text-[#B8FF4F] text-[10px]">{requests.length}</span>
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[#B8FF4F]/20 text-[#B8FF4F] text-[10px] font-semibold">{requests.length}</span>
+              )}
+              {tab === t.id && (
+                <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-[#B8FF4F]" />
               )}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-3.5">
           {loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-10">
               <div className="w-5 h-5 border-2 border-[#B8FF4F]/30 border-t-[#B8FF4F] rounded-full animate-spin" />
             </div>
           ) : tab === "members" ? (
@@ -260,9 +344,9 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
               userRole={userRole}
               actionLoading={actionLoading}
               onRoleChange={handleRoleChange}
-              onKick={handleKick}
-              onBan={handleBan}
-              onMute={handleMute}
+              onKick={(id, name) => setPending({ type: "kick", userId: id, name })}
+              onBan={(id, name) => setPending({ type: "ban", userId: id, name })}
+              onMute={(id, name) => setPending({ type: "mute", userId: id, name })}
             />
           ) : tab === "requests" ? (
             <RequestsTab
@@ -285,6 +369,21 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
           )}
         </div>
       </div>
+
+      {/* In-app confirmation — replaces window.confirm / window.prompt */}
+      {dialogConfig && (
+        <ConfirmDialog
+          open
+          title={dialogConfig.title}
+          description={dialogConfig.description}
+          confirmLabel={dialogConfig.confirmLabel}
+          destructive={dialogConfig.destructive}
+          field={dialogConfig.field}
+          loading={confirmBusy}
+          onConfirm={confirmPending}
+          onCancel={() => !confirmBusy && setPending(null)}
+        />
+      )}
     </div>
   )
 }
@@ -308,9 +407,9 @@ function MembersTab({
   userRole: string
   actionLoading: string | null
   onRoleChange: (userId: string, role: "moderator" | "member") => void
-  onKick: (userId: string) => void
-  onBan: (userId: string) => void
-  onMute: (userId: string) => void
+  onKick: (userId: string, name: string) => void
+  onBan: (userId: string, name: string) => void
+  onMute: (userId: string, name: string) => void
 }) {
   const roleColors: Record<string, string> = {
     owner: "#FBBF24",
@@ -318,11 +417,12 @@ function MembersTab({
     member: "",
   }
 
+  if (members.length === 0) {
+    return <p className="text-[13px] text-white/30 text-center py-8">No members found.</p>
+  }
+
   return (
     <div className="space-y-1">
-      {members.length === 0 && (
-        <p className="text-[13px] text-white/30 text-center py-6">No members found.</p>
-      )}
       {members.map((member) => {
         const name = member.display_name || member.username || "User"
         const isSelf = member.id === currentUserId
@@ -330,11 +430,12 @@ function MembersTab({
           (isOwner && member.role !== "owner") ||
           (userRole === "moderator" && member.role === "member")
         )
+        const busy = actionLoading === member.id
 
         return (
           <div
             key={member.id}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.03] transition-colors group"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-transparent hover:border-white/[0.05] transition-colors group"
           >
             {/* Avatar */}
             <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-[11px] font-semibold text-white/60 shrink-0 overflow-hidden">
@@ -348,8 +449,8 @@ function MembersTab({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-medium text-white/80 truncate">{name}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[13px] font-medium text-white/85 truncate">{name}</span>
                 {member.role === "owner" && <Crown className="w-3 h-3 text-[#FBBF24] shrink-0" />}
                 {member.role === "moderator" && <Shield className="w-3 h-3 text-[#B8FF4F] shrink-0" />}
               </div>
@@ -362,62 +463,73 @@ function MembersTab({
             </div>
 
             {/* Actions */}
-            {canManage && (
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {canManage ? (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                 {isOwner && member.role === "member" && (
-                  <button
+                  <IconAction
                     onClick={() => onRoleChange(member.id, "moderator")}
-                    disabled={actionLoading === member.id}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#B8FF4F]/10 text-[#B8FF4F] transition-colors"
-                    title="Promote to Moderator"
+                    disabled={busy}
+                    title="Promote to moderator"
+                    color="#B8FF4F"
                   >
                     <Shield className="w-3.5 h-3.5" />
-                  </button>
+                  </IconAction>
                 )}
                 {isOwner && member.role === "moderator" && (
-                  <button
+                  <IconAction
                     onClick={() => onRoleChange(member.id, "member")}
-                    disabled={actionLoading === member.id}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.06] text-white/40 transition-colors"
-                    title="Demote to Member"
+                    disabled={busy}
+                    title="Demote to member"
+                    color="rgba(255,255,255,0.5)"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
+                  </IconAction>
                 )}
-                <button
-                  onClick={() => onKick(member.id)}
-                  disabled={actionLoading === member.id}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F87171]/10 text-[#F87171] transition-colors"
-                  title="Kick"
-                >
-                  <UserMinus className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => onMute(member.id)}
-                  disabled={actionLoading === member.id}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#FBBF24]/10 text-[#FBBF24] transition-colors"
-                  title="Mute"
-                >
+                <IconAction onClick={() => onMute(member.id, name)} disabled={busy} title="Mute" color="#FBBF24">
                   <VolumeX className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => onBan(member.id)}
-                  disabled={actionLoading === member.id}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F87171]/10 text-[#F87171] transition-colors"
-                  title="Ban"
-                >
+                </IconAction>
+                <IconAction onClick={() => onKick(member.id, name)} disabled={busy} title="Kick" color="#F87171">
+                  <UserMinus className="w-3.5 h-3.5" />
+                </IconAction>
+                <IconAction onClick={() => onBan(member.id, name)} disabled={busy} title="Ban" color="#F87171">
                   <Ban className="w-3.5 h-3.5" />
-                </button>
+                </IconAction>
               </div>
-            )}
-
-            {isSelf && (
+            ) : isSelf ? (
               <span className="text-[10px] text-white/20 font-medium">You</span>
-            )}
+            ) : null}
           </div>
         )
       })}
     </div>
+  )
+}
+
+/** Small square icon button used for member row actions. */
+function IconAction({
+  onClick,
+  disabled,
+  title,
+  color,
+  children,
+}: {
+  onClick: () => void
+  disabled?: boolean
+  title: string
+  color: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40 hover:bg-white/[0.08]"
+      style={{ color }}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -434,7 +546,7 @@ function BansTab({
 }) {
   if (bans.length === 0) {
     return (
-      <div className="text-center py-8">
+      <div className="text-center py-10">
         <Ban className="w-8 h-8 text-white/15 mx-auto mb-2" />
         <p className="text-[13px] text-white/30">No banned users.</p>
       </div>
@@ -446,9 +558,12 @@ function BansTab({
       {bans.map((ban) => {
         const name = ban.display_name || ban.username || "User"
         return (
-          <div key={ban.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.03] transition-colors group">
-            <div className="w-9 h-9 rounded-xl bg-[#F87171]/10 flex items-center justify-center text-[11px] font-semibold text-[#F87171] shrink-0">
-              {name.slice(0, 2).toUpperCase()}
+          <div key={ban.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors group">
+            <div className="w-9 h-9 rounded-xl bg-[#F87171]/10 flex items-center justify-center text-[11px] font-semibold text-[#F87171] shrink-0 overflow-hidden">
+              {ban.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={ban.avatar_url} alt="" className="w-full h-full object-cover" />
+              ) : name.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-[13px] font-medium text-white/80 truncate block">{name}</span>
@@ -462,7 +577,7 @@ function BansTab({
             <button
               onClick={() => onUnban(ban.user_id)}
               disabled={actionLoading === ban.user_id}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white/[0.06] text-white/50 hover:bg-[#34D399]/10 hover:text-[#34D399] transition-colors opacity-0 group-hover:opacity-100"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white/[0.06] text-white/50 hover:bg-[#34D399]/15 hover:text-[#34D399] transition-colors disabled:opacity-40"
             >
               Unban
             </button>
@@ -486,7 +601,7 @@ function PinsTab({
 }) {
   if (pins.length === 0) {
     return (
-      <div className="text-center py-8">
+      <div className="text-center py-10">
         <Pin className="w-8 h-8 text-white/15 mx-auto mb-2" />
         <p className="text-[13px] text-white/30">No pinned messages.</p>
       </div>
@@ -498,7 +613,7 @@ function PinsTab({
       {pins.map((pin) => {
         const authorName = pin.author?.display_name || pin.author?.username || "Unknown"
         return (
-          <div key={pin.id} className="px-3 py-3 rounded-xl bg-white/[0.03] border border-white/[0.04] group">
+          <div key={pin.id} className="px-3.5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] group">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -514,8 +629,9 @@ function PinsTab({
               <button
                 onClick={() => onUnpin(pin.message_id)}
                 disabled={actionLoading === pin.message_id}
-                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F87171]/10 text-white/20 hover:text-[#F87171] transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F87171]/10 text-white/20 hover:text-[#F87171] transition-colors opacity-0 group-hover:opacity-100 shrink-0 disabled:opacity-40"
                 title="Unpin"
+                aria-label="Unpin"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -537,7 +653,12 @@ function RequestsTab({
   onDecide: (requestId: string, approve: boolean) => void
 }) {
   if (requests.length === 0) {
-    return <p className="text-[13px] text-white/30 text-center py-8">No pending join requests.</p>
+    return (
+      <div className="text-center py-10">
+        <UserPlus className="w-8 h-8 text-white/15 mx-auto mb-2" />
+        <p className="text-[13px] text-white/30">No pending join requests.</p>
+      </div>
+    )
   }
 
   return (
@@ -547,14 +668,14 @@ function RequestsTab({
         const busy = actionLoading === r.id
         return (
           <div key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-            <div className="w-8 h-8 rounded-lg bg-[#B8FF4F]/15 flex items-center justify-center text-[11px] font-semibold text-[#B8FF4F] overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#B8FF4F]/15 flex items-center justify-center text-[11px] font-semibold text-[#B8FF4F] overflow-hidden shrink-0">
               {r.profile?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={r.profile.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : name.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-white/80 truncate">{name}</p>
+              <p className="text-[13px] font-medium text-white/85 truncate">{name}</p>
               {r.subchannelName && <p className="text-[11px] text-white/30 truncate">wants to join #{r.subchannelName}</p>}
             </div>
             <button
@@ -562,6 +683,7 @@ function RequestsTab({
               disabled={busy}
               className="w-8 h-8 rounded-lg bg-[#34D399]/15 text-[#34D399] hover:bg-[#34D399]/25 flex items-center justify-center transition-colors disabled:opacity-40"
               title="Approve"
+              aria-label="Approve"
             >
               <Check className="w-4 h-4" />
             </button>
@@ -570,6 +692,7 @@ function RequestsTab({
               disabled={busy}
               className="w-8 h-8 rounded-lg bg-[#F87171]/15 text-[#F87171] hover:bg-[#F87171]/25 flex items-center justify-center transition-colors disabled:opacity-40"
               title="Deny"
+              aria-label="Deny"
             >
               <X className="w-4 h-4" />
             </button>

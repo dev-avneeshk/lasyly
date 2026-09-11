@@ -1,12 +1,17 @@
 /**
  * ESPN Multi-Sport Analytics Engine
  *
- * Provides prop-style analytics for Soccer, NFL, and NHL using the
+ * Provides prop-style analytics for Soccer and NHL using the
  * espn_player_stats table (JSONB stats column).
+ *
+ * NOTE: NFL is NO LONGER served by this engine. NFL props now use the
+ * dedicated `lib/analytics/engine-nfl.ts`, which reads the clean
+ * nfl_player_stats / nfl_games tables (flat numeric columns), mirroring the
+ * NBA architecture. The NFL entries below remain only as inert config to keep
+ * the shared ESPNSport type stable; the props API never routes NFL here.
  *
  * Each sport uses a tailored projection model:
  * - Soccer: Poisson-adjusted for rare events (goals, assists), form-weighted for volume stats
- * - NFL: Heavy recency weighting (L3 dominant) due to weekly matchup variance
  * - NHL: Hybrid model — Poisson for goals/assists, volume-based for shots/hits
  *
  * All sports share the same quality gate: 60%+ hit rate required to show a prop.

@@ -3,6 +3,7 @@ import { cached } from "@/lib/cache"
 import { computeEnhancedProps } from "@/lib/analytics/engine"
 import { computeMatchupScopedProps, isValidMatchupFormat } from "@/lib/analytics/engine-v2"
 import { computeESPNProps, ESPNSport } from "@/lib/analytics/engine-espn"
+import { computeNFLProps } from "@/lib/analytics/engine-nfl"
 import { computeTeamProps, TeamPropStat } from "@/lib/analytics/engine-team-props"
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
 import { AdvancedFilterState } from "@/lib/analytics/types"
@@ -139,7 +140,9 @@ export const GET = withSecurity(async (request: Request) => {
   }
 
   // ─── Validate Matchup (NBA only) ───────────────────────────────────────────
-  if (matchup !== undefined) {
+  // NBA uses strict 3-letter NBA abbreviations; NFL abbreviations are 2-3
+  // letters (SF, TB, KC) and are validated inside the NFL branch instead.
+  if (matchup !== undefined && sport === "NBA") {
     if (!isValidMatchupFormat(matchup)) {
       return NextResponse.json(
         { error: `Invalid matchup format: "${matchup}". Expected two 3-letter team abbreviations separated by a hyphen (e.g., "LAL-GSW").` },
@@ -389,24 +392,110 @@ export const GET = withSecurity(async (request: Request) => {
     })
   }
 
-  // ─── ESPN Sports Path: Soccer, NFL, NHL ─────────────────────────────────────
-  if (sport === "Soccer" || sport === "NFL" || sport === "NHL") {
+  // ─── NFL Path: dedicated nfl_player_stats + nfl_games engine (mirrors NBA) ──
+  // NFL reads the clean flat-column tables (like NBA reads nba_player_stats),
+  // gated on the upcoming slate. This replaces the old espn_player_stats path.
+  if (sport === "NFL") {
+    const todayDate = getTodayET()
+    const nflStatsToFetch = stat === "all" ? ["YDS", "TD", "REC", "CAR"] : [stat]
+    const nflMatchup = matchup && /^[A-Za-z]{2,3}-[A-Za-z]{2,3}$/.test(matchup) ? matchup : undefined
+
+    const nflCacheKey = `nfl-props:${stat}:${direction}:${search}:${todayDate}:${nflMatchup ?? "all"}`
+    const nflResults = await cached(
+      nflCacheKey,
+      () =>
+        Promise.all(
+          nflStatsToFetch.map((s) =>
+            computeNFLProps(s, todayDate, {
+              direction,
+              search,
+              limit: Math.min(limit, 200),
+              matchup: nflMatchup,
+            })
+          )
+        ),
+      60_000
+    )
+
+    const todayGames = nflResults[0]?.todayGames ?? []
+    const fallbackMode = nflResults.every((r) => r.fallbackMode)
+    const nflComputeTimeMs = Math.max(...nflResults.map((r) => r.computeTimeMs))
+
+    // No games in the upcoming window → return empty (identical to NBA off-day)
+    if (fallbackMode) {
+      return NextResponse.json({
+        props: [],
+        todayGames: [],
+        fallbackMode: true,
+        meta: {
+          sport,
+          stat,
+          total: 0,
+          timestamp: new Date().toISOString(),
+          computeTimeMs: nflComputeTimeMs,
+          gamesCount: 0,
+          noGamesToday: true,
+        },
+      })
+    }
+
+    // Merge props from all fetched stats, dedupe by id
+    let nflMerged = nflResults.flatMap((r) => r.props) as any[]
+    const seen = new Set<string>()
+    nflMerged = nflMerged.filter((p) => {
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
+
+    if (direction && direction !== "all") {
+      const dirFiltered = nflMerged.filter((p) => p.direction === direction)
+      if (dirFiltered.length > 0) nflMerged = dirFiltered
+    }
+
+    nflMerged.sort((a, b) => b.probability - a.probability)
+    const nflLimited = nflMerged.slice(0, Math.min(limit, 100))
+
+    return NextResponse.json({
+      props: nflLimited,
+      todayGames,
+      fallbackMode: false,
+      meta: {
+        sport,
+        stat,
+        total: nflLimited.length,
+        timestamp: new Date().toISOString(),
+        computeTimeMs: nflComputeTimeMs,
+        gamesCount: todayGames.length,
+      },
+    })
+  }
+
+  // ─── ESPN Sports Path: Soccer, NHL ──────────────────────────────────────────
+  if (sport === "Soccer" || sport === "NHL") {
     // Check if this is a team prop stat (Soccer only)
     const TEAM_PROP_STATS = new Set(["team_totalGoals", "team_corners", "team_cards", "team_matchGoals"])
     const isTeamProp = sport === "Soccer" && TEAM_PROP_STATS.has(stat)
 
     // Soccer is TEAM PROPS ONLY — always route through team props engine
     if (sport === "Soccer") {
-      // First check if there are games today — if not, return empty
+      // Show props for teams playing in the upcoming window (today → +3 days),
+      // not just games that haven't kicked off today. Soccer is intermittent
+      // (games cluster on weekends), so a strict "today only" gate leaves the
+      // page empty on days where the slate just finished but more are coming.
       const todayET = getTodayET()
+      const windowEnd = new Date(`${todayET}T00:00:00Z`)
+      windowEnd.setUTCDate(windowEnd.getUTCDate() + 3)
+      const windowEndStr = windowEnd.toISOString().split("T")[0]
       const adminClient = createAdminClient()
       const { data: todayGamesCheck } = await adminClient
         .from("espn_games")
         .select("home_team, away_team")
         .in("league", ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "usa.1"])
-        .eq("match_date", todayET)
+        .gte("match_date", todayET)
+        .lte("match_date", windowEndStr)
         .in("status", ["scheduled", "in_progress"])
-        .limit(50)
+        .limit(80)
 
       const todaySoccerTeams = new Set<string>()
       if (todayGamesCheck && todayGamesCheck.length > 0) {
@@ -416,7 +505,7 @@ export const GET = withSecurity(async (request: Request) => {
         }
       }
 
-      // If no soccer games today, return empty props
+      // If no soccer games in the upcoming window, return empty props
       if (todaySoccerTeams.size === 0) {
         return NextResponse.json({
           props: [],
@@ -434,7 +523,7 @@ export const GET = withSecurity(async (request: Request) => {
 
       // Map "all" and player stat keys to team prop equivalents
       const soccerTeamStatsMap: Record<string, string[]> = {
-        all: ["team_totalGoals", "team_matchGoals", "team_cards", "team_corners"],
+        all: ["team_totalGoals", "team_matchGoals", "team_cards"],
         totalGoals: ["team_totalGoals"],
         goalAssists: ["team_totalGoals"],
         totalShots: ["team_totalGoals"],
@@ -497,9 +586,8 @@ export const GET = withSecurity(async (request: Request) => {
       })
     }
 
-    // NFL, NHL — player props via ESPN engine
+    // NHL — player props via ESPN engine (NFL is handled earlier by its own engine)
     const espnStatsMap: Record<string, string[]> = {
-      NFL: ["YDS", "TD", "REC", "CAR"],
       NHL: ["G", "A", "SOG", "HT"],
     }
     const statsToFetch = stat === "all" ? espnStatsMap[sport] : [stat]

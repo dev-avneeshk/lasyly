@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Plus, X, Trophy } from "lucide-react"
 import { LiveMatch } from "@/types"
 import { cn } from "@/lib/utils"
+import { formatMatchTime } from "@/lib/datetime"
 
 type RoomMatch = {
   id: string
@@ -149,15 +150,9 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
     fetchRoomMatches()
   }
 
-  function isLive(match: LiveMatch) {
-    return match.status !== "Finished" && match.status !== "Not Started"
-  }
-
   function getMatchTime(match: LiveMatch) {
     if (match.status === "Not Started") {
-      return match.startTime
-        ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-        : "Upcoming"
+      return match.startTime ? formatMatchTime(match.startTime) : "Upcoming"
     }
     if (match.clock) return match.clock
     return match.status
@@ -168,7 +163,7 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[14px] font-bold text-[#f2f3f5]">
-          {hasRoomMatches ? "📌 Pinned Matches" : "🏆 Live Scoreboard"}
+          {hasRoomMatches ? "📌 Pinned Matches" : "🏆 Scoreboard"}
         </h2>
         {isOwner && (
           <button
@@ -211,9 +206,9 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
           <div className="text-center py-8">
             <Trophy className="w-8 h-8 text-[#949ba4] mx-auto mb-2 opacity-50" />
             <p className="text-[13px] text-[#949ba4]">
-              {hasRoomMatches ? "No matches for this filter." : "No live matches right now."}
+              {hasRoomMatches ? "No matches for this filter." : "No upcoming matches or results right now."}
             </p>
-            <p className="text-[11px] text-[#949ba4]/60 mt-1">Check back during game time.</p>
+            <p className="text-[11px] text-[#949ba4]/60 mt-1">Check back around game time.</p>
           </div>
         ) : (
           filteredMatches.map((match) => (
@@ -260,7 +255,7 @@ export default function ScoresPanel({ roomId, isOwner = false }: ScoresPanelProp
                           {match.league} · {match.sport}
                         </div>
                       </div>
-                      {isLive(match) ? (
+                      {match.status === "Finished" ? (
                         <span className="text-[12px] font-bold text-[#57f287]">
                           {match.homeScore} - {match.awayScore}
                         </span>
@@ -290,10 +285,9 @@ function MatchCard({
   isPinned: boolean
   onRemove: () => void
 }) {
-  const live = match.status !== "Finished" && match.status !== "Not Started"
   const clock = match.status === "Not Started"
-    ? (match.startTime ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Upcoming")
-    : (match.clock ?? match.status)
+    ? (match.startTime ? formatMatchTime(match.startTime) : "Upcoming")
+    : (match.status === "Finished" ? "FT" : match.clock ?? match.status)
 
   return (
     <div className="rounded-lg bg-[#2b2d31] p-3 relative group hover:bg-[#35373c] transition-colors">
@@ -311,14 +305,7 @@ function MatchCard({
         <span className="text-[10px] font-medium text-[#949ba4] truncate">
           {match.league}
         </span>
-        {live ? (
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#ed4245] animate-pulse" />
-            <span className="text-[10px] font-bold text-[#ed4245]">{clock}</span>
-          </div>
-        ) : (
-          <span className="text-[10px] text-[#949ba4]">{clock}</span>
-        )}
+        <span className="text-[10px] text-[#949ba4]">{clock}</span>
       </div>
 
       {/* Teams */}

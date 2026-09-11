@@ -20,6 +20,35 @@ import type { Subchannel } from "@/lib/types/channel"
  */
 const MAX_MESSAGES = 200
 
+/** How many older messages to pull per "load older" page. */
+const OLDER_PAGE_SIZE = 50
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Insert/replace messages while keeping the array in strict chronological
+ * order (created_at asc, id as a stable tie-break). Realtime broadcast,
+ * postgres_changes, and optimistic sends can all arrive out of order — a naive
+ * append renders them in the wrong place and breaks the "grouped" run logic.
+ *
+ * Dedupes by id, so it's safe to call with a message already present (the
+ * incoming copy wins, which lets us reconcile optimistic rows in place).
+ */
+function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  if (incoming.length === 0) return prev
+  const byId = new Map<string, ChatMessage>()
+  for (const m of prev) byId.set(m.id, m)
+  for (const m of incoming) byId.set(m.id, m)
+  const merged = Array.from(byId.values()).sort((a, b) => {
+    const ta = new Date(a.created_at).getTime()
+    const tb = new Date(b.created_at).getTime()
+    if (ta !== tb) return ta - tb
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+  // Cap from the OLD end so we always keep the most recent messages.
+  return merged.length > MAX_MESSAGES ? merged.slice(-MAX_MESSAGES) : merged
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type RoomData = {
@@ -85,6 +114,9 @@ export default function RoomPage() {
   // channels", so the composer can explain itself instead of guessing.
   const [channelsLoaded, setChannelsLoaded] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [olderCursor, setOlderCursor] = useState<string | null>(null)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [sending, setSending] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -94,6 +126,7 @@ export default function RoomPage() {
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set())
 
   const feedRef = useRef<HTMLDivElement>(null)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null)
   // Cache of user_id -> profile so incoming realtime rows (which carry no join)
   // can render an avatar/name without an extra fetch per message.
@@ -178,6 +211,8 @@ export default function RoomPage() {
 
     // Clear the feed on channel switch so streams don't bleed together.
     setMessages([])
+    setHasMoreOlder(false)
+    setOlderCursor(null)
 
     // Guard against stale responses: if the sub-channel changes (or we unmount)
     // before this fetch resolves, don't let its result overwrite newer state.
@@ -185,31 +220,116 @@ export default function RoomPage() {
     const fetchMessages = async () => {
       const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
       const data = await res.json()
-      if (!ignore && res.ok && data.messages) setMessages(data.messages.slice(-MAX_MESSAGES))
+      if (ignore || !res.ok || !data.messages) return
+      setMessages(mergeMessages([], data.messages))
+      setHasMoreOlder(Boolean(data.hasMore))
+      setOlderCursor(data.nextCursor ?? null)
     }
     fetchMessages()
 
-    // Realtime via broadcast, scoped per sub-channel so each stream is
-    // independent. Receivers dedupe by id and cap the array.
+    // Hydrate a realtime row that arrives without a profile join (broadcast/
+    // postgres_changes carry the raw row). Falls back to the sender's cached
+    // profile so names/avatars still render.
+    const hydrate = (msg: ChatMessage): ChatMessage => ({
+      ...msg,
+      profile: msg.profile ?? profileCacheRef.current.get(msg.user_id) ?? null,
+    })
+
+    // Two realtime paths on the SAME channel:
+    //   1) broadcast — low-latency echo relayed by the sender's client.
+    //   2) postgres_changes — the RELIABLE backstop. If the sender's tab dies
+    //      between the DB insert and the broadcast, this still delivers the row
+    //      to everyone. Both dedupe by id via mergeMessages, so double delivery
+    //      is harmless.
     const channel = supabase
       .channel(`room-sub-${activeSubchannelId}`)
       .on("broadcast", { event: "new_message" }, (payload) => {
         const msg = payload.payload as ChatMessage
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev
-          const withProfile: ChatMessage = {
-            ...msg,
-            profile: msg.profile ?? profileCacheRef.current.get(msg.user_id) ?? null,
-          }
-          const next = [...prev, withProfile]
-          return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next
-        })
+        setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
       })
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `subchannel_id=eq.${activeSubchannelId}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: string
+            content: string
+            is_system: boolean
+            created_at: string
+            user_id: string
+            kind?: "text" | "betslip"
+          }
+          setMessages((prev) =>
+            mergeMessages(prev, [
+              hydrate({
+                id: row.id,
+                content: row.content,
+                is_system: row.is_system,
+                created_at: row.created_at,
+                user_id: row.user_id,
+                kind: row.kind ?? "text",
+                profile: null,
+              }),
+            ])
+          )
+        }
+      )
       .subscribe()
     channelRef.current = channel
 
     return () => { ignore = true; supabase.removeChannel(channel); channelRef.current = null }
   }, [supabase, roomId, activeSubchannelId])
+
+  // ─── Load older messages (cursor pagination) ─────────────────────────────────
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!activeSubchannelId || !olderCursor || loadingOlder || !hasMoreOlder) return
+    setLoadingOlder(true)
+
+    // Preserve the scroll position: after prepending older rows, keep the row
+    // the user was looking at in place instead of jumping to the top.
+    const el = feedRef.current
+    const prevHeight = el?.scrollHeight ?? 0
+    const prevTop = el?.scrollTop ?? 0
+
+    try {
+      const res = await fetch(
+        `/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}&before=${encodeURIComponent(olderCursor)}&limit=${OLDER_PAGE_SIZE}`
+      )
+      const data = await res.json()
+      if (res.ok && data.messages) {
+        setMessages((prev) => mergeMessages(prev, data.messages))
+        setHasMoreOlder(Boolean(data.hasMore))
+        setOlderCursor(data.nextCursor ?? null)
+        // Restore scroll offset once the DOM has grown.
+        requestAnimationFrame(() => {
+          const cur = feedRef.current
+          if (cur) cur.scrollTop = cur.scrollHeight - prevHeight + prevTop
+        })
+      }
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [activeSubchannelId, olderCursor, loadingOlder, hasMoreOlder, roomId])
+
+  // Trigger load-older when the top sentinel scrolls into view.
+  useEffect(() => {
+    const sentinel = topSentinelRef.current
+    if (!sentinel || !hasMoreOlder) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadOlderMessages()
+      },
+      { root: feedRef.current, rootMargin: "120px" }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMoreOlder, loadOlderMessages])
 
   // Keep the profile cache fed from members + any messages that already carry
   // a profile, so realtime INSERTs can be rendered with a name/avatar.
@@ -248,10 +368,7 @@ export default function RoomPage() {
       id: tempId, content, is_system: false,
       created_at: new Date().toISOString(), user_id: currentUser.id, profile: currentUser.profile,
     }
-    setMessages(prev => {
-      const next = [...prev, optimistic]
-      return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next
-    })
+    setMessages(prev => mergeMessages(prev, [optimistic]))
 
     try {
       const res = await fetch(`/api/rooms/${roomId}/messages`, {
@@ -261,16 +378,23 @@ export default function RoomPage() {
       })
       if (res.ok) {
         const saved = await res.json()
-        // Reconcile the optimistic row to the real id.
-        setMessages(prev =>
-          prev.map(m => (m.id === tempId ? { ...optimistic, id: saved.id, created_at: saved.created_at } : m))
-        )
-        // Relay to other clients in the active sub-channel.
+        // Adopt the SERVER's stored content (the API masks profanity), so the
+        // sender sees exactly what everyone else sees. Reconcile the optimistic
+        // row to the real id + server timestamp; drop the temp row first, then
+        // merge the saved one so ordering stays correct.
+        const savedContent = typeof saved.content === "string" ? saved.content : content
+        setMessages(prev => {
+          const withoutTemp = prev.filter(m => m.id !== tempId)
+          return mergeMessages(withoutTemp, [
+            { ...optimistic, id: saved.id, created_at: saved.created_at, content: savedContent },
+          ])
+        })
+        // Relay to other clients in the active sub-channel with the masked content.
         channelRef.current?.send({
           type: "broadcast",
           event: "new_message",
           payload: {
-            id: saved.id, content, is_system: false,
+            id: saved.id, content: savedContent, is_system: false,
             created_at: saved.created_at, user_id: currentUser.id, profile: currentUser.profile,
           },
         })
@@ -506,6 +630,14 @@ export default function RoomPage() {
         <>
             {/* Message Feed */}
             <div ref={feedRef} className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-1 scrollbar-hide">
+              {/* Top sentinel: scrolling here pages in older history. */}
+              {hasMoreOlder && (
+                <div ref={topSentinelRef} className="flex items-center justify-center py-2 shrink-0">
+                  <span className="text-[11px] text-white/25">
+                    {loadingOlder ? "Loading earlier messages…" : "Scroll up for more"}
+                  </span>
+                </div>
+              )}
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
@@ -535,6 +667,8 @@ export default function RoomPage() {
                   message={message}
                   grouped={grouped}
                   pinned={pinnedMessages.has(message.id)}
+                  roomId={roomId}
+                  currentUserId={userId}
                   onContextMenu={handleContextMenu}
                 />
               ))}

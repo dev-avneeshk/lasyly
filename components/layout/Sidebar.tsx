@@ -4,7 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, PieChart, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store } from "lucide-react"
+import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -13,12 +13,12 @@ const navItems = [
   { icon: Trophy, label: "Live Scores", href: "/scores", comingSoon: false },
   { icon: Newspaper, label: "News", href: "/news", comingSoon: false },
   { icon: Target, label: "Props", href: "/analysis", comingSoon: false },
+  { icon: Medal, label: "Rankings", href: "/rankings", comingSoon: false },
+  { icon: Gamepad2, label: "NBA Auction", href: "/arena", comingSoon: false },
   { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: false },
   { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: false },
-  { icon: PieChart, label: "Dashboard", href: "/dashboard", comingSoon: false },
-  { icon: Medal, label: "Leaderboard", href: "/leaderboard", comingSoon: false },
   { icon: Store, label: "Tipsters", href: "/marketplace", comingSoon: false },
-  { icon: Wallet, label: "Wallet", href: "/wallet", comingSoon: true },
+  { icon: Wallet, label: "Wallet", href: "/wallet", comingSoon: false },
   { icon: User, label: "Profile", href: "/profile", comingSoon: false },
 ]
 

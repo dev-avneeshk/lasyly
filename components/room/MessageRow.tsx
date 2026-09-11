@@ -2,6 +2,7 @@
 
 import { memo } from "react"
 import { cn } from "@/lib/utils"
+import MessageReactions from "@/components/room/MessageReactions"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,12 @@ export type BetslipCard = {
   combined_hit_rate: number | null
 }
 
+export type MessageReaction = {
+  id: string
+  user_id: string
+  emoji: string
+}
+
 export type ChatMessage = {
   id: string
   content: string
@@ -29,6 +36,7 @@ export type ChatMessage = {
   profile: ChatProfile | null
   kind?: "text" | "betslip"
   betslip?: BetslipCard | null
+  reactions?: MessageReaction[]
 }
 
 type MessageRowProps = {
@@ -36,6 +44,8 @@ type MessageRowProps = {
   /** True when this message continues a run from the same author (no header). */
   grouped: boolean
   pinned: boolean
+  roomId: string
+  currentUserId: string | null
   onContextMenu: (e: React.MouseEvent, messageId: string, messageUserId: string) => void
 }
 
@@ -68,7 +78,7 @@ function BetslipCardView({ bet }: { bet: BetslipCard }) {
         {bet.stake != null && (
           <div>
             <p className="text-[10px] text-white/30">Stake</p>
-            <p className="text-[15px] font-bold text-white/90">${bet.stake}</p>
+            <p className="text-[15px] font-bold text-white/90">{bet.stake} Coins</p>
           </div>
         )}
       </div>
@@ -111,7 +121,7 @@ function getInitials(name: string): string {
  * when unrelated state (e.g. the input box) changes. Only re-renders when its
  * own props change (content, grouped, pinned).
  */
-function MessageRowBase({ message, grouped, pinned, onContextMenu }: MessageRowProps) {
+function MessageRowBase({ message, grouped, pinned, roomId, currentUserId, onContextMenu }: MessageRowProps) {
   if (message.is_system) {
     return (
       <div className="flex items-center gap-2 py-1 px-2">
@@ -127,13 +137,13 @@ function MessageRowBase({ message, grouped, pinned, onContextMenu }: MessageRowP
     return (
       <div
         className={cn(
-          "flex gap-4 px-4 hover:bg-white/[0.02] rounded-xl group relative",
-          pinned && "border-l-2 border-[#FBBF24]/40"
+          "flex gap-4 px-4 py-0.5 rounded-xl group relative transition-colors hover:bg-white/[0.025]",
+          pinned && "bg-[#FBBF24]/[0.04] border-l-2 border-[#FBBF24]/40"
         )}
         onContextMenu={(e) => onContextMenu(e, message.id, message.user_id)}
       >
-        <div className="w-10 shrink-0 flex items-center justify-center">
-          <span className="text-[10px] text-white/20 opacity-0 group-hover:opacity-100 transition-opacity font-mono">
+        <div className="w-10 shrink-0 flex items-start justify-center pt-0.5">
+          <span className="text-[10px] text-white/25 opacity-0 group-hover:opacity-100 transition-opacity font-mono tabular-nums">
             {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
@@ -142,8 +152,14 @@ function MessageRowBase({ message, grouped, pinned, onContextMenu }: MessageRowP
             <p className="text-[14px] text-white/80 leading-[1.7] break-words whitespace-pre-wrap">{message.content}</p>
           )}
           {message.kind === "betslip" && message.betslip && <BetslipCardView bet={message.betslip} />}
+          <MessageReactions
+            messageId={message.id}
+            roomId={roomId}
+            currentUserId={currentUserId}
+            initialReactions={message.reactions ?? []}
+          />
         </div>
-        {pinned && <span className="absolute top-1 right-2 text-[10px] text-[#FBBF24]/50">📌</span>}
+        {pinned && <span className="absolute top-0.5 right-2 text-[10px] text-[#FBBF24]/50">📌</span>}
       </div>
     )
   }
@@ -151,13 +167,13 @@ function MessageRowBase({ message, grouped, pinned, onContextMenu }: MessageRowP
   return (
     <div
       className={cn(
-        "flex gap-4 px-4 py-3 hover:bg-white/[0.02] rounded-xl mt-2 first:mt-0 relative",
-        pinned && "border-l-2 border-[#FBBF24]/40"
+        "flex gap-4 px-4 py-2.5 rounded-xl mt-2 first:mt-0 relative transition-colors hover:bg-white/[0.025]",
+        pinned && "bg-[#FBBF24]/[0.04] border-l-2 border-[#FBBF24]/40"
       )}
       onContextMenu={(e) => onContextMenu(e, message.id, message.user_id)}
     >
       <div
-        className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-[13px] font-semibold"
+        className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-[13px] font-semibold overflow-hidden"
         style={{ background: `${color}20`, color }}
       >
         {message.profile?.avatar_url ? (
@@ -177,6 +193,12 @@ function MessageRowBase({ message, grouped, pinned, onContextMenu }: MessageRowP
           <p className="text-[14px] text-white/80 leading-[1.7] break-words whitespace-pre-wrap">{message.content}</p>
         )}
         {message.kind === "betslip" && message.betslip && <BetslipCardView bet={message.betslip} />}
+        <MessageReactions
+          messageId={message.id}
+          roomId={roomId}
+          currentUserId={currentUserId}
+          initialReactions={message.reactions ?? []}
+        />
       </div>
     </div>
   )
@@ -187,6 +209,16 @@ function MessageRowBase({ message, grouped, pinned, onContextMenu }: MessageRowP
  * has changed. The `onContextMenu` handler is stabilized with useCallback by
  * the parent, so we don't compare it.
  */
+function reactionSignature(reactions?: MessageReaction[]): string {
+  if (!reactions || reactions.length === 0) return ""
+  // Cheap, order-independent signature so re-renders only fire when the actual
+  // reaction set changes (not on unrelated parent renders).
+  return reactions
+    .map((r) => `${r.user_id}:${r.emoji}`)
+    .sort()
+    .join("|")
+}
+
 export const MessageRow = memo(MessageRowBase, (prev, next) => {
   return (
     prev.message.id === next.message.id &&
@@ -195,7 +227,10 @@ export const MessageRow = memo(MessageRowBase, (prev, next) => {
     prev.message.kind === next.message.kind &&
     prev.message.betslip?.status === next.message.betslip?.status &&
     prev.grouped === next.grouped &&
-    prev.pinned === next.pinned
+    prev.pinned === next.pinned &&
+    prev.currentUserId === next.currentUserId &&
+    prev.roomId === next.roomId &&
+    reactionSignature(prev.message.reactions) === reactionSignature(next.message.reactions)
   )
 })
 

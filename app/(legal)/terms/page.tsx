@@ -33,28 +33,32 @@ export default function TermsOfServicePage() {
       </ul>
 
       <h2>3. Nature of the Service</h2>
-      <p><strong>Lasyly is an analytics and social platform — not a sportsbook or gambling operator.</strong></p>
+      <p><strong>Lasyly is a sports analytics and community platform — not a sportsbook or gambling operator.</strong></p>
       <ul>
-        <li>We do not accept, place, or facilitate bets or wagers.</li>
-        <li>We do not offer odds, accept stakes, or pay out winnings.</li>
-        <li>Prop lines displayed on the platform are computed from historical player performance data for informational and analytical purposes only.</li>
-        <li>Any decisions you make based on information from Lasyly are entirely your own responsibility.</li>
+        <li>We do not accept, place, hold, match, or settle bets or wagers.</li>
+        <li>We do not offer or set odds, accept stakes, operate a betting exchange, or pay out winnings.</li>
+        <li>We are not affiliated with any sportsbook, and no wager is placed, held, or settled through Lasyly.</li>
+        <li>Prop lines displayed on the platform are estimates computed from historical performance for informational and analytical purposes only. They are not predictions of, or guarantees about, any future result.</li>
+        <li>Analytics are not betting, investment, or financial advice. Any decisions you make using Lasyly are entirely your own responsibility.</li>
+        <li>Picks and analysis published by creators and users are their own opinions. We do not guarantee that any pick, prediction, or analytic will be accurate or profitable, and past performance does not guarantee future results.</li>
         <li>We do not guarantee the accuracy, completeness, or timeliness of any analytics, scores, or data displayed.</li>
       </ul>
 
-      <h2>4. Pick Marketplace</h2>
-      <h3>4.1 For Buyers</h3>
+      <h2>4. Creator Content and Paid Access</h2>
+      <p>
+        Creators may run public or private rooms to share their own analysis, commentary, and picks. Where creator monetization is available, members may pay <strong>for access to a creator&apos;s content and community only</strong>. Paying for access is not a wager, creates no betting account or stake, and gives no entitlement to any winnings. Availability of paid creator features depends on your region and applicable law, and such features may be unavailable or restricted in some regions.
+      </p>
+      <h3>4.1 For Members</h3>
       <ul>
-        <li>Purchases of premium picks are made using wallet credits and are non-refundable once the pick is revealed.</li>
-        <li>Premium picks are opinions and analysis — not guaranteed outcomes.</li>
-        <li>Past performance of a seller does not guarantee future results.</li>
+        <li>A paid purchase gives you access to a creator&apos;s content and community — it is not a bet placed through Lasyly.</li>
+        <li>Creator picks are opinions and analysis, not guaranteed outcomes. A creator&apos;s past performance does not guarantee future results.</li>
+        <li>Refund terms, where applicable, are shown at the point of purchase.</li>
       </ul>
-      <h3>4.2 For Sellers</h3>
+      <h3>4.2 For Creators</h3>
       <ul>
-        <li>Sellers earn 85% of the purchase price; Lasyly retains a 15% platform fee.</li>
-        <li>Sellers must provide honest analysis. Deliberately misleading picks or manipulation of performance stats will result in account termination.</li>
+        <li>Where creator monetization is available, Lasyly may retain a platform fee and remit the balance to the creator, subject to verification, applicable tax withholding, and applicable law. Exact fees, currency, payout methods, and availability are shown in-product and may change with reasonable notice.</li>
+        <li>Creators must provide honest analysis. Fabricating or manipulating performance records, or making guaranteed-profit or other prohibited claims, will result in account termination. See the Creator Policy for details.</li>
         <li>Earnings are subject to applicable tax obligations in your jurisdiction. You are responsible for reporting your income.</li>
-        <li>We reserve the right to adjust the revenue split with 30 days&apos; notice.</li>
       </ul>
 
       <h2>5. Wallet and Payments</h2>
@@ -81,18 +85,21 @@ export default function TermsOfServicePage() {
         <li>Create bots or automated accounts</li>
       </ul>
 
-      <h2>7. Content Ownership</h2>
-      <h3>7.1 Your Content</h3>
+      <h2>7. Content and Intellectual Property</h2>
+      <h3>7.1 Creator and User Content</h3>
       <p>
-        You retain ownership of content you create (betslips, chat messages, picks). By posting content on Lasyly, you grant us a non-exclusive, worldwide, royalty-free license to display, distribute, and store that content as part of operating the Service.
+        You retain ownership of the content you create (for example, chat messages, posts, and picks). Picks and analysis published by creators and users are their own opinions and are not authored, verified, endorsed, or guaranteed by Lasyly. By posting content on Lasyly, you grant us a non-exclusive, worldwide, royalty-free license to host, display, distribute, and store that content as part of operating the Service.
       </p>
-      <h3>7.2 Our Content</h3>
+      <h3>7.2 Lasyly&apos;s Own Property</h3>
       <p>
-        All analytics, computed prop lines, matchup grades, confidence scores, and other derived data are the intellectual property of Lasyly. You may not reproduce, redistribute, or commercially exploit this data without written permission.
+        We own or license the Lasyly software, brand, logos, page design, original content, and the original methodology behind our analytics to the extent it is legally protectable. This includes the specific way our metrics — such as matchup grades and confidence scores — are calculated and presented. You may not copy, redistribute, or commercially exploit these proprietary materials without our written permission.
+      </p>
+      <p>
+        We do <strong>not</strong> claim ownership of underlying raw facts or sports statistics themselves. Facts are not ours to own; what we protect is our software, brand, and our original selection, calculation, and presentation of analytics derived from that information.
       </p>
       <h3>7.3 Third-Party Data</h3>
       <p>
-        Live scores, team logos, and news content are sourced from third-party providers (ESPN and others). These remain the property of their respective owners and are displayed under fair use for informational purposes.
+        Certain statistics, live scores, team logos, and news are provided by third parties (for example, ESPN and others) and are used subject to applicable rights and terms. They remain the property of their respective owners. We identify sources where appropriate on our Data Sources page and preserve any required attributions. Their appearance on the Service does not imply affiliation with or endorsement by those owners.
       </p>
 
       <h2>8. Disclaimers</h2>

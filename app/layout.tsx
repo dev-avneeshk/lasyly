@@ -131,15 +131,30 @@ export default function RootLayout({
   // (/, /blog, /onboarding, /login) be served as static ISR from CDN edge,
   // which is the primary fix for mobile FCP 4.1s / 5.19s.
   return (
-    <html lang="en" className={`h-full antialiased ${playfair.variable} ${libreBaskerville.variable} ${sourceSans.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`h-full antialiased ${playfair.variable} ${libreBaskerville.variable} ${sourceSans.variable}`}>
       <head>
         {/* dns-prefetch for ESPN CDN — next/image proxies through /_next/image
             so preconnect is unnecessary, but dns-prefetch is still useful for
             pages that use raw img tags (social feed avatars, etc.) */}
         <link rel="dns-prefetch" href="https://a.espncdn.com" />
         <link rel="dns-prefetch" href="https://s.espncdn.com" />
+        {/* Browser extensions (Bitdefender TrafficLight, Grammarly, etc.) inject
+            attributes into the server HTML before React hydrates, causing
+            spurious hydration-mismatch warnings. We strip ONLY the purely
+            cosmetic marker attributes that trigger the warning
+            (`bis_skin_checked`, Grammarly's install flags). We deliberately do
+            NOT touch the extension's stateful bookkeeping attributes
+            (`bis_register`, `__processed_*`) — the extension reads those back,
+            and removing them made its own scripts crash. React's
+            `suppressHydrationWarning` on <html>/<body> covers the rest.
+            Dev-quality-of-life only; a no-op when no extension is present. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var SAFE=['bis_skin_checked','data-gr-ext-installed','data-new-gr-c-s-check-loaded','data-new-gr-c-s-loaded'];function clean(el){if(!el||!el.removeAttribute)return;for(var i=0;i<SAFE.length;i++){if(el.hasAttribute&&el.hasAttribute(SAFE[i]))el.removeAttribute(SAFE[i]);}}function sweep(){clean(document.documentElement);if(document.body){clean(document.body);var all=document.body.getElementsByTagName('*');for(var i=0;i<all.length;i++)clean(all[i]);}}var mo=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var m=muts[i];if(m.type==='attributes'&&m.target&&SAFE.indexOf(m.attributeName)!==-1){try{m.target.removeAttribute(m.attributeName);}catch(e){}}}});function start(){sweep();try{mo.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:SAFE});}catch(e){}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);}else{start();}}catch(e){}})();`,
+          }}
+        />
       </head>
-      <body className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
+      <body suppressHydrationWarning className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
         <ThemeProvider>
         <JsonLd data={{
           "@context": "https://schema.org",

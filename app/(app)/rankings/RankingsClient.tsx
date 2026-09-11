@@ -9,7 +9,7 @@ import { CategoryTabs } from "@/components/rankings/CategoryTabs"
 import { RankCard } from "@/components/rankings/RankCard"
 import { TeamRankCard } from "@/components/rankings/TeamRankCard"
 import { RankingsSkeleton } from "@/components/rankings/RankingsSkeleton"
-import { NBA_ESPN_TEAM_MAP, getTeamLogoUrl } from "@/lib/constants/teams"
+import { getTeamLogoUrl } from "@/lib/constants/teams"
 import type { RankingListItem, TeamRankingListItem, RankingType } from "@/lib/rankings/types"
 
 type ActiveCategory = RankingType | "teams"
@@ -31,6 +31,7 @@ export default function RankingsClient() {
   const [loading, setLoading] = useState(true)
   const [rankingVersion, setRankingVersion] = useState<string | null>(null)
   const [empty, setEmpty] = useState(false)
+  const [photos, setPhotos] = useState<Record<string, string>>({})
 
   // Fetch rankings when category or season changes
   const fetchRankings = useCallback(async (cat: ActiveCategory, s: string, m: string) => {
@@ -66,6 +67,29 @@ export default function RankingsClient() {
     fetchRankings(category, season, mode)
   }, [category, season, mode, fetchRankings])
 
+  // Batch-fetch player headshots whenever the player list changes.
+  useEffect(() => {
+    if (players.length === 0) return
+    const names = players
+      .map((p) => p.player_name)
+      .filter((n) => !(n in photos))
+    if (names.length === 0) return
+
+    let cancelled = false
+    const url = `/api/players/headshots?sport=NBA&names=${encodeURIComponent(names.join(","))}`
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.headshots) return
+        setPhotos((prev) => ({ ...prev, ...data.headshots }))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players])
+
   // Filter by search query
   const filteredPlayers = useMemo(() => {
     if (!searchQuery) return players
@@ -88,7 +112,7 @@ export default function RankingsClient() {
     )
   }, [teams, searchQuery])
 
-  const handlePlayerClick = (item: import("../../../lib/rankings/types").RankingListItem) => {
+  const handlePlayerClick = (item: RankingListItem) => {
     const id = item.player_id ?? encodeURIComponent(item.player_name)
     router.push(`/rankings/players/${id}?season=${season}&mode=${mode}`)
   }
@@ -181,11 +205,12 @@ export default function RankingsClient() {
               className="grid grid-cols-1 sm:grid-cols-2 gap-3"
             >
               {filteredTeams.map((item) => (
-                <TeamRankCard
-                  key={item.team}
-                  item={item as any}
-                  teamLogoUrl={getTeamLogoUrl(item.team, "nba") ?? undefined}
-                />
+                <div key={item.team} onClick={() => handleTeamClick(item)}>
+                  <TeamRankCard
+                    item={item}
+                    teamLogoUrl={getTeamLogoUrl(item.team, "nba") ?? undefined}
+                  />
+                </div>
               ))}
             </motion.div>
           </AnimatePresence>
@@ -201,7 +226,7 @@ export default function RankingsClient() {
               className="space-y-1.5"
             >
               {/* Tier group headers + cards */}
-              {renderWithTierGroups(filteredPlayers, handlePlayerClick)}
+              {renderWithTierGroups(filteredPlayers, handlePlayerClick, photos)}
             </motion.div>
           </AnimatePresence>
         )}
@@ -219,7 +244,8 @@ const TIER_ORDER = [
 
 function renderWithTierGroups(
   players: RankingListItem[],
-  onClick: (item: RankingListItem) => void
+  onClick: (item: RankingListItem) => void,
+  photos: Record<string, string>
 ) {
   if (players.length === 0) {
     return (
@@ -263,6 +289,7 @@ function renderWithTierGroups(
           <RankCard
             item={player}
             teamLogoUrl={getTeamLogoUrl(player.team ?? "", "nba") ?? undefined}
+            photoUrl={photos[player.player_name] ?? null}
           />
         </motion.div>
       )

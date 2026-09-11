@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { X, MapPin, Tv, TrendingUp, BarChart3, Users2, Clock } from "lucide-react"
 import { LiveMatch, MatchSummary } from "@/types"
 import { cn } from "@/lib/utils"
+import { formatMatchTime, formatDay, formatDateReadable, formatTime } from "@/lib/datetime"
 
 interface MatchDetailModalProps {
   match: LiveMatch | null
@@ -69,17 +70,19 @@ function TeamLogo({ url, name, color, size = "lg" }: { url?: string; name: strin
 
   if (url) {
     return (
-      <div className={cn("relative", dim)}>
+      <div className={cn("relative grid place-items-center", dim)}>
         {color && (
           <div
-            className="absolute inset-0 rounded-full opacity-20 blur-lg"
+            className="absolute inset-0 rounded-full opacity-30 blur-xl"
             style={{ backgroundColor: `#${color}` }}
           />
         )}
+        {/* Subtle ring so light logos still read against the dark surface */}
+        <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/10" />
         <img
           src={url}
           alt={name}
-          className={cn("relative object-contain", dim)}
+          className={cn("relative object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]", size === "lg" ? "h-12 w-12" : "h-6 w-6")}
           loading="lazy"
         />
       </div>
@@ -89,7 +92,7 @@ function TeamLogo({ url, name, color, size = "lg" }: { url?: string; name: strin
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full font-black",
+        "flex items-center justify-center rounded-full font-black ring-1 ring-inset ring-white/10",
         dim,
         textSize
       )}
@@ -205,93 +208,97 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
       aria-modal="true"
       aria-label={`${match.homeTeam} vs ${match.awayTeam} details`}
     >
-      <div className="w-full max-w-lg max-h-[90vh] rounded-3xl border border-white/10 bg-gradient-to-b from-[#1a0a4a] to-[#0d0025] shadow-[0_25px_80px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+      <div className="w-full max-w-lg max-h-[90vh] rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
         {/* Scoreboard Header */}
         <div className="relative overflow-hidden">
-          {/* Background gradient using team colors */}
+          {/* Team-color wash — the one committed color moment, kept low and
+              anchored to the two teams' actual brand colors. */}
           <div className="absolute inset-0">
             <div
-              className="absolute inset-0 opacity-30"
+              className="absolute inset-0 opacity-[0.22]"
               style={{
-                background: `linear-gradient(135deg, ${match.homeColor ? `#${match.homeColor}` : '#4a2d8a'} 0%, transparent 50%, ${match.awayColor ? `#${match.awayColor}` : '#2d4a8a'} 100%)`,
+                background: `radial-gradient(120% 90% at 12% 0%, ${match.homeColor ? `#${match.homeColor}` : "var(--color-primary)"} 0%, transparent 55%), radial-gradient(120% 90% at 88% 0%, ${match.awayColor ? `#${match.awayColor}` : "var(--color-secondary)"} 0%, transparent 55%)`,
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1a0a4a]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--color-surface)]/40 to-[var(--color-surface)]" />
           </div>
 
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 z-10 rounded-full p-2 text-white/40 hover:bg-white/10 hover:text-white transition-all"
+            className="absolute right-3.5 top-3.5 z-10 grid place-items-center h-8 w-8 rounded-full bg-black/20 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
 
           {/* League & Status */}
-          <div className="relative pt-5 pb-2 text-center">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
-                {match.league}
+          <div className="relative pt-6 pb-1 flex flex-col items-center gap-2">
+            <span className="text-[11px] font-semibold text-white/55 uppercase tracking-[0.18em]">
+              {match.league}
+            </span>
+            {live && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success)]/15 px-2.5 py-1 border border-[var(--color-success)]/30">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-success)] opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />
+                </span>
+                <span className="text-[10px] font-bold tracking-wide text-[var(--color-success)]">{match.clock || "LIVE"}</span>
               </span>
-              {live && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#25d65f]/15 px-2 py-0.5 border border-[#25d65f]/30">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#25d65f] opacity-75" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#25d65f]" />
-                  </span>
-                  <span className="text-[10px] font-bold text-[#25d65f]">{match.clock || "LIVE"}</span>
-                </span>
-              )}
-              {match.status === "Finished" && (
-                <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold text-white/50">
-                  FINAL
-                </span>
-              )}
-              {match.status === "Not Started" && (
-                <span className="text-[10px] font-medium text-white/40">
-                  {match.startTime
-                    ? new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-                    : "Scheduled"}
-                </span>
-              )}
-            </div>
+            )}
+            {match.status === "Finished" && (
+              <span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] text-white/55">
+                FINAL
+              </span>
+            )}
+            {match.status === "Not Started" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-lime)]/10 px-2.5 py-1 text-[10px] font-bold tracking-wide text-[var(--color-lime)]">
+                <Clock className="h-3 w-3" />
+                {match.startTime
+                  ? formatMatchTime(match.startTime)
+                  : "SCHEDULED"}
+              </span>
+            )}
           </div>
 
           {/* Score Display */}
-          <div className="relative px-6 pb-6 pt-2">
-            <div className="flex items-center justify-between">
+          <div className="relative px-6 pb-7 pt-3">
+            <div className="flex items-start justify-between gap-2">
               {/* Home Team */}
-              <div className="flex-1 flex flex-col items-center gap-2">
+              <div className="flex-1 flex flex-col items-center gap-2.5">
                 <TeamLogo url={match.homeLogo} name={match.homeTeam} color={match.homeColor} />
-                <span className="text-xs font-bold text-white/90 text-center leading-tight max-w-[100px]">
+                <span className="text-[13px] font-bold text-white/90 text-center leading-tight max-w-[110px]">
                   {match.homeTeam}
                 </span>
               </div>
 
               {/* Score */}
-              <div className="flex-shrink-0 px-4 text-center">
+              <div className="flex-shrink-0 px-2 pt-3 text-center">
                 {match.status === "Not Started" ? (
-                  <div>
-                    <span className="text-2xl font-black text-white/30">VS</span>
+                  <div className="flex flex-col items-center">
+                    <span className="text-2xl font-black text-white/25 tracking-wider">VS</span>
                     {match.startTime && (
-                      <p className="mt-1 text-xs text-white/40">
-                        {new Date(match.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      <p className="mt-1.5 text-[11px] font-medium text-white/45">
+                        {formatDay(match.startTime)}
                       </p>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <span className={cn(
-                      "text-4xl font-black tabular-nums",
-                      match.homeScore >= match.awayScore ? "text-white" : "text-white/50"
+                      "text-5xl font-black tabular-nums leading-none transition-colors",
+                      match.homeScore > match.awayScore
+                        ? "text-[var(--color-lime)]"
+                        : match.homeScore === match.awayScore ? "text-white" : "text-white/40"
                     )}>
                       {match.homeScore}
                     </span>
-                    <span className="text-lg text-white/20 font-light">:</span>
+                    <span className="text-2xl text-white/20 font-light leading-none">–</span>
                     <span className={cn(
-                      "text-4xl font-black tabular-nums",
-                      match.awayScore >= match.homeScore ? "text-white" : "text-white/50"
+                      "text-5xl font-black tabular-nums leading-none transition-colors",
+                      match.awayScore > match.homeScore
+                        ? "text-[var(--color-lime)]"
+                        : match.awayScore === match.homeScore ? "text-white" : "text-white/40"
                     )}>
                       {match.awayScore}
                     </span>
@@ -300,9 +307,9 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
               </div>
 
               {/* Away Team */}
-              <div className="flex-1 flex flex-col items-center gap-2">
+              <div className="flex-1 flex flex-col items-center gap-2.5">
                 <TeamLogo url={match.awayLogo} name={match.awayTeam} color={match.awayColor} />
-                <span className="text-xs font-bold text-white/90 text-center leading-tight max-w-[100px]">
+                <span className="text-[13px] font-bold text-white/90 text-center leading-tight max-w-[110px]">
                   {match.awayTeam}
                 </span>
               </div>
@@ -310,40 +317,54 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — segmented control */}
         {!loading && !fetchError && (
-          <div className="flex border-b border-white/5 px-4">
-            {tabs.filter(t => t.show).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all border-b-2 -mb-px",
-                  activeTab === tab.id
-                    ? "border-[var(--color-primary)] text-white"
-                    : "border-transparent text-white/40 hover:text-white/70"
-                )}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
+          <div className="px-4 pt-3 pb-1">
+            <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1">
+              {tabs.filter(t => t.show).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold transition-all duration-150",
+                    activeTab === tab.id
+                      ? "bg-[var(--color-primary)] text-white shadow-[0_2px_10px_-2px_var(--color-primary)]"
+                      : "text-white/45 hover:text-white/75 hover:bg-white/[0.04]"
+                  )}
+                >
+                  {tab.icon}
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-10 gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-3 border-white/10 border-t-[var(--color-primary)]" />
-              <span className="text-xs text-white/40">Loading match details...</span>
+            <div className="space-y-3 py-2">
+              {/* Skeleton rows — matches the stat-bar layout users are about to see */}
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="h-3 w-6 rounded bg-white/[0.06]" />
+                    <div className="h-2.5 w-16 rounded bg-white/[0.05]" />
+                    <div className="h-3 w-6 rounded bg-white/[0.06]" />
+                  </div>
+                  <div className="h-2 rounded-full bg-white/[0.04]" />
+                </div>
+              ))}
             </div>
           )}
 
           {fetchError && !loading && (
-            <div className="text-center py-8">
-              <p className="text-sm text-white/40">Detailed stats unavailable</p>
-              <p className="text-xs text-white/25 mt-1">ESPN data may not be available for this match</p>
+            <div className="flex flex-col items-center text-center py-10">
+              <div className="grid place-items-center h-11 w-11 rounded-full bg-white/[0.04] mb-3">
+                <BarChart3 className="h-5 w-5 text-white/25" />
+              </div>
+              <p className="text-sm font-semibold text-white/55">Detailed stats unavailable</p>
+              <p className="text-xs text-white/30 mt-1 max-w-[240px]">Live data for this match hasn&apos;t been published yet. Check back closer to game time.</p>
             </div>
           )}
 
@@ -364,7 +385,13 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
 
           {!loading && !fetchError && activeTab === "stats" && (
             summary?.boxscore?.teams ? (
-              <TeamStatsTab teams={summary.boxscore.teams} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
+              <TeamStatsTab
+                teams={summary.boxscore.teams}
+                homeTeam={match.homeTeam}
+                awayTeam={match.awayTeam}
+                homeColor={match.homeColor}
+                awayColor={match.awayColor}
+              />
             ) : (
               <div className="text-center py-8">
                 <p className="text-sm text-white/40">Team stats not available yet</p>
@@ -407,7 +434,7 @@ function SummaryTab({ match, summary, venue }: { match: LiveMatch; summary: Matc
           </p>
           <p className="text-sm text-white/70">
             {match.startTime
-              ? new Date(match.startTime).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+              ? `${formatDateReadable(match.startTime)}, ${formatTime(match.startTime)}`
               : "Time TBD"}{" "}
             · {match.league}
           </p>
@@ -599,7 +626,7 @@ function BoxScoreTab({ players }: { players: NonNullable<MatchSummary["boxscore"
             <table className="w-full text-[11px]">
               <thead>
                 <tr className="bg-white/5">
-                  <th className="text-left px-3 py-2.5 text-white/50 font-semibold sticky left-0 bg-[#1a0a4a] min-w-[130px] z-10">
+                  <th className="text-left px-3 py-2.5 text-white/50 font-semibold sticky left-0 bg-[var(--color-surface)] min-w-[130px] z-10">
                     Player
                   </th>
                   {players[expandedTeam].labels.map((label, li) => (
@@ -618,7 +645,7 @@ function BoxScoreTab({ players }: { players: NonNullable<MatchSummary["boxscore"
                       ai === 0 && "bg-[var(--color-primary)]/5"
                     )}
                   >
-                    <td className="px-3 py-2.5 sticky left-0 bg-[#1a0a4a] z-10">
+                    <td className="px-3 py-2.5 sticky left-0 bg-[var(--color-surface)] z-10">
                       <div className="flex items-center gap-2">
                         <span className="text-white/90 font-semibold truncate max-w-[90px]">
                           {athlete.name}
@@ -658,15 +685,23 @@ function TeamStatsTab({
   teams,
   homeTeam,
   awayTeam,
+  homeColor,
+  awayColor,
 }: {
   teams: NonNullable<MatchSummary["boxscore"]>["teams"]
   homeTeam: string
   awayTeam: string
+  homeColor?: string
+  awayColor?: string
 }) {
   if (teams.length < 2) return null
 
   const team1 = teams[0]
   const team2 = teams[1]
+
+  // Each team's brand color, with sensible on-brand fallbacks.
+  const homeHex = homeColor ? `#${homeColor}` : "var(--color-primary)"
+  const awayHex = awayColor ? `#${awayColor}` : "var(--color-secondary)"
 
   // Pair stats by label
   const pairedStats: Array<{ label: string; home: string; away: string }> = []
@@ -681,51 +716,73 @@ function TeamStatsTab({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2">
-          {team1.logo && <img src={team1.logo} alt="" className="h-5 w-5 object-contain" />}
-          <span className="text-xs font-bold text-white/80 truncate max-w-[100px]">{team1.team || homeTeam}</span>
+    <div className="space-y-4">
+      {/* Team header with color chips */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          {team1.logo
+            ? <img src={team1.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
+            : <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: homeHex }} />}
+          <span className="text-xs font-bold text-white/85 truncate">{team1.team || homeTeam}</span>
         </div>
-        <span className="text-[10px] font-bold text-white/30 uppercase">Stats</span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-white/80 truncate max-w-[100px]">{team2.team || awayTeam}</span>
-          {team2.logo && <img src={team2.logo} alt="" className="h-5 w-5 object-contain" />}
+        <div className="flex items-center gap-2 min-w-0 justify-end">
+          <span className="text-xs font-bold text-white/85 truncate">{team2.team || awayTeam}</span>
+          {team2.logo
+            ? <img src={team2.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
+            : <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: awayHex }} />}
         </div>
       </div>
 
-      {/* Stat bars */}
-      <div className="space-y-1">
+      {/* Stat bars — dual, colored by each team, leader gets full opacity */}
+      <div className="space-y-3.5">
         {pairedStats.slice(0, 12).map((stat, i) => {
           const homeVal = parseFloat(stat.home) || 0
           const awayVal = parseFloat(stat.away) || 0
           const total = homeVal + awayVal || 1
           const homePercent = (homeVal / total) * 100
           const awayPercent = (awayVal / total) * 100
+          const homeLeads = homeVal > awayVal
+          const awayLeads = awayVal > homeVal
 
           return (
-            <div key={i} className="rounded-lg bg-white/[0.03] px-3 py-2.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-white/90 tabular-nums">{stat.home}</span>
-                <span className="text-[10px] font-medium text-white/40">{stat.label}</span>
-                <span className="text-xs font-bold text-white/90 tabular-nums">{stat.away}</span>
+            <div key={i}>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className={cn(
+                  "text-sm font-black tabular-nums transition-colors",
+                  homeLeads ? "text-white" : "text-white/45"
+                )}>
+                  {stat.home}
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-white/45">{stat.label}</span>
+                <span className={cn(
+                  "text-sm font-black tabular-nums transition-colors",
+                  awayLeads ? "text-white" : "text-white/45"
+                )}>
+                  {stat.away}
+                </span>
               </div>
-              <div className="flex h-1.5 rounded-full overflow-hidden gap-0.5">
-                <div
-                  className="rounded-full transition-all duration-500"
-                  style={{
-                    width: `${homePercent}%`,
-                    backgroundColor: homeVal >= awayVal ? "var(--color-primary)" : "rgba(255,255,255,0.15)",
-                  }}
-                />
-                <div
-                  className="rounded-full transition-all duration-500"
-                  style={{
-                    width: `${awayPercent}%`,
-                    backgroundColor: awayVal > homeVal ? "var(--color-primary)" : "rgba(255,255,255,0.15)",
-                  }}
-                />
+              {/* Two bars growing from the center outward */}
+              <div className="flex items-center gap-1">
+                <div className="flex-1 flex justify-end h-2 rounded-l-full bg-white/[0.04] overflow-hidden">
+                  <div
+                    className="h-full rounded-l-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${homePercent}%`,
+                      backgroundColor: homeHex,
+                      opacity: homeLeads ? 1 : 0.4,
+                    }}
+                  />
+                </div>
+                <div className="flex-1 flex justify-start h-2 rounded-r-full bg-white/[0.04] overflow-hidden">
+                  <div
+                    className="h-full rounded-r-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${awayPercent}%`,
+                      backgroundColor: awayHex,
+                      opacity: awayLeads ? 1 : 0.4,
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )

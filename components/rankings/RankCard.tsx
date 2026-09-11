@@ -3,28 +3,34 @@
 import { cn } from "@/lib/utils"
 import { RankMovement } from "./RankMovement"
 import { TierBadge } from "./TierBadge"
+import { PlayerAvatar } from "./PlayerAvatar"
 import type { RankingListItem } from "@/lib/rankings/types"
 
 interface RankCardProps {
   item: RankingListItem
   teamLogoUrl?: string
+  photoUrl?: string | null
   isNew?: boolean
   className?: string
 }
 
-export function RankCard({ item, teamLogoUrl, className }: RankCardProps) {
+export function RankCard({ item, teamLogoUrl, photoUrl, className }: RankCardProps) {
   const isTeamChange = item.team !== item.historical_team && item.historical_team != null
+  const isTop = item.rank <= 3
 
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-3 md:gap-5 px-4 py-3.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 backdrop-blur-sm transition-all duration-200 hover:border-[var(--color-lime)]/30 hover:bg-[var(--color-surface-elevated)]/80 hover:z-50 cursor-pointer",
+        "group relative flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3 rounded-2xl border backdrop-blur-sm transition-all duration-200 hover:border-[var(--color-lime)]/40 hover:bg-[var(--color-surface-elevated)]/80 hover:z-50 cursor-pointer",
+        isTop
+          ? "border-[var(--color-lime)]/25 bg-gradient-to-r from-[var(--color-lime)]/[0.06] to-transparent"
+          : "border-[var(--color-border)] bg-[var(--color-surface)]/60",
         item.low_confidence && "opacity-80",
         className
       )}
     >
       {/* Rank Number */}
-      <div className="flex-shrink-0 w-12 md:w-14 text-right">
+      <div className="flex-shrink-0 w-8 md:w-11 text-center">
         <span
           className={cn(
             "font-black tabular-nums leading-none",
@@ -39,22 +45,18 @@ export function RankCard({ item, teamLogoUrl, className }: RankCardProps) {
       </div>
 
       {/* Movement */}
-      <div className="flex-shrink-0 w-10 flex items-center justify-center">
+      <div className="flex-shrink-0 w-8 flex items-center justify-center">
         <RankMovement change={item.rank_change} isNew={item.is_new} />
       </div>
 
-      {/* Team Logo */}
-      {teamLogoUrl && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white/5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={teamLogoUrl}
-            alt={item.team ?? ""}
-            className="w-full h-full object-contain p-0.5"
-            loading="lazy"
-          />
-        </div>
-      )}
+      {/* Player Headshot + team badge */}
+      <PlayerAvatar
+        name={item.player_name}
+        photoUrl={photoUrl}
+        teamLogoUrl={teamLogoUrl}
+        size={48}
+        highlight={isTop}
+      />
 
       {/* Player Info */}
       <div className="flex-1 min-w-0">

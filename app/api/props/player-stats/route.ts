@@ -220,21 +220,27 @@ async function computeNHLPlayerStats(supabase: any, playerName: string): Promise
 // ─── NFL Stats Computation ──────────────────────────────────────────────────
 
 async function computeNFLPlayerStats(supabase: any, playerName: string): Promise<PlayerStatsResult | null> {
+  // Read the dedicated nfl_player_stats table (clean flat numeric columns) —
+  // same source the NFL props engine uses. This avoids the espn_player_stats
+  // JSONB "YDS" collision where passing/rushing/receiving yards overwrite.
   const { data, error } = await supabase
-    .from("espn_player_stats")
-    .select("player_name, team, match_date, stats, game_id")
-    .eq("league", "nfl")
+    .from("nfl_player_stats")
+    .select(
+      "player_name, team, opponent, position, game_date, " +
+      "pass_yds, rush_yds, rec_yds, pass_td, rush_td, rec_td, " +
+      "rec, rush_att, targets, pass_int, sacks, fumbles"
+    )
     .ilike("player_name", `%${playerName}%`)
-    .order("match_date", { ascending: false })
+    .order("game_date", { ascending: false })
     .limit(30)
 
   if (error || !data || data.length === 0) return null
 
   const player = data[0].player_name
   const team = data[0].team
+  let position: string | null = data[0].position ?? null
 
   let headshotUrl: string | null = null
-  let position: string | null = null
   try {
     const { data: playerRow } = await supabase
       .from("espn_players")
@@ -244,7 +250,7 @@ async function computeNFLPlayerStats(supabase: any, playerName: string): Promise
       .limit(1)
     if (playerRow?.[0]) {
       headshotUrl = playerRow[0].headshot_url || `https://a.espncdn.com/i/headshots/nfl/players/full/${playerRow[0].espn_id}.png`
-      position = playerRow[0].position
+      position = position ?? playerRow[0].position
     }
   } catch {}
 
@@ -253,20 +259,27 @@ async function computeNFLPlayerStats(supabase: any, playerName: string): Promise
     YDS: [], TD: [], REC: [], CAR: [], TGTS: [], INT: [], SACKS: [], FUM: [],
   }
 
-  for (const row of data) {
-    const s = typeof row.stats === "string" ? JSON.parse(row.stats) : row.stats
+  // Determine the player's dominant yard type across the sample so "YDS" is
+  // interpreted consistently (pass for QBs, rush for RBs, rec for WR/TE).
+  const yardTotals = {
+    pass_yds: data.reduce((s: number, r: any) => s + (num(r.pass_yds) ?? 0), 0),
+    rush_yds: data.reduce((s: number, r: any) => s + (num(r.rush_yds) ?? 0), 0),
+    rec_yds: data.reduce((s: number, r: any) => s + (num(r.rec_yds) ?? 0), 0),
+  }
+  const dominantYardCol = (Object.entries(yardTotals).sort((a, b) => b[1] - a[1])[0]?.[0]) ?? "rec_yds"
 
-    const yds = num(s.YDS)
-    const td = num(s.TD)
-    const rec = num(s.REC)
-    const car = num(s.CAR)
-    const tgts = num(s.TGTS)
-    const int = num(s.INT)
-    const sacks = num(s.SACKS)
-    const fum = num(s.FUM)
+  for (const row of data) {
+    const yds = num(row[dominantYardCol])
+    const td = (num(row.pass_td) ?? 0) + (num(row.rush_td) ?? 0) + (num(row.rec_td) ?? 0)
+    const rec = num(row.rec)
+    const car = num(row.rush_att)
+    const tgts = num(row.targets)
+    const int = num(row.pass_int)
+    const sacks = num(row.sacks)
+    const fum = num(row.fumbles)
 
     gameLog.push({
-      date: row.match_date, opponent: "", result: "",
+      date: row.game_date, opponent: row.opponent ?? "", result: "",
       stats: { YDS: yds, TD: td, REC: rec, CAR: car, TGTS: tgts, INT: int, SACKS: sacks, FUM: fum },
     })
 

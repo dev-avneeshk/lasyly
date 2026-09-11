@@ -10,6 +10,9 @@ export default defineConfig({
       "**/node_modules/**",
       "**/__tests__/e2e/**",
       "**/__tests__/integration/api.test.ts",
+      // On-demand CPU-vs-CPU tournament harness (long-running); run explicitly:
+      //   npx vitest run __tests__/arena/cpu-vs-cpu.sim.test.ts
+      "**/*.sim.test.ts",
     ],
   },
   resolve: {

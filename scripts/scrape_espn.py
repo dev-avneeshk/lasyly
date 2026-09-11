@@ -594,17 +594,30 @@ def _parse_event(event: dict, league_key: str, sport: str,
     home_team_data = home.get("team", {}) if home else {}
     away_team_data = away.get("team", {}) if away else {}
 
-    # Determine status
+    # Determine status.
+    # ESPN's `state` ("pre"|"in"|"post") and `completed` are authoritative and
+    # checked first. A name-only check misses finished variants like
+    # STATUS_FINAL_PEN / STATUS_FINAL_AET, which previously fell through to
+    # "in_progress" and left games (e.g. the PSG–Arsenal penalty final) stuck
+    # showing as live forever.
     status_info = event.get("status", {}).get("type", {})
     status_name = status_info.get("name", "")
-    if status_name in ("STATUS_FINAL", "STATUS_FULL_TIME"):
+    state = status_info.get("state", "")
+    completed = status_info.get("completed", False)
+
+    if completed is True or state == "post" or status_name in (
+        "STATUS_FINAL", "STATUS_FULL_TIME", "STATUS_FINAL_PEN", "STATUS_FINAL_AET"
+    ):
         status = "completed"
-    elif status_name == "STATUS_SCHEDULED":
+    elif state == "pre" or status_name == "STATUS_SCHEDULED":
         status = "scheduled"
-    elif status_name in ("STATUS_POSTPONED", "STATUS_CANCELED"):
+    elif status_name in ("STATUS_POSTPONED", "STATUS_CANCELED", "STATUS_SUSPENDED", "STATUS_ABANDONED"):
         status = "postponed"
-    else:
+    elif state == "in" or status_name == "STATUS_IN_PROGRESS":
         status = "in_progress"
+    else:
+        # Unknown status with no live signal — never assume in-progress.
+        status = "scheduled"
 
     # Parse date
     event_date_str = event.get("date", "")
@@ -648,6 +661,19 @@ def _parse_event(event: dict, league_key: str, sport: str,
             if len(name_parts) == 2:
                 home_team_name = name_parts[0].strip()
                 away_team_name = name_parts[1].strip()
+
+    # Skip placeholder events with no real competitor names. Golf (PGA) and
+    # racing (F1) events don't have a two-team head-to-head shape, so they
+    # always resolve to "TBD vs TBD" — these should never be stored as match
+    # rows (they show up as bogus "TBD vs TBD" score cards).
+    def _blank(name: str) -> bool:
+        return not name or name.strip().upper() in ("", "TBD")
+
+    if _blank(home_team_name) and _blank(away_team_name):
+        return None
+    if _blank(home_team_name) or _blank(away_team_name):
+        # One side missing — also not a usable head-to-head card.
+        return None
 
     return {
         "id": f"{league_key}-{event_id}",
