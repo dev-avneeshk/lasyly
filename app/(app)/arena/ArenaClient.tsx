@@ -54,13 +54,13 @@ export default function ArenaClient() {
   // ── LOBBY ────────────────────────────────────────────────────────────────
   if (!state) {
     return (
-      <div className="relative mx-auto flex min-h-full max-w-3xl flex-col gap-8 px-4 py-10">
+      <div className="relative mx-auto flex min-h-full max-w-3xl flex-col gap-8 px-4 py-10 pb-40 md:pb-10">
         {/* Ambient glow — game-menu vibe */}
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-64 w-[120%] -translate-x-1/2 rounded-full bg-[var(--color-lime)]/10 blur-[120px]" />
 
         <div className="relative text-center">
           <span className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--color-lime)]">Lasyly Arena</span>
-          <h1 className="mt-3 text-5xl font-black tracking-tight text-[var(--color-text-primary)]">
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-5xl">
             NBA <span className="text-[var(--color-lime)]">Auction</span>
           </h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-text-muted)]">
@@ -136,7 +136,7 @@ export default function ArenaClient() {
 
         {server.error && <p className="text-center text-sm text-[var(--color-danger)]">{server.error}</p>}
 
-        <div className="sticky bottom-4 z-10">
+        <div className="sticky bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-10 md:bottom-4">
           <Button
             size="lg"
             className="w-full rounded-2xl py-6 text-lg font-black shadow-[0_10px_40px_-10px_rgba(212,255,0,0.5)]"
@@ -186,7 +186,7 @@ export default function ArenaClient() {
   // ── LINEUP CONFIRM ───────────────────────────────────────────────────────
   if (state.status === "lineup") {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10">
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10">
         <h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters Set</h2>
         <p className="text-sm text-[var(--color-text-muted)]">Lineups are locked. Ready to run the game?</p>
         <div className="grid w-full gap-4 md:grid-cols-2">
@@ -206,7 +206,7 @@ export default function ArenaClient() {
   const lot = state.lot
   const timeSec = Math.ceil(game.timeLeft / 1000)
   return (
-    <div className="relative mx-auto max-w-6xl px-4 py-6">
+    <div className="relative mx-auto max-w-6xl px-4 py-6 pb-40 md:pb-6">
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1fr]">
         {/* LEFT — You */}
         <div className="order-2 lg:order-1">

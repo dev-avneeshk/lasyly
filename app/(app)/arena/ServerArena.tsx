@@ -130,7 +130,7 @@ export function ServerArena({
   // ── Lineup confirm ────────────────────────────────────────────────────────
   if (view.status === "lineup") {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10">
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10">
         <h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters Set</h2>
         <p className="text-sm text-[var(--color-text-muted)]">Both lineups are locked. Run the game?</p>
         <div className="grid w-full gap-4 md:grid-cols-2">
@@ -147,7 +147,7 @@ export function ServerArena({
   const lastResult = view.results[view.results.length - 1]
 
   return (
-    <div className="relative mx-auto max-w-6xl px-4 py-6">
+    <div className="relative mx-auto max-w-6xl px-4 py-6 pb-40 md:pb-6">
       {error && (
         <div className="mb-3 rounded-lg bg-[var(--color-danger)]/10 px-3 py-2 text-center text-sm text-[var(--color-danger)]">
           {error}
