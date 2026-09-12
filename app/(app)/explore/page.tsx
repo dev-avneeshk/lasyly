@@ -21,6 +21,14 @@ export const metadata: Metadata = {
 // 5 minutes to cut ISR writes without affecting perceived freshness.
 export const revalidate = 300
 
+// Same reasoning as /scores: this segment shares the ISR-snapshot data layer,
+// whose ESPN/Redis reads carry `revalidate: 0` / `no-store` and would otherwise
+// downgrade the prerendered route to `revalidate: 0` at request time (E132,
+// "Page changed from static to dynamic at runtime"). The `Promise.allSettled`
+// below swallows the DynamicServerError, so the de-opt would be silent until
+// the runtime check fires. No cookies/headers/searchParams are read here.
+export const dynamic = "force-static"
+
 /**
  * Server component shell for /explore.
  *
