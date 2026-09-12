@@ -4,12 +4,19 @@ import { cn } from "@/lib/utils"
 import type { RankingTier } from "@/lib/rankings/types"
 
 interface TierBadgeProps {
-  tier: RankingTier | string
+  /**
+   * Canonical tier label (see `RankingTier`). Accepts any string — and
+   * null/undefined — because tiers arrive from Supabase rows and serialized
+   * server props where the union isn't enforced at runtime.
+   */
+  tier: RankingTier | string | null | undefined
   compact?: boolean
   className?: string
 }
 
-const TIER_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+type TierStyle = { bg: string; text: string; label: string }
+
+const TIER_STYLES: Record<string, TierStyle> = {
   "Ω — Apex":      { bg: "bg-gradient-to-r from-yellow-400/20 to-amber-400/20", text: "text-yellow-400",  label: "APEX" },
   "X — Mythic":    { bg: "bg-gradient-to-r from-pink-400/20 to-fuchsia-400/20",  text: "text-pink-400",   label: "MYTHIC" },
   "S — Elite":     { bg: "bg-gradient-to-r from-purple-400/20 to-violet-400/20", text: "text-purple-400", label: "ELITE" },
@@ -20,8 +27,43 @@ const TIER_STYLES: Record<string, { bg: string; text: string; label: string }> =
   "E — Fringe":    { bg: "bg-gray-600/10",                                      text: "text-gray-500",   label: "FRINGE" },
 }
 
+/**
+ * Used whenever the incoming tier can't be resolved. Referenced by value
+ * rather than by key so it can't silently become `undefined` again — the
+ * previous `TIER_STYLES["Fringe"]` lookup missed (the real key is
+ * "E — Fringe") and every unrecognised tier threw on `styles.bg`.
+ */
+const FALLBACK_TIER_STYLE: TierStyle = TIER_STYLES["E — Fringe"]
+
+/**
+ * Collapses the variations that actually reach this component — a plain
+ * hyphen or en dash instead of the canonical em dash, stray whitespace, and
+ * inconsistent casing — onto one comparable form.
+ */
+function normalizeTierKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2012-\u2015]/g, "-") // figure/en/em/horizontal dash → hyphen
+    .replace(/\s+/g, " ")
+}
+
+/**
+ * Alias index built from `TIER_STYLES`: each tier is reachable by its full
+ * label, its grade alone ("E"), or its name alone ("Fringe").
+ */
+const TIER_LOOKUP: Record<string, TierStyle> = Object.entries(TIER_STYLES).reduce<
+  Record<string, TierStyle>
+>((index, [key, style]) => {
+  const [grade, name] = key.split("—").map((part) => part.trim())
+  for (const alias of [key, grade, name]) {
+    if (alias) index[normalizeTierKey(alias)] = style
+  }
+  return index
+}, {})
+
 export function TierBadge({ tier, compact = false, className }: TierBadgeProps) {
-  const styles = TIER_STYLES[tier] ?? TIER_STYLES["Fringe"]
+  const styles = (tier && TIER_LOOKUP[normalizeTierKey(tier)]) || FALLBACK_TIER_STYLE
 
   return (
     <span

@@ -109,7 +109,9 @@ function CategoryBadge({
 }: {
   category: CheatSheetStat["category"]
 }) {
-  const config = CATEGORY_STYLES[category]
+  // `category` crosses a serialization boundary from the analytics engine, so
+  // the union isn't enforced at runtime — fall back instead of throwing.
+  const config = CATEGORY_STYLES[category] ?? CATEGORY_STYLES.context
 
   return (
     <span
