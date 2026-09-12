@@ -55,8 +55,12 @@ export async function upsertMatches(matches: LiveMatch[], source: string = "espn
       .upsert(batch, { onConflict: "id" })
   }
 
-  // Also store team logos for future use (fire and forget)
-  storeTeamLogos(matches, supabase).catch(() => {})
+  // Awaited rather than fire-and-forget: the only caller already defers this
+  // whole function past the response (see lib/background.ts), so detaching the
+  // logo writes here just left a second promise to stall between invocations —
+  // which is what drove the 120s p95 on POST /rest/v1/team_logos. Failures stay
+  // non-fatal; logos are a nice-to-have.
+  await storeTeamLogos(matches, supabase).catch(() => {})
 }
 
 /**

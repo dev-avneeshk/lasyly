@@ -28,10 +28,36 @@ interface RetryOptions {
   maxAttempts?: number
   /** Base delay in ms for exponential backoff. Defaults to 200. */
   baseDelayMs?: number
+  /**
+   * Per-attempt deadline in ms. Defaults to 30s.
+   *
+   * Without one, a stalled connection sits until the platform kills the
+   * invocation: Sentry was reporting p95 ≈ 120s on `POST /rest/v1/matches` and
+   * `POST /rest/v1/team_logos`, which is a hang, not slow SQL. A bounded
+   * deadline turns that into a fast, observable failure.
+   */
+  timeoutMs?: number
+}
+
+/**
+ * Combines the caller's signal (Supabase exposes `abortSignal`) with a
+ * per-attempt deadline, so neither cancellation path is lost.
+ */
+function attemptSignal(
+  callerSignal: AbortSignal | null | undefined,
+  timeoutMs: number
+): AbortSignal {
+  const deadline = AbortSignal.timeout(timeoutMs)
+  return callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline
 }
 
 function isRetryableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
+
+  // Aborts — caller cancellation or our own per-attempt deadline — are
+  // deliberate. Retrying a hang would multiply its wall-clock cost instead of
+  // capping it, which is the whole point of the deadline.
+  if (error.name === "AbortError" || error.name === "TimeoutError") return false
 
   // Node wraps the real error in `cause` (e.g. TypeError: fetch failed).
   const cause = (error as { cause?: unknown }).cause
@@ -64,13 +90,19 @@ export function createFetchWithRetry(
 ): typeof fetch {
   const maxAttempts = options.maxAttempts ?? 3
   const baseDelayMs = options.baseDelayMs ?? 200
+  const timeoutMs = options.timeoutMs ?? 30_000
 
   return async function fetchWithRetry(input, init) {
     let lastError: unknown
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await fetch(input, init)
+        // A fresh deadline per attempt — reusing one signal would leave every
+        // retry pre-aborted.
+        return await fetch(input, {
+          ...init,
+          signal: attemptSignal(init?.signal, timeoutMs),
+        })
       } catch (error) {
         lastError = error
 

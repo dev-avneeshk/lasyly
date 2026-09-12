@@ -4,6 +4,7 @@ import { fetchLiveScores } from "@/lib/services/sportsApi"
 import { fetchESPNScores } from "@/lib/services/espn"
 import { cached, CACHE_TTL } from "@/lib/cache"
 import { getMatchesWithFreshnessRange, upsertMatches } from "@/lib/services/matchStorage"
+import { afterResponse } from "@/lib/background"
 import type { LiveMatch } from "@/types"
 
 /**
@@ -163,10 +164,12 @@ export async function getScoresForDate(
     source = "espn_cached"
 
     if (scores.length > 0) {
-      // Fire-and-forget; don't block the response on persistence. Each match
-      // is stored under its own UTC match_date (derived from startTime), not
-      // the requested `date`, so neighboring-day games are filed correctly.
-      upsertMatches(scores, "espn").catch(() => {})
+      // Deferred past the response so persistence never blocks it, but still
+      // tied to this invocation — see lib/background.ts for why unattended
+      // promises stall for ~2 minutes here. Each match is stored under its own
+      // UTC match_date (derived from startTime), not the requested `date`, so
+      // neighboring-day games are filed correctly.
+      afterResponse(() => upsertMatches(scores, "espn"), "upsertMatches")
     }
 
     if (scores.length === 0 && dbMatches.length > 0) {
