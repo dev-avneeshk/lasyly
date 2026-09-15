@@ -46,9 +46,31 @@ export interface PolicyWeights {
   auction_stage_weight: number
 }
 
+/**
+ * Hierarchical STRATEGY head — decides HOW the CPU bids toward its valuation
+ * ceiling (timing, escalation, waiting, early-pass, opponent response). Every
+ * param is a NO-OP at its neutral value (0), so a policy without a strategy
+ * block (e.g. v6) reproduces the original reactive min-step bidding exactly.
+ * Semantics mirror DEFAULT_STRATEGY in auction_ai/ai/policy.py.
+ */
+export interface StrategyParams {
+  jump_bid_frac: number       // fraction of the gap to jump beyond min-raise
+  hold_threshold: number      // tendency to wait on a cheap opening claim
+  early_pass_margin: number   // shave the walk-away cutoff to concede sooner
+  response_aggression: number // react to opponent escalation on this lot
+}
+
+export const DEFAULT_STRATEGY: StrategyParams = {
+  jump_bid_frac: 0,
+  hold_threshold: 0,
+  early_pass_margin: 0,
+  response_aggression: 0,
+}
+
 export interface CpuPolicy {
   version: number
   weights: PolicyWeights
+  strategy: StrategyParams
 }
 
 /**
@@ -78,9 +100,21 @@ export const DEFAULT_WEIGHTS: PolicyWeights = {
   auction_stage_weight: 0,
 }
 
-export const DEFAULT_POLICY: CpuPolicy = { version: 0, weights: { ...DEFAULT_WEIGHTS } }
+export const DEFAULT_POLICY: CpuPolicy = {
+  version: 0,
+  weights: { ...DEFAULT_WEIGHTS },
+  strategy: { ...DEFAULT_STRATEGY },
+}
 
 const WEIGHT_KEYS = Object.keys(DEFAULT_WEIGHTS) as (keyof PolicyWeights)[]
+const STRATEGY_KEYS = Object.keys(DEFAULT_STRATEGY) as (keyof StrategyParams)[]
+// Strategy params are signed (neutral 0); trainer clamps to modest ranges.
+const STRATEGY_BOUNDS: Record<keyof StrategyParams, [number, number]> = {
+  jump_bid_frac: [0, 1],
+  hold_threshold: [0, 1],
+  early_pass_margin: [0, 1],
+  response_aggression: [-1, 1],
+}
 
 // The extended opponent-modeling / timing terms are additive and may be
 // negative (neutral at 0). Kept in sync with _SIGNED_KEYS in learner.py.
@@ -119,7 +153,23 @@ export function sanitizePolicy(blob: unknown): CpuPolicy {
         weights[key] = v
       }
     }
-    return { version, weights }
+
+    // Optional strategy head — backfilled to neutral (no-op) when absent, so a
+    // v6-style artifact (no strategy block) reproduces the original CPU.
+    const inStrategy = ((blob as { strategy?: unknown }).strategy &&
+      typeof (blob as { strategy?: unknown }).strategy === "object"
+        ? (blob as { strategy: unknown }).strategy
+        : {}) as Record<string, unknown>
+    const strategy = { ...DEFAULT_STRATEGY }
+    for (const key of STRATEGY_KEYS) {
+      const v = inStrategy[key]
+      const [slo, shi] = STRATEGY_BOUNDS[key]
+      // Allow a small margin beyond the trainer bounds; anything wild → default.
+      if (typeof v === "number" && Number.isFinite(v) && v >= slo - 1 && v <= shi + 1) {
+        strategy[key] = v
+      }
+    }
+    return { version, weights, strategy }
   } catch {
     return DEFAULT_POLICY
   }
@@ -141,6 +191,11 @@ export function loadPolicy(): CpuPolicy {
 /** Read a single weight with the safe default baked in. */
 export function weight(key: keyof PolicyWeights): number {
   return loadPolicy().weights[key] ?? DEFAULT_WEIGHTS[key]
+}
+
+/** Read a single strategy param with the neutral default baked in. */
+export function strategy(key: keyof StrategyParams): number {
+  return loadPolicy().strategy[key] ?? DEFAULT_STRATEGY[key]
 }
 
 /** Test seam: override the loaded policy (used by unit tests). */

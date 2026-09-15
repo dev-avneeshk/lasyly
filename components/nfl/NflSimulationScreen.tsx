@@ -5,6 +5,17 @@ import { motion } from "framer-motion"
 import type { NflGameResult, ScoringPlay, TeamId } from "@/lib/nfl/types"
 import { cn } from "@/lib/utils"
 
+/** NFL quarter length — the clock starts here and counts down each quarter. */
+const QUARTER_SECONDS = 15 * 60
+
+/** Seconds remaining → "M:SS" game-clock format (e.g. 725 → "12:05"). */
+function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  const m = Math.floor(s / 60)
+  const rem = s % 60
+  return `${m}:${String(rem).padStart(2, "0")}`
+}
+
 /**
  * Paces the reveal of a pre-computed NflGameResult: walks the recorded scoring
  * plays, ticking a live scoreboard and a quarter-by-quarter line score, then
@@ -25,6 +36,8 @@ export function NflSimulationScreen({
   const [score, setScore] = useState({ p1: 0, p2: 0 })
   const [quarter, setQuarter] = useState(1)
   const [lastPlay, setLastPlay] = useState<ScoringPlay | null>(null)
+  // Seconds remaining in the current quarter, straight from the recorded play.
+  const [clock, setClock] = useState(QUARTER_SECONDS)
 
   const plays = result.scoringPlays
 
@@ -38,6 +51,7 @@ export function NflSimulationScreen({
     const t = setTimeout(() => {
       setScore({ p1: p.p1Score, p2: p.p2Score })
       setQuarter(p.quarter)
+      setClock(p.clock)
       setLastPlay(p)
       setIdx((i) => i + 1)
     }, delay)
@@ -45,7 +59,9 @@ export function NflSimulationScreen({
   }, [idx, plays, onDone])
 
   const leader: TeamId | null = score.p1 === score.p2 ? null : score.p1 > score.p2 ? "P1" : "P2"
-  const qLabel = quarter <= 4 ? `Q${quarter}` : "OT"
+  const qLabel = quarter <= 4 ? `Q${quarter}` : `OT${quarter - 4 > 1 ? quarter - 4 : ""}`
+  // Once the last play has shown, the game is over → show 0:00.
+  const clockLabel = idx >= plays.length ? "0:00" : formatClock(clock)
   const progress = plays.length ? Math.min(100, (idx / plays.length) * 100) : 100
   const done = idx >= plays.length
   const lines = buildQuarterLines(result.quarters, quarter, done)
@@ -53,14 +69,22 @@ export function NflSimulationScreen({
   return (
     <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
       <span className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--color-lime)]">
-        Kickoff · Live Sim · {qLabel}
+        Live Sim · {qLabel} · {clockLabel}
       </span>
 
       <div className="grid w-full grid-cols-3 items-center gap-4 rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-6 backdrop-blur-xl">
         <ScoreSide label={p1Label} score={score.p1} leading={leader === "P1"} align="left" />
-        <div className="text-center">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">{qLabel}</div>
-          <div className="text-2xl font-black text-[var(--color-text-muted)]">vs</div>
+        <div className="flex flex-col items-center gap-1 text-center">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">{qLabel}</div>
+          <motion.div
+            key={clockLabel}
+            initial={{ opacity: 0.6 }}
+            animate={{ opacity: 1 }}
+            className="text-2xl font-black tabular-nums text-[var(--color-text-primary)]"
+          >
+            {clockLabel}
+          </motion.div>
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">vs</div>
         </div>
         <ScoreSide label={p2Label} score={score.p2} leading={leader === "P2"} align="right" />
       </div>

@@ -220,25 +220,33 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonicalUrl, 308)
   }
 
-  // ── 0b. Root → /explore ───────────────────────────────────────────────────
-  // Land every visitor on the app's Explore page instead of the marketing home,
-  // and make Explore the canonical home for search engines. A 308 (permanent)
-  // tells crawlers to treat /explore as the real home and pass ranking signal
-  // there. If you ever want the marketing landing page back, revert this to a
-  // 307 (or remove the block); note browsers cache 308s, so a revert may need a
-  // cache-bust for returning visitors. Query string is preserved.
-  if (pathname === "/") {
-    const exploreUrl = new URL(request.url)
-    exploreUrl.pathname = "/explore"
-    return NextResponse.redirect(exploreUrl, 308)
-  }
-
   // ── 0. Build CSP header (no nonce — pages are statically cached) ────────
   const cspHeader = buildCSPHeader()
 
   // Forward CSP via request header so Server Components can read it if needed.
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("Content-Security-Policy", cspHeader)
+
+  // ── 0b. Root → /explore ───────────────────────────────────────────────────
+  // Land every visitor on the app's Explore page instead of the marketing home.
+  //
+  // This was a 308 permanent redirect, but that forced every visitor to `/` to
+  // pay a full extra round-trip (request → 308 → request /explore) before any
+  // byte of HTML arrived — a direct FCP/LCP tax on the single most-hit route.
+  // A rewrite serves the statically-generated /explore route under the `/` URL
+  // with no client round-trip. SEO ranking signal still consolidates on
+  // /explore because app/(app)/explore/page.tsx emits
+  // `<link rel="canonical" href=".../explore">`, so crawlers treat /explore as
+  // the real home just as the 308 intended. Query string is preserved by URL.
+  if (pathname === "/") {
+    const exploreUrl = new URL(request.url)
+    exploreUrl.pathname = "/explore"
+    const rewrite = NextResponse.rewrite(exploreUrl, {
+      request: { headers: requestHeaders },
+    })
+    rewrite.headers.set("Content-Security-Policy", cspHeader)
+    return rewrite
+  }
 
   // ── 1. CORS preflight (no rate limiting) ──────────────────────────────────
   if (pathname.startsWith("/api/") && request.method === "OPTIONS") {

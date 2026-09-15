@@ -10,15 +10,34 @@ import {
 import { maxAffordable, validateBidAmount } from "@/lib/nfl/budget"
 import { emptyRoster, placePlayer, isRosterComplete, canFillSlot, rosterCount, bestSlotFor } from "@/lib/nfl/roster"
 import { getSeasonPlayers, findPlayer } from "@/lib/nfl/data"
-import { DEFAULT_CONFIG, ROSTER_SLOTS, type RosterState } from "@/lib/nfl/types"
+import { DEFAULT_CONFIG, ROSTER_SLOTS, type NflPlayer, type RosterState } from "@/lib/nfl/types"
 import { decideAI, walkAwayPrice } from "@/lib/nfl/ai"
 import { runSimulation } from "@/lib/nfl/game"
 import { mulberry32 } from "@/lib/nfl/rng"
 
 const SEASON = "2025"
 
+// Pool-derived helpers so tests stay valid as the generated pool changes,
+// rather than hardcoding slug ids that drift with the data.
+function topByPosition(pos: string, n = 0): NflPlayer {
+  const sorted = getSeasonPlayers(SEASON)
+    .filter((p) => p.position === pos)
+    .sort((a, b) => b.overall - a.overall)
+  const p = sorted[n]
+  if (!p) throw new Error(`no ${pos} at index ${n}`)
+  return p
+}
+function worstByPosition(pos: string, n = 0): NflPlayer {
+  const sorted = getSeasonPlayers(SEASON)
+    .filter((p) => p.position === pos)
+    .sort((a, b) => a.overall - b.overall)
+  const p = sorted[n]
+  if (!p) throw new Error(`no ${pos} at index ${n}`)
+  return p
+}
+/** A top QB — stands in for the old hardcoded Mahomes. */
 function mahomes() {
-  return findPlayer(SEASON, "patrick-mahomes")!
+  return topByPosition("QB")
 }
 
 describe("NFL — data", () => {
@@ -84,16 +103,16 @@ describe("NFL — roster rules", () => {
   })
 
   it("routes a WR into WR1 then WR2", () => {
-    const jefferson = findPlayer(SEASON, "justin-jefferson")!
-    const chase = findPlayer(SEASON, "ja-marr-chase")!
+    const wr1 = topByPosition("WR", 0)
+    const wr2 = topByPosition("WR", 1)
     let roster = emptyRoster()
-    expect(bestSlotFor(roster, jefferson)).toBe("WR1")
-    roster = placePlayer(roster, jefferson, 6)
-    expect(bestSlotFor(roster, chase)).toBe("WR2")
-    roster = placePlayer(roster, chase, 6)
+    expect(bestSlotFor(roster, wr1)).toBe("WR1")
+    roster = placePlayer(roster, wr1, 6)
+    expect(bestSlotFor(roster, wr2)).toBe("WR2")
+    roster = placePlayer(roster, wr2, 6)
     // Third WR has no slot.
-    const lamb = findPlayer(SEASON, "ceedee-lamb")!
-    expect(bestSlotFor(roster, lamb)).toBeNull()
+    const wr3 = topByPosition("WR", 2)
+    expect(bestSlotFor(roster, wr3)).toBeNull()
   })
 })
 
@@ -212,14 +231,13 @@ describe("NFL — simulation", () => {
   })
 
   it("a clearly stronger team wins most of the time, but not always", () => {
-    const strong = buildRoster([
-      "patrick-mahomes", "christian-mccaffrey", "justin-jefferson", "ja-marr-chase", "travis-kelce",
-      "myles-garrett", "fred-warner", "patrick-surtain", "minkah-fitzpatrick",
-    ])
-    const weak = buildRoster([
-      "caleb-williams", "kyren-williams", "jaylen-waddle", "nico-collins", "dallas-goedert",
-      "will-anderson", "zaire-franklin", "devon-witherspoon", "budda-baker",
-    ])
+    // Best vs worst player at each position, drawn from the live pool.
+    const squad = (pick: (pos: string, n: number) => NflPlayer) => [
+      pick("QB", 0), pick("RB", 0), pick("WR", 0), pick("WR", 1), pick("TE", 0),
+      pick("EDGE", 0), pick("LB", 0), pick("CB", 0), pick("S", 0),
+    ]
+    const strong = buildRosterFrom(squad(topByPosition))
+    const weak = buildRosterFrom(squad(worstByPosition))
     let strongWins = 0
     const N = 60
     for (let i = 0; i < N; i++) {
@@ -265,5 +283,11 @@ function buildRoster(ids: string[]): RosterState {
     const p = findPlayer(SEASON, id)!
     roster = placePlayer(roster, p, 3)
   }
+  return roster
+}
+
+function buildRosterFrom(players: NflPlayer[]): RosterState {
+  let roster = emptyRoster()
+  for (const p of players) roster = placePlayer(roster, p, 3)
   return roster
 }

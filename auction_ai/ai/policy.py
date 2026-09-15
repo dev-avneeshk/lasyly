@@ -120,27 +120,69 @@ NEUTRAL_WEIGHTS: Dict[str, float] = {
 LEARNABLE_KEYS: List[str] = [k for k in DEFAULT_WEIGHTS if k not in ("age_weight", "potential_weight")]
 
 
+# ─── The hierarchical STRATEGY head ─────────────────────────────────────────
+# Valuation (walk_away_price) decides HOW MUCH the seat will ultimately pay.
+# The strategy head decides HOW it bids toward that ceiling — timing, escalation,
+# waiting, early passing, and reacting to an opponent's escalation. Every param
+# is a NO-OP at its neutral value, so a policy without a strategy head (e.g. v6)
+# reproduces the original reactive min-step bidding exactly.
+#
+# All strategy behavior is DETERMINISTIC (seeded djb2, never random) so Python
+# and TypeScript stay in parity.
+DEFAULT_STRATEGY: Dict[str, float] = {
+    # Escalation: fraction of the gap (walk_away − currentBid) to JUMP beyond the
+    # minimum legal raise. 0 → min-step (v6). Positive → jump to shake out rivals.
+    "jump_bid_frac": 0.0,
+    # Waiting: when NOT leading and the lot is uncontested + cheap vs walk_away,
+    # probability-ish tendency to HOLD (pass this poll) and bid later. 0 → never
+    # wait (v6 bids immediately). Bounded so it can't collapse to always-pass.
+    "hold_threshold": 0.0,
+    # Early pass: shave the walk-away cutoff so marginal lots are conceded sooner
+    # to conserve budget. 0 → exact v6 cutoff (nxt > walk_away).
+    "early_pass_margin": 0.0,
+    # Opponent response: read the opponent's escalation on THIS lot (# of their
+    # raises) and adjust willingness to dig in. 0 → no reaction (v6).
+    "response_aggression": 0.0,
+}
+
+STRATEGY_KEYS: List[str] = list(DEFAULT_STRATEGY.keys())
+
+
 @dataclass
 class Policy:
-    """A trained (or default) CPU policy: just a version + weight vector."""
+    """A trained (or default) CPU policy: a version + valuation weight vector +
+    a hierarchical strategy head. The strategy head is optional; when absent it
+    defaults to neutral (no-op), so v6 (which has no strategy block) is
+    reproduced exactly."""
 
     version: int = 0
     weights: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_WEIGHTS))
+    strategy: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_STRATEGY))
 
     def w(self, key: str) -> float:
         return self.weights.get(key, DEFAULT_WEIGHTS.get(key, 1.0))
 
+    def s(self, key: str) -> float:
+        return self.strategy.get(key, DEFAULT_STRATEGY.get(key, 0.0))
+
     def clone(self) -> "Policy":
-        return Policy(version=self.version, weights=dict(self.weights))
+        return Policy(version=self.version, weights=dict(self.weights), strategy=dict(self.strategy))
 
     def to_dict(self) -> dict:
-        return {"version": self.version, "weights": {k: round(self.weights[k], 6) for k in self.weights}}
+        d = {"version": self.version, "weights": {k: round(self.weights[k], 6) for k in self.weights}}
+        # Only serialize a strategy block if it's non-neutral, keeping v6-style
+        # artifacts minimal and unchanged.
+        if any(abs(self.strategy.get(k, 0.0) - DEFAULT_STRATEGY[k]) > 1e-9 for k in DEFAULT_STRATEGY):
+            d["strategy"] = {k: round(self.strategy[k], 6) for k in self.strategy}
+        return d
 
     @staticmethod
     def from_dict(d: dict) -> "Policy":
         weights = dict(DEFAULT_WEIGHTS)
         weights.update(d.get("weights", {}))
-        return Policy(version=int(d.get("version", 0)), weights=weights)
+        strategy = dict(DEFAULT_STRATEGY)
+        strategy.update(d.get("strategy", {}))
+        return Policy(version=int(d.get("version", 0)), weights=weights, strategy=strategy)
 
     @staticmethod
     def default() -> "Policy":
@@ -566,12 +608,54 @@ def _critical_positions(state: ArenaState, team: str) -> set[str]:
     return crit
 
 
+def _has_future_alternative(state: ArenaState, team: str) -> bool:
+    """Is there another eligible player still in the queue for a slot the current
+    lot would fill for this team? If so, waiting on the current lot is safe."""
+    if state.lot is None:
+        return False
+    player = players_by_id(state.season)[state.lot.player_id]
+    roster = state.rosters[team]
+    open_starters = open_starter_slots(roster)
+    fills = [pos for pos in player.eligible_positions() if pos in open_starters]
+    if not fills:
+        return True  # bench/luxury lot — always safe to wait
+    by_id = players_by_id(state.season)
+    for pid in state.queue:
+        if pid == player.id:
+            continue
+        p = by_id.get(pid)
+        if p and any(pos in fills for pos in p.eligible_positions()):
+            return True
+    return False
+
+
+def _opponent_raises_on_lot(state: ArenaState, team: str) -> int:
+    """How many times the OPPONENT has raised the current lot (their escalation
+    intensity), read from bid history. A deterministic, open-information signal
+    for the opponent-response strategy."""
+    if state.lot is None:
+        return 0
+    opp = _other_team(team)
+    return sum(
+        1 for h in state.history
+        if h.player_id == state.lot.player_id and h.bidder == opp
+    )
+
+
 def decide(
     state: ArenaState, team: str, policy: Policy, debug: bool = False
 ) -> Decision:
-    """Decide the seat's move on the current lot. Port of ai.ts decideAI(),
-    delegating the strategic ceiling to the learned walk_away_price. Hard rules
-    (affordability, min-raise, eligibility) are enforced regardless of weights."""
+    """Decide the seat's move on the current lot.
+
+    Two hierarchical layers:
+      1. VALUATION  — walk_away_price (fixed for v6): the ceiling.
+      2. STRATEGY   — HOW to bid toward that ceiling: escalation size, waiting,
+                      early passing, and reacting to the opponent's escalation.
+
+    Hard rules (affordability, min-raise legality, eligibility) are enforced
+    regardless of any strategy param. All strategy behavior is a NO-OP at neutral
+    strategy values, so v6 reproduces the original reactive min-step bidding.
+    """
     if state.lot is None:
         return Decision("pass")
     if state.lot.high_bidder == team:
@@ -583,15 +667,69 @@ def decide(
     walk_away, explain = walk_away_price(state, team, policy, explain=debug)
 
     opening_claim = state.lot.high_bidder is None
-    nxt = state.lot.current_bid if opening_claim else state.lot.current_bid + step
+    current = state.lot.current_bid
 
-    if not opening_claim and (nxt > cap or nxt > walk_away):
-        nxt = state.lot.current_bid + 1
+    # ── STRATEGY: opponent-response — adjust the EFFECTIVE ceiling based on how
+    #    hard the opponent is pushing this lot (NO-OP at 0). Positive → dig in a
+    #    little past walk-away when contested; negative → concede sooner. Bounded
+    #    so it can never exceed cap (hard rule) by more than a hair.
+    resp = policy.s("response_aggression")
+    eff_walk = walk_away
+    if resp != 0:
+        opp_raises = _opponent_raises_on_lot(state, team)
+        if opp_raises > 0:
+            # up to ±15% of walk-away, scaled by how many times they've re-raised
+            adj = 1 + _clamp(resp, -1.0, 1.0) * 0.15 * min(1.0, opp_raises / 3.0)
+            eff_walk = walk_away * adj
+
+    # ── STRATEGY: early-pass — shave the cutoff so marginal lots are conceded
+    #    sooner (NO-OP at 0). early_pass_margin∈[0,1] trims up to ~20% off.
+    epm = policy.s("early_pass_margin")
+    cutoff = eff_walk * (1 - _clamp(epm, 0.0, 1.0) * 0.20)
+
+    # ── STRATEGY: escalation — jump beyond the minimum raise toward the ceiling
+    #    (NO-OP at 0). jump_bid_frac∈[0,1] of the gap (cutoff − current).
+    jbf = _clamp(policy.s("jump_bid_frac"), 0.0, 1.0)
+    min_next = current if opening_claim else current + step
+    if jbf > 0 and not opening_claim:
+        gap = max(0, int(round(cutoff)) - current)
+        jump_to = current + step + int(round(jbf * gap))
+        nxt = max(min_next, jump_to)
+    else:
+        nxt = min_next
+
+    # Hard-rule fallbacks (identical to v6): if the (possibly jumped) bid
+    # overshoots cap or the cutoff, fall back to the smallest legal raise before
+    # conceding.
+    if not opening_claim and (nxt > cap or nxt > cutoff):
+        # Try the min legal raise; only then consider the jump abandoned.
+        nxt = current + step
+        if nxt > cap or nxt > cutoff:
+            nxt = current + 1
 
     if nxt > cap:
         return Decision("pass", explain=explain)
-    if nxt > walk_away:
+    if nxt > cutoff:
         return Decision("pass", explain=explain)
+
+    # ── STRATEGY: waiting/hold — on an OPENING CLAIM (nobody has bid yet) for a
+    #    lot that is cheap relative to our ceiling, sometimes HOLD (pass this
+    #    poll) rather than immediately claim it — don't reveal interest early and
+    #    keep flexibility (NO-OP at 0). Deterministic via djb2 so Python/TS agree.
+    #    Never waits when this lot is our last shot at a needed slot (would risk
+    #    losing it to auto-fill), and bounded so it can't stall forever.
+    hold = policy.s("hold_threshold")
+    if hold > 0 and opening_claim:
+        # "Comfortable" = our ceiling has real headroom over the asking price, so
+        # skipping this poll doesn't risk overpaying later.
+        comfortable = walk_away > 0 and nxt <= walk_away * 0.8
+        # Safe to wait only if we're NOT desperate for this exact lot: there is
+        # another eligible player still coming for the slot(s) it fills.
+        safe_to_wait = _has_future_alternative(state, team)
+        if comfortable and safe_to_wait:
+            roll = (djb2(state.game_id + state.lot.player_id + team + "hold" + str(current)) % 1000) / 1000
+            if roll < _clamp(hold, 0.0, 0.6):  # cap at 60% so we don't stall forever
+                return Decision("pass", explain=explain)
 
     # Difficulty mistake (fixed layer): easier CPUs sometimes bail near value.
     diff = DIFFICULTY[cfg.difficulty]

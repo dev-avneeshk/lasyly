@@ -136,7 +136,7 @@ export interface ArenaGameConfig {
   rosterSize: number
   starters: number
   bench: number
-  /** Auction countdown in seconds; resets (shorter) after each bid. */
+  /** Auction countdown in seconds; resets after each bid. */
   auctionTimerSeconds: number
   auctionTimerResetSeconds: number
   /** Fixed amount each "Bid" click adds to the current bid. */
@@ -153,7 +153,7 @@ export const DEFAULT_CONFIG: ArenaGameConfig = {
   starters: 5,
   bench: 1,
   auctionTimerSeconds: 10,
-  auctionTimerResetSeconds: 5,
+  auctionTimerResetSeconds: 10,
   bidIncrement: 1,
   difficulty: "medium",
   aiPersonality: "balanced",

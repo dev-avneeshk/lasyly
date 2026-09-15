@@ -4,7 +4,13 @@ import { useRef } from "react"
 import { cn } from "@/lib/utils"
 import type { RankingType } from "@/lib/rankings/types"
 
-const CATEGORIES: Array<{ type: RankingType | "teams"; label: string; description: string }> = [
+export interface RankingCategory {
+  type: RankingType | "teams"
+  label: string
+  description: string
+}
+
+export const NBA_CATEGORIES: RankingCategory[] = [
   { type: "overall",     label: "Overall",     description: "Best players across all dimensions" },
   { type: "offense",     label: "Offense",     description: "OBPM, efficiency, volume, usage" },
   { type: "defense",     label: "Defense",     description: "DBPM, position-normalized defensive impact" },
@@ -16,12 +22,23 @@ const CATEGORIES: Array<{ type: RankingType | "teams"; label: string; descriptio
   { type: "teams",       label: "🏀 Teams",    description: "Team power rankings" },
 ]
 
+/** NFL boards mirror the nfl_player_rankings ranking_type set, plus team power. */
+export const NFL_CATEGORIES: RankingCategory[] = [
+  { type: "overall",     label: "Overall",     description: "Best players across all positions" },
+  { type: "offense",     label: "Offense",     description: "Blended offensive production & efficiency" },
+  { type: "scoring",     label: "Yardage",     description: "Yardage / production volume" },
+  { type: "playmaking",  label: "Touchdowns",  description: "Touchdowns & big plays" },
+  { type: "defense",     label: "Defense",     description: "Tackles, sacks, interceptions" },
+  { type: "teams",       label: "🏈 Teams",    description: "Team power rankings" },
+]
+
 interface CategoryTabsProps {
   active: RankingType | "teams"
   onChange: (type: RankingType | "teams") => void
+  categories?: RankingCategory[]
 }
 
-export function CategoryTabs({ active, onChange }: CategoryTabsProps) {
+export function CategoryTabs({ active, onChange, categories = NBA_CATEGORIES }: CategoryTabsProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   return (
@@ -30,7 +47,7 @@ export function CategoryTabs({ active, onChange }: CategoryTabsProps) {
       className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide"
       role="tablist"
     >
-      {CATEGORIES.map(({ type, label, description }) => {
+      {categories.map(({ type, label, description }) => {
         const isActive = active === type
         return (
           <button

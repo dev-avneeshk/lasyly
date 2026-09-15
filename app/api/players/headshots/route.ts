@@ -101,7 +101,14 @@ async function handleGET(request: Request) {
 
   try {
     const headshots = await resolveHeadshots(names, sportKey)
-    return NextResponse.json({ success: true, headshots })
+    // Attach the cache header so the browser and CDN can reuse this response.
+    // The constant was defined but never applied, so every request was
+    // effectively uncacheable — the client had to use `no-store`. With the
+    // header in place the client can `force-cache` and skip repeat round trips.
+    return NextResponse.json(
+      { success: true, headshots },
+      { headers: { "Cache-Control": HEADSHOT_RESPONSE_CACHE } }
+    )
   } catch (error) {
     console.error("Batch headshot error:", error instanceof Error ? error.message : error)
     return NextResponse.json({ success: false, headshots: {} }, { status: 500 })

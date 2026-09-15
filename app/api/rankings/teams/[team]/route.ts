@@ -14,6 +14,22 @@ export async function GET(
   { params }: { params: Promise<{ team: string }> }
 ): Promise<NextResponse> {
   const { team } = await params
+  const sport = (request.nextUrl.searchParams.get("sport") ?? "NBA").toUpperCase()
+
+  // ─── NFL branch ─────────────────────────────────────────────────────────────
+  if (sport === "NFL") {
+    const nflSeason = request.nextUrl.searchParams.get("season") ?? String(new Date().getUTCFullYear())
+    const nfl = await cached(
+      `rankings:nfl:team:${team}:${nflSeason}`,
+      () => getNflTeamDetail(team, nflSeason),
+      CACHE_TTL_MS
+    )
+    if (!nfl) return NextResponse.json({ error: "Team not found" }, { status: 404 })
+    return NextResponse.json(nfl, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    })
+  }
+
   const season = request.nextUrl.searchParams.get("season") ?? "2026-27"
 
   const cacheKey = `rankings:team:${team}:${season}`
@@ -114,4 +130,69 @@ export async function GET(
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
     },
   })
+}
+
+// ─── NFL team detail ──────────────────────────────────────────────────────────
+
+async function getNflTeamDetail(team: string, season: string) {
+  const supabase = createAdminClient()
+  const abbr = team.toUpperCase()
+
+  const { data: teamRow, error } = await supabase
+    .from("nfl_team_rankings")
+    .select("*")
+    .eq("team", abbr)
+    .eq("season", season)
+    .eq("ranking_type", "power")
+    .order("rank", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !teamRow) return null
+
+  // Roster = the team's players from the overall board.
+  const { data: playerRows } = await supabase
+    .from("nfl_player_rankings")
+    .select("player_name, rank, score, tier, position, offense_score, defense_score")
+    .eq("season", season)
+    .eq("ranking_type", "overall")
+    .eq("team", abbr)
+    .order("rank", { ascending: true })
+
+  const roster = (playerRows ?? []).map((r: any) => ({
+    player_name: r.player_name,
+    rank: r.rank,
+    score: Number(r.score),
+    tier: r.tier,
+    position: r.position,
+    offense_score: r.offense_score != null ? Number(r.offense_score) : null,
+    defense_score: r.defense_score != null ? Number(r.defense_score) : null,
+  }))
+
+  const t = teamRow as any
+  return {
+    sport: "NFL",
+    team: t.team,
+    team_full_name: t.team_full_name,
+    season: t.season,
+    rank: t.rank,
+    power_score: Number(t.power_score),
+    tier: t.tier,
+    offensive_score: t.offensive_score != null ? Number(t.offensive_score) : null,
+    defensive_score: t.defensive_score != null ? Number(t.defensive_score) : null,
+    depth_score: t.depth_score != null ? Number(t.depth_score) : null,
+    star_power_score: t.star_power_score != null ? Number(t.star_power_score) : null,
+    net_score: t.net_score != null ? Number(t.net_score) : null,
+    previous_rank: t.previous_rank,
+    rank_change: t.rank_change,
+    projected_wins: t.projected_wins,
+    projected_win_pct: null,
+    returning_core_pct: null,
+    key_additions: [],
+    key_losses: [],
+    explanation: t.explanation,
+    why_ranked_here: t.why_ranked_here,
+    roster,
+    ranking_history: [],
+  }
 }

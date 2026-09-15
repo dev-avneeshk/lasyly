@@ -4,7 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2, Shield, ChevronDown } from "lucide-react"
+import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2, Shield, ChevronDown, Brain } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -28,6 +28,7 @@ const navItems: NavEntry[] = [
       { icon: Shield, label: "NFL Auction", href: "/nfl", comingSoon: false },
     ],
   },
+  { icon: Brain, label: "Quiz", href: "/quiz", comingSoon: false },
   { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: false },
   { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: false },
   { icon: Store, label: "Tipsters", href: "/marketplace", comingSoon: false },

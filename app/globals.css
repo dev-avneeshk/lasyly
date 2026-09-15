@@ -48,6 +48,15 @@
     cursor: pointer !important;
   }
 
+  /* The cookie notice is server-rendered so that, when shown, it paints with the
+     first contentful paint rather than after hydration (it used to be the LCP
+     element at ~9s on mobile). For visitors who already chose, the pre-paint
+     script in app/layout.tsx sets `.consent-given` on <html> before first paint
+     and this rule hides the banner with no flash. See components/CookieConsent.tsx. */
+  .consent-given #cookie-consent {
+    display: none;
+  }
+
   /* Hide scrollbars globally */
   * {
     -ms-overflow-style: none;

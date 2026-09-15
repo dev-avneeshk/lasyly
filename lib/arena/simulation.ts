@@ -581,12 +581,16 @@ const REB_SLOT_BIAS: Record<RosterSlot, number> = {
 function reboundWeight(sp: SimPlayer, offensive: boolean): number {
   const a = A(sp.owned.player)
   // Exponent concentrates boards on real rebounders without monopolizing them.
-  const ability = Math.pow(Math.max(1, a.rebounding) / 100, 1.55)
+  // A larger additive floor guarantees every player keeps a non-trivial share of
+  // the glass, so a lone elite rebounder on a weak-rebounding roster can't vacuum
+  // up 35+ boards in a single game (a variance tail that grows with the full,
+  // more uneven league pool).
+  const ability = Math.pow(Math.max(1, a.rebounding) / 100, 1.5)
   const bias = REB_SLOT_BIAS[sp.owned.slot] ?? 1
   // Offensive boards skew harder to bigs crashing the glass.
   const orebTilt = offensive ? Math.pow(bias, 1.5) : bias
   const height = 0.75 + (a.strength / 100) * 0.25
-  return ability * orebTilt * height * (0.55 + (sp.stamina / 100) * 0.45) + 0.05
+  return ability * orebTilt * height * (0.55 + (sp.stamina / 100) * 0.45) + 0.16
 }
 
 // ─── Full game ─────────────────────────────────────────────────────────────

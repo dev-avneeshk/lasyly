@@ -404,7 +404,7 @@ export function computePlayerBreakdown(
   const overallComponents = candidateComponents.filter((c) => c.used > 0)
 
   // weightedAverage() renormalizes the surviving weights to sum to 1.
-  let historical_overall_score = overallComponents.length > 0
+  const historical_overall_score = overallComponents.length > 0
     ? clampScore(weightedAverage(overallComponents))
     : 50
 

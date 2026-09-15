@@ -31,6 +31,8 @@ import { buildTeamProfile, type NflTeamProfile } from "./teamRating"
 import { mulberry32, type RNG } from "./rng"
 
 const QUARTERS = 4
+/** NFL quarter length in seconds (15:00) — used to synthesize a game clock. */
+const QUARTER_SECONDS = 15 * 60
 
 /**
  * A real NFL game has roughly 11 possessions per team (~22 total drives). We
@@ -469,8 +471,17 @@ export function simulateGame(
 
   // Run a realistic, fixed number of drives, split evenly across the four
   // quarters so the line score reads naturally.
+  const drivesPerQuarter = TOTAL_DRIVES / QUARTERS
   for (let d = 0; d < TOTAL_DRIVES; d++) {
     const quarter = Math.min(QUARTERS, Math.floor((d / TOTAL_DRIVES) * QUARTERS) + 1)
+    // Synthesize a descending game clock. The game is drive-modeled, not
+    // clock-modeled, so we place each drive's scoring play at the point in the
+    // 15:00 quarter proportional to how far into that quarter's drives we are.
+    // This gives the live sim a realistic countdown (≈15:00 → 0:00 per quarter)
+    // without changing the underlying drive-count model.
+    const driveInQuarter = d - (quarter - 1) * drivesPerQuarter
+    const quarterProgress = Math.min(1, (driveInQuarter + 1) / drivesPerQuarter)
+    const clockSeconds = Math.max(0, Math.round(QUARTER_SECONDS * (1 - quarterProgress)))
     const off = possession
     const def = off === p1 ? p2 : p1
     const outcome = runDrive(off, def, rng)
@@ -485,7 +496,7 @@ export function simulateGame(
       else quarters[qIdx].p2 += outcome.points
       scoringPlays.push({
         quarter,
-        clock: 0,
+        clock: clockSeconds,
         team: off.team,
         kind: outcome.kind,
         yards: outcome.yards,
@@ -500,7 +511,9 @@ export function simulateGame(
     possession = def
   }
 
-  // Overtime: one drive each until a leader emerges.
+  // Overtime: one drive each until a leader emerges. OT is a 10:00 period;
+  // synthesize a descending clock so the live sim reads naturally in OT too.
+  const OT_SECONDS = 10 * 60
   let otGuard = 0
   while (p1.score === p2.score && otGuard++ < 6) {
     for (const off of [p1, p2]) {
@@ -511,7 +524,7 @@ export function simulateGame(
         off.box.points += outcome.points
         scoringPlays.push({
           quarter: 5,
-          clock: 0,
+          clock: Math.max(0, Math.round(OT_SECONDS * (1 - Math.min(1, otGuard / 6)))),
           team: off.team,
           kind: outcome.kind,
           yards: outcome.yards,

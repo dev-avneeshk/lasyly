@@ -60,6 +60,10 @@ export function useArenaGame() {
     stateRef.current = state
   }, [state])
 
+  // Wall-clock timestamp the tab went hidden, used to extend the lot deadline
+  // by the exact hidden duration when the player returns.
+  const hiddenSince = useRef<number | null>(null)
+
   // Track results length to detect a new award for the "SOLD" animation.
   const resultsSeen = useRef(0)
   const soldTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -105,12 +109,44 @@ export function useArenaGame() {
   )
 
   // ── Countdown timer ────────────────────────────────────────────────────
+  // The local vs-CPU game runs entirely client-side, so this tab is the ONLY
+  // clock authority. Browsers throttle/pause background-tab timers, but
+  // `lotDeadline` is wall-clock (Date.now()) and keeps elapsing regardless.
+  // Without intervention, switching away and back would let the deadline blow
+  // past while you weren't watching — the CPU could "win" a lot you never got
+  // to bid on. To keep the promise that you always see your full timer, we
+  // PAUSE the auction while the tab is hidden and push `lotDeadline` forward by
+  // however long it was hidden when you return.
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") {
+        hiddenSince.current = Date.now()
+        return
+      }
+      if (hiddenSince.current == null) return
+      const hiddenMs = Date.now() - hiddenSince.current
+      hiddenSince.current = null
+      const s = stateRef.current
+      // Only extend an in-flight auction lot; nothing to shift otherwise.
+      if (hiddenMs <= 0 || !s || s.status !== "auction" || !s.lotDeadline) return
+      const next = clone(s)
+      next.lotDeadline = (next.lotDeadline ?? Date.now()) + hiddenMs
+      commit(next)
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => document.removeEventListener("visibilitychange", onVisibility)
+  }, [commit])
+
   useEffect(() => {
     if (!state || state.status !== "auction" || !state.lotDeadline) {
       setTimeLeft(0)
       return
     }
     const id = setInterval(() => {
+      // Never advance or resolve while the tab is hidden — the CPU shouldn't act
+      // against a lot you can't see, and the deadline is extended on return.
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
       const s = stateRef.current
       if (!s || !s.lotDeadline) return
       const left = Math.max(0, s.lotDeadline - Date.now())
@@ -141,6 +177,10 @@ export function useArenaGame() {
     // React a touch faster when it's an uncontested open, slower in a war.
     const delay = 650 + Math.random() * 850
     const id = setTimeout(() => {
+      // Don't let the CPU bid while the human has the tab backgrounded — the
+      // clock is paused for them, so acting now would be bidding into a lot
+      // they can't see. It'll act on the next tick once they're back.
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
       const s = stateRef.current
       if (!s || s.status !== "auction" || !s.lot) return
       if (s.lot.highBidder === aiSeat) return

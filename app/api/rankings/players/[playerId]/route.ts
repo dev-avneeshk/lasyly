@@ -22,6 +22,24 @@ export async function GET(
 ): Promise<NextResponse> {
   const { playerId } = await params
   const decodedId = decodeURIComponent(playerId)
+  const sport = (request.nextUrl.searchParams.get("sport") ?? "NBA").toUpperCase()
+
+  // ─── NFL branch ─────────────────────────────────────────────────────────────
+  if (sport === "NFL") {
+    const nflSeason = request.nextUrl.searchParams.get("season") ?? String(new Date().getUTCFullYear())
+    const nflResult = await cached(
+      `rankings:nfl:player:${decodedId}:${nflSeason}`,
+      () => getNflPlayerDetail(decodedId, nflSeason),
+      CACHE_TTL_MS
+    )
+    if (!nflResult) {
+      return NextResponse.json({ error: "Player not found" }, { status: 404 })
+    }
+    return NextResponse.json(nflResult, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    })
+  }
+
   const season = request.nextUrl.searchParams.get("season") ?? "2026-27"
 
   const cacheKey = `rankings:player:v2:${decodedId}:${season}`
@@ -144,4 +162,109 @@ export async function GET(
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
     },
   })
+}
+
+// ─── NFL player detail ────────────────────────────────────────────────────────
+
+/**
+ * Build the player-detail payload for NFL from nfl_player_rankings. Mirrors the
+ * NBA shape so the shared detail page renders both. Box-score stats + game log
+ * are loaded client-side from the NFL stats-reference endpoint.
+ */
+async function getNflPlayerDetail(decodedId: string, season: string) {
+  const supabase = createAdminClient()
+
+  // decodedId is either an ESPN athlete_id (stored in athlete_id) or a name.
+  const looksNumeric = /^\d+$/.test(decodedId)
+
+  const base = supabase
+    .from("nfl_player_rankings")
+    .select("*")
+    .eq("season", season)
+    .order("rank", { ascending: true })
+
+  const { data: rows, error } = looksNumeric
+    ? await base.eq("athlete_id", decodedId)
+    : await base.eq("player_name", decodedId)
+
+  if (error) throw new Error(error.message)
+  if (!rows || rows.length === 0) return null
+
+  const rankingsByType: Record<string, any> = {}
+  for (const row of rows as any[]) {
+    rankingsByType[row.ranking_type] = {
+      rank: row.rank,
+      score: Number(row.score),
+      tier: row.tier,
+      previous_rank: row.previous_rank,
+      rank_change: row.rank_change,
+    }
+  }
+
+  const overall = (rows as any[]).find((r) => r.ranking_type === "overall") ?? rows[0]
+
+  // Resolve a headshot the same way the props engine does: look up espn_players
+  // by name, preferring the stored URL and falling back to the ESPN id pattern.
+  // The page also refreshes this live via the by-name headshot endpoint.
+  let headshotUrl: string | null = null
+  {
+    const { data: espnRow } = await supabase
+      .from("espn_players")
+      .select("espn_id, headshot_url")
+      .eq("name", overall.player_name)
+      .maybeSingle()
+    const row = espnRow as any
+    if (row) {
+      headshotUrl =
+        row.headshot_url ||
+        (row.espn_id ? `https://a.espncdn.com/i/headshots/nfl/players/full/${row.espn_id}.png` : null)
+    } else if (overall.athlete_id) {
+      headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${overall.athlete_id}.png`
+    }
+  }
+
+  return {
+    sport: "NFL",
+    player_name: overall.player_name,
+    player_id: overall.athlete_id ?? null,
+    position: overall.position,
+    age: null,
+    height: null,
+    weight: null,
+    birth_date: null,
+    headshot_url: headshotUrl,
+    season,
+    team: overall.team,
+    historical_team: null,
+    projected_team: overall.team,
+    overall_rank: rankingsByType["overall"]?.rank ?? null,
+    overall_score: rankingsByType["overall"]?.score ?? null,
+    tier: rankingsByType["overall"]?.tier ?? overall.tier,
+    previous_rank: overall.previous_rank,
+    rank_change: overall.rank_change,
+    is_new: overall.is_new,
+    low_confidence: overall.low_confidence,
+    confidence: overall.confidence != null ? Number(overall.confidence) * 100 : null,
+    games_played: overall.games_played,
+    minutes_per_game: null,
+    offense_score: overall.offense_score != null ? Number(overall.offense_score) : null,
+    defense_score: overall.defense_score != null ? Number(overall.defense_score) : null,
+    scoring_score: overall.scoring_score != null ? Number(overall.scoring_score) : null,
+    playmaking_score: overall.playmaking_score != null ? Number(overall.playmaking_score) : null,
+    // NFL has no rebounding; surface efficiency in the shooting slot (matches
+    // the list-board mapping so the radar is consistent).
+    rebounding_score: null,
+    shooting_score: overall.efficiency_score != null ? Number(overall.efficiency_score) : null,
+    two_way_score: overall.two_way_score != null ? Number(overall.two_way_score) : null,
+    availability_score: overall.availability_score != null ? Number(overall.availability_score) : null,
+    rankings_by_type: rankingsByType,
+    explanation: overall.explanation,
+    strengths: overall.strengths,
+    weaknesses: overall.weaknesses,
+    outlook: null,
+    signature: overall.signature,
+    player_class: null,
+    ranking_history: [],
+    team_history: [],
+  }
 }

@@ -395,3 +395,68 @@ that vanished under diverse-archetype, multi-seed evaluation. See
 `CHAMPION_CHALLENGER_REPORT.md`. v6's interpretable weights appear to sit at (or
 near) a local optimum for the current game; the system correctly declined to
 manufacture an improvement.
+
+---
+
+# Richer policy: opponent modeling & auction timing
+
+Because v6 sits at a local optimum for its 12 coefficients, the next step was to
+*expand the state/action space* rather than shake the same weights harder. The
+policy now has **17 learnable parameters**, adding human-like reasoning:
+
+- `rival_demand_weight` — "does a rival also want this player?"
+- `rival_desperation_weight` — "how badly do they need this slot, and how few
+  alternatives do they have?"
+- `snipe_weight` — "nobody else can take this lot → buy it cheap"
+- `opportunity_cost_weight` — "spending now costs me later needs"
+- `auction_stage_weight` — early vs late auction aggression
+
+The opponent features come from **open information** (rosters, budgets, queue) —
+cheap to compute, safe for Vercel. All five default to **0 = no-op**, so v6 is
+reproduced exactly (verified: 480 walk-away decisions, 0 mismatches), and they're
+mirrored bit-for-bit in `lib/arena/ai.ts` / `policy.ts`. Behavioral scenario F
+proves the features fire and are direction-controllable (a negative
+`rival_demand_weight` makes the CPU actively avoid bidding wars).
+
+**Result (honest):** across three seeds and a directed single-dimension probe,
+the expanded search did **not** beat v6 on real games — some directions tied,
+two hurt (−0.12). This 1v1 open-information auction already bounds competition via
+the budget-reserve rules and prices it implicitly via the lookahead planner, so
+explicit opponent modeling adds believable behavior but no win-rate gain here. It
+would matter more in multi-team or hidden-information auctions. Nothing was
+promoted; v6 remains champion. Details in `EXPANDED_POLICY_REPORT.md`.
+
+---
+
+# Hierarchical bidding strategy (timing, not valuation)
+
+Because expanding *valuation* features didn't beat v6, the next experiment
+changed *what* is learned: a **strategy head** that decides **how** to bid toward
+the (fixed) valuation ceiling — escalation size, waiting, early-passing, and
+reacting to an opponent's escalation.
+
+- Valuation (`walk_away_price`) is **frozen** at v6; the search runs
+  `--strategy-only` (strategy first, valuation second).
+- Four interpretable, deterministic strategy params — `jump_bid_frac`,
+  `hold_threshold`, `early_pass_margin`, `response_aggression` — all **no-op at
+  neutral** (verified: 0/240 decisions differ from v6, identical rosters), and
+  mirrored bit-for-bit in `lib/arena/ai.ts`.
+- Bounded against collapse (a waiting policy can't strand its roster; jumps fall
+  back to legal raises), judged by the same paired-CRN real-game evaluator.
+
+Run it:
+
+```bash
+python -m auction_ai.training.challenger --strategy-only \
+    --candidates 24 --proxy-scenarios 16 --gt-scenarios 3 \
+    --ladder 150 400 --seed 7 --budgets 25
+```
+
+**Result (honest):** no timing strategy beat v6. A directed probe showed the
+aggressive knobs (`jump`, `response`) are **outcome-neutral** (Δ = 0.000 — they
+reach the same player, just differently) and the passive knobs (`early_pass`,
+conceding) are **worse** (−0.08 to −0.20). This is structural: in a **1v1,
+ascending, open-information** auction the winner is set by *valuation*, not
+timing — there's no third party to bluff and no hidden information. Timing pays
+off in multi-party, sealed-bid, or hidden-budget formats. Details in
+`STRATEGY_POLICY_REPORT.md`. v6 remains champion; nothing shipped.

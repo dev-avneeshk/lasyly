@@ -35,11 +35,12 @@ function getTeamLogoUrl(team: string, sport: string): string | null {
 
 interface PlayerSearchProps {
   sport: string
+  initialQuery?: string
 }
 
-export function PlayerSearch({ sport }: PlayerSearchProps) {
+export function PlayerSearch({ sport, initialQuery = "" }: PlayerSearchProps) {
   const router = useRouter()
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<PlayerResult[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)

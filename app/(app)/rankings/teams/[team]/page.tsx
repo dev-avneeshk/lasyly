@@ -16,7 +16,8 @@ export default function TeamRankingPage({ params, searchParams }: any) {
   const resolvedParams = use(params) as any
   const resolvedSearchParams = use(searchParams) as any
   const team = resolvedParams.team
-  const season = resolvedSearchParams.season ?? "2026-27"
+  const sport = (resolvedSearchParams.sport ?? "NBA").toUpperCase()
+  const season = resolvedSearchParams.season ?? (sport === "NFL" ? String(new Date().getUTCFullYear()) : "2026-27")
 
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -24,7 +25,7 @@ export default function TeamRankingPage({ params, searchParams }: any) {
   useEffect(() => {
     async function fetchTeam() {
       try {
-        const res = await fetch(`/api/rankings/teams/${team}?season=${season}`)
+        const res = await fetch(`/api/rankings/teams/${team}?sport=${sport}&season=${season}`)
         if (!res.ok) {
           if (res.status === 404) notFound()
           throw new Error("Failed to load team")
@@ -38,18 +39,18 @@ export default function TeamRankingPage({ params, searchParams }: any) {
       }
     }
     fetchTeam()
-  }, [team, season])
+  }, [team, season, sport])
 
   if (loading) return <PlayerDetailSkeleton />
   if (!data) return notFound()
 
-  const logoUrl = getTeamLogoUrl(data.team, "nba")
+  const logoUrl = getTeamLogoUrl(data.team, sport)
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 pb-20 space-y-6">
       {/* ── Back Navigation ────────────────────────────────────────────────── */}
       <Link
-        href={`/rankings?season=${season}`}
+        href={sport === "NFL" ? `/rankings?sport=NFL` : `/rankings?season=${season}`}
         className="inline-flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-lime)] transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -204,7 +205,11 @@ export default function TeamRankingPage({ params, searchParams }: any) {
           {data.roster?.map((player: any, idx: number) => (
             <div
               key={player.player_name}
-              onClick={() => router.push(`/rankings/players/${encodeURIComponent(player.player_name)}?season=${season}`)}
+              onClick={() => router.push(
+                sport === "NFL"
+                  ? `/rankings/players/${encodeURIComponent(player.player_name)}?sport=NFL&season=${season}`
+                  : `/rankings/players/${encodeURIComponent(player.player_name)}?season=${season}`
+              )}
               className="px-4 py-3 md:px-6 md:py-4 flex items-center gap-4 hover:bg-white/5 transition-colors cursor-pointer group"
             >
               <div className="w-6 text-right font-bold text-[var(--color-text-muted)] group-hover:text-white transition-colors">

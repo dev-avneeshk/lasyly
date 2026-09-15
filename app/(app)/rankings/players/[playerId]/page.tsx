@@ -15,6 +15,7 @@ import {
   fmt, fmtPct, fmtDecPct,
 } from "@/components/rankings/PlayerDetailParts"
 import { getTeamLogoUrl, getNbaTeamFullName } from "@/lib/constants/teams"
+import NflPlayerDetail from "@/components/rankings/NflPlayerDetail"
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -51,12 +52,27 @@ const TABS: { id: Tab; label: string }[] = [
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
+/**
+ * Route entry. Dispatches to the sport-specific detail component so each one
+ * owns its hooks (no conditional-hook hazard). NBA keeps the full page below;
+ * NFL renders the dedicated NflPlayerDetail.
+ */
 export default function PlayerRankingPage({ params, searchParams }: any) {
   const resolvedParams = use(params) as any
   const resolvedSearchParams = use(searchParams) as any
-  const playerId = resolvedParams.playerId
-  const season = resolvedSearchParams.season ?? "2026-27"
+  const playerId = resolvedParams.playerId as string
+  const sport = (resolvedSearchParams.sport ?? "NBA").toUpperCase()
 
+  if (sport === "NFL") {
+    const nflSeason = resolvedSearchParams.season ?? String(new Date().getUTCFullYear())
+    return <NflPlayerDetail playerId={playerId} season={nflSeason} />
+  }
+
+  const season = resolvedSearchParams.season ?? "2026-27"
+  return <NbaPlayerRankingPage playerId={playerId} season={season} />
+}
+
+function NbaPlayerRankingPage({ playerId, season }: { playerId: string; season: string }) {
   const [data, setData] = useState<any>(null)
   const [stats, setStats] = useState<StatsRef>(null)
   const [headshot, setHeadshot] = useState<string | null>(null)

@@ -17,6 +17,8 @@ import {
   type Season,
   type NflPlayer,
   type TeamId,
+  type Position,
+  POSITIONS,
 } from "./types"
 import { getSeasonPlayers } from "./data"
 import { emptyRoster, isRosterComplete, canAddPlayer, ownsPlayer, placePlayer, bestSlotFor } from "./roster"
@@ -50,17 +52,58 @@ export function otherTeam(t: TeamId): TeamId {
 }
 
 /**
- * Total lots put up for auction. Both players need 9 (18 total); we show a few
- * extra so there's genuine competition and choice, but cap it so the auction
- * doesn't drag through the entire pool.
+ * Total lots put up for auction. Both players need 9 (18 total). The pool is now
+ * the full league (see lib/nfl/data), so this cap samples a random slice each
+ * game — high enough for real choice and full positional coverage, low enough
+ * that the auction doesn't drag through hundreds of role players.
  */
-export const MAX_LOTS = 24
+export const MAX_LOTS = 40
+
+/**
+ * Minimum eligible players per position the board must contain so BOTH teams can
+ * always field a legal 9-man roster. WR needs 4 (two WR slots per team); every
+ * other position needs 2 (one per team). Without this the tier-based cap could
+ * produce a board with, say, zero QBs, making the roster impossible to fill.
+ */
+const MIN_PER_POSITION: Record<Position, number> = {
+  QB: 2, RB: 2, WR: 4, TE: 2, EDGE: 2, LB: 2, CB: 2, S: 2,
+}
+
+/**
+ * Guarantee the capped board has enough eligible players at every position.
+ * Where coverage is short, swap in a player from the leftover pool, dropping the
+ * most redundant board member (one at a position that still has surplus).
+ */
+function ensurePositionalCoverage(selected: NflPlayer[], pool: NflPlayer[]): NflPlayer[] {
+  const out = [...selected]
+  const inBoard = new Set(out.map((p) => p.id))
+  const leftovers = pool.filter((p) => !inBoard.has(p.id))
+  const countFor = (pos: Position, list: NflPlayer[]) => list.filter((p) => p.position === pos).length
+
+  for (const pos of POSITIONS) {
+    while (countFor(pos, out) < MIN_PER_POSITION[pos]) {
+      const candidateIdx = leftovers.findIndex((p) => p.position === pos)
+      if (candidateIdx === -1) break // pool genuinely has nobody left for this slot
+      // Drop the most redundant board member: a position still above its minimum.
+      let dropIdx = -1
+      for (let i = out.length - 1; i >= 0; i--) {
+        const p = out[i]
+        if (p.position === pos) continue
+        if (countFor(p.position, out) > MIN_PER_POSITION[p.position]) { dropIdx = i; break }
+      }
+      const [candidate] = leftovers.splice(candidateIdx, 1)
+      if (dropIdx >= 0) out.splice(dropIdx, 1, candidate)
+      else out.push(candidate)
+    }
+  }
+  return out
+}
 
 /**
  * Build the auction order. For small budgets (≤$25) the biggest stars come
  * LAST so the "can you still afford a stud?" drama survives the cap. Larger
  * budgets interleave tiers for a lively, unpredictable flow. Shuffled within
- * tiers for variety.
+ * tiers for variety. Positional coverage is enforced either way.
  */
 export function buildAuctionOrder(rng: RNG, pool: NflPlayer[], budget = 25): string[] {
   const byTier: Record<number, NflPlayer[]> = { 1: [], 2: [], 3: [], 4: [] }
@@ -73,7 +116,10 @@ export function buildAuctionOrder(rng: RNG, pool: NflPlayer[], budget = 25): str
     const starCount = Math.min(6, byTier[1].length)
     const stars = byTier[1].slice(0, starCount)
     const restQuota = cap - stars.length
-    const front = [...byTier[4], ...byTier[3], ...byTier[2]].slice(0, restQuota)
+    // Random sample of the non-star tiers, then guarantee coverage on that block
+    // so the "stars last" finale is preserved (stars stay pinned to the back).
+    const nonStars = shuffle(rng, [...byTier[4], ...byTier[3], ...byTier[2]])
+    const front = ensurePositionalCoverage(nonStars.slice(0, restQuota), nonStars)
     return [...front, ...stars].map((p) => p.id)
   }
 
@@ -86,7 +132,7 @@ export function buildAuctionOrder(rng: RNG, pool: NflPlayer[], budget = 25): str
     idx++
     if (idx % 4 === 0 && rng() < 0.4) idx++
   }
-  return order.slice(0, cap).map((p) => p.id)
+  return ensurePositionalCoverage(order.slice(0, cap), pool).map((p) => p.id)
 }
 
 export function createGame(opts: {

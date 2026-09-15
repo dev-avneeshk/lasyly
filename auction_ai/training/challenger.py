@@ -196,6 +196,7 @@ def run_experiment(
     mutation: Optional[MutationMix] = None,
     promote: bool = False,
     budgets: Optional[List[int]] = None,
+    strategy_only: bool = False,
 ) -> dict:
     """Run one controlled champion/challenger experiment and return a report.
 
@@ -226,7 +227,7 @@ def run_experiment(
     # ── Generate the neighborhood population around the champion ──
     population: List[Policy] = []
     for i in range(candidates):
-        c = mutate_around(champion, mutation, rng)
+        c = mutate_around(champion, mutation, rng, strategy_only=strategy_only)
         c.version = champion.version  # provenance: child of champion
         population.append(c)
 
@@ -374,6 +375,8 @@ def main() -> None:
     ap.add_argument("--promote", action="store_true", help="allow promotion of a verified candidate")
     ap.add_argument("--budgets", type=int, nargs="+", default=None,
                     help="restrict league budgets (e.g. 25 50) to keep the experiment tractable")
+    ap.add_argument("--strategy-only", action="store_true",
+                    help="freeze valuation weights; explore only the strategy/timing head (strategy-first)")
     args = ap.parse_args()
 
     mix = MutationMix(small_frac=args.small_frac, medium_frac=args.medium_frac)
@@ -382,6 +385,7 @@ def main() -> None:
         gt_scenarios=args.gt_scenarios, proxy_keep=args.proxy_keep, ladder=args.ladder,
         min_margin=args.min_margin, seed=args.seed, workers=args.workers,
         mutation=mix, promote=args.promote, budgets=args.budgets,
+        strategy_only=args.strategy_only,
     )
 
     print("\n" + "=" * 66)

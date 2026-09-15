@@ -82,11 +82,13 @@ export function otherTeam(t: TeamId): TeamId {
  * within tiers for variety.
  */
 /**
- * Total lots put up for auction. Both players need 6, so 12 minimum; we show a
- * few extra so there's genuine competition and choice, but cap it so the
- * auction doesn't drag through the entire 38-player pool.
+ * Total lots put up for auction. Both players need 6, so 12 minimum; we show
+ * plenty extra so there's genuine competition and variety. The pool is now the
+ * full ~580-player league (see lib/arena/data), so this cap samples a random
+ * slice each game rather than showing everyone — high enough for real choice,
+ * low enough that the auction doesn't drag through hundreds of role players.
  */
-export const MAX_LOTS = 26
+export const MAX_LOTS = 40
 
 /**
  * Minimum eligible players per position the board must contain: one for each of
@@ -164,7 +166,7 @@ export function buildAuctionOrder(rng: RNG, pool: SeasonPlayer[], budget = 25): 
     // Pick a RANDOM subset of the tier-1 stars for the finale (byTier[1] is
     // already shuffled above), rather than always the same slice, so the star
     // lineup genuinely varies between games.
-    const starCount = Math.min(4, byTier[1].length)
+    const starCount = Math.min(5, byTier[1].length)
     const stars = byTier[1].slice(0, starCount)
     const restQuota = cap - stars.length
     // Fill the front from a SHUFFLED mix of the lower tiers so the non-star

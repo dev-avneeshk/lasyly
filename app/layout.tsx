@@ -5,16 +5,23 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import "@/lib/env"; // Validate environment variables at startup
 import CookieConsent from "@/components/CookieConsent";
-import { JsonLd } from "@/components/seo/JsonLd";
 import ThemeProvider from "@/components/ThemeProvider";
+import { InlineScript } from "@/components/InlineScript";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
+  // Playfair renders the large `font-serif` headings that are the LCP element on
+  // the marketing / auth / explore routes, so this is the one family worth
+  // preloading — the swap-in of a heavy display face was a visible late paint.
+  // Italic was dropped: the only serif-italic usage in the app is a single
+  // blockquote on the rankings player detail page (a deep, non-critical route),
+  // and shipping a whole extra italic font file site-wide to serve it isn't
+  // worth the bytes. The browser synthesizes an acceptable oblique there.
   weight: ["400", "700"],
-  style: ["normal", "italic"],
+  style: ["normal"],
   variable: "--font-playfair",
   display: "swap",
-  preload: false,     // display:swap means it won't block render — no need to preload
+  preload: true,
 });
 
 const libreBaskerville = Libre_Baskerville({
@@ -138,116 +145,43 @@ export default function RootLayout({
             pages that use raw img tags (social feed avatars, etc.) */}
         <link rel="dns-prefetch" href="https://a.espncdn.com" />
         <link rel="dns-prefetch" href="https://s.espncdn.com" />
+        {/* Pre-paint consent check. Must stay a blocking inline script in <head>:
+            the cookie notice is server-rendered (so that when it DOES show it
+            paints with FCP instead of after hydration — it was previously the
+            LCP element at ~9s on mobile), which means returning visitors would
+            see it flash before React could hide it. Setting this class before
+            first paint hides it with no flash. Paired with the
+            `.consent-given #cookie-consent` rule in globals.css. Kept tiny and
+            wrapped in try/catch because localStorage throws in some
+            partitioned/private contexts. */}
+        <InlineScript
+          html={`try{if(localStorage.getItem('lasyly_cookie_consent'))document.documentElement.classList.add('consent-given')}catch(e){}`}
+        />
         {/* Browser extensions (Bitdefender TrafficLight, Grammarly, etc.) inject
             attributes into the server HTML before React hydrates, causing
-            spurious hydration-mismatch warnings. We strip ONLY the purely
-            cosmetic marker attributes that trigger the warning
-            (`bis_skin_checked`, Grammarly's install flags). We deliberately do
-            NOT touch the extension's stateful bookkeeping attributes
-            (`bis_register`, `__processed_*`) — the extension reads those back,
-            and removing them made its own scripts crash. React's
-            `suppressHydrationWarning` on <html>/<body> covers the rest.
-            Dev-quality-of-life only; a no-op when no extension is present. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var SAFE=['bis_skin_checked','data-gr-ext-installed','data-new-gr-c-s-check-loaded','data-new-gr-c-s-loaded'];function clean(el){if(!el||!el.removeAttribute)return;for(var i=0;i<SAFE.length;i++){if(el.hasAttribute&&el.hasAttribute(SAFE[i]))el.removeAttribute(SAFE[i]);}}function sweep(){clean(document.documentElement);if(document.body){clean(document.body);var all=document.body.getElementsByTagName('*');for(var i=0;i<all.length;i++)clean(all[i]);}}var mo=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var m=muts[i];if(m.type==='attributes'&&m.target&&SAFE.indexOf(m.attributeName)!==-1){try{m.target.removeAttribute(m.attributeName);}catch(e){}}}});function start(){sweep();try{mo.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:SAFE});}catch(e){}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);}else{start();}}catch(e){}})();`,
-          }}
-        />
+            spurious hydration-mismatch WARNINGS in the console. We strip ONLY
+            the purely cosmetic marker attributes that trigger the warning
+            (`bis_skin_checked`, Grammarly's install flags).
+
+            This is a DEV-ONLY quality-of-life fix. In production it shipped a
+            blocking inline script plus an always-on MutationObserver that ran on
+            every page before hydration — pure overhead for a console warning
+            nobody sees in prod. `suppressHydrationWarning` on <html>/<body>
+            already prevents these attributes from breaking hydration itself, so
+            production needs nothing here. */}
+        {process.env.NODE_ENV === "development" && (
+          <InlineScript
+            html={`(function(){try{var SAFE=['bis_skin_checked','data-gr-ext-installed','data-new-gr-c-s-check-loaded','data-new-gr-c-s-loaded'];function clean(el){if(!el||!el.removeAttribute)return;for(var i=0;i<SAFE.length;i++){if(el.hasAttribute&&el.hasAttribute(SAFE[i]))el.removeAttribute(SAFE[i]);}}function sweep(){clean(document.documentElement);if(document.body){clean(document.body);var all=document.body.getElementsByTagName('*');for(var i=0;i<all.length;i++)clean(all[i]);}}var mo=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var m=muts[i];if(m.type==='attributes'&&m.target&&SAFE.indexOf(m.attributeName)!==-1){try{m.target.removeAttribute(m.attributeName);}catch(e){}}}});function start(){sweep();try{mo.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:SAFE});}catch(e){}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);}else{start();}}catch(e){}})();`}
+          />
+        )}
       </head>
       <body suppressHydrationWarning className="min-h-full h-full bg-[var(--color-background)] text-[var(--color-text-primary)]">
+        {/* Site-wide Organization/WebSite/ItemList JSON-LD was moved out of the
+            root layout into <SiteStructuredData /> and is now rendered only on
+            the home surfaces (marketing landing + /explore). It was adding
+            identical structured-data bytes to every route's HTML for no SEO
+            benefit off the entry pages. */}
         <ThemeProvider>
-        <JsonLd data={{
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          "name": "Lasyly",
-          "url": process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
-          "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/lasyly_logo.png`,
-          "description": "Lasyly is a sports analytics and community platform offering player prop analytics, live scores, community rooms, sports news, and a pick marketplace.",
-          "sameAs": [
-            "https://instagram.com/dev.avneeshk",
-          ],
-          "knowsAbout": [
-            "sports analytics",
-            "player prop analytics",
-            "NBA props",
-            "sports community",
-            "live sports scores",
-            "pick marketplace",
-            "pick tracking",
-          ],
-        }} />
-        <JsonLd data={{
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          "name": "Lasyly",
-          "url": process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
-          "description": "Real-time social platform for sports fans. Prop analytics, live scores, community rooms, and a pick marketplace.",
-          "potentialAction": {
-            "@type": "SearchAction",
-            "target": {
-              "@type": "EntryPoint",
-              "urlTemplate": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/analysis?search={search_term_string}`,
-            },
-            "query-input": "required name=search_term_string",
-          },
-        }} />
-        <JsonLd data={{
-          "@context": "https://schema.org",
-          "@type": "ItemList",
-          "name": "Lasyly — Key Pages",
-          "itemListElement": [
-            {
-              "@type": "SiteLinksSearchBox",
-              "target": {
-                "@type": "EntryPoint",
-                "urlTemplate": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/analysis?search={search_term_string}`,
-              },
-              "query-input": "required name=search_term_string",
-            },
-            {
-              "@type": "ListItem",
-              "position": 1,
-              "name": "Prop Analytics",
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/analysis`,
-              "description": "Deep player prop analytics with hit rates, matchup grades, and trends.",
-            },
-            {
-              "@type": "ListItem",
-              "position": 2,
-              "name": "Live Scores",
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/scores`,
-              "description": "Real-time live scores across NBA, NFL, MLB, and more.",
-            },
-            {
-              "@type": "ListItem",
-              "position": 3,
-              "name": "Betting Rooms",
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/rooms`,
-              "description": "Join live betting rooms and share picks with the community.",
-            },
-            {
-              "@type": "ListItem",
-              "position": 4,
-              "name": "Sports News",
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/news`,
-              "description": "Curated sports news and injury updates that matter for bettors.",
-            },
-            {
-              "@type": "ListItem",
-              "position": 5,
-              "name": "Sign Up",
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/signup`,
-              "description": "Create a free Lasyly account and start tracking your props.",
-            },
-            {
-              "@type": "ListItem",
-              "position": 6,
-              "name": "Login",
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/login`,
-              "description": "Log in to your Lasyly account.",
-            },
-          ],
-        }} />
         {children}
         <CookieConsent />
         </ThemeProvider>

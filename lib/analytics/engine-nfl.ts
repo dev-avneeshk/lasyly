@@ -427,9 +427,18 @@ async function enrichWithMatchup(props: NFLPropCard[], stat: string): Promise<vo
 // ─── Today's Games ────────────────────────────────────────────────────────────
 
 /**
- * Fetch the upcoming NFL slate: games with status scheduled/in_progress whose
- * date falls within [today, today + UPCOMING_WINDOW_DAYS]. Returns team
- * abbreviations, which match nfl_player_stats.team directly.
+ * Fetch the NFL slate props should be generated for. This is TWO sets unioned:
+ *
+ *  1. Upcoming games: status scheduled/in_progress in (today, today + window].
+ *  2. TODAY's games regardless of status — including a game that just finished
+ *     (status "completed"). NFL is once-a-week and games are often standalone
+ *     (a single Monday/Thursday night game). If we only ever showed scheduled
+ *     games, the props page would go empty the moment the day's game kicked off
+ *     and stay empty all day, even though the game strip still shows it. Props
+ *     are built from each team's PRIOR-game history, so a completed game today
+ *     still has everything needed to surface props for its two teams.
+ *
+ * Returns team abbreviations, which match nfl_player_stats.team directly.
  */
 async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
   const supabase = createAdminClient()
@@ -438,12 +447,15 @@ async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
   end.setUTCDate(end.getUTCDate() + UPCOMING_WINDOW_DAYS)
   const endStr = end.toISOString().split("T")[0]
 
+  // Upcoming scheduled/in-progress games across the week window, PLUS every game
+  // dated today (any status). A single query with an OR keeps this one round
+  // trip: (status in scheduled/in_progress AND date in window) OR (date = today).
   const { data, error } = await supabase
     .from("nfl_games")
     .select("home_abbr, away_abbr, game_date, status")
     .gte("game_date", today)
     .lte("game_date", endStr)
-    .in("status", ["scheduled", "in_progress"])
+    .or(`status.in.(scheduled,in_progress),game_date.eq.${today}`)
     .order("game_date", { ascending: true })
     .limit(40)
 
@@ -458,7 +470,9 @@ async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
       homeTeam: row.home_abbr,
       awayTeam: row.away_abbr,
       gameDate: row.game_date,
-      status: row.status === "in_progress" ? "live" : "scheduled",
+      // A completed game today is surfaced as "live" so the UI treats it as
+      // part of today's slate rather than a future fixture.
+      status: row.status === "scheduled" ? "scheduled" : "live",
     }))
 }
 

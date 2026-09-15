@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   // undefined). Defining it explicitly gives the runtime the shape it expects.
   experimental: {
     instantInsights: { validationLevel: "warning" },
+    // Tree-shake barrel imports so only the modules actually used ship to the
+    // client. Next optimizes lucide-react / date-fns / recharts by default in
+    // this version (see node_modules/next/dist/docs/.../optimizePackageImports.md),
+    // so only framer-motion — used on the arena/rankings/nfl routes — needs to
+    // be listed explicitly. This trims the first-load JS on those routes.
+    optimizePackageImports: ["framer-motion"],
     // When proxy.ts is present, Next.js buffers a clone of every request body in
     // memory so it can be read both in proxy and in the route handler. The
     // default ceiling is 10MB per request, and the app's own limit
@@ -31,6 +37,11 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 86400, // 24h — was 1h, improves CDN cache hit rate significantly
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.nba.com",
+        pathname: "/headshots/**",
+      },
       {
         protocol: "https",
         hostname: "a.espncdn.com",

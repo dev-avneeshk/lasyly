@@ -21,9 +21,10 @@ import { cachedFetch, readCache } from "@/lib/clientCache"
 
 type AnalysisClientProps = {
   isAuthenticated: boolean
+  initialSearch?: string
 }
 
-export default function AnalysisClient({ isAuthenticated }: AnalysisClientProps) {
+export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: AnalysisClientProps) {
   const supabase = useMemo(() => createClient(), [])
 
   // ─── Core state (initialize from cache to avoid skeleton flash) ─────────────
@@ -695,7 +696,7 @@ export default function AnalysisClient({ isAuthenticated }: AnalysisClientProps)
         </div>
 
         {/* Search */}
-        <PlayerSearch sport={sport} />
+        <PlayerSearch sport={sport} initialQuery={initialSearch} />
 
         {/* NBA Advanced Filters */}
         {sport === "NBA" && (

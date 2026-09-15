@@ -7,10 +7,26 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import type { TeamRankingListResponse } from "@/lib/rankings/types"
+import { getNflTeamRankings, currentNflSeason } from "@/lib/rankings/nfl/read"
 
 const CACHE_TTL_MS = 300_000
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const sport = (request.nextUrl.searchParams.get("sport") ?? "NBA").toUpperCase()
+
+  // ─── NFL branch ─────────────────────────────────────────────────────────────
+  if (sport === "NFL") {
+    const nflSeason = request.nextUrl.searchParams.get("season") ?? currentNflSeason()
+    const nflResult = await cached<TeamRankingListResponse>(
+      `rankings:nfl:teams:${nflSeason}`,
+      () => getNflTeamRankings(nflSeason),
+      CACHE_TTL_MS
+    )
+    return NextResponse.json(nflResult, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    })
+  }
+
   const season = request.nextUrl.searchParams.get("season") ?? "2026-27"
   const mode = (request.nextUrl.searchParams.get("mode") ?? "projected") as "historical" | "projected"
   const publishedOnly = request.nextUrl.searchParams.get("published") !== "false"

@@ -71,3 +71,201 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
 
   return load()
 }
+
+// ─── Explore above-the-fold snapshots ───────────────────────────────────────
+//
+// The leaderboard sidebar and the community feed are the largest above-the-fold
+// elements on /explore, and they used to render as empty skeletons in the SSR
+// HTML and only populate after the client hydrated and fetched
+// /api/leaderboard + /api/feed/posts. That made the LCP element appear a full
+// round-trip after hydration. Pre-rendering both on the server puts real
+// content in the first HTML response.
+//
+// Both go through unstable_cache for the same reason as the scores/news
+// snapshots above: the underlying reads touch the no-store Upstash layer, which
+// would otherwise de-opt the force-static /explore route to per-request
+// rendering. The client components still poll/refresh after hydration, so
+// freshness is unchanged; only the initial paint improves.
+
+import { createAdminClient } from "@/lib/supabase/admin"
+
+const LEADERBOARD_SNAPSHOT_REVALIDATE = 300
+const FEED_SNAPSHOT_REVALIDATE = 30
+
+export type LeaderboardSnapshotEntry = {
+  user_id: string
+  username: string
+  display_name: string
+  avatar_url: string | null
+  win_rate: number
+  total_picks: number
+}
+
+/**
+ * Top-5 win-rate leaderboard for the explore sidebar. Mirrors the aggregation
+ * in /api/leaderboard but returns only the five fields MiniLeaderboard renders.
+ */
+export async function getLeaderboardSnapshot(): Promise<LeaderboardSnapshotEntry[]> {
+  const load = unstable_cache(
+    async () => {
+      const supabase = createAdminClient()
+
+      const { data: parlays, error } = await supabase
+        .from("parlays")
+        .select("user_id, status")
+        .in("status", ["won", "lost", "pending"])
+
+      if (error || !parlays || parlays.length === 0) return []
+
+      const userStats = new Map<string, { total: number; won: number; totalPicks: number }>()
+      for (const parlay of parlays) {
+        if (!parlay.user_id) continue
+        const s = userStats.get(parlay.user_id) || { total: 0, won: 0, totalPicks: 0 }
+        s.totalPicks += 1
+        if (parlay.status === "won" || parlay.status === "lost") {
+          s.total += 1
+          if (parlay.status === "won") s.won += 1
+        }
+        userStats.set(parlay.user_id, s)
+      }
+
+      const qualified = Array.from(userStats.entries())
+        .filter(([, s]) => s.total >= 10)
+        .map(([userId]) => userId)
+
+      if (qualified.length === 0) return []
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in("id", qualified)
+
+      if (!profiles) return []
+
+      return profiles
+        .map((p) => {
+          const s = userStats.get(p.id)!
+          return {
+            user_id: p.id,
+            username: p.username,
+            display_name: p.display_name,
+            avatar_url: p.avatar_url,
+            win_rate: s.total > 0 ? Math.round((s.won / s.total) * 1000) / 10 : 0,
+            total_picks: s.totalPicks,
+          }
+        })
+        .sort((a, b) => b.win_rate - a.win_rate)
+        .slice(0, 5)
+    },
+    ["isr-leaderboard-snapshot"],
+    { revalidate: LEADERBOARD_SNAPSHOT_REVALIDATE, tags: ["leaderboard-snapshot"] }
+  )
+
+  return load()
+}
+
+const FEED_SNAPSHOT_PAGE_SIZE = 10
+
+export type FeedSnapshotPost = {
+  id: string
+  user_id: string
+  content: string | null
+  image_url: string | null
+  parlay_id: string | null
+  like_count: number
+  comment_count: number
+  created_at: string
+  profile: {
+    id: string
+    username: string
+    display_name: string
+    avatar_url: string | null
+  } | null
+  parlay: {
+    id: string
+    status: string
+    odds: number | null
+    created_at: string
+    legs: Array<{
+      id: string
+      player_name: string
+      stat_category: string
+      prop_line: number
+      direction: string
+      l10_hit_rate: number | null
+    }>
+  } | null
+  liked_by_me: boolean
+}
+
+export type FeedSnapshot = {
+  posts: FeedSnapshotPost[]
+  hasMore: boolean
+  nextCursor: string | null
+}
+
+/**
+ * First page of the community feed for the explore SSR shell. Deliberately
+ * omits per-user "liked_by_me" state (always false here) so the read stays
+ * user-agnostic and the page remains static/CDN-cacheable — the client
+ * refreshes with real like state after hydration.
+ */
+export async function getFeedSnapshot(): Promise<FeedSnapshot> {
+  const load = unstable_cache(
+    async (): Promise<FeedSnapshot> => {
+      const supabase = createAdminClient()
+
+      const { data: posts, error } = await supabase
+        .from("posts")
+        .select("id, user_id, content, image_url, parlay_id, like_count, comment_count, created_at")
+        .order("created_at", { ascending: false })
+        .limit(FEED_SNAPSHOT_PAGE_SIZE + 1)
+
+      if (error || !posts || posts.length === 0) {
+        return { posts: [], hasMore: false, nextCursor: null }
+      }
+
+      const hasMore = posts.length > FEED_SNAPSHOT_PAGE_SIZE
+      const results = hasMore ? posts.slice(0, FEED_SNAPSHOT_PAGE_SIZE) : posts
+
+      const userIds = [...new Set(results.map((p) => p.user_id))]
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in("id", userIds)
+      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
+
+      const parlayIds = results.filter((p) => p.parlay_id).map((p) => p.parlay_id!)
+      const parlayMap = new Map<string, FeedSnapshotPost["parlay"]>()
+      if (parlayIds.length > 0) {
+        const { data: parlays } = await supabase
+          .from("parlays")
+          .select(`
+            id, status, odds, created_at,
+            legs:parlay_legs(id, player_name, stat_category, prop_line, direction, l10_hit_rate)
+          `)
+          .in("id", parlayIds)
+        for (const p of parlays ?? []) {
+          parlayMap.set(p.id, p as unknown as FeedSnapshotPost["parlay"])
+        }
+      }
+
+      const enriched: FeedSnapshotPost[] = results.map((post) => ({
+        ...post,
+        profile: profileMap.get(post.user_id) ?? null,
+        parlay: post.parlay_id ? parlayMap.get(post.parlay_id) ?? null : null,
+        liked_by_me: false,
+      }))
+
+      return {
+        posts: enriched,
+        hasMore,
+        nextCursor: hasMore ? results[results.length - 1].created_at : null,
+      }
+    },
+    ["isr-feed-snapshot"],
+    { revalidate: FEED_SNAPSHOT_REVALIDATE, tags: ["feed-snapshot"] }
+  )
+
+  return load()
+}

@@ -135,7 +135,7 @@ async function computeH2H(
 // ─── Splits view ────────────────────────────────────────────────────────────────
 
 async function computeSplits(supabase: any, player: string, season: number | null, perGame: boolean) {
-  let q = supabase
+  const q = supabase
     .from("nfl_player_stats")
     .select(
       "player_name, position, game_date, " +

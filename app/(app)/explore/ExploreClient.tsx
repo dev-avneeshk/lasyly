@@ -7,6 +7,7 @@ import Image from "next/image"
 import dynamic from "next/dynamic"
 import type { LiveMatch } from "@/types"
 import type { NewsItem } from "@/types/news"
+import type { LeaderboardSnapshotEntry, FeedSnapshot } from "@/lib/data/isr-snapshots"
 import { formatMatchTime, formatRelative } from "@/lib/datetime"
 
 const MatchDetailModal = dynamic(() => import("@/components/scores/MatchDetailModal"), { ssr: false })
@@ -29,9 +30,11 @@ const SPORT_OPTIONS = [
 type ExploreClientProps = {
   initialScores: LiveMatch[]
   initialArticle: NewsItem | null
+  initialLeaders: LeaderboardSnapshotEntry[]
+  initialFeed: FeedSnapshot
 }
 
-export default function ExploreClient({ initialScores, initialArticle }: ExploreClientProps) {
+export default function ExploreClient({ initialScores, initialArticle, initialLeaders, initialFeed }: ExploreClientProps) {
   const scoresRef = useRef<HTMLDivElement>(null)
   const [scores, setScores] = useState<LiveMatch[]>(initialScores)
   const [scoresLoading, setScoresLoading] = useState(false)
@@ -39,6 +42,9 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
   const [dateFilter, setDateFilter] = useState<DateFilter>("today")
   const [sportFilter, setSportFilter] = useState<SportFilter>("all")
   const [showSportDropdown, setShowSportDropdown] = useState(false)
+  // Scraped news image URLs rot (ESPN removes photos), and a broken <Image>
+  // leaves a dead box in the Top Story card. Track the failure and drop it.
+  const [topStoryImageFailed, setTopStoryImageFailed] = useState(false)
 
   // Track whether we're still using the SSR data (date=today, sport=all).
   const usingInitial = dateFilter === "today" && sportFilter === "all"
@@ -177,11 +183,15 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
                   onClick={() => setSelectedMatch(match)}
                   className="min-w-[220px] flex-shrink-0 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 cursor-pointer transition-colors hover:border-[var(--color-lime)]/30"
                 >
+                  {/* Same timezone-driven server/client text mismatch as the
+                      featured card: keep the time on one line and let the league
+                      absorb the slack, so a longer server-rendered timestamp
+                      cannot reflow the row at hydration. */}
                   <div className="flex justify-between text-[11px] text-[var(--color-text-muted)] mb-2">
-                    <span suppressHydrationWarning>
+                    <span className="whitespace-nowrap shrink-0" suppressHydrationWarning>
                       {isFinished ? "FT" : match.startTime ? formatMatchTime(match.startTime) : (match.clock || "Scheduled")}
                     </span>
-                    <span className="truncate ml-2">{match.league}</span>
+                    <span className="truncate ml-2 min-w-0">{match.league}</span>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-[13px]">
@@ -231,7 +241,7 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
       <section className="px-6 md:px-10 pb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Social Feed — 2/3 width */}
         <div className="lg:col-span-2">
-          <SocialFeed />
+          <SocialFeed initialFeed={initialFeed} />
         </div>
 
         {/* Sidebar: Top Story + Mini Leaderboard — 1/3 width */}
@@ -240,14 +250,22 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
           {initialArticle && (
             <Link href="/news" className="block group">
               <div className="rounded-2xl overflow-hidden relative bg-[#222] min-h-[220px] flex flex-col justify-end transition-shadow group-hover:ring-2 group-hover:ring-[var(--color-lime)]/30">
-                {initialArticle.image && (
+                {/* `priority` was removed deliberately. The grid is single-column
+                    on mobile, so this sidebar card sits BELOW the fold there —
+                    `priority` emitted a <link rel=preload> for a large
+                    off-screen image that competed with above-the-fold requests
+                    on exactly the viewport where LCP was worst. It also is not
+                    the LCP element on desktop. `onError` hides the image when a
+                    scraped news URL has rotted (these 404 regularly), so a dead
+                    image no longer leaves an empty priority slot. */}
+                {initialArticle.image && !topStoryImageFailed && (
                   <Image
                     src={initialArticle.image}
                     alt={initialArticle.title || ""}
                     fill
                     sizes="(max-width: 1024px) 100vw, 33vw"
                     className="object-cover"
-                    priority
+                    onError={() => setTopStoryImageFailed(true)}
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/90" />
@@ -267,7 +285,7 @@ export default function ExploreClient({ initialScores, initialArticle }: Explore
           )}
 
           {/* Mini Leaderboard */}
-          <MiniLeaderboard />
+          <MiniLeaderboard initialLeaders={initialLeaders} />
         </div>
       </section>
 
@@ -297,7 +315,17 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
           <h3 className="text-xl md:text-2xl font-extrabold tracking-wide mb-1">
             {hotMatch.homeTeam} vs {hotMatch.awayTeam}
           </h3>
-          <p className="text-xs text-[var(--color-text-muted)] mb-1" suppressHydrationWarning>
+          {/* `truncate` (nowrap + ellipsis) is load-bearing, not cosmetic.
+              formatMatchTime resolves in the VIEWER's timezone, so the server
+              renders a different string than the client — e.g. "3 Oct, 12:30 am"
+              on a UTC server vs "7:00 pm" locally. The longer server string
+              wrapped onto a second line and then collapsed to one line at
+              hydration, shrinking this block by ~16px and pulling the whole feed
+              section up with it. That reflow was the measured 0.121 CLS on
+              /explore (confirmed in the Lighthouse trace: siblings moved up 16px
+              while text boxes narrowed 314px -> 308px). Pinning this to a single
+              line makes the height independent of the string length. */}
+          <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate" suppressHydrationWarning>
             {hotMatch.league} · {hotMatch.status === "Not Started" ? (hotMatch.startTime ? formatMatchTime(hotMatch.startTime) : "Upcoming") : `${hotMatch.homeScore} - ${hotMatch.awayScore}`}
           </p>
           {hotMatch.venue && (
@@ -328,20 +356,22 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
 }
 
 /** Mini Leaderboard — compact top 5 bettors */
-function MiniLeaderboard() {
-  type LeaderEntry = {
-    user_id: string
-    username: string
-    display_name: string
-    avatar_url: string | null
-    win_rate: number
-    total_picks: number
-  }
+function MiniLeaderboard({ initialLeaders }: { initialLeaders: LeaderboardSnapshotEntry[] }) {
+  type LeaderEntry = LeaderboardSnapshotEntry
 
-  const [leaders, setLeaders] = useState<LeaderEntry[]>([])
-  const [loading, setLoading] = useState(true)
+  // Seed from the server-rendered snapshot so the leaderboard is real content in
+  // the first HTML paint (LCP) rather than a skeleton.
+  const [leaders, setLeaders] = useState<LeaderEntry[]>(initialLeaders)
+  // Deliberately starts `false` even when the snapshot came back empty. The
+  // server runs the same aggregation as /api/leaderboard, so an empty snapshot
+  // is a real answer ("nobody has 10+ resolved picks yet"), not a pending one.
+  // Starting this `true` rendered five skeleton rows into the SSR HTML which
+  // then collapsed into the much shorter "No data yet" state once the client
+  // fetch resolved — that swap was the entire measured 0.121 CLS on /explore.
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (initialLeaders.length > 0) return
     let cancelled = false
     async function load() {
       try {
@@ -359,7 +389,7 @@ function MiniLeaderboard() {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [initialLeaders])
 
   return (
     <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
@@ -372,8 +402,10 @@ function MiniLeaderboard() {
         </Link>
       </div>
 
+      {/* min-h keeps the card a stable height across the empty / populated /
+          recovery-fetch states so a late fill-in cannot push the page around. */}
       {loading ? (
-        <div className="space-y-3">
+        <div className="space-y-3 min-h-[200px]">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 animate-pulse">
               <div className="w-5 h-5 rounded-full bg-white/10" />
@@ -383,9 +415,9 @@ function MiniLeaderboard() {
           ))}
         </div>
       ) : leaders.length === 0 ? (
-        <p className="text-xs text-[var(--color-text-muted)] text-center py-4">No data yet</p>
+        <p className="text-xs text-[var(--color-text-muted)] text-center py-4 min-h-[200px] flex items-center justify-center">No data yet</p>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 min-h-[200px]">
           {leaders.map((entry, i) => (
             <Link
               key={entry.user_id}
@@ -465,11 +497,15 @@ type FeedComment = {
 }
 
 /** Instagram-style social feed with infinite scroll */
-function SocialFeed() {
-  const [posts, setPosts] = useState<FeedPost[]>([])
-  const [loading, setLoading] = useState(true)
-  const [hasMore, setHasMore] = useState(false)
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
+function SocialFeed({ initialFeed }: { initialFeed: FeedSnapshot }) {
+  // Seed from the server-rendered first page so the feed is real content in the
+  // first paint (a primary LCP element) instead of three skeleton cards. The
+  // snapshot omits per-user like state; a background refresh after mount fills
+  // in `liked_by_me` for the signed-in user without changing perceived content.
+  const [posts, setPosts] = useState<FeedPost[]>(initialFeed.posts)
+  const [loading, setLoading] = useState(initialFeed.posts.length === 0)
+  const [hasMore, setHasMore] = useState(initialFeed.hasMore)
+  const [nextCursor, setNextCursor] = useState<string | null>(initialFeed.nextCursor)
   const [loadingMore, setLoadingMore] = useState(false)
   const observerRef = useRef<HTMLDivElement>(null)
 
@@ -484,10 +520,10 @@ function SocialFeed() {
   const [loadingParlays, setLoadingParlays] = useState(false)
   const [selectedParlay, setSelectedParlay] = useState<typeof userParlays[0] | null>(null)
 
-  const fetchPosts = useCallback(async (cursor?: string | null) => {
+  const fetchPosts = useCallback(async (cursor?: string | null, showSkeleton = true) => {
     const isLoadMore = !!cursor
     if (isLoadMore) setLoadingMore(true)
-    else setLoading(true)
+    else if (showSkeleton) setLoading(true)
 
     try {
       const params = new URLSearchParams()
@@ -512,7 +548,11 @@ function SocialFeed() {
   }, [])
 
   useEffect(() => {
-    fetchPosts()
+    // If the server already seeded the feed, refresh silently in the background
+    // (to pick up per-user like state and any newer posts) without flashing the
+    // skeleton over already-painted content.
+    fetchPosts(null, initialFeed.posts.length === 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPosts])
 
   // Infinite scroll observer
@@ -875,11 +915,17 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: string) => vo
         <p className="text-sm text-white/90 mb-3 whitespace-pre-wrap break-words">{post.content}</p>
       )}
 
-      {/* Image */}
+      {/* Image — the wrapper reserves a 16:9 box before the image loads. This
+          used to be a bare `w-full` <img> with `max-h-[400px]` and no intrinsic
+          dimensions, so every post image pushed the rest of the feed down as it
+          decoded. That was the measured source of the ~0.12 CLS on /explore
+          (Lighthouse blamed this feed section). `aspect-[16/9]` + an absolutely
+          positioned image keeps the space stable regardless of the real
+          dimensions of a user-supplied URL. */}
       {post.image_url && (
-        <div className="mb-3 rounded-lg overflow-hidden border border-white/5">
+        <div className="relative mb-3 w-full aspect-[16/9] max-h-[400px] rounded-lg overflow-hidden border border-white/5 bg-white/5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={post.image_url} alt="" className="w-full max-h-[400px] object-cover" loading="lazy" decoding="async" />
+          <img src={post.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
         </div>
       )}
 

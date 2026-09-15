@@ -17,7 +17,7 @@ import type {
 import type { ArenaState } from "./auction"
 import { canAddPlayer, openStarterSlots, eligiblePositions, isRosterComplete, openSlots } from "./roster"
 import { maxAffordable, remaining, MIN_BID } from "./budget"
-import { loadPolicy } from "./policy"
+import { loadPolicy, strategy as strategyParam } from "./policy"
 import { offenseScore, defenseScore, spacingScore, scarcityByPosition, scaledOpeningBid } from "./value"
 import { getSeasonPlayers } from "./data"
 
@@ -482,24 +482,60 @@ export function decideAI(state: ArenaState, team: TeamId): AIDecision {
   const cap = maxAffordable(state.config.budgetPerPlayer, state.rosters[team])
   const walkAway = walkAwayPrice(state, team)
 
-  // Opening an unclaimed lot: bid AT the opening price. Otherwise raise by the
-  // configured step.
   const openingClaim = state.lot.highBidder === null
-  let next = openingClaim ? state.lot.currentBid : state.lot.currentBid + step
+  const current = state.lot.currentBid
 
-  // If the configured increment overshoots either affordability or the CPU's
-  // walk-away value, fall back to the smallest legal raise before conceding.
-  // A $5 preset step must never make the CPU pass on a player it would happily
-  // buy for $1 more.
-  if (!openingClaim && (next > cap || next > walkAway)) {
-    next = state.lot.currentBid + 1
+  // ── STRATEGY head (mirrors auction_ai/ai/policy.py decide()). Every term is a
+  //    NO-OP at its neutral value (0), so v6 reproduces the original min-step
+  //    reactive bidding exactly. Deterministic (seeded hash) for TS/Py parity.
+
+  // response_aggression: adjust the EFFECTIVE ceiling by how hard the opponent
+  // is pushing this lot.
+  const resp = strategyParam("response_aggression")
+  let effWalk = walkAway
+  if (resp !== 0) {
+    const oppRaises = opponentRaisesOnLot(state, team)
+    if (oppRaises > 0) {
+      const adj = 1 + Math.max(-1, Math.min(1, resp)) * 0.15 * Math.min(1, oppRaises / 3)
+      effWalk = walkAway * adj
+    }
+  }
+
+  // early_pass_margin: shave the cutoff to concede marginal lots sooner.
+  const epm = Math.max(0, Math.min(1, strategyParam("early_pass_margin")))
+  const cutoff = effWalk * (1 - epm * 0.2)
+
+  // jump_bid_frac: jump beyond the minimum raise toward the ceiling.
+  const jbf = Math.max(0, Math.min(1, strategyParam("jump_bid_frac")))
+  const minNext = openingClaim ? current : current + step
+  let next = minNext
+  if (jbf > 0 && !openingClaim) {
+    const gap = Math.max(0, Math.round(cutoff) - current)
+    const jumpTo = current + step + Math.round(jbf * gap)
+    next = Math.max(minNext, jumpTo)
+  }
+
+  // Hard-rule fallbacks (identical to v6): fall back to the smallest legal raise.
+  if (!openingClaim && (next > cap || next > cutoff)) {
+    next = current + step
+    if (next > cap || next > cutoff) next = current + 1
   }
   if (next > cap) return { action: "pass" }
-  if (next > walkAway) return { action: "pass" }
+  if (next > cutoff) return { action: "pass" }
 
-  // Difficulty mistake: easier CPUs sometimes bail on a player they should win,
-  // but only when the price is genuinely marginal (near their walk-away). A CPU
-  // must not randomly fold a needed star that's still far below its value.
+  // hold_threshold: on a cheap opening claim with a future alternative, sometimes
+  // WAIT (pass this poll) rather than reveal interest early.
+  const hold = strategyParam("hold_threshold")
+  if (hold > 0 && openingClaim) {
+    const comfortable = walkAway > 0 && next <= walkAway * 0.8
+    const safeToWait = hasFutureAlternative(state, team)
+    if (comfortable && safeToWait) {
+      const roll = (hash(state.gameId + state.lot.player.id + team + "hold" + current) % 1000) / 1000
+      if (roll < Math.max(0, Math.min(0.6, hold))) return { action: "pass" }
+    }
+  }
+
+  // Difficulty mistake (fixed layer).
   const diff = difficultyProfile(state.config.difficulty)
   const marginal = next >= walkAway * 0.85
   if (
@@ -512,4 +548,31 @@ export function decideAI(state: ArenaState, team: TeamId): AIDecision {
   }
 
   return { action: "bid", amount: next }
+}
+
+/** How many times the opponent has raised the current lot (from bid history). */
+function opponentRaisesOnLot(state: ArenaState, team: TeamId): number {
+  if (!state.lot) return 0
+  const opp: TeamId = team === "P1" ? "P2" : "P1"
+  return state.history.filter(
+    (h) => h.playerId === state.lot!.player.id && h.bidder === opp
+  ).length
+}
+
+/** Is another eligible player still queued for a slot the current lot fills? */
+function hasFutureAlternative(state: ArenaState, team: TeamId): boolean {
+  if (!state.lot) return false
+  const player = state.lot.player
+  const roster = state.rosters[team]
+  const openStarters = openStarterSlots(roster)
+  const fills = eligiblePositions(player).filter((pos) => openStarters.includes(pos))
+  if (fills.length === 0) return true // bench/luxury lot — safe to wait
+  const pool = getSeasonPlayers(state.season)
+  const byId = new Map(pool.map((p) => [p.id, p] as const))
+  for (const pid of state.queue) {
+    if (pid === player.id) continue
+    const p = byId.get(pid)
+    if (p && eligiblePositions(p).some((pos) => fills.includes(pos as never))) return true
+  }
+  return false
 }

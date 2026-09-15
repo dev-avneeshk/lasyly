@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node server.mjs",
+    "redis:local": "node scripts/local-redis-http.mjs",
     "build": "next build --webpack",
     "start": "NODE_ENV=production node server.mjs",
     "lint": "eslint",

@@ -1,9 +1,40 @@
 import { gradeManager, scoreToGrade, estimatedPrice, type LetterGrade } from "@/lib/nfl/grades"
 import { emptyRoster, placePlayer } from "@/lib/nfl/roster"
-import { findPlayer } from "@/lib/nfl/data"
-import type { RosterState } from "@/lib/nfl/types"
+import { findPlayer, getSeasonPlayers } from "@/lib/nfl/data"
+import type { NflPlayer, Position, RosterState } from "@/lib/nfl/types"
 
 const SEASON = "2025"
+
+// Pick real players from the generated pool by position, so these tests stay
+// valid as the (stat-derived) pool changes rather than hardcoding slug ids.
+// One QB/RB/TE/EDGE/LB/CB/S + two WRs = a legal 9-man roster.
+const POOL = getSeasonPlayers(SEASON)
+function nthByPosition(pos: Position, n: number, best: boolean): NflPlayer {
+  const sorted = [...POOL]
+    .filter((p) => p.position === pos)
+    .sort((a, b) => (best ? b.overall - a.overall : a.overall - b.overall))
+  const p = sorted[n]
+  if (!p) throw new Error(`no ${pos} at index ${n} in pool`)
+  return p
+}
+function buildSquad(best: boolean): NflPlayer[] {
+  return [
+    nthByPosition("QB", 0, best),
+    nthByPosition("RB", 0, best),
+    nthByPosition("WR", 0, best),
+    nthByPosition("WR", 1, best),
+    nthByPosition("TE", 0, best),
+    nthByPosition("EDGE", 0, best),
+    nthByPosition("LB", 0, best),
+    nthByPosition("CB", 0, best),
+    nthByPosition("S", 0, best),
+  ]
+}
+
+const STRONG_PLAYERS = buildSquad(true)
+const WEAK_PLAYERS = buildSquad(false)
+const STRONG = STRONG_PLAYERS.map((p) => p.id)
+const WEAK = WEAK_PLAYERS.map((p) => p.id)
 
 /** Build a full 9-slot roster from ids at a fixed price each. */
 function rosterFrom(ids: string[], price = 3): RosterState {
@@ -15,16 +46,6 @@ function rosterFrom(ids: string[], price = 3): RosterState {
   }
   return roster
 }
-
-// A strong, legal 9-man roster (QB/RB/WR/WR/TE + EDGE/LB/CB/S).
-const STRONG = [
-  "patrick-mahomes", "christian-mccaffrey", "justin-jefferson", "ja-marr-chase", "travis-kelce",
-  "myles-garrett", "fred-warner", "patrick-surtain", "minkah-fitzpatrick",
-]
-const WEAK = [
-  "caleb-williams", "kyren-williams", "jaylen-waddle", "nico-collins", "dallas-goedert",
-  "will-anderson", "zaire-franklin", "devon-witherspoon", "budda-baker",
-]
 
 const ORDER: LetterGrade[] = ["F","D-","D","D+","C-","C","C+","B-","B","B+","A-","A","A+"]
 const rank = (g: LetterGrade) => ORDER.indexOf(g)
@@ -42,9 +63,9 @@ describe("NFL — scoreToGrade", () => {
 
 describe("NFL — estimatedPrice", () => {
   it("scales with league budget and stays >= 1", () => {
-    const mahomes = findPlayer(SEASON, "patrick-mahomes")!
-    const cheap = estimatedPrice(mahomes, 25, 9)
-    const rich = estimatedPrice(mahomes, 100, 9)
+    const topQb = nthByPosition("QB", 0, true)
+    const cheap = estimatedPrice(topQb, 25, 9)
+    const rich = estimatedPrice(topQb, 100, 9)
     expect(cheap).toBeGreaterThanOrEqual(1)
     expect(rich).toBeGreaterThan(cheap)
   })
@@ -87,10 +108,12 @@ describe("NFL — gradeManager", () => {
   it("flags a genuine overpay as the biggest overpay", () => {
     // Buy a low-tier defender at a star price → clear overpay.
     let roster = emptyRoster()
-    const cheapId = "budda-baker" // solid but not an elite auction target
+    // A low-rated safety bought at a star price → clear overpay.
+    const cheapPlayer = nthByPosition("S", 0, false)
+    const cheapId = cheapPlayer.id
     const rest = STRONG.filter((id) => findPlayer(SEASON, id)!.position !== "S")
     for (const id of rest) roster = placePlayer(roster, findPlayer(SEASON, id)!, 2)
-    roster = placePlayer(roster, findPlayer(SEASON, cheapId)!, 20) // massive overpay
+    roster = placePlayer(roster, cheapPlayer, 20) // massive overpay
 
     const g = gradeManager("P1", roster, 100, 9)
     expect(g.biggestOverpay).not.toBeNull()

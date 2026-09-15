@@ -1,0 +1,60 @@
+name: Generate NFL Rankings (Daily)
+
+# Recomputes NFL player rankings once per day from the freshly-scraped
+# nfl_player_stats box scores.
+#
+# Runs at 10:00 UTC — one hour after the 09:00 NFL scrape (scrape-nfl.yml), so
+# it always ranks off the latest game data.
+#
+# The pipeline is idempotent per ranking_version: it upserts into the fixed
+# in-season version (nfl-<season>-v1), so daily runs overwrite rather than
+# accumulate. Qualification thresholds ramp down early in the season inside the
+# engine (resolveMinGames), so the board is never empty in September.
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 10:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'NFL season year (e.g. 2026)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Compute without writing (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-nfl-rankings:
+    name: Regenerate NFL rankings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger NFL ranking pipeline
+        run: |
+          season_input="${{ github.event.inputs.season }}"
+          season_json=""
+          if [ -n "$season_input" ]; then
+            season_json="\"season\": \"$season_input\","
+          fi
+
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SITE_URL }}/api/jobs/generate-nfl-rankings" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              ${season_json}
+              \"dry_run\": ${{ github.event.inputs.dry_run || 'false' }}
+            }")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::NFL ranking generation returned status $http_code"
+            exit 1
+          fi

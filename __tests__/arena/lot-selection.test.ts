@@ -130,7 +130,10 @@ describe("lot selection — need-aware ordering", () => {
     const state = baseGame()
     state.config.budgetPerPlayer = 100
 
-    const curry = pool().find((player) => player.id === "stephen-curry")!
+    // Any elite (tier 1/2) player stands in for the "superstar that must never
+    // be fire-sold". We pick from the data rather than hardcoding a name so this
+    // stays valid as the (stat-derived) pool changes season to season.
+    const curry = pool().find((player) => player.tier <= 2)!
     const used = new Set<string>([curry.id])
 
     // Reproduce the reported state: P1 has five starters, one bench slot, and

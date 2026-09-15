@@ -332,6 +332,8 @@ def action_distribution(policy: Policy, season: str = "2025-26", games: int = 6)
     bids = 0
     decisions = 0
     players_won = 0
+    autofills = 0
+    won_total = 0
     for gseed in range(games):
         st = create_game(f"actmix-{gseed}", GameConfig(budget_per_player=25, bid_increment=1), seed=gseed + 1)
         open_next_lot(st)
@@ -356,10 +358,16 @@ def action_distribution(policy: Policy, season: str = "2025-26", games: int = 6)
             if not acted:
                 resolve_lot(st)
         players_won += sum(1 for o in st.rosters["P1"].slots.values() if o)
+        # A timing policy that WAITS too much strands its roster → $1 auto-fill
+        # scrubs. Track these as a strategy-specific collapse signal.
+        autofills += sum(1 for o in st.rosters["P1"].slots.values() if o and o.price <= 1)
+        won_total += sum(1 for o in st.rosters["P1"].slots.values() if o)
 
     bid_rate = bids / max(1, decisions)
-    # Collapse = pathological extremes (never bids or bids on literally everything).
-    collapsed = bid_rate < 0.02 or bid_rate > 0.98
+    autofill_rate = autofills / max(1, won_total)
+    # Collapse = pathological extremes: never/always bids, OR excessive waiting
+    # that strands the roster with cheap auto-fills (>25% of the roster).
+    collapsed = bid_rate < 0.02 or bid_rate > 0.98 or autofill_rate > 0.25
     return ActionMix(
         bid_rate=bid_rate,
         avg_bids_per_player=bids / max(1, players_won),

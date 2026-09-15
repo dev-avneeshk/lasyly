@@ -1,5 +1,11 @@
-import { getScoresSnapshot, getTopNewsSnapshot } from "@/lib/data/isr-snapshots"
+import {
+  getScoresSnapshot,
+  getTopNewsSnapshot,
+  getLeaderboardSnapshot,
+  getFeedSnapshot,
+} from "@/lib/data/isr-snapshots"
 import ExploreClient from "./ExploreClient"
+import { SiteStructuredData } from "@/components/seo/SiteStructuredData"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -42,13 +48,32 @@ export default async function ExplorePage() {
   // an unstable_cache boundary so the Redis-backed data layer's no-store fetch
   // doesn't force this page to render dynamically on every request. Live
   // updates arrive via ExploreClient's client-side polling after hydration.
-  const [scoresResult, newsResult] = await Promise.allSettled([
+  const [scoresResult, newsResult, leaderboardResult, feedResult] = await Promise.allSettled([
     getScoresSnapshot(),
     getTopNewsSnapshot(),
+    getLeaderboardSnapshot(),
+    getFeedSnapshot(),
   ])
 
   const initialScores = scoresResult.status === "fulfilled" ? scoresResult.value : []
   const initialArticle = newsResult.status === "fulfilled" ? newsResult.value : null
+  const initialLeaders = leaderboardResult.status === "fulfilled" ? leaderboardResult.value : []
+  const initialFeed =
+    feedResult.status === "fulfilled"
+      ? feedResult.value
+      : { posts: [], hasMore: false, nextCursor: null }
 
-  return <ExploreClient initialScores={initialScores} initialArticle={initialArticle} />
+  return (
+    <>
+      {/* /explore is the canonical home (/ rewrites here), so the site-wide
+          Organization/WebSite/ItemList structured data lives on this route. */}
+      <SiteStructuredData />
+      <ExploreClient
+        initialScores={initialScores}
+        initialArticle={initialArticle}
+        initialLeaders={initialLeaders}
+        initialFeed={initialFeed}
+      />
+    </>
+  )
 }

@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Tuple
 from ..simulation.auction_simulator import run_auction
 from ..training.scenarios import Scenario
 from .evaluator import evaluate_game
-from .policy import DEFAULT_WEIGHTS, WEIGHT_KEYS, Policy
+from .policy import DEFAULT_STRATEGY, DEFAULT_WEIGHTS, STRATEGY_KEYS, WEIGHT_KEYS, Policy
 
 # Sane bounds so mutation can't drive a weight to an absurd value that breaks the
 # (hard-constrained) auction math or produces degenerate strategies.
@@ -62,19 +62,42 @@ def _clamp_weights(w: Dict[str, float]) -> Dict[str, float]:
 
 _FROZEN = ("age_weight", "potential_weight")
 
+# Strategy-param bounds (mirror STRATEGY_BOUNDS in lib/arena/policy.ts).
+_STRATEGY_BOUNDS = {
+    "jump_bid_frac": (0.0, 1.0),
+    "hold_threshold": (0.0, 1.0),
+    "early_pass_margin": (0.0, 1.0),
+    "response_aggression": (-1.0, 1.0),
+}
 
-def mutate(parent: Policy, sigma: float, rng: random.Random) -> Policy:
-    """Gaussian perturbation of the parent's weights. `sigma` is the exploration
-    scale for this generation."""
+
+def _clamp_strategy(s: dict) -> dict:
+    out = {}
+    for k, v in s.items():
+        lo, hi = _STRATEGY_BOUNDS.get(k, (-1.0, 1.0))
+        out[k] = max(lo, min(hi, v))
+    return out
+
+
+def mutate(
+    parent: Policy, sigma: float, rng: random.Random, *, strategy_only: bool = False
+) -> Policy:
+    """Gaussian perturbation of the parent's parameters.
+
+    `strategy_only=True` freezes the VALUATION weights and perturbs only the
+    STRATEGY head (timing/escalation) — the strategy-first search the user asked
+    for: nail HOW to bid before touching HOW MUCH."""
     child = parent.clone()
     child.version = parent.version + 1
-    for k in WEIGHT_KEYS:
-        # Reserved (unused) weights stay pinned at their defaults so we don't
-        # waste search budget on parameters with no data behind them yet.
-        if k in _FROZEN:
-            continue
-        child.weights[k] = parent.weights[k] + rng.gauss(0.0, sigma)
-    child.weights = _clamp_weights(child.weights)
+    if not strategy_only:
+        for k in WEIGHT_KEYS:
+            if k in _FROZEN:
+                continue
+            child.weights[k] = parent.weights[k] + rng.gauss(0.0, sigma)
+        child.weights = _clamp_weights(child.weights)
+    for k in STRATEGY_KEYS:
+        child.strategy[k] = parent.strategy.get(k, DEFAULT_STRATEGY[k]) + rng.gauss(0.0, sigma)
+    child.strategy = _clamp_strategy(child.strategy)
     return child
 
 
@@ -99,11 +122,14 @@ class MutationMix:
         return self.large_sigma
 
 
-def mutate_around(champion: Policy, mix: MutationMix, rng: random.Random) -> Policy:
+def mutate_around(
+    champion: Policy, mix: MutationMix, rng: random.Random, *, strategy_only: bool = False
+) -> Policy:
     """One tiered mutation around the champion. Used by the champion/challenger
-    search to explore the LOCAL neighborhood of an already-strong policy."""
+    search to explore the LOCAL neighborhood of an already-strong policy.
+    `strategy_only` freezes valuation and explores only the strategy head."""
     sigma = mix.pick_sigma(rng)
-    return mutate(champion, sigma, rng)
+    return mutate(champion, sigma, rng, strategy_only=strategy_only)
 
 
 def mutate_pair(parent: Policy, sigma: float, rng: random.Random) -> tuple[Policy, Policy]:

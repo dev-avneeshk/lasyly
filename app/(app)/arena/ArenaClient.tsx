@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Users, ChevronRight, Bot } from "lucide-react"
 import { bidIncrementForBudget } from "@/lib/arena/types"
 import { Button } from "@/components/ui/button"
-import { ArenaMasthead } from "@/components/arena/ArenaMasthead"
 import { PlayerCard } from "@/components/arena/PlayerCard"
 import { BudgetPanel } from "@/components/arena/BudgetPanel"
 import { BidControls } from "@/components/arena/BidControls"
@@ -80,8 +79,7 @@ export default function ArenaClient() {
   const timeSec = Math.ceil(game.timeLeft / 1000)
   return (
     <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-40 md:px-6 md:pb-8">
-      <ArenaMasthead player={lot?.player} />
-      <div className="mt-5 grid items-start gap-4 lg:grid-cols-[minmax(0,0.83fr)_minmax(24rem,1.32fr)_minmax(0,0.83fr)] lg:gap-5">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.83fr)_minmax(24rem,1.32fr)_minmax(0,0.83fr)] lg:gap-5">
         <div className="order-2 lg:order-1 lg:pt-1">{game.budgets && <BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P1"} />}</div>
         <main className="order-1 flex min-w-0 flex-col items-center gap-3 lg:order-2">
           {lot && <AuctionHeader lotNumber={state.results.length + 1} totalLots={state.results.length + state.queue.length} timeSec={timeSec} maxSec={state.config.auctionTimerSeconds} currentBid={lot.currentBid} status={lot.highBidder === "P1" ? { text: "You lead. CPU is deciding.", tone: "good" } : lot.highBidder === "P2" ? { text: "CPU leads. Your move.", tone: "warn" } : { text: "Opening bid. Make an offer.", tone: "neutral" }} />}

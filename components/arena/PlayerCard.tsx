@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { motion } from "framer-motion"
 import type { SeasonPlayer } from "@/lib/arena/types"
 import { headshotUrl } from "@/lib/arena/data"
@@ -16,14 +17,17 @@ function Headshot({ player }: { player: SeasonPlayer }) {
   return (
     <div className="relative h-[8.75rem] w-[8.75rem] shrink-0 overflow-hidden rounded-[1.15rem] border border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(123,110,255,0.52),transparent_58%),linear-gradient(145deg,#202955,#0c1025)] sm:h-40 sm:w-40">
       {url && !failed ? (
-        // Plain img avoids configuring a remote pattern for NBA's CDN.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        // next/image optimizes + edge-caches NBA CDN headshots (AVIF/WebP,
+        // 24h minimumCacheTTL). `priority` because this is the focal card of
+        // the active lot — it should never lazy-load.
+        <Image
           src={url}
           alt={player.name}
-          loading="lazy"
+          fill
+          sizes="160px"
+          priority
           onError={() => setFailed(true)}
-          className="h-full w-full object-cover object-top [filter:contrast(1.06)_saturate(.92)]"
+          className="object-cover object-top [filter:contrast(1.06)_saturate(.92)]"
         />
       ) : (
         <span className="flex h-full w-full items-center justify-center text-3xl font-black tracking-tight text-white/60">
@@ -58,6 +62,7 @@ function StatBar({ label, value, tone }: { label: string; value: number; tone: s
 export function PlayerCard({ player }: { player: SeasonPlayer }) {
   const attributes = player.attributes
   const positions = [player.primaryPosition, ...player.secondaryPositions].join(" / ")
+  const strengths = player.strengths.slice(0, 3)
   const keyStats = [
     { label: "Scoring", value: attributes.scoring, tone: "#caff12" },
     { label: "3PT", value: attributes.threePointShooting, tone: "#24dbc4" },
@@ -84,10 +89,10 @@ export function PlayerCard({ player }: { player: SeasonPlayer }) {
             <span className="grid h-3 w-3 place-items-center rounded-full border border-[#d4ff00]/70 text-[7px]">+</span>
             {TIER_LABEL[player.tier]}
           </span>
-          <h2 className="mt-2 text-[1.65rem] font-black leading-[0.93] tracking-[-0.05em] text-[#f5f7ff] sm:text-3xl">{player.name}</h2>
+          <h2 className="mt-2 text-[1.4rem] font-black leading-[1.05] tracking-[-0.04em] text-[#f5f7ff] sm:text-[1.7rem]">{player.name}</h2>
           <p className="mt-1 text-[11px] font-medium text-[#adb8d2]">{positions} · {player.team}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {player.strengths.slice(0, 3).map((strength) => (
+            {strengths.map((strength) => (
               <span key={strength} className="rounded-full border border-[#7069dd]/70 bg-[#241e68]/60 px-2 py-0.5 text-[8px] font-medium text-[#d5d6ff]">{strength}</span>
             ))}
           </div>
@@ -111,7 +116,7 @@ export function PlayerCard({ player }: { player: SeasonPlayer }) {
           <section className="rounded-xl border border-[#15bfa8]/20 bg-[#0c202a]/50 p-3">
             <h3 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#24dfc5]">Strengths</h3>
             <ul className="mt-2 space-y-1 text-[9px] leading-3.5 text-[#c4cedc]">
-              {player.strengths.slice(0, 4).map((strength) => <li key={strength} className="flex gap-1.5"><span className="font-bold text-[#d4ff00]">+</span>{strength}</li>)}
+              {strengths.map((strength) => <li key={strength} className="flex gap-1.5"><span className="font-bold text-[#d4ff00]">+</span>{strength}</li>)}
             </ul>
           </section>
           <section className="rounded-xl border border-[#ef6363]/15 bg-[#24121e]/45 p-3">
