@@ -1,29 +1,46 @@
 // This file configures the initialization of Sentry on the client.
-// The added config here will be used whenever a users loads a page in their browser.
+// The added config here will be used whenever a user loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
+//
+// NOTE: this is the ONE and ONLY client-side Sentry init. Do not add a second
+// `Sentry.init()` in a `sentry.client.config.ts` (the older convention) — the
+// browser Replay integration throws "Multiple Sentry Session Replay instances
+// are not supported" when init runs twice, and that uncaught error crashes
+// React hydration, leaving every button's onClick unbound (login/guest appear
+// to do nothing). `@sentry/nextjs` loads this file, not sentry.client.config.ts.
 
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  dsn: "https://866d266038fcdf9fdd4e48fa809dd3dd@o4511434088710144.ingest.de.sentry.io/4511434113155152",
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // Only run in production so local dev isn't sending events / loading Replay.
+  enabled: process.env.NODE_ENV === "production",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-  // Enable logs to be sent to Sentry
+  // Performance monitoring — sample 10% of transactions in production.
+  tracesSampleRate: 0.1,
+
+  // Enable logs to be sent to Sentry.
   enableLogs: true,
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
-
-  // Define how likely Replay events are sampled when an error occurs.
+  // Session replay — 1% of sessions, 100% of sessions where an error occurs.
+  replaysSessionSampleRate: 0.01,
   replaysOnErrorSampleRate: 1.0,
 
-  // Enable sending user PII (Personally Identifiable Information)
+  integrations: [
+    Sentry.replayIntegration(),
+    Sentry.browserTracingIntegration(),
+  ],
+
+  // Filter out noisy, non-actionable errors.
+  ignoreErrors: [
+    "ResizeObserver loop",
+    "Non-Error promise rejection",
+    "AbortError",
+    "Network request failed",
+  ],
+
+  // Enable sending user PII (Personally Identifiable Information).
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
 });
