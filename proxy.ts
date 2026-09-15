@@ -60,18 +60,17 @@ const ALLOWED_ORIGINS = [
  *
  * Fix: canonicalize the host in the proxy, before any cookie is set, so every
  * request — document navigation, fetch, and OAuth callback alike — is on one
- * origin. Derived from NEXT_PUBLIC_SITE_URL so the code and the deployed domain
- * cannot drift apart. Falls back to the apex to match the rest of the codebase
- * (sitemap/robots/canonical all use lasyly.me).
+ * origin.
+ *
+ * IMPORTANT: this MUST equal the Vercel project's PRIMARY domain. Vercel
+ * redirects every non-primary attached domain to the primary at the edge,
+ * before this proxy runs. If CANONICAL_HOST disagreed with the primary we would
+ * ping-pong forever: edge sends apex→www, proxy sends www→apex, repeat. The
+ * primary is `www.lasyly.me`, so it is pinned here rather than derived from
+ * NEXT_PUBLIC_SITE_URL (which is currently the apex and would reintroduce the
+ * loop). If you ever change the Vercel primary domain, change this to match.
  */
-const CANONICAL_HOST = (() => {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL || "https://www.lasyly.me"
-  try {
-    return new URL(raw).host
-  } catch {
-    return "www.lasyly.me"
-  }
-})()
+const CANONICAL_HOST = "www.lasyly.me"
 
 const CORS_OPTIONS = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
