@@ -220,6 +220,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonicalUrl, 308)
   }
 
+  // ── 0b. Root → /explore ───────────────────────────────────────────────────
+  // Land every visitor on the app's Explore page instead of the marketing home.
+  // A 307 (temporary) is deliberate: it is not cached by browsers/search engines
+  // the way a 308/301 is, so reverting to the marketing landing page later is a
+  // one-line change with no stale-redirect tail. Query string is preserved.
+  if (pathname === "/") {
+    const exploreUrl = new URL(request.url)
+    exploreUrl.pathname = "/explore"
+    return NextResponse.redirect(exploreUrl, 307)
+  }
+
   // ── 0. Build CSP header (no nonce — pages are statically cached) ────────
   const cspHeader = buildCSPHeader()
 
