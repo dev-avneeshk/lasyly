@@ -14,15 +14,17 @@ export const metadata: Metadata = {
   description:
     "Sports research the lazy way. Real-time rooms, NBA prop analytics with hit rates and matchup grades, live scores across 10+ sports, and independent creator analysis. All free.",
   alternates: {
-    canonical: "https://lasyly.me",
-    types: { "application/rss+xml": "https://lasyly.me/blog/feed.xml" },
+    // The root path permanently redirects to /explore, so point the canonical
+    // there — declaring "/" as canonical while it 308s away is contradictory.
+    canonical: "https://www.lasyly.me/explore",
+    types: { "application/rss+xml": "https://www.lasyly.me/blog/feed.xml" },
   },
   openGraph: {
     title: "Lasyly — Sports Prop Analytics, Rooms & Creator Picks",
     description:
       "Real-time rooms, prop analytics with hit rates, live scores, and independent creator analysis. All free. All in one app.",
     type: "website",
-    url: "https://lasyly.me",
+    url: "https://www.lasyly.me/explore",
   },
 }
 

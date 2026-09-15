@@ -88,18 +88,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }))
 
   return [
-    // Core app
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 1,
-    },
+    // Core app. The bare root (/) 308-redirects to /explore, so it is
+    // intentionally omitted here — listing a permanently-redirecting URL in the
+    // sitemap is an error Google Search Console flags. /explore is the home.
     {
       url: `${baseUrl}/explore`,
       lastModified: new Date(),
       changeFrequency: "daily",
-      priority: 0.9,
+      priority: 1,
     },
     {
       url: `${baseUrl}/scores`,
