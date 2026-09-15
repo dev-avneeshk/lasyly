@@ -20,6 +20,9 @@ import { getCheatSheet } from "@/lib/analytics/cheat-sheet"
 /** Cache TTL: 5 minutes */
 const STATS_REFERENCE_CACHE_TTL = 300_000
 
+/** Bump when the serialized response shape changes to avoid serving stale payloads. */
+const STATS_REFERENCE_CACHE_VERSION = "v2"
+
 /** Maximum player name length */
 const MAX_PLAYER_LENGTH = 100
 
@@ -177,7 +180,7 @@ export const GET = withSecurity(async (request: Request) => {
   const isPlayoff = searchParams.get("playoff") === "true"
 
   // ─── Fetch data with caching ────────────────────────────────────────────────
-  const cacheKey = `stats-reference:${player.toLowerCase()}:${normalizedStat}:${isPlayoff ? "playoff" : "reg"}`
+  const cacheKey = `stats-reference:${STATS_REFERENCE_CACHE_VERSION}:${player.toLowerCase()}:${normalizedStat}:${isPlayoff ? "playoff" : "reg"}`
 
   const result = await cached(cacheKey, async () => {
     return fetchStatsReferenceData(player, normalizedStat, isPlayoff)
@@ -811,6 +814,7 @@ function buildGameBreakdown(games: any[]) {
     return {
       date: gameDate,
       opponent,
+      minutes: g.minutes ?? null,
       fg,
       fga,
       tp,

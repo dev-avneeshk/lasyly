@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 
 const updateProfileSchema = z.object({
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores.").optional(),
@@ -66,6 +67,19 @@ export const PATCH = withSecurity(async (request: Request) => {
     )
   }
 
+  // This route had no per-user rate limit while also calling a wallet-crediting
+  // RPC on every invocation, which is what made the signup-bonus race
+  // exploitable from the outside. The RPC call is gone (see below) and the route
+  // is bounded: onboarding saves once, so anything beyond a handful a minute is
+  // not a person filling in a form.
+  const rate = await checkRateLimit(`profile-update:${user.id}`, RATE_LIMITS.profileUpdate)
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many profile updates. Please wait a moment." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } }
+    )
+  }
+
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, updateProfileSchema)
   if (validationError) return validationError
@@ -119,16 +133,11 @@ export const PATCH = withSecurity(async (request: Request) => {
     )
   }
 
-  // Grant the one-time starter Coins bonus. Idempotent (keyed on a
-  // SIGNUP_BONUS ledger row), so calling it on every profile update is a
-  // no-op after the first. Best-effort: never fail onboarding if this
-  // errors — the bonus can be re-granted later.
-  const { error: bonusErr } = await supabase.rpc("grant_signup_bonus", {
-    p_user_id: user.id,
-  })
-  if (bonusErr) {
-    console.error("Signup bonus grant error:", bonusErr.message)
-  }
+  // NOTE: the starter-Coins grant used to happen here, on every profile update.
+  // It now runs once, at account creation, in app/auth/callback/route.ts. Calling
+  // a wallet-crediting RPC from an unthrottled update endpoint was the reachable
+  // half of the signup-bonus double-credit race: the RPC's duplicate check was
+  // an unlocked read, so N concurrent PATCHes could each credit 500 Coins.
 
   return NextResponse.json(profile)
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

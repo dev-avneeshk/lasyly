@@ -17,6 +17,7 @@ import type {
 import type { ArenaState } from "./auction"
 import { canAddPlayer, openStarterSlots, eligiblePositions, isRosterComplete, openSlots } from "./roster"
 import { maxAffordable, remaining, MIN_BID } from "./budget"
+import { loadPolicy } from "./policy"
 import { offenseScore, defenseScore, spacingScore, scarcityByPosition, scaledOpeningBid } from "./value"
 import { getSeasonPlayers } from "./data"
 
@@ -68,23 +69,29 @@ function desirability(state: ArenaState, team: TeamId, player: SeasonPlayer): nu
   const off = offenseScore(player)
   const def = defenseScore(player)
   const spacing = spacingScore(player)
+  const W = loadPolicy().weights
 
-  // Base: reward two-way ability, not just OVR.
-  let d = player.overall * 0.5 + off * 0.22 + def * 0.22 + spacing * 0.06
+  // Base: reward two-way ability, not just OVR. The learned weights scale each
+  // term (baseline = 1.0 reproduces the original constants exactly).
+  let d =
+    player.overall * 0.5 * W.player_value_weight +
+    off * 0.22 * W.offense_weight +
+    def * 0.22 * W.defense_weight +
+    spacing * 0.06 * W.spacing_weight
 
   // Personality tilt.
   d += (off - 60) * (persona.offenseBias - 1) * 0.6
   d += (def - 60) * (persona.defenseBias - 1) * 0.6
 
-  // Team-gap awareness: what does the current roster lack?
+  // Team-gap awareness: what does the current roster lack? Scaled by team_fit.
   const owned = ownedPlayers(roster)
   if (owned.length > 0) {
     const avgSpacing = avg(owned, (p) => p.attributes.threePointShooting)
     const bestRim = Math.max(...owned.map((p) => p.attributes.rimProtection), 0)
     const avgPerimD = avg(owned, (p) => p.attributes.perimeterDefense)
-    if (avgSpacing < 68 && spacing >= 76) d += 8 // needs shooting
-    if (bestRim < 65 && player.attributes.rimProtection >= 80) d += 10 // needs a rim protector
-    if (avgPerimD < 66 && player.attributes.perimeterDefense >= 82) d += 7 // needs a stopper
+    if (avgSpacing < 68 && spacing >= 76) d += 8 * W.team_fit_weight // needs shooting
+    if (bestRim < 65 && player.attributes.rimProtection >= 80) d += 10 * W.team_fit_weight // needs a rim protector
+    if (avgPerimD < 66 && player.attributes.perimeterDefense >= 82) d += 7 * W.team_fit_weight // needs a stopper
   }
 
   // Star premium.
@@ -157,6 +164,7 @@ export function walkAwayPrice(state: ArenaState, team: TeamId): number {
   const rem = remaining(total, roster)
   const cap = maxAffordable(total, roster)
   const diff = difficultyProfile(state.config.difficulty)
+  const persona = PERSONALITIES[state.config.aiPersonality]
 
   // Players still to be auctioned AFTER accounting for the current lot. The CPU
   // sees the true future order (the "cheat").
@@ -186,32 +194,90 @@ export function walkAwayPrice(state: ArenaState, team: TeamId): number {
   const fillsSlots = eligiblePositions(player) // slots this player could take
   const claimStarter = openStarters.find((pos) => fillsSlots.includes(pos)) ?? null
 
-  // Weight = expected fair price for the best future candidate at each slot.
+  // Weight the current lot with its own fair value. The previous planner used a
+  // future player's price for this slot, which made the CPU open on stars and
+  // then fold to the first human raise.
   const usedFuture = new Set<string>()
-  const slotWeights: { slot: string; weight: number; isCurrent: boolean }[] = []
-  for (const pos of openStarters) {
-    const cand = future.find(
-      (p) => !usedFuture.has(p.id) && eligiblePositions(p).includes(pos)
-    )
-    if (cand) usedFuture.add(cand.id)
-    slotWeights.push({ slot: pos, weight: cand ? fairPrice(cand) : MIN_BID, isCurrent: pos === claimStarter })
-  }
-  if (needsBench) {
-    slotWeights.push({ slot: "BENCH", weight: MIN_BID * 2, isCurrent: claimStarter === null })
+  const bestFutureFor = (position: string | null): SeasonPlayer | undefined => {
+    let best: SeasonPlayer | undefined
+    let bestScore = Number.NEGATIVE_INFINITY
+    for (const candidate of future) {
+      if (usedFuture.has(candidate.id)) continue
+      if (position && !eligiblePositions(candidate).includes(position as never)) continue
+      const score = desirability(state, team, candidate)
+      if (score > bestScore) {
+        best = candidate
+        bestScore = score
+      }
+    }
+    if (best) usedFuture.add(best.id)
+    return best
   }
 
-  const totalWeight = slotWeights.reduce((s, w) => s + w.weight, 0) || 1
-  // The current player's planned allocation = its slot's share of the budget.
+  const slotWeights: { slot: string; weight: number; isCurrent: boolean }[] = []
+  for (const pos of openStarters) {
+    const isCurrent = pos === claimStarter
+    const candidate = isCurrent ? player : bestFutureFor(pos)
+    slotWeights.push({
+      slot: pos,
+      weight: candidate ? fairPrice(candidate) : MIN_BID,
+      isCurrent,
+    })
+  }
+  if (needsBench) {
+    const isCurrent = claimStarter === null
+    const candidate = isCurrent ? player : bestFutureFor(null)
+    slotWeights.push({
+      slot: "BENCH",
+      weight: candidate ? fairPrice(candidate) : MIN_BID,
+      isCurrent,
+    })
+  }
+
+  const W = loadPolicy().weights
+  const totalWeight = slotWeights.reduce((sum, item) => sum + item.weight, 0) || 1
   const currentWeight =
-    slotWeights.find((w) => w.isCurrent)?.weight ??
-    (claimStarter ? fairPrice(player) : MIN_BID * 2)
-  const plannedAllocation = (currentWeight / totalWeight) * rem
+    slotWeights.find((item) => item.isCurrent)?.weight ?? fairPrice(player)
+  // budget_weight controls how freely the plan earmarks remaining budget for the
+  // current slot (learned).
+  const plannedAllocation = (currentWeight / totalWeight) * rem * W.budget_weight
+
+  // Preserve enough cash to buy the cheapest normally-priced future option for
+  // every other slot. maxAffordable only reserves the hard $1 minimum; this
+  // strategic reserve prevents the CPU from forcing itself into auto-fill.
+  const reserveUsed = new Set<string>()
+  const cheapestFutureOpening = (position: string | null): number => {
+    let best: SeasonPlayer | undefined
+    let bestPrice = Number.POSITIVE_INFINITY
+    for (const candidate of future) {
+      if (reserveUsed.has(candidate.id)) continue
+      if (position && !eligiblePositions(candidate).includes(position as never)) continue
+      const price = scaledOpeningBid(candidate, total, state.config.rosterSize)
+      if (price < bestPrice) {
+        best = candidate
+        bestPrice = price
+      }
+    }
+    if (best) reserveUsed.add(best.id)
+    return Number.isFinite(bestPrice) ? bestPrice : MIN_BID
+  }
+
+  let futureReserve = 0
+  for (const pos of openStarters) {
+    if (pos !== claimStarter) futureReserve += cheapestFutureOpening(pos)
+  }
+  if (needsBench && claimStarter !== null) {
+    futureReserve += cheapestFutureOpening(null)
+  }
+  const reserveAwareCap = Math.max(MIN_BID, rem - futureReserve)
 
   // Ceiling: the CPU may spend up to ~1.8× its planned allocation on a lot it
   // really wants (flexibility to win a contested stud), but never so much that
-  // it can't fill the remaining slots (cap enforces $1/slot feasibility).
+  // it can't fill the remaining slots. Both the hard $1/slot cap and the
+  // strategic reserve (cheapest normal opener for every other slot) apply, so
+  // winning this lot never forces the roster into emergency auto-fill.
   const ceilingRaw = Math.max(MIN_BID, Math.round(plannedAllocation * 1.8))
-  let ceiling = Math.min(cap, ceilingRaw)
+  let ceiling = Math.min(cap, reserveAwareCap, ceilingRaw)
 
   // ── Marginal value: is a comparable player coming for the same slot? ──────
   const myDesire = desirability(state, team, player)
@@ -226,8 +292,8 @@ export function walkAwayPrice(state: ArenaState, team: TeamId): number {
   }
   // If a nearly-as-good (or better) player is coming for the same slot, the
   // current player's *marginal* worth is small → bid low and wait.
-  // gap in desirability (0..~40) → fraction of ceiling we'll commit.
-  const gap = myDesire - bestAlt
+  // future_value_weight scales how strongly a good alternative suppresses the bid.
+  const gap = myDesire - bestAlt * W.future_value_weight
   // Sigmoid-ish: big positive gap → ~1.0; zero/negative gap → ~0.25.
   let commitFrac = 0.25 + 0.75 / (1 + Math.exp(-gap / 6))
   commitFrac = Math.max(0, Math.min(1, commitFrac))
@@ -243,21 +309,79 @@ export function walkAwayPrice(state: ArenaState, team: TeamId): number {
     ceiling = Math.min(ceiling, Math.max(MIN_BID, Math.round(rem * 0.18)))
     commitFrac *= 0.7
   } else if (benchIsLastSlot) {
-    // Spend freely: money saved past this point is wasted.
+    // Spend freely: money saved past this point is wasted, and there are no
+    // other slots to reserve for, so the hard cap is the only limit.
     ceiling = cap
     commitFrac = Math.max(commitFrac, 0.6)
   }
 
+  // positional_need premium: extra willingness to commit when filling a needed
+  // starter slot. NO-OP at weight 1.0 (baseline reproduces the original engine);
+  // the learner can only ADD/REMOVE effect as the weight deviates from 1.
+  if (fillsNeededStarter) {
+    commitFrac = Math.max(0, Math.min(1, commitFrac * (1 + 0.15 * (W.positional_need_weight - 1))))
+  }
+
+  // Urgency: as open slots grow relative to the future supply that fits them,
+  // spend more freely so we don't get stranded. NO-OP at weight 1.0.
+  if (open > 1 && future.length > 0) {
+    const fitSupply = future.filter((p) =>
+      eligiblePositions(p).some((pos) => fillsSlots.includes(pos))
+    ).length
+    const pressure = open / Math.max(1, fitSupply)
+    commitFrac = Math.max(0, Math.min(1, commitFrac * (1 + (pressure - 1) * 0.1 * (W.urgency_weight - 1))))
+  }
+
   // Scarcity premium for genuinely rare needed positions in the FUTURE queue.
+  // At weight 1.0 this is exactly the original `max(scarcity, 1)`; the learner
+  // scales the premium above/below that baseline.
   const scarcity = scarcityByPosition(future)
-  const scMult = fillsSlots
+  const rawScMult = fillsSlots
     .filter((pos) => openStarters.includes(pos))
     .reduce((m, pos) => Math.max(m, scarcity[pos] ?? 1), 1)
+  const scMult = 1 + (rawScMult - 1) * W.scarcity_weight
+
+  // ── OPPONENT MODELING (open-information; NO-OP at weight 0) ───────────────
+  // "Who else wants this player, and how desperate are they?" Mirrors
+  // auction_ai/ai/policy.py _opponent_features exactly.
+  const rival = opponentFeatures(state, team, player)
+  commitFrac = Math.max(0, Math.min(1, commitFrac * (1 + rival.demand * W.rival_demand_weight)))
+  commitFrac = Math.max(0, Math.min(1, commitFrac * (1 + rival.desperation * W.rival_desperation_weight)))
+  commitFrac = Math.max(0, Math.min(1, commitFrac * (1 - rival.uncontested * 0.5 * W.snipe_weight)))
+
+  // ── AUCTION-STAGE awareness (NO-OP at weight 0) ───────────────────────────
+  const stage = auctionStage(state)
+  commitFrac = Math.max(0, Math.min(1, commitFrac * (1 + (stage - 0.5) * 0.4 * W.auction_stage_weight)))
 
   let target = ceiling * commitFrac * scMult
 
-  // Difficulty aggression (kept modest — planning is the real strength).
+  // Difficulty aggression (kept modest — planning is the real strength) and the
+  // personality's willingness to pay. Superstar/aggressive lean in on stars;
+  // value stays disciplined. Everything is still clamped by `ceiling`, so this
+  // never breaks the budget reserve.
   target *= diff.aggression
+  const personaAggression =
+    player.tier <= 2 ? persona.aggression * persona.superstarBias : persona.aggression
+  target *= personaAggression
+  target *= 1 - persona.valueDiscipline * 0.15
+  // risk_tolerance: learned global willingness-to-pay multiplier.
+  target *= W.risk_tolerance
+
+  // overpay_penalty: pull the target back toward the planned allocation. A
+  // higher penalty means the CPU is more reluctant to exceed its plan (learned).
+  if (target > plannedAllocation && plannedAllocation > 0) {
+    const excess = target - plannedAllocation
+    target = plannedAllocation + excess / Math.max(1, W.overpay_penalty)
+  }
+
+  // ── OPPORTUNITY COST (explicit; NO-OP at weight 0) ────────────────────────
+  // Committing budget now reduces what's left for future needs.
+  if (W.opportunity_cost_weight !== 0 && rem > 0 && open > 1) {
+    const consumeFrac = Math.min(1, target / rem)
+    const futureNeeds = open - 1
+    const oc = consumeFrac * (futureNeeds / Math.max(1, open))
+    target *= Math.max(0.3, 1 - oc * 0.5 * W.opportunity_cost_weight)
+  }
 
   let price = Math.min(ceiling, Math.round(target))
 
@@ -280,6 +404,57 @@ export function walkAwayPrice(state: ArenaState, team: TeamId): number {
 
   void open
   return Math.max(0, Math.min(cap, price))
+}
+
+/**
+ * Open-information opponent model for the CURRENT lot — mirrors
+ * auction_ai/ai/policy.py `_opponent_features`. Returns demand / desperation /
+ * uncontested in [0,1], all derived from state the human can also see (rosters,
+ * budgets, queue). Cheap features, not a simulation.
+ */
+function opponentFeatures(
+  state: ArenaState,
+  team: TeamId,
+  player: SeasonPlayer
+): { demand: number; desperation: number; uncontested: number } {
+  if (!state.lot) return { demand: 0, desperation: 0, uncontested: 1 }
+  const opp: TeamId = team === "P1" ? "P2" : "P1"
+  const oppRoster = state.rosters[opp]
+  if (isRosterComplete(oppRoster) || !canAddPlayer(oppRoster, player)) {
+    return { demand: 0, desperation: 0, uncontested: 1 }
+  }
+  const oppCap = maxAffordable(state.config.budgetPerPlayer, oppRoster)
+  if (oppCap < state.lot.openingBid) return { demand: 0, desperation: 0, uncontested: 1 }
+
+  const oppDesire = desirability(state, opp, player)
+  const demand = Math.max(0, Math.min(1, (oppDesire - 45) / 55))
+
+  const oppOpen = openStarterSlots(oppRoster)
+  const fills = eligiblePositions(player).filter((pos) => oppOpen.includes(pos))
+  let desperation = 0
+  if (fills.length > 0) {
+    const pool = getSeasonPlayers(state.season)
+    const byId = new Map(pool.map((p) => [p.id, p] as const))
+    const future = state.queue
+      .filter((id) => id !== player.id)
+      .map((id) => byId.get(id))
+      .filter((p): p is SeasonPlayer => !!p)
+    const minSupply = Math.min(
+      ...fills.map((pos) => future.filter((p) => eligiblePositions(p).includes(pos)).length)
+    )
+    desperation = Math.max(0, Math.min(1, (3 - minSupply) / 3))
+  }
+  return { demand, desperation, uncontested: 0 }
+}
+
+/** How far through the auction, in [0,1] — mirrors `_auction_stage`. */
+function auctionStage(state: ArenaState): number {
+  const totalSlots = 2 * state.config.rosterSize
+  let filled = 0
+  for (const t of ["P1", "P2"] as TeamId[]) {
+    for (const o of Object.values(state.rosters[t].slots)) if (o) filled += 1
+  }
+  return Math.max(0, Math.min(1, filled / Math.max(1, totalSlots)))
 }
 
 function hash(s: string): number {
@@ -305,22 +480,33 @@ export function decideAI(state: ArenaState, team: TeamId): AIDecision {
 
   const step = state.config.bidIncrement || 1
   const cap = maxAffordable(state.config.budgetPerPlayer, state.rosters[team])
-  // Opening an unclaimed lot: bid AT the opening price. Otherwise raise by step.
-  let next =
-    state.lot.highBidder === null
-      ? state.lot.currentBid
-      : state.lot.currentBid + step
-  if (next > cap) next = state.lot.highBidder === null ? state.lot.currentBid : state.lot.currentBid + 1
-  if (next > cap) return { action: "pass" }
-
   const walkAway = walkAwayPrice(state, team)
+
+  // Opening an unclaimed lot: bid AT the opening price. Otherwise raise by the
+  // configured step.
+  const openingClaim = state.lot.highBidder === null
+  let next = openingClaim ? state.lot.currentBid : state.lot.currentBid + step
+
+  // If the configured increment overshoots either affordability or the CPU's
+  // walk-away value, fall back to the smallest legal raise before conceding.
+  // A $5 preset step must never make the CPU pass on a player it would happily
+  // buy for $1 more.
+  if (!openingClaim && (next > cap || next > walkAway)) {
+    next = state.lot.currentBid + 1
+  }
+  if (next > cap) return { action: "pass" }
   if (next > walkAway) return { action: "pass" }
 
   // Difficulty mistake: easier CPUs sometimes bail on a player they should win,
-  // but only once the price is already past the opening bid (so they still
-  // *start* auctions and don't just concede everything).
+  // but only when the price is genuinely marginal (near their walk-away). A CPU
+  // must not randomly fold a needed star that's still far below its value.
   const diff = difficultyProfile(state.config.difficulty)
-  if (diff.mistakeChance > 0 && state.lot.currentBid > state.lot.openingBid) {
+  const marginal = next >= walkAway * 0.85
+  if (
+    diff.mistakeChance > 0 &&
+    marginal &&
+    state.lot.currentBid > state.lot.openingBid
+  ) {
     const roll = ((hash(state.gameId + state.lot.player.id + team + state.lot.currentBid) % 1000) / 1000)
     if (roll < diff.mistakeChance) return { action: "pass" }
   }

@@ -168,10 +168,38 @@ describe("NFL — simulation", () => {
     expect(result.finalScore.p1).not.toBe(result.finalScore.p2)
     // Realistic-ish NFL score range.
     expect(result.finalScore.p1).toBeGreaterThanOrEqual(0)
-    expect(result.finalScore.p1).toBeLessThan(90)
-    expect(result.finalScore.p2).toBeLessThan(90)
+    // Realistic NFL ceiling — blowouts happen but a single team shouldn't clear
+    // the high 50s. (The old sim produced 56-42 games with impossible stat lines.)
+    expect(result.finalScore.p1).toBeLessThanOrEqual(60)
+    expect(result.finalScore.p2).toBeLessThanOrEqual(60)
     expect(result.mvp.playerId).toBeTruthy()
     expect(result.scoutReports.P1.biggestThreat).toBeTruthy()
+  })
+
+  it("produces realistic scoring and stat lines across many games", () => {
+    let teamGames = 0
+    let scoreSum = 0
+    let over45 = 0
+    let maxPassYds = 0
+    for (let i = 0; i < 60; i++) {
+      const state = createGame({ gameId: `nfl-realism-${i}`, config: { ...DEFAULT_CONFIG }, vsAI: true, seed: i + 1 })
+      runAuctionToCompletion(state)
+      const r = runSimulation(state.rosters.P1, state.rosters.P2, SEASON, state.seed)
+      for (const s of [r.finalScore.p1, r.finalScore.p2]) {
+        teamGames++
+        scoreSum += s
+        if (s > 45) over45++
+      }
+      for (const l of r.box) maxPassYds = Math.max(maxPassYds, l.passYds)
+    }
+    const avg = scoreSum / teamGames
+    // Average team score should sit in a believable NFL band, not video-game highs.
+    expect(avg).toBeGreaterThan(10)
+    expect(avg).toBeLessThan(28)
+    // Blowouts over 45 must be rare tail events.
+    expect(over45 / teamGames).toBeLessThan(0.05)
+    // No single-game passing line should be physically absurd (season-length).
+    expect(maxPassYds).toBeLessThan(700)
   })
 
   it("is deterministic for the same seed and rosters", () => {

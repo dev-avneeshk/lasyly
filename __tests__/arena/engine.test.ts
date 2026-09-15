@@ -136,6 +136,42 @@ describe("Arena — bidding flow", () => {
     expect(spent).toBeLessThanOrEqual(DEFAULT_CONFIG.budgetPerPlayer)
   })
 
+  it("settles immediately when the opponent's roster is already full", () => {
+    const state = createGame({
+      gameId: "test-uncontested-sale",
+      config: { ...DEFAULT_CONFIG, budgetPerPlayer: 100 },
+      vsAI: true,
+      seed: 17,
+    })
+    openNextLot(state)
+    const player = state.lot!.player
+    const used = new Set([player.id])
+    let cpu = emptyRoster()
+
+    for (const slot of ["PG", "SG", "SF", "PF", "C"] as const) {
+      const candidate = getSeasonPlayers(SEASON).find(
+        (p) => !used.has(p.id) && canFillSlot(p, slot)
+      )!
+      used.add(candidate.id)
+      cpu = placePlayer(cpu, candidate, 1, slot)
+    }
+    const bench = getSeasonPlayers(SEASON).find((p) => !used.has(p.id))!
+    cpu = placePlayer(cpu, bench, 1, "BENCH")
+    state.rosters.P2 = cpu
+
+    const outcome = placeBid(state, "P1", state.lot!.currentBid)
+
+    expect(outcome.ok).toBe(true)
+    expect(state.results).toContainEqual(
+      expect.objectContaining({ playerId: player.id, winner: "P1" })
+    )
+    expect(
+      Object.values(state.rosters.P1.slots).some(
+        (owned) => owned?.player.id === player.id
+      )
+    ).toBe(true)
+  })
+
   it("auction always completes with exactly 6 players (5 starters + 1 bench) each", () => {
     const state = createGame({ gameId: "test-complete", config: { ...DEFAULT_CONFIG }, vsAI: true, seed: 123 })
     runAuctionToCompletion(state)

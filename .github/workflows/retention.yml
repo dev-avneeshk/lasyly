@@ -1,0 +1,39 @@
+name: Data Retention
+
+on:
+  schedule:
+    # 03:30 UTC daily — half an hour after cleanup-chat, so the two jobs don't
+    # compete for the same locks or autovacuum budget.
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune append-only tables
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SITE_URL }}/api/cron/retention" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Retention failed with status $http_code"
+            exit 1
+          fi
+
+          # `incomplete: true` means the run hit its pass or time budget with a
+          # backlog still outstanding. That is fine once (the next run continues
+          # from where this stopped) but it should not persist — if it does, the
+          # deletes are not keeping up with the writes and the retention windows
+          # or batch size need revisiting.
+          if echo "$body" | grep -q '"incomplete":true'; then
+            echo "::warning::Retention did not fully drain the backlog this run."
+          fi

@@ -1,0 +1,167 @@
+{
+  "simulation_version": "gt-1.0.0",
+  "player_data_version": "players-2025-26-596e5489b7",
+  "champion": "v6",
+  "seed": 7,
+  "candidates": 24,
+  "survivors_evaluated": 7,
+  "ladder": [
+    150,
+    400
+  ],
+  "min_margin": 0.01,
+  "promotion_rule": {
+    "min_margin": 0.01,
+    "require_positive_ci": true,
+    "max_archetype_regression": 0.03,
+    "behavior_guardrail": true,
+    "require_scenarios_pass": true,
+    "forbid_collapse": true,
+    "max_hard_rule_violations": 0
+  },
+  "best_candidate": null,
+  "beat_champion": false,
+  "promoted": false,
+  "leaderboard": [
+    {
+      "policy_id": "cand-7-0",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.4567,
+      "champion_wr": 0.4567,
+      "delta": 0.0,
+      "delta_ci": [
+        0.0,
+        0.0
+      ],
+      "games": 2700,
+      "proxy": 203.14,
+      "behavior": 1.0,
+      "scenarios_passed": 5,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": 0.0,
+      "status": "REJECTED"
+    },
+    {
+      "policy_id": "cand-7-4",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.4648,
+      "champion_wr": 0.4648,
+      "delta": 0.0,
+      "delta_ci": [
+        0.0,
+        0.0
+      ],
+      "games": 2700,
+      "proxy": 203.071,
+      "behavior": 1.0,
+      "scenarios_passed": 4,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": 0.0,
+      "status": "REJECTED"
+    },
+    {
+      "policy_id": "cand-7-5",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.4453,
+      "champion_wr": 0.446,
+      "delta": -0.00069,
+      "delta_ci": [
+        -0.01274,
+        0.01135
+      ],
+      "games": 7200,
+      "proxy": 202.912,
+      "behavior": 1.0,
+      "scenarios_passed": 4,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": -0.03,
+      "status": "PROMISING"
+    },
+    {
+      "policy_id": "cand-7-1",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.4348,
+      "champion_wr": 0.4444,
+      "delta": -0.00963,
+      "delta_ci": [
+        -0.02359,
+        0.00433
+      ],
+      "games": 2700,
+      "proxy": 203.14,
+      "behavior": 1.0,
+      "scenarios_passed": 5,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": -0.0311,
+      "status": "INSUFFICIENT"
+    },
+    {
+      "policy_id": "cand-7-2",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.437,
+      "champion_wr": 0.447,
+      "delta": -0.01,
+      "delta_ci": [
+        -0.0239,
+        0.0039
+      ],
+      "games": 2700,
+      "proxy": 203.14,
+      "behavior": 1.0,
+      "scenarios_passed": 5,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": -0.0356,
+      "status": "INSUFFICIENT"
+    },
+    {
+      "policy_id": "cand-7-3",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.4419,
+      "champion_wr": 0.4581,
+      "delta": -0.0163,
+      "delta_ci": [
+        -0.03025,
+        -0.00234
+      ],
+      "games": 2700,
+      "proxy": 203.071,
+      "behavior": 1.0,
+      "scenarios_passed": 4,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": -0.0489,
+      "status": "REJECTED"
+    },
+    {
+      "policy_id": "cand-7-6",
+      "parent": "v6",
+      "generation": 0,
+      "challenger_wr": 0.4407,
+      "champion_wr": 0.4648,
+      "delta": -0.02407,
+      "delta_ci": [
+        -0.03869,
+        -0.00945
+      ],
+      "games": 2700,
+      "proxy": 202.582,
+      "behavior": 1.0,
+      "scenarios_passed": 4,
+      "collapsed": false,
+      "hard_rule_violations": 0,
+      "worst_archetype_delta": -0.0822,
+      "status": "REJECTED"
+    }
+  ]
+}

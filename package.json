@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.mjs",
     "build": "next build --webpack",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.mjs",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,6 +17,8 @@
     "loadtest:stress": "k6 run load-tests/stress.js",
     "loadtest:spike": "k6 run load-tests/spike.js",
     "loadtest:soak": "k6 run load-tests/soak.js",
+    "loadtest:auth": "k6 run -e SESSIONS=load-tests/sessions.txt load-tests/authenticated.js",
+    "loadtest:abuse": "k6 run load-tests/abuse.js",
     "test:e2e": "vitest run __tests__/e2e/ __tests__/integration/api.test.ts",
     "test:integration": "vitest run __tests__/integration/",
     "test:all": "vitest run --config vitest.config.ts --exclude \"\""

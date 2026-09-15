@@ -1,0 +1,408 @@
+{
+  "simulation_version": "gt-1.0.0",
+  "curve": [
+    {
+      "generation": 0,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.35,
+      "proxy_val": 200.339,
+      "gt_val_win_rate": 0.3812,
+      "gt_val_ci": [
+        0.3389,
+        0.4255
+      ],
+      "gt_val_margin": -6.208,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.3812,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.4,
+      "tournament": {
+        "new_best": {
+          "win_rate": 0.3812,
+          "ci": [
+            0.3389,
+            0.4255
+          ]
+        },
+        "baseline": {
+          "win_rate": 0.5479,
+          "ci": [
+            0.5032,
+            0.5919
+          ]
+        },
+        "best_proxy": {
+          "win_rate": 0.3812,
+          "ci": [
+            0.3389,
+            0.4255
+          ]
+        }
+      },
+      "seconds": 35.96,
+      "policy_version": 1
+    },
+    {
+      "generation": 1,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.33,
+      "proxy_val": 204.347,
+      "gt_val_win_rate": 0.5375,
+      "gt_val_ci": [
+        0.4928,
+        0.5816
+      ],
+      "gt_val_margin": 1.092,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5375,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.4,
+      "tournament": null,
+      "seconds": 24.45,
+      "policy_version": 2
+    },
+    {
+      "generation": 2,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.31,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.4,
+      "tournament": null,
+      "seconds": 23.26,
+      "policy_version": 3
+    },
+    {
+      "generation": 3,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.29,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.4,
+      "tournament": null,
+      "seconds": 22.59,
+      "policy_version": 3
+    },
+    {
+      "generation": 4,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.27,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.757,
+      "tournament": {
+        "new_best": {
+          "win_rate": 0.5458,
+          "ci": [
+            0.5011,
+            0.5898
+          ]
+        },
+        "baseline": {
+          "win_rate": 0.5479,
+          "ci": [
+            0.5032,
+            0.5919
+          ]
+        },
+        "best_proxy": {
+          "win_rate": 0.5458,
+          "ci": [
+            0.5011,
+            0.5898
+          ]
+        }
+      },
+      "seconds": 33.32,
+      "policy_version": 3
+    },
+    {
+      "generation": 5,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.25,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.757,
+      "tournament": null,
+      "seconds": 21.86,
+      "policy_version": 3
+    },
+    {
+      "generation": 6,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.23,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.757,
+      "tournament": null,
+      "seconds": 22.46,
+      "policy_version": 3
+    },
+    {
+      "generation": 7,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.21,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.757,
+      "tournament": null,
+      "seconds": 22.68,
+      "policy_version": 3
+    },
+    {
+      "generation": 8,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.19,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.085,
+      "tournament": {
+        "new_best": {
+          "win_rate": 0.5458,
+          "ci": [
+            0.5011,
+            0.5898
+          ]
+        },
+        "baseline": {
+          "win_rate": 0.5479,
+          "ci": [
+            0.5032,
+            0.5919
+          ]
+        },
+        "best_proxy": {
+          "win_rate": 0.5458,
+          "ci": [
+            0.5011,
+            0.5898
+          ]
+        }
+      },
+      "seconds": 37.71,
+      "policy_version": 3
+    },
+    {
+      "generation": 9,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.17,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.085,
+      "tournament": null,
+      "seconds": 23.47,
+      "policy_version": 3
+    },
+    {
+      "generation": 10,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.15,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.085,
+      "tournament": null,
+      "seconds": 24.6,
+      "policy_version": 3
+    },
+    {
+      "generation": 11,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.13,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": 0.085,
+      "tournament": null,
+      "seconds": 28.38,
+      "policy_version": 3
+    },
+    {
+      "generation": 12,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.11,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": -0.103,
+      "tournament": {
+        "new_best": {
+          "win_rate": 0.5458,
+          "ci": [
+            0.5011,
+            0.5898
+          ]
+        },
+        "baseline": {
+          "win_rate": 0.5479,
+          "ci": [
+            0.5032,
+            0.5919
+          ]
+        },
+        "best_proxy": {
+          "win_rate": 0.5458,
+          "ci": [
+            0.5011,
+            0.5898
+          ]
+        }
+      },
+      "seconds": 59.32,
+      "policy_version": 3
+    },
+    {
+      "generation": 13,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.09,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": -0.103,
+      "tournament": null,
+      "seconds": 22.94,
+      "policy_version": 3
+    },
+    {
+      "generation": 14,
+      "simulation_version": "gt-1.0.0",
+      "seed": 42,
+      "exploration": 0.07,
+      "proxy_val": 204.456,
+      "gt_val_win_rate": 0.5458,
+      "gt_val_ci": [
+        0.5011,
+        0.5898
+      ],
+      "gt_val_margin": 1.84,
+      "behavior": 1.0,
+      "behavior_ok": true,
+      "best_gt_win_rate": 0.5458,
+      "proxy_hacking_in_survivors": false,
+      "calibration_spearman": -0.103,
+      "tournament": null,
+      "seconds": 23.21,
+      "policy_version": 3
+    }
+  ]
+}

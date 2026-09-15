@@ -53,11 +53,64 @@ const USER_JOBS_PREFIX = "jobs:user:"
 /** Completed/failed jobs expire after 24 hours */
 const JOB_TTL_SECONDS = 86400
 
-/** Max jobs to process per invocation */
-const BATCH_SIZE = 10
+/**
+ * Max jobs to process per invocation.
+ *
+ * Was 10. The processor is triggered by a GitHub Actions cron every 2 minutes
+ * (.github/workflows/process-jobs.yml), so 10 per run is a drain rate of 5
+ * jobs/minute. Combined with an unbounded enqueue endpoint, one user could
+ * queue 10,000 jobs and delay parlay resolution for everyone by ~33 hours.
+ */
+const BATCH_SIZE = 50
 
 /** Base delay for exponential backoff (1 second) */
 const BASE_RETRY_DELAY_MS = 1000
+
+/**
+ * Hard ceiling on pending jobs.
+ *
+ * A full queue rejects new work loudly instead of silently accumulating a
+ * backlog that the 2-minute cron can never drain.
+ */
+const MAX_QUEUE_DEPTH = 5_000
+
+/** Max job ids tracked per user (the index set had no bound and no TTL). */
+const MAX_USER_JOB_IDS = 100
+
+/** How long a claimed job may run before it becomes visible again. */
+const LEASE_MS = 5 * 60 * 1000
+
+/** Raised when the queue is at capacity. */
+export class QueueFullError extends Error {
+  readonly code = "QUEUE_FULL"
+  constructor(message = "The job queue is at capacity. Please try again later.") {
+    super(message)
+    this.name = "QueueFullError"
+  }
+}
+
+/**
+ * Claim a job by extending its score into the future (a lease) rather than
+ * removing it from the queue.
+ *
+ * The previous claim was `ZREM` + set status "processing". If the serverless
+ * function then timed out — which is the normal failure mode for the slow jobs
+ * in this queue — the job was already gone from the sorted set and stayed
+ * "processing" forever. It was neither retried nor visible: silently lost.
+ *
+ * Leasing makes the claim recoverable. The CAS (`score > now` → refuse) is what
+ * keeps two concurrent processors from claiming the same job.
+ *
+ * KEYS[1] = queue key
+ * ARGV[1] = job id, ARGV[2] = now, ARGV[3] = lease expiry score
+ */
+const CLAIM_JOB_LUA = `
+local score = redis.call('ZSCORE', KEYS[1], ARGV[1])
+if not score then return 0 end
+if tonumber(score) > tonumber(ARGV[2]) then return 0 end
+redis.call('ZADD', KEYS[1], ARGV[3], ARGV[1])
+return 1
+`
 
 // ─── Redis Client ───────────────────────────────────────────────────────────
 
@@ -116,6 +169,14 @@ export async function enqueueJob<T extends Record<string, unknown>>(
     userId: options.userId,
   }
 
+  // Refuse work we can't drain. Without this the queue was unbounded: a single
+  // authenticated caller hitting POST /api/jobs/enqueue in a loop could grow it
+  // indefinitely, starving scheduled work like parlay resolution.
+  const pending = await r.zcard(QUEUE_KEY)
+  if ((pending ?? 0) >= MAX_QUEUE_DEPTH) {
+    throw new QueueFullError()
+  }
+
   // Score = timestamp (with optional delay)
   const score = Date.now() + (options.delayMs ?? 0)
 
@@ -124,14 +185,34 @@ export async function enqueueJob<T extends Record<string, unknown>>(
   pipeline.set(`${JOB_PREFIX}${id}`, JSON.stringify(job), { ex: JOB_TTL_SECONDS })
   pipeline.zadd(QUEUE_KEY, { score, member: id })
 
-  // Track by user if userId provided
+  // Track by user if userId provided. The set now expires — it previously grew
+  // forever, one id per job, with no TTL and no cap.
   if (options.userId) {
-    pipeline.sadd(`${USER_JOBS_PREFIX}${options.userId}`, id)
+    const userKey = `${USER_JOBS_PREFIX}${options.userId}`
+    pipeline.sadd(userKey, id)
+    pipeline.expire(userKey, JOB_TTL_SECONDS)
   }
 
   await pipeline.exec()
 
+  // Opportunistically trim the user's index set. Job data expires after 24h, so
+  // ids beyond the cap point at nothing useful anyway.
+  if (options.userId) {
+    void trimUserJobs(options.userId).catch(() => {})
+  }
+
   return id
+}
+
+/** Keep a user's job index bounded; ids are dropped oldest-first by id order. */
+async function trimUserJobs(userId: string): Promise<void> {
+  const r = getRedis()
+  const userKey = `${USER_JOBS_PREFIX}${userId}`
+  const ids = await r.smembers(userKey)
+  if (!ids || ids.length <= MAX_USER_JOB_IDS) return
+  // Job ids embed a base36 timestamp, so lexical order is chronological.
+  const surplus = ids.sort().slice(0, ids.length - MAX_USER_JOB_IDS)
+  if (surplus.length > 0) await r.srem(userKey, ...surplus)
 }
 
 /**
@@ -196,9 +277,22 @@ export async function processJobs(
   for (const jobId of readyJobs) {
     const id = String(jobId)
 
-    // Atomically remove from queue (prevents double-processing)
-    const removed = await r.zrem(QUEUE_KEY, id)
-    if (!removed) {
+    // Claim by LEASING, not removing. If this invocation dies mid-job (the
+    // normal serverless failure mode for slow work), the lease expires and the
+    // job becomes visible again instead of being silently lost. The CAS inside
+    // the script is what prevents two concurrent processors claiming the same
+    // job — the same guarantee the old `zrem` provided.
+    let claimed = 0
+    try {
+      claimed = Number(
+        await r.eval(CLAIM_JOB_LUA, [QUEUE_KEY], [id, String(now), String(now + LEASE_MS)])
+      )
+    } catch (err) {
+      console.error("[queue] claim failed:", err)
+      summary.skipped++
+      continue
+    }
+    if (claimed !== 1) {
       summary.skipped++
       continue
     }
@@ -206,6 +300,8 @@ export async function processJobs(
     // Fetch job data
     const raw = await r.get(`${JOB_PREFIX}${id}`)
     if (!raw) {
+      // Payload expired; drop the orphaned queue entry.
+      await r.zrem(QUEUE_KEY, id)
       summary.skipped++
       continue
     }
@@ -220,6 +316,7 @@ export async function processJobs(
       job.error = `No handler for type: ${job.type}`
       job.updatedAt = new Date().toISOString()
       await r.set(`${JOB_PREFIX}${id}`, JSON.stringify(job), { ex: JOB_TTL_SECONDS })
+      await r.zrem(QUEUE_KEY, id) // terminal — release the lease
       summary.failed++
       continue
     }
@@ -236,21 +333,23 @@ export async function processJobs(
       job.result = result
       job.updatedAt = new Date().toISOString()
       await r.set(`${JOB_PREFIX}${id}`, JSON.stringify(job), { ex: JOB_TTL_SECONDS })
+      await r.zrem(QUEUE_KEY, id) // terminal — release the lease
       summary.processed++
-    } catch (err: any) {
-      job.error = err.message ?? "Unknown error"
+    } catch (err: unknown) {
+      job.error = err instanceof Error ? err.message : "Unknown error"
       job.updatedAt = new Date().toISOString()
 
       if (job.attempts < job.maxAttempts) {
-        // Retry with exponential backoff
+        // Retry with exponential backoff. Re-scoring replaces the lease.
         const delay = BASE_RETRY_DELAY_MS * Math.pow(2, job.attempts - 1)
         job.status = "pending"
         await r.set(`${JOB_PREFIX}${id}`, JSON.stringify(job), { ex: JOB_TTL_SECONDS })
         await r.zadd(QUEUE_KEY, { score: Date.now() + delay, member: id })
       } else {
-        // Max attempts reached
+        // Max attempts reached — terminal, release the lease.
         job.status = "failed"
         await r.set(`${JOB_PREFIX}${id}`, JSON.stringify(job), { ex: JOB_TTL_SECONDS })
+        await r.zrem(QUEUE_KEY, id)
       }
 
       summary.failed++

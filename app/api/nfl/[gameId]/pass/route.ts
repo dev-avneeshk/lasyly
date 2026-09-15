@@ -1,22 +1,32 @@
 import { NextResponse } from "next/server"
-import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/nfl/store"
 import { pass } from "@/lib/nfl/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/nfl/server"
 
-const passSchema = z.object({
-  rev: z.number().int().optional(),
-})
-
 /**
  * POST /api/nfl/[gameId]/pass — the human passes on the current lot. May resolve
  * the lot; the AI then reacts and the clock is applied.
+ *
+ * The `rev` guard is gone, and not only for the churn reason that applies to the
+ * bid route. Here it was outright dangerous:
+ *
+ *     const game = await mutateGame(gameId, (g) => {
+ *       if (data.rev !== undefined && data.rev !== g.rev) return   // silent!
+ *       ...pass(g.state, seat)
+ *     })
+ *     return NextResponse.json(serverView(...))                    // 200 OK
+ *
+ * A stale `rev` made the pass a silent no-op that still returned 200. The player
+ * saw their pass accepted, the server never recorded it, and the lot then
+ * resolved on the timer as though they were still bidding. Passing is
+ * idempotent by construction (`if (!state.passed.includes(team)) push`), so it
+ * needs no staleness guard at all.
  */
 export const POST = withSecurity(async (
-  request: Request,
+  _request: Request,
   context?: { params: Promise<{ gameId: string }> }
 ) => {
   const { gameId } = await context!.params
@@ -24,12 +34,13 @@ export const POST = withSecurity(async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 })
 
-  const rate = await checkRateLimit(`nfl-bid:${user.id}`, RATE_LIMITS.arenaBid)
-  if (!rate.allowed) return NextResponse.json({ error: "Too many actions." }, { status: 429 })
-
-  const body = await request.json().catch(() => ({}))
-  const [data, err] = validateRequestBody(body, passSchema)
-  if (err) return err
+  const rate = await checkRateLimit(`nfl-pass:${user.id}`, RATE_LIMITS.arenaAction)
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many actions. Slow down." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } }
+    )
+  }
 
   const existing = await loadGame(gameId)
   if (!existing) return NextResponse.json({ error: "Game not found." }, { status: 404 })
@@ -39,8 +50,7 @@ export const POST = withSecurity(async (
     return NextResponse.json({ error: "You don't control a seat in this game." }, { status: 403 })
   }
 
-  const game = await mutateGame(gameId, (g) => {
-    if (data.rev !== undefined && data.rev !== g.rev) return
+  const { game } = await mutateGame(gameId, (g) => {
     serverTick(g.state)
     pass(g.state, seat)
     driveAI(g.state)

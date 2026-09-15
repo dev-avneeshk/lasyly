@@ -259,4 +259,27 @@ export const RATE_LIMITS = {
   adminAction: { maxRequests: 20, windowMs: 60000 },
   /** Arena auction bids: high-frequency by nature — 120 per minute per user */
   arenaBid: { maxRequests: 120, windowMs: 60000 },
+  /**
+   * Arena/NFL state polling. The client polls at 2.5s while an auction is live
+   * (24/min), so 90/min leaves room for two tabs plus manual refreshes without
+   * ever throttling legitimate play. Previously unlimited, which is how a single
+   * 900ms poll loop could consume the entire per-IP API budget.
+   */
+  arenaPoll: { maxRequests: 90, windowMs: 60000 },
+  /** Arena/NFL pass + simulate: deliberate actions, 60/min is generous. */
+  arenaAction: { maxRequests: 60, windowMs: 60000 },
+  /** Arena/NFL join: 10/min. Joining is once per game; this is anti-spam only. */
+  arenaJoin: { maxRequests: 10, windowMs: 60000 },
+  /** Profile updates: 10/min. Onboarding saves once; the rest is abuse. */
+  profileUpdate: { maxRequests: 10, windowMs: 60000 },
+  /** Reactions (betslip + message): 60/min. */
+  reaction: { maxRequests: 60, windowMs: 60000 },
+  /** Room join/leave toggle: 20/min. */
+  roomJoin: { maxRequests: 20, windowMs: 60000 },
+  /** Social feed writes (post/like/comment): 30/min. */
+  feedWrite: { maxRequests: 30, windowMs: 60000 },
+  /** Background job enqueue: 20/min per user. */
+  jobEnqueue: { maxRequests: 20, windowMs: 60000 },
+  /** Expensive unauthenticated analytics reads, keyed per IP: 30/min. */
+  expensiveRead: { maxRequests: 30, windowMs: 60000 },
 } as const

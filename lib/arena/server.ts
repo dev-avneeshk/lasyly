@@ -112,6 +112,7 @@ export function serverView(state: ArenaState, viewer: TeamId, rev: number) {
     rosters: state.rosters,
     results: state.results,
     history: state.history.slice(-20),
+    totalLots: state.results.length + state.queue.length + (state.lot ? 1 : 0),
     budgets: {
       P1: snapshot(state.config.budgetPerPlayer, state.rosters.P1),
       P2: snapshot(state.config.budgetPerPlayer, state.rosters.P2),

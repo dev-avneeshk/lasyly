@@ -31,7 +31,18 @@ import { buildTeamProfile, type NflTeamProfile } from "./teamRating"
 import { mulberry32, type RNG } from "./rng"
 
 const QUARTERS = 4
-const QUARTER_SECONDS = 15 * 60
+
+/**
+ * A real NFL game has roughly 11 possessions per team (~22 total drives). We
+ * model the game by DRIVE COUNT rather than raw clock, which keeps play volume
+ * — and therefore yards and points — in a realistic band. (The old clock-based
+ * loop refilled each 900s quarter with short 210s-capped drives, producing 3-4×
+ * the real play count and inflated 56-42 scores with impossible stat lines.)
+ */
+const DRIVES_PER_TEAM = 11
+const TOTAL_DRIVES = DRIVES_PER_TEAM * 2
+/** Max snaps a single drive may run before it's forced to end (punt). */
+const MAX_PLAYS_PER_DRIVE = 14
 
 // Offensive tendencies and defensive postures. Public so v2 can reuse them.
 export type OffCall = "RUN" | "SHORT_PASS" | "DEEP_PASS" | "PLAY_ACTION"
@@ -100,10 +111,12 @@ function clamp01(v: number): number {
 
 function pickOffCall(off: SimTeam, down: number, toGo: number, rng: RNG): OffCall {
   const p = off.profile
-  // Weights bias toward the team's strengths and the situation.
-  let wRun = 1 + (p.rushingOffense - 60) / 40
+  // Weights bias toward the team's strengths and the situation. Run is weighted
+  // up front so the neutral-down mix lands near a realistic ~55/45 pass/run
+  // split — otherwise nearly every play is a pass and QB yardage balloons.
+  let wRun = 1.5 + (p.rushingOffense - 60) / 40
   let wShort = 1 + (p.passingOffense - 60) / 40
-  let wDeep = 0.5 + (p.explosiveness - 60) / 45
+  let wDeep = 0.32 + (p.explosiveness - 60) / 55
   let wPA = 0.4 + (p.rushingOffense + p.explosiveness - 120) / 90
 
   if (down >= 3 && toGo >= 7) { wRun *= 0.4; wDeep *= 1.3; wShort *= 1.2 } // obvious passing
@@ -190,15 +203,20 @@ function resolveRun(off: SimTeam, def: SimTeam, defCall: DefCall, matchup: numbe
   const runD = def.profile.runDefense
   const blitzExposure = defCall === "BLITZ" ? 1.12 : 1 // blitz can open big runs
 
-  const base = 0.5 + (rushO - runD) / 200
+  // "Success" here means a positive gain, not a first down. Even successful
+  // runs mostly gain 2-5 yards, so a drive needs several to move the chains and
+  // frequently stalls — that's what keeps scores realistic.
+  const base = 0.44 + (rushO - runD) / 260
   const success = clamp01(base * matchup * blitzExposure + off.edge - def.edge)
-  const boom = rng() < 0.08 * (rb ? off.profile.rushingOffense / 80 : 1) * (defCall === "BLITZ" ? 1.4 : 1)
+  const boom = rng() < 0.045 * (rb ? off.profile.rushingOffense / 85 : 1) * (defCall === "BLITZ" ? 1.4 : 1)
 
   let yards: number
-  if (rng() < success) {
-    yards = boom ? 12 + Math.floor(rng() * 40) : 3 + Math.floor(rng() * 7)
+  if (boom) {
+    yards = 12 + Math.floor(rng() * 28) // breakaway
+  } else if (rng() < success) {
+    yards = 2 + Math.floor(rng() * 5) // 2-6, typical positive run
   } else {
-    yards = Math.floor(rng() * 3) - 1 // -1..1
+    yards = Math.floor(rng() * 3) - 1 // -1..1, stuffed
   }
 
   const rbLine = line(off, rb?.id ?? null)
@@ -243,7 +261,10 @@ function resolvePass(
 
   const passO = isDeep ? off.profile.explosiveness : off.profile.passingOffense
   const passD = def.profile.coverage
-  const base = (isDeep ? 0.4 : 0.6) + (passO - passD) / 220
+  // Deep balls are low-percentage; short passes are the staple but still miss
+  // often enough (plus sacks/incompletions) that most drives don't reach the
+  // end zone. Tuned so team scoring lands in the realistic ~17-27 band.
+  const base = (isDeep ? 0.33 : 0.5) + (passO - passD) / 300
   const completion = clamp01(base * matchup + off.edge - def.edge)
 
   // Interception chance rises on deep/contested throws vs good ball-hawks.
@@ -255,10 +276,10 @@ function resolvePass(
   }
 
   if (rng() < completion) {
-    const yacBoost = target ? A(target).yac / 120 : 0.4
+    const yacBoost = target ? A(target).yac / 160 : 0.3
     const yards = isDeep
-      ? 16 + Math.floor(rng() * 34) + Math.floor(yacBoost * 12)
-      : 5 + Math.floor(rng() * 9) + Math.floor(yacBoost * 8)
+      ? 15 + Math.floor(rng() * 22) + Math.floor(yacBoost * 10) // ~15-40
+      : 4 + Math.floor(rng() * 7) + Math.floor(yacBoost * 6) // ~4-13
     if (qbLine) { qbLine.completions += 1; qbLine.passYds += yards }
     if (targetLine) { targetLine.receptions += 1; targetLine.recYds += yards }
     return { yards, clockUsed: 20 + Math.floor(rng() * 12), event: "complete", scored: false }
@@ -341,14 +362,16 @@ interface DriveOutcome {
   scorer?: PlayerStatLine | null
 }
 
-function runDrive(off: SimTeam, def: SimTeam, rng: RNG, maxClock: number): DriveOutcome {
+function runDrive(off: SimTeam, def: SimTeam, rng: RNG): DriveOutcome {
   let yardLine = 25 // own 25 (yards from own goal)
   let down = 1
   let toGo = 10
   let clockUsed = 0
   let totalYards = 0
+  let plays = 0
 
-  while (clockUsed < maxClock) {
+  while (plays < MAX_PLAYS_PER_DRIVE) {
+    plays++
     const offCall = pickOffCall(off, down, toGo, rng)
     const defCall = pickDefCall(def, down, toGo, rng)
     const play = resolvePlay(off, def, offCall, defCall, rng)
@@ -434,54 +457,55 @@ export function simulateGame(
   const p1 = buildSimTeam("P1", rosterP1, edges.P1)
   const p2 = buildSimTeam("P2", rosterP2, edges.P2)
 
-  const quarters: QuarterScore[] = []
+  const quarters: QuarterScore[] = [
+    { quarter: 1, p1: 0, p2: 0 },
+    { quarter: 2, p1: 0, p2: 0 },
+    { quarter: 3, p1: 0, p2: 0 },
+    { quarter: 4, p1: 0, p2: 0 },
+  ]
   const scoringPlays: ScoringPlay[] = []
 
   let possession: SimTeam = rng() < 0.5 ? p1 : p2
 
-  for (let q = 1; q <= QUARTERS; q++) {
-    const startP1 = p1.score
-    const startP2 = p2.score
-    let clock = QUARTER_SECONDS
+  // Run a realistic, fixed number of drives, split evenly across the four
+  // quarters so the line score reads naturally.
+  for (let d = 0; d < TOTAL_DRIVES; d++) {
+    const quarter = Math.min(QUARTERS, Math.floor((d / TOTAL_DRIVES) * QUARTERS) + 1)
+    const off = possession
+    const def = off === p1 ? p2 : p1
+    const outcome = runDrive(off, def, rng)
+    off.box.timeOfPossession += outcome.clockUsed
+    off.box.drives += 1
 
-    while (clock > 0) {
-      const off = possession
-      const def = off === p1 ? p2 : p1
-      const outcome = runDrive(off, def, rng, Math.min(clock, 210))
-      clock -= outcome.clockUsed
-      off.box.timeOfPossession += outcome.clockUsed
-      off.box.drives += 1
-
-      if (outcome.points > 0 && outcome.kind) {
-        off.score += outcome.points
-        off.box.points += outcome.points
-        scoringPlays.push({
-          quarter: q,
-          clock: Math.max(0, Math.round(clock)),
-          team: off.team,
-          kind: outcome.kind,
-          yards: outcome.yards,
-          p1Score: p1.score,
-          p2Score: p2.score,
-          text: scoringText(off, outcome),
-          big: outcome.kind === "TD_PASS" && outcome.yards >= 40,
-        })
-      }
-
-      // Possession flips after every drive (score, punt, or turnover).
-      possession = def
-      if (clock <= 0) break
+    if (outcome.points > 0 && outcome.kind) {
+      off.score += outcome.points
+      off.box.points += outcome.points
+      const qIdx = quarter - 1
+      if (off.team === "P1") quarters[qIdx].p1 += outcome.points
+      else quarters[qIdx].p2 += outcome.points
+      scoringPlays.push({
+        quarter,
+        clock: 0,
+        team: off.team,
+        kind: outcome.kind,
+        yards: outcome.yards,
+        p1Score: p1.score,
+        p2Score: p2.score,
+        text: scoringText(off, outcome),
+        big: outcome.kind === "TD_PASS" && outcome.yards >= 40,
+      })
     }
 
-    quarters.push({ quarter: q, p1: p1.score - startP1, p2: p2.score - startP2 })
+    // Possession flips after every drive (score, punt, or turnover).
+    possession = def
   }
 
-  // Overtime: sudden-ish resolution — one drive each until a leader emerges.
+  // Overtime: one drive each until a leader emerges.
   let otGuard = 0
   while (p1.score === p2.score && otGuard++ < 6) {
     for (const off of [p1, p2]) {
       const def = off === p1 ? p2 : p1
-      const outcome = runDrive(off, def, rng, 200)
+      const outcome = runDrive(off, def, rng)
       if (outcome.points > 0 && outcome.kind) {
         off.score += outcome.points
         off.box.points += outcome.points
@@ -565,7 +589,7 @@ function statLineText(l: PlayerStatLine): string {
   return parts.join(", ") || "—"
 }
 
-function playerScore(l: PlayerStatLine): number {
+export function playerScore(l: PlayerStatLine): number {
   return (
     l.passYds * 0.04 + l.passTd * 4 - l.int * 3 +
     l.rushYds * 0.1 + l.rushTd * 6 +

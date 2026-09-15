@@ -233,14 +233,12 @@ export const POST = withSecurity(async (request: Request) => {
     legs: legs.sort((a: { leg_order: number }, b: { leg_order: number }) => a.leg_order - b.leg_order),
   }
 
-  // If visibility is public, broadcast to parlays-feed Realtime channel
+  // If visibility is public, broadcast to parlays-feed Realtime channel.
+  // httpSend() posts over REST explicitly (no socket) — the successor to the
+  // now-deprecated implicit "send() on a never-subscribed channel" fallback.
   if (payload.visibility === "public") {
     const channel = supabase.channel("parlays-feed")
-    await channel.send({
-      type: "broadcast",
-      event: "new_parlay",
-      payload: { parlay: createdParlay },
-    })
+    await channel.httpSend("new_parlay", { parlay: createdParlay })
     await supabase.removeChannel(channel)
   }
 

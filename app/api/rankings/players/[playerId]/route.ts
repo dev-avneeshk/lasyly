@@ -24,7 +24,7 @@ export async function GET(
   const decodedId = decodeURIComponent(playerId)
   const season = request.nextUrl.searchParams.get("season") ?? "2026-27"
 
-  const cacheKey = `rankings:player:${decodedId}:${season}`
+  const cacheKey = `rankings:player:v2:${decodedId}:${season}`
 
   const result = await cached(
     cacheKey,
@@ -76,11 +76,25 @@ export async function GET(
         .eq("player_name", overallRow.player_name)
         .order("season", { ascending: true })
 
+      // Load bio and a persisted headshot from the stable player identity row.
+      // Prefer the UUID relation; retain canonical-name lookup for legacy rows.
+      const bioQuery = supabase
+        .from("nba_players")
+        .select("height, weight, birth_date, headshot_url")
+      const { data: bioRow } = overallRow.player_id
+        ? await bioQuery.eq("id", overallRow.player_id).maybeSingle()
+        : await bioQuery.eq("player_name", overallRow.player_name).maybeSingle()
+
       return {
         player_name: overallRow.player_name,
         player_id: overallRow.player_id,
         position: overallRow.position,
         age: overallRow.age,
+        // Bio (from nba_players identity table)
+        height: bioRow?.height ?? null,
+        weight: bioRow?.weight ?? null,
+        birth_date: bioRow?.birth_date ?? null,
+        headshot_url: bioRow?.headshot_url ?? null,
         season,
         team: overallRow.team,
         historical_team: overallRow.historical_team,
@@ -111,6 +125,8 @@ export async function GET(
         strengths: overallRow.strengths,
         weaknesses: overallRow.weaknesses,
         outlook: overallRow.outlook,
+        signature: overallRow.signature,
+        player_class: overallRow.player_class,
         // History
         ranking_history: historyRows ?? [],
         team_history: teamHistoryRows ?? [],

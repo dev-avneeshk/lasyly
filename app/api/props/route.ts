@@ -8,12 +8,27 @@ import { computeTeamProps, TeamPropStat } from "@/lib/analytics/engine-team-prop
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
 import { AdvancedFilterState } from "@/lib/analytics/types"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/security/clientIp"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Cache TTL for matchup-scoped props: 60 seconds */
 const MATCHUP_PROPS_CACHE_TTL = 60_000
+
+/**
+ * Hard cap on free-text query params (`search`, `withoutPlayer`).
+ *
+ * These flow into two dangerous places: the Redis cache key, and an
+ * `ilike '%…%'` predicate. Uncapped, `withoutPlayer` was the cheapest way to
+ * make this endpoint do maximum work — it is part of the cache key, so every
+ * distinct value is a guaranteed cache MISS, and a miss recomputes six stat
+ * categories (~42 Supabase queries, up to 30k rows). No auth required.
+ *
+ * 40 characters comfortably fits any real player name.
+ */
+const MAX_FREE_TEXT_LENGTH = 40
 
 /** Valid NBA team abbreviations */
 const TEAM_ABBREVIATIONS = new Set([
@@ -87,11 +102,44 @@ export const GET = withSecurity(async (request: Request) => {
   const sport = (searchParams.get("sport") ?? "NBA") as string
   const stat = searchParams.get("stat") ?? (sport === "Tennis" ? "aces" : "pts")
   const search = searchParams.get("search") ?? ""
-  const limit = parseInt(searchParams.get("limit") ?? "50", 10)
+  // Clamp rather than trust: a NaN limit propagated into Math.min(limit, 200)
+  // as NaN, and a negative one turned `slice(0, limit)` into a tail slice.
+  const rawLimit = parseInt(searchParams.get("limit") ?? "50", 10)
+  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 50
   const matchup = searchParams.get("matchup") ?? undefined
 
   // ─── Advanced Filter Parameters ─────────────────────────────────────────────
   const withoutPlayer = searchParams.get("withoutPlayer") ?? ""
+
+  // ─── Bound the free-text inputs BEFORE they reach a cache key or an ilike ───
+  for (const [name, value] of [
+    ["search", search],
+    ["withoutPlayer", withoutPlayer],
+  ] as const) {
+    if (value.length > MAX_FREE_TEXT_LENGTH) {
+      return NextResponse.json(
+        { error: `"${name}" must be ${MAX_FREE_TEXT_LENGTH} characters or fewer.` },
+        { status: 400 }
+      )
+    }
+  }
+
+  // This endpoint is unauthenticated and, on a cache miss, is the most
+  // expensive thing in the app. The coarse per-IP tier in proxy.ts (120/min for
+  // anonymous traffic) is far too generous for it, so bound it specifically.
+  const expensiveRead = await checkRateLimit(
+    `props:${getClientIp(request)}`,
+    RATE_LIMITS.expensiveRead
+  )
+  if (!expensiveRead.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(expensiveRead.retryAfterMs / 1000)) },
+      }
+    )
+  }
   const homeAway = (searchParams.get("homeAway") ?? "all") as "all" | "home" | "away"
   const opponent = searchParams.get("opponent") ?? null
   const minConfidence = Math.max(1, Math.min(5, parseInt(searchParams.get("minConfidence") ?? "1", 10) || 1))

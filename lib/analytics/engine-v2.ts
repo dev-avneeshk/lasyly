@@ -749,10 +749,17 @@ async function computeMatchupScopedPropsUncached(
         const cutoffDate = new Date()
         cutoffDate.setDate(cutoffDate.getDate() - 90)
         const cutoff = cutoffDate.toISOString().split("T")[0]
+        // Escape LIKE wildcards: an unescaped `%` here matched every row, which
+        // turned an attacker-supplied filter into a full scan of the join.
+        // The route caps the length; this bounds the pattern's selectivity.
+        const escapedWithoutPlayer = filterWithoutPlayer
+          .replace(/\\/g, "\\\\")
+          .replace(/%/g, "\\%")
+          .replace(/_/g, "\\_")
         const { data: teammateGames } = await supabase
           .from("nba_player_stats")
           .select("nba_games!inner(game_date)")
-          .ilike("player_name", `%${filterWithoutPlayer}%`)
+          .ilike("player_name", `%${escapedWithoutPlayer}%`)
           .gte("nba_games.game_date", cutoff)
           .limit(200)
         if (teammateGames) {

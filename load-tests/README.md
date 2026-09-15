@@ -10,13 +10,54 @@ brew install k6
 
 ## Test Scenarios
 
-| Script | Purpose | Duration | VUs |
-|--------|---------|----------|-----|
-| `smoke.js` | Quick sanity check | 30s | 2 |
-| `load.js` | Sustained realistic traffic | ~5 min | 10→50 |
-| `stress.js` | Find breaking points | ~8 min | 20→300 |
-| `spike.js` | Sudden traffic bursts | ~2 min | 5→300 |
-| `soak.js` | Extended stability check | ~15 min | 30 |
+| Script | Purpose | Duration | VUs | Auth |
+|--------|---------|----------|-----|------|
+| `smoke.js` | Quick sanity check | 30s | 2 | — |
+| `load.js` | Sustained realistic traffic | ~5 min | 10→50 | — |
+| `stress.js` | Find breaking points | ~8 min | 20→300 | — |
+| `spike.js` | Sudden traffic bursts | ~2 min | 5→300 | — |
+| `soak.js` | Extended stability check | ~15 min | 30 | — |
+| `authenticated.js` | Arena auction, chat, wallet, profile writes | ~4 min | 2→200 | **required** |
+| `abuse.js` | Spam, cache busting, malformed input, enumeration | ~45s | 200 req/s | optional |
+
+### Authenticated + abuse runs
+
+The first five scripts only exercise anonymous public reads. Everything that holds
+state — the auction's per-game lock, chat's layered rate limits, the wallet, the
+per-session rate-limit bucket — is covered by `authenticated.js`, which needs real
+session cookies:
+
+```bash
+# 1. Sign in to STAGING in a browser
+# 2. DevTools -> Application -> Cookies -> copy every sb-*-auth-token* cookie
+# 3. One "name=value; name=value" line per virtual user:
+cat > load-tests/sessions.txt <<'EOF'
+sb-abc-auth-token.0=eyJ...; sb-abc-auth-token.1=xyz...
+EOF
+
+k6 run -e BASE_URL=https://staging.example \
+       -e SESSIONS=load-tests/sessions.txt \
+       load-tests/authenticated.js
+```
+
+`sessions.txt` is gitignored — it contains live credentials. **Never run
+`authenticated.js` or `abuse.js` against production**: they place bids, send chat
+messages and write profiles.
+
+### Reading the results
+
+These two scripts invert the usual pass condition. `429` and `503` are counted as
+**correct** behaviour — they mean the rate limits and the game store's fail-closed
+lock are shedding load rather than corrupting state. What must stay at zero is
+`server_errors` (5xx other than 503). `abuse.js` additionally *requires* a
+`throttle_rate` above 0.5: if a flood comes back all-200, a limit is missing.
+
+`authenticated.js` asserts one auction-specific invariant worth understanding:
+`stale_bid_rejections` (409s from the lot-identity guard) must stay near zero.
+Before the concurrency fixes, staleness was checked against a global `rev` counter
+that every poll incremented, so two players polling concurrently rejected each
+other's legitimate bids almost every time. A run with a high count here means that
+regression is back.
 
 ## Running
 

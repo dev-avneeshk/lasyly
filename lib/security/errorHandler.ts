@@ -54,6 +54,40 @@ interface ErrorClassification {
   code: ErrorCode
   statusCode: number
   clientMessage: string
+  /** When set, emitted as a Retry-After header so clients back off correctly. */
+  retryAfterSeconds?: number
+}
+
+/**
+ * Errors thrown by low-level modules that declare a stable string `code`.
+ *
+ * Matched structurally rather than with `instanceof` so modules like
+ * lib/games/store.ts don't have to import the HTTP layer just to be classified
+ * correctly. This also removes a real footgun: classifyError below works by
+ * substring-matching the message, so a new error's status depended on whether
+ * its prose happened to contain a keyword. GameBusyError ("That game is busy…")
+ * matched nothing and would have been reported to the client as a 500 bug.
+ */
+const CODED_ERRORS: Record<
+  string,
+  { code: ErrorCode; statusCode: number; clientMessage: string; retryAfterSeconds?: number }
+> = {
+  GAME_BUSY: {
+    code: ERROR_CODES.SERVICE_UNAVAILABLE,
+    statusCode: 503,
+    clientMessage: "That game is busy right now. Retry in a moment.",
+    retryAfterSeconds: 1,
+  },
+  GAME_CONFLICT: {
+    code: ERROR_CODES.CONFLICT,
+    statusCode: 409,
+    clientMessage: "That game changed while your action was in flight. Please retry.",
+  },
+  GAME_NOT_FOUND: {
+    code: ERROR_CODES.NOT_FOUND,
+    statusCode: 404,
+    clientMessage: "Game not found.",
+  },
 }
 
 /** Patterns that indicate sensitive information that must never leak to clients */
@@ -78,6 +112,12 @@ function classifyError(error: unknown): ErrorClassification {
       statusCode: error.statusCode,
       clientMessage: sanitizeMessage(error.message),
     }
+  }
+
+  // Structurally-tagged errors take precedence over message sniffing.
+  const coded = (error as { code?: unknown } | null | undefined)?.code
+  if (typeof coded === "string" && coded in CODED_ERRORS) {
+    return CODED_ERRORS[coded]
   }
 
   if (error instanceof Error) {
@@ -317,7 +357,14 @@ export function handleError(
     correlationId,
   }
 
-  return NextResponse.json(safeResponse, {
+  const response = NextResponse.json(safeResponse, {
     status: classification.statusCode,
   })
+
+  // Tell the client how long to wait instead of leaving it to hammer.
+  if (classification.retryAfterSeconds !== undefined) {
+    response.headers.set("Retry-After", String(classification.retryAfterSeconds))
+  }
+
+  return response
 }

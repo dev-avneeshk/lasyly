@@ -9,15 +9,20 @@ import { driveAI, serverView, serverTick, seatForUser } from "@/lib/nfl/server"
 
 const bidSchema = z.object({
   amount: z.number().int().min(1).max(200),
-  /** Optimistic concurrency guard — reject if the client's view is stale. */
+  /** The player the user believes they're bidding on — the guard that matters. */
+  lotPlayerId: z.string().min(1).max(120).optional(),
   rev: z.number().int().optional(),
 })
 
 /**
  * POST /api/nfl/[gameId]/bid — the human proposes a bid. Fully validated by the
- * pure engine (budget, roster feasibility, over-bid, duplicate). On success the
- * AI responds and the clock is applied. This is the ONLY way ownership/budgets
- * change — the client is never trusted with the outcome.
+ * pure engine (budget, roster feasibility, over-bid, duplicate, self-outbid).
+ * This is the ONLY way ownership/budgets change.
+ *
+ * Staleness is guarded on LOT IDENTITY rather than the global `rev` counter —
+ * see app/api/arena/[gameId]/bid/route.ts for the full reasoning. In short:
+ * `rev` moved on every write, read-only polls were writes, so the check failed
+ * for legitimate bids and rejected bids poisoned the opponent's view.
  */
 export const POST = withSecurity(async (
   request: Request,
@@ -29,7 +34,12 @@ export const POST = withSecurity(async (
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 })
 
   const rate = await checkRateLimit(`nfl-bid:${user.id}`, RATE_LIMITS.arenaBid)
-  if (!rate.allowed) return NextResponse.json({ error: "Bidding too fast." }, { status: 429 })
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Bidding too fast." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } }
+    )
+  }
 
   const body = await request.json().catch(() => ({}))
   const [data, err] = validateRequestBody(body, bidSchema)
@@ -44,13 +54,16 @@ export const POST = withSecurity(async (
   }
 
   let bidError: string | null = null
-  const game = await mutateGame(gameId, (g) => {
-    if (data.rev !== undefined && data.rev !== g.rev) {
-      bidError = "STALE"
+  let lotChanged = false
+
+  const { game } = await mutateGame(gameId, (g) => {
+    serverTick(g.state)
+
+    if (data.lotPlayerId && g.state.lot?.player.id !== data.lotPlayerId) {
+      lotChanged = true
       return
     }
-    serverTick(g.state)
-    if (bidError) return
+
     const res = placeBid(g.state, seat, data.amount)
     if (!res.ok) {
       bidError = res.error ?? "Illegal bid."
@@ -60,9 +73,12 @@ export const POST = withSecurity(async (
     serverTick(g.state)
   })
 
-  if (bidError === "STALE") {
+  if (lotChanged) {
     return NextResponse.json(
-      { error: "Your view was out of date — refresh and retry.", ...serverView(game.state, seat, game.rev) },
+      {
+        error: "That player is no longer up for auction — here's the current lot.",
+        ...serverView(game.state, seat, game.rev),
+      },
       { status: 409 }
     )
   }

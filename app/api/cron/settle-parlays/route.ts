@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server"
 import { settleParlayLegs } from "@/lib/parlays/settlement"
+import { isAuthorizedCron } from "@/lib/security/cronAuth"
+import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 /**
  * POST /api/cron/settle-parlays
  *
  * Directly runs parlay leg settlement (checks game stats against prop lines).
- * Protected by CRON_SECRET header check.
+ * Protected by CRON_SECRET (constant-time comparison, header only).
  *
  * This is separate from resolve-parlays which uses the job queue.
  * Call this after scrapers finish to immediately settle any legs
  * that now have results available.
  */
-export async function POST(request: Request) {
-  // Verify cron secret
-  const authHeader = request.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+export const POST = withSecurity(async (request: Request) => {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -36,10 +34,9 @@ export async function POST(request: Request) {
       settledAt: new Date().toISOString(),
     })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error"
-    return NextResponse.json(
-      { error: "Settlement failed", details: message },
-      { status: 500 }
-    )
+    // Log the detail, return none. Settlement errors carry table names,
+    // constraint names and occasionally row values.
+    console.error("[settle-parlays] failed:", err)
+    return NextResponse.json({ error: "Settlement failed" }, { status: 500 })
   }
-}
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

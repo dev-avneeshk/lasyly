@@ -69,3 +69,8 @@ scripts/.next/
 
 .backups/
 .env*.local
+
+# Load-test session cookies — live credentials, never commit.
+load-tests/sessions.txt
+load-tests/results.json
+load-tests/results.csv

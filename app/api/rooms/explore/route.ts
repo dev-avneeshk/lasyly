@@ -2,9 +2,18 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { escapePostgrestFilter } from "@/lib/sanitize"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/security/clientIp"
 
 const DEFAULT_PAGE_SIZE = 20
 const MAX_PAGE_SIZE = 50
+/**
+ * Cap on `page`. `range(offset, …)` becomes `OFFSET n` in Postgres, and OFFSET
+ * makes the database walk and discard every skipped row. `page` was unbounded,
+ * so `?page=999999` asked for a ~20 million row walk — unauthenticated, and on a
+ * service-role client. 50 pages × 50 rows is well past anything the UI shows.
+ */
+const MAX_PAGE = 50
 const VALID_SPORT_TAGS = ["Football", "Basketball", "Tennis", "Mixed", "Other"]
 
 export const GET = withSecurity(async (request: Request) => {
@@ -34,7 +43,7 @@ export const GET = withSecurity(async (request: Request) => {
     )
   }
 
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1)
+  const page = Math.min(MAX_PAGE, Math.max(1, parseInt(pageParam ?? "1", 10) || 1))
   const pageSize = Math.min(
     MAX_PAGE_SIZE,
     Math.max(1, parseInt(pageSizeParam ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
@@ -42,11 +51,25 @@ export const GET = withSecurity(async (request: Request) => {
 
   const offset = (page - 1) * pageSize
 
+  // Unauthenticated, service-role, and (with `search`) an unanchored ILIKE over
+  // two columns. Bound it per source address on top of the coarse proxy tier.
+  const rate = await checkRateLimit(`rooms-explore:${getClientIp(request)}`, RATE_LIMITS.expensiveRead)
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } }
+    )
+  }
+
   const supabase = createAdminClient()
 
   let query = supabase
     .from("rooms")
-    .select("id, name, description, type, sport_tag, member_count, is_live, created_at", { count: "exact" })
+    // `count: "planned"` uses the planner's row estimate instead of running a
+    // second COUNT(*) over the whole filtered set on every request. The UI shows
+    // this as an approximate total and page count; an exact count of a
+    // discovery listing is not worth a full scan per page view.
+    .select("id, name, description, type, sport_tag, member_count, is_live, created_at", { count: "planned" })
     .in("type", ["Public", "Tipster"])
     .order("member_count", { ascending: false })
     .range(offset, offset + pageSize - 1)

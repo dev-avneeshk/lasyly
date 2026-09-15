@@ -67,26 +67,57 @@ export default function RankingsClient() {
     fetchRankings(category, season, mode)
   }, [category, season, mode, fetchRankings])
 
-  // Batch-fetch player headshots whenever the player list changes.
+  // Batch-fetch player headshots whenever the player list changes. Repeated
+  // parameters avoid comma-delimited names, and small chunks stay below common
+  // proxy URL limits. v=5 bypasses empty responses cached during the route
+  // migration from the legacy comma-delimited request shape.
   useEffect(() => {
     if (players.length === 0) return
     const names = players
-      .map((p) => p.player_name)
-      .filter((n) => !(n in photos))
+      .map((player) => player.player_name)
+      .filter((name) => !(name in photos))
     if (names.length === 0) return
 
-    let cancelled = false
-    const url = `/api/players/headshots?sport=NBA&names=${encodeURIComponent(names.join(","))}`
-    fetch(url)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data?.headshots) return
-        setPhotos((prev) => ({ ...prev, ...data.headshots }))
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
+    const controller = new AbortController()
+
+    async function fetchHeadshots() {
+      try {
+        const batches: string[][] = []
+        for (let index = 0; index < names.length; index += 40) {
+          batches.push(names.slice(index, index + 40))
+        }
+
+        const responses = await Promise.all(
+          batches.map(async (batch) => {
+            const params = new URLSearchParams({ sport: "NBA", v: "5" })
+            for (const name of batch) params.append("name", name)
+
+            const response = await fetch(`/api/players/headshots?${params}`, {
+              cache: "no-store",
+              signal: controller.signal,
+            })
+            if (!response.ok) {
+              throw new Error(`Headshot request failed with ${response.status}`)
+            }
+
+            const data = await response.json()
+            return data?.headshots as Record<string, string> | undefined
+          })
+        )
+
+        if (controller.signal.aborted) return
+        setPhotos((previous) => Object.assign({}, previous, ...responses.filter(Boolean)))
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("[rankings] headshot fetch error:", error)
+        }
+      }
     }
+
+    void fetchHeadshots()
+    return () => controller.abort()
+    // photos is intentionally omitted: players changing triggers a new lookup,
+    // while adding photos here would retry unresolved names indefinitely.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players])
 

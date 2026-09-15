@@ -1,0 +1,3 @@
+# auction_ai has NO third-party dependencies — it runs on the Python 3.10+
+# standard library only (multiprocessing, json, random, dataclasses, math).
+# No GPU, no ML framework. This keeps the offline engine trivial to run anywhere.

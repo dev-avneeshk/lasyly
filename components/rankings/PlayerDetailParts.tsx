@@ -43,17 +43,41 @@ export function HeadlineStat({
   sub?: string | null
   highlight?: boolean
 }) {
-  const subText = sub ?? (rank != null ? `#${rank}` : null)
+  const subText = sub ?? (rank != null ? `#${rank} NBA` : null)
   return (
-    <div className="flex-1 min-w-[92px] px-4 py-3 text-left border-r border-[var(--color-border)] last:border-r-0">
-      <div className={cn("text-xl md:text-2xl font-black tabular-nums leading-none", highlight ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]")}>
+    <div
+      className={cn(
+        "relative flex-1 px-4 py-3.5 text-left border-r border-white/[0.06] last:border-r-0",
+        highlight ? "min-w-[132px] bg-[var(--color-lime)]/[0.06]" : "min-w-[92px]"
+      )}
+    >
+      {/* Accent marker for the flagship Overall Score module */}
+      {highlight && <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--color-lime)]" />}
+      <div
+        className={cn(
+          "font-black tabular-nums leading-none",
+          highlight ? "text-[26px] md:text-[30px] text-[var(--color-lime)]" : "text-xl md:text-2xl text-[var(--color-text-primary)]"
+        )}
+      >
         {value}
       </div>
-      <div className={cn("text-[11px] font-semibold mt-1", highlight ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)]")}>
+      <div
+        className={cn(
+          "text-[10px] font-bold uppercase tracking-wider mt-1.5",
+          highlight ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)]"
+        )}
+      >
         {label}
       </div>
       {subText && (
-        <div className="text-[10px] font-semibold text-[var(--color-text-muted)]/70 mt-0.5 tabular-nums">{subText}</div>
+        <div
+          className={cn(
+            "text-[10px] font-bold mt-0.5 tabular-nums tracking-wide",
+            highlight ? "text-[var(--color-lime)]/80" : "text-[var(--color-text-primary)]/70"
+          )}
+        >
+          {subText}
+        </div>
       )}
     </div>
   )
@@ -71,21 +95,21 @@ export function TabBar<T extends string>({
   onChange: (id: T) => void
 }) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide border-b border-[var(--color-border)]">
+    <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide border-b border-white/[0.06]">
       {tabs.map((t) => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
           className={cn(
-            "relative px-3.5 py-3 text-[13px] font-semibold whitespace-nowrap transition-colors",
+            "relative px-1 py-3 text-[12.5px] font-bold uppercase tracking-[0.08em] whitespace-nowrap transition-colors",
             active === t.id
-              ? "text-[var(--color-text-primary)]"
-              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+              ? "text-white"
+              : "text-[var(--color-text-muted)]/70 hover:text-[var(--color-text-primary)]"
           )}
         >
           {t.label}
           {active === t.id && (
-            <span className="absolute bottom-0 left-2.5 right-2.5 h-0.5 rounded-full bg-[var(--color-lime)]" />
+            <span className="absolute -bottom-px left-0 right-0 h-[2.5px] rounded-full bg-[var(--color-lime)] shadow-[0_0_10px_rgba(212,255,0,0.5)]" />
           )}
         </button>
       ))}
@@ -107,10 +131,10 @@ export function Panel({
   className?: string
 }) {
   return (
-    <div className={cn("rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden", className)}>
+    <div className={cn("rounded-2xl border border-white/[0.07] bg-[var(--color-surface)] overflow-hidden", className)}>
       {(title || action) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-          {title && <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{title}</h3>}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+          {title && <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">{title}</h3>}
           {action}
         </div>
       )}
@@ -124,9 +148,9 @@ export function Panel({
 export function InfoRow({ label, value }: { label: string; value: string | number | null | undefined }) {
   const display = value == null || value === "" ? "—" : value
   return (
-    <div className="flex items-center justify-between py-2 border-b border-[var(--color-border)] last:border-b-0">
-      <span className="text-[12px] text-[var(--color-text-muted)]">{label}</span>
-      <span className="text-[12px] font-semibold text-[var(--color-text-primary)] text-right">{display}</span>
+    <div className="flex items-center justify-between py-2.5 border-b border-white/[0.05] last:border-b-0">
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]/70">{label}</span>
+      <span className="text-[12.5px] font-semibold text-white text-right">{display}</span>
     </div>
   )
 }
@@ -170,10 +194,10 @@ export function MetricCell({
   rank?: number | null
 }) {
   return (
-    <div className="px-3 py-3.5 text-center border-r border-b border-[var(--color-border)] last:border-r-0">
-      <div className="text-lg font-black tabular-nums text-[var(--color-text-primary)] leading-none">{value}</div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] mt-1.5">{label}</div>
-      {rank != null && <div className="text-[10px] font-semibold text-[var(--color-lime)]/70 mt-0.5">#{rank}</div>}
+    <div className="px-3 py-3.5 text-center border-r border-b border-white/[0.05] last:border-r-0">
+      <div className="text-lg font-black tabular-nums text-white leading-none">{value}</div>
+      <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]/70 mt-1.5">{label}</div>
+      {rank != null && <div className="text-[10px] font-bold text-[var(--color-lime)]/80 mt-0.5">#{rank}</div>}
     </div>
   )
 }

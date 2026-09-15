@@ -199,6 +199,13 @@ export function placeBid(state: NflAuctionState, team: TeamId, amount: number): 
   if (!teamActive(state, team)) {
     return { ok: false, error: "Your roster is already full.", state }
   }
+  // Already winning? Raising against yourself only inflates your own price —
+  // which is exactly what a double-click produces (first click wins at $5, the
+  // re-render sets minRaise to $6, second click bids $6 against nobody). The AI
+  // never self-bids, so a human shouldn't be able to either.
+  if (state.lot.highBidder === team) {
+    return { ok: false, error: "You're already the high bidder.", state }
+  }
   const player = state.lot.player
   if (ownsPlayer(state.rosters[team], player.id)) {
     return { ok: false, error: "You already own this player.", state }

@@ -1,0 +1,30 @@
+{
+  "policy": {
+    "version": 6,
+    "weights": {
+      "player_value_weight": 1.7853,
+      "offense_weight": 0.1773,
+      "defense_weight": 1.5346,
+      "spacing_weight": 1.3739,
+      "team_fit_weight": 0.0,
+      "potential_weight": 0.0,
+      "age_weight": 0.0,
+      "positional_need_weight": 0.3156,
+      "scarcity_weight": 0.4709,
+      "budget_weight": 1.9214,
+      "future_value_weight": 0.4479,
+      "overpay_penalty": 1.6127,
+      "urgency_weight": 2.8137,
+      "risk_tolerance": 0.6079
+    }
+  },
+  "model_id": {
+    "policy_version": "v6",
+    "parent_policy": "production",
+    "simulation_version": "gt-1.0.0",
+    "player_data_version": "players-2025-26-596e5489b7",
+    "training_seed": 1
+  },
+  "reference_win_rate": 0.5,
+  "promoted_from": "production"
+}

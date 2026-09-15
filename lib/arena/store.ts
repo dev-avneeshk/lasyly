@@ -1,126 +1,91 @@
 /**
  * Arena game store — server-authoritative persistence for ArenaState.
  *
- * Backed by Upstash Redis (shared across serverless instances) with an
- * in-memory fallback for local dev when Redis env vars are absent — the same
- * degradation strategy used by lib/cache.ts. Per the project caching rule,
- * frequently-mutated game state lives in Redis so both participants (and every
- * serverless instance) read a single source of truth.
+ * All of the concurrency machinery (fail-closed distributed lock, in-process
+ * mutex, dirty-checking so reads and rejected actions don't bump `rev`,
+ * compare-and-swap writes) lives in lib/games/store.ts, which lib/nfl/store.ts
+ * shares. This file is the typed arena binding plus the arena-specific
+ * "does the server clock actually need to run?" predicate.
  *
- * Concurrency: bids mutate a small JSON blob. To avoid lost updates when both
- * players act simultaneously we use an optimistic version check (`rev`) and a
- * short-lived Redis lock around read-modify-write. If the lock can't be taken
- * we retry briefly; if Redis is unavailable we fall back to the in-memory map
- * (single-instance dev only).
+ * Key invariant callers depend on: `rev` counts REAL state transitions. A poll
+ * that changes nothing leaves it alone, so an in-flight bid is no longer
+ * invalidated by the opponent's polling interval.
  */
 
-import { getRedisClient } from "@/lib/redis"
+import { createGameStore, type GameRecord, type MutateOutcome } from "@/lib/games/store"
 import type { ArenaState } from "./auction"
 
-const PREFIX = "arena:game:"
-const LOCK_PREFIX = "arena:lock:"
-const TTL_SECONDS = 60 * 60 * 3 // games expire after 3h of inactivity
+/** Games expire after 3h of inactivity. */
+const TTL_SECONDS = 60 * 60 * 3
 
-export interface StoredGame {
-  rev: number
-  /** User in seat P1 (the creator). */
-  ownerUserId: string
-  /** User in seat P2 when a second human has joined (null while P2 is AI/open). */
-  guestUserId?: string | null
-  state: ArenaState
-}
+const store = createGameStore<ArenaState>({
+  prefix: "arena",
+  ttlSeconds: TTL_SECONDS,
+})
 
-// ── In-memory fallback ────────────────────────────────────────────────────
-const mem = new Map<string, StoredGame>()
+export type StoredGame = GameRecord<ArenaState>
 
-function key(gameId: string) {
-  return `${PREFIX}${gameId}`
-}
+export {
+  GameBusyError,
+  GameConflictError,
+  GameNotFoundError,
+} from "@/lib/games/store"
 
 export async function saveGame(game: StoredGame): Promise<void> {
-  const redis = getRedisClient()
-  if (redis) {
-    try {
-      await redis.set(key(game.state.gameId), game, { ex: TTL_SECONDS })
-      return
-    } catch {
-      // fall through to memory
-    }
-  }
-  mem.set(game.state.gameId, game)
+  return store.saveGame(game, game.state.gameId)
 }
 
 export async function loadGame(gameId: string): Promise<StoredGame | null> {
-  const redis = getRedisClient()
-  if (redis) {
-    try {
-      const g = await redis.get<StoredGame>(key(gameId))
-      if (g) return g
-    } catch {
-      // fall through
-    }
-  }
-  return mem.get(gameId) ?? null
+  return store.loadGame(gameId)
 }
 
 export async function deleteGame(gameId: string): Promise<void> {
-  const redis = getRedisClient()
-  if (redis) {
-    try { await redis.del(key(gameId)) } catch { /* best-effort */ }
-  }
-  mem.delete(gameId)
-}
-
-// ── Locking (best-effort, short TTL) ────────────────────────────────────────
-
-async function acquireLock(gameId: string, token: string, ms = 3000): Promise<boolean> {
-  const redis = getRedisClient()
-  if (!redis) return true // memory fallback is single-threaded per instance
-  try {
-    // NX + PX: only set if absent, auto-expire.
-    const res = await redis.set(`${LOCK_PREFIX}${gameId}`, token, { nx: true, px: ms })
-    return res === "OK"
-  } catch {
-    return true
-  }
-}
-
-async function releaseLock(gameId: string, token: string): Promise<void> {
-  const redis = getRedisClient()
-  if (!redis) return
-  try {
-    const cur = await redis.get<string>(`${LOCK_PREFIX}${gameId}`)
-    if (cur === token) await redis.del(`${LOCK_PREFIX}${gameId}`)
-  } catch {
-    // best-effort
-  }
+  return store.deleteGame(gameId)
 }
 
 /**
- * Atomically read-modify-write a game under a short lock. The mutator receives
- * the current StoredGame and returns the mutated state (or throws to abort).
- * `rev` is bumped on every successful write so stale clients can detect drift.
+ * Atomically read-modify-write a game.
+ *
+ * Returns `{ game, changed }`. `changed` is false when the mutator produced no
+ * observable difference — in which case nothing was written and `rev` is
+ * unchanged. Throws GameNotFoundError, GameBusyError (contended or Redis
+ * unhealthy — fail CLOSED, never silently unlocked) or GameConflictError.
  */
 export async function mutateGame(
   gameId: string,
   mutator: (game: StoredGame) => void
-): Promise<StoredGame> {
-  const token = crypto.randomUUID()
-  const gotLock = await acquireLock(gameId, token)
-  if (!gotLock) {
-    // brief retry
-    await new Promise((r) => setTimeout(r, 60))
-    const retry = await acquireLock(gameId, token)
-    if (!retry) throw new Error("Game is busy, please retry.")
+): Promise<MutateOutcome<ArenaState>> {
+  return store.mutateGame(gameId, mutator)
+}
+
+/** Test-only helper: drop the in-memory fallback state between cases. */
+export function _resetStore(): void {
+  store._resetMemory()
+}
+
+/**
+ * Would running the server clock change anything?
+ *
+ * This is what lets the read path stay a read. `GET /api/arena/[id]` used to
+ * call mutateGame unconditionally, so every 900ms poll from every player took a
+ * lock, rewrote the whole blob and bumped `rev` — 5 Redis commands including a
+ * write, to answer a question. Now the route loads once (1 command) and only
+ * escalates to a locked mutation when the clock genuinely has work:
+ *
+ *   - the auction has no open lot (one needs opening), or
+ *   - the current lot's deadline has passed (it needs resolving), or
+ *   - the auction finished but the simulation result was never persisted.
+ *
+ * Everything else — AI responses, budget changes, ownership — is driven by an
+ * explicit action (bid/pass/simulate), which takes the lock anyway.
+ */
+export function needsServerTick(state: ArenaState, now = Date.now()): boolean {
+  if (state.status === "auction") {
+    if (!state.lot) return true
+    return state.lotDeadline !== null && now >= state.lotDeadline
   }
-  try {
-    const game = await loadGame(gameId)
-    if (!game) throw new Error("Game not found.")
-    mutator(game)
-    game.rev += 1
-    await saveGame(game)
-    return game
-  } finally {
-    await releaseLock(gameId, token)
-  }
+  // Defensive: a finished auction whose result never got computed (e.g. the
+  // process died between the status flip and the write) must be repaired.
+  if (state.status === "lineup" && !state.result) return true
+  return false
 }

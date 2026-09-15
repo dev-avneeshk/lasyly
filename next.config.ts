@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
   // undefined). Defining it explicitly gives the runtime the shape it expects.
   experimental: {
     instantInsights: { validationLevel: "warning" },
+    // When proxy.ts is present, Next.js buffers a clone of every request body in
+    // memory so it can be read both in proxy and in the route handler. The
+    // default ceiling is 10MB per request, and the app's own limit
+    // (BODY_LIMIT_STANDARD = 1MB) is only a Content-Length pre-check, which a
+    // client can skip with chunked encoding. This is the ceiling that holds
+    // regardless of what the request claims: Next buffers at most this much and
+    // logs a warning. 1mb matches BODY_LIMIT_STANDARD; no route in the app
+    // legitimately posts more (the largest bodies are chat messages capped at
+    // 1000 chars and betslip payloads).
+    proxyClientMaxBodySize: "1mb",
   } as NextConfig["experimental"],
   allowedDevOrigins: ["192.168.31.195"],
   logging: false,

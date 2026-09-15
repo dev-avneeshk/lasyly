@@ -6,43 +6,18 @@
  *
  * Authorization: Requires CRON_SECRET in the Authorization header.
  *
- * Requirements: 5.3
+ * (The constant-time comparison this route pioneered now lives in
+ * lib/security/cronAuth.ts and is shared by every scheduled endpoint — the
+ * others were using a plain `!==` string compare.)
  */
-
 import { NextResponse } from "next/server"
-import { timingSafeEqual } from "node:crypto"
-import { enqueueJob } from "@/lib/queue"
+import { enqueueJob, QueueFullError } from "@/lib/queue"
 import { JOB_TYPES } from "@/lib/queue/handlers"
+import { isAuthorizedCron } from "@/lib/security/cronAuth"
+import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
-// ─── Auth Verification ──────────────────────────────────────────────────────
-
-function verifyCronSecret(request: Request): boolean {
-  const authHeader = request.headers.get("authorization")
-  const cronSecret = process.env.CRON_SECRET
-
-  if (!cronSecret || !authHeader) {
-    if (!cronSecret) {
-      console.error("CRON_SECRET environment variable is not set")
-    }
-    return false
-  }
-
-  const expected = `Bearer ${cronSecret}`
-  const expectedBuf = Buffer.from(expected, "utf8")
-  const actualBuf = Buffer.from(authHeader, "utf8")
-
-  if (expectedBuf.length !== actualBuf.length) {
-    timingSafeEqual(expectedBuf, expectedBuf)
-    return false
-  }
-
-  return timingSafeEqual(expectedBuf, actualBuf)
-}
-
-// ─── Route Handler ──────────────────────────────────────────────────────────
-
-export async function GET(request: Request) {
-  if (!verifyCronSecret(request)) {
+export const GET = withSecurity(async (request: Request) => {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -50,7 +25,6 @@ export async function GET(request: Request) {
     const jobId = await enqueueJob(JOB_TYPES.COMPUTE_CORRELATIONS, {
       sports: ["NBA", "Tennis"],
     })
-
     return NextResponse.json({
       success: true,
       message: "Correlation computation enqueued",
@@ -58,10 +32,17 @@ export async function GET(request: Request) {
       enqueuedAt: new Date().toISOString(),
     })
   } catch (error) {
+    if (error instanceof QueueFullError) {
+      console.error("[correlations] queue is full — computation skipped")
+      return NextResponse.json(
+        { error: "Job queue is at capacity." },
+        { status: 503, headers: { "Retry-After": "60" } }
+      )
+    }
     console.error("Failed to enqueue correlation job:", error)
     return NextResponse.json(
       { error: "Failed to enqueue correlation computation" },
       { status: 500 }
     )
   }
-}
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

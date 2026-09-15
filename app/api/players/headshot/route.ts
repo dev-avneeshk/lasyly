@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { cached } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  getHeadshotLookupTerm,
+  isHeadshotNameMatch,
+  normalizeHeadshotName,
+} from "@/lib/players/headshotResolver"
 
 /**
  * GET /api/players/headshot?name=Victor+Wembanyama&team=SAS&sport=NBA
@@ -29,6 +34,14 @@ const HEADSHOT_PATTERNS: Record<string, string> = {
   nhl: "https://a.espncdn.com/i/headshots/nhl/players/full/{id}.png",
   soccer: "https://a.espncdn.com/i/headshots/soccer/players/full/{id}.png",
   mls: "https://a.espncdn.com/i/headshots/soccer/players/full/{id}.png",
+}
+
+const ESPN_PLAYER_SPORT_VALUES: Record<string, string> = {
+  nba: "basketball",
+  nfl: "football",
+  nhl: "hockey",
+  soccer: "soccer",
+  mls: "soccer",
 }
 
 // Map sport display names to ESPN sport/league paths
@@ -97,7 +110,9 @@ async function handleGET(request: Request) {
   const sportConfig = SPORT_CONFIG[sportParam] ?? SPORT_CONFIG.nba
 
   try {
-    const cacheKey = `headshot:${playerName.toLowerCase()}:${(team ?? "").toLowerCase()}:${sportParam}`
+    // v2 uses accent-insensitive identity matching and invalidates cached misses
+    // produced by the previous lowercase-only resolver.
+    const cacheKey = `headshot:v2:${normalizeHeadshotName(playerName)}:${(team ?? "").toLowerCase()}:${sportParam}`
 
     const result = await cached(cacheKey, async () => {
       // ─── Strategy 1: Check our espn_players table (fastest, all sports) ────
@@ -158,25 +173,28 @@ async function searchDatabase(
       }
     }
 
-    // Search espn_players by name (case-insensitive)
+    // Query by accent-free surname to retrieve provider candidates even when
+    // the canonical Basketball Reference name contains diacritics.
+    const lookupTerm = getHeadshotLookupTerm(playerName)
+    const providerSport = ESPN_PLAYER_SPORT_VALUES[sportKey] ?? sportKey
     const query = supabase
       .from("espn_players")
       .select("espn_id, name, headshot_url, sport")
-      .ilike("name", `%${playerName}%`)
-      .limit(5)
+      .eq("sport", providerSport)
+      .ilike("name", `%${lookupTerm}%`)
+      .limit(10)
 
     const { data, error } = await query
 
     if (error || !data || data.length === 0) return null
 
-    // Find best match
-    const searchLower = playerName.toLowerCase()
-    const match = data.find((p) => {
-      const name = (p.name ?? "").toLowerCase()
-      return name === searchLower || name.includes(searchLower) || searchLower.includes(name)
-    }) ?? data[0]
+    // Require an identity-safe normalized match. Never accept an arbitrary
+    // first candidate, which could belong to a similarly named player.
+    const match = data.find((player) =>
+      isHeadshotNameMatch(playerName, player.name ?? "")
+    )
 
-    if (!match) return null
+    if (!match?.espn_id) return null
 
     const espnId = match.espn_id
     // Use stored headshot_url if available, otherwise construct from ESPN ID
@@ -233,8 +251,6 @@ async function searchRoster(
 
     const rosterData = await res.json()
     const athletes = rosterData.athletes ?? []
-    const searchLower = playerName.toLowerCase()
-    const searchLast = searchLower.split(" ").pop() ?? ""
 
     // Athletes might be grouped by position or flat
     const allAthletes: any[] = []
@@ -247,12 +263,11 @@ async function searchRoster(
     }
 
     for (const athlete of allAthletes) {
-      const name = (athlete.displayName ?? athlete.fullName ?? "").toLowerCase()
-      const lastName = (athlete.lastName ?? "").toLowerCase()
+      const providerName = athlete.displayName ?? athlete.fullName ?? ""
 
-      if (name === searchLower || name.includes(searchLower) || searchLower.includes(name) || lastName === searchLast) {
+      if (isHeadshotNameMatch(playerName, providerName)) {
         const espnId = String(athlete.id)
-        const headshot = buildHeadshotUrl(espnId, config.headshotKey)
+        const headshot = athlete.headshot?.href || buildHeadshotUrl(espnId, config.headshotKey)
         return {
           espnId,
           headshot,
@@ -274,7 +289,8 @@ async function searchESPNCore(
   config: { espnSport: string; espnLeague: string; headshotKey: string }
 ): Promise<{ espnId: string; headshot: string; headshotCropped: string } | null> {
   try {
-    const searchUrl = `https://sports.core.api.espn.com/v2/sports/${config.espnSport}/leagues/${config.espnLeague}/athletes?limit=5&search=${encodeURIComponent(playerName)}`
+    const providerQuery = normalizeHeadshotName(playerName)
+    const searchUrl = `https://sports.core.api.espn.com/v2/sports/${config.espnSport}/leagues/${config.espnLeague}/athletes?limit=5&search=${encodeURIComponent(providerQuery)}`
     const res = await fetch(searchUrl, {
       signal: AbortSignal.timeout(5000),
       next: { revalidate: 86400 },
@@ -302,13 +318,10 @@ async function searchESPNCore(
         if (!detailRes.ok) continue
 
         const detail = await detailRes.json()
-        const fullName = (detail.displayName ?? "").toLowerCase()
-        const searchLower = playerName.toLowerCase()
-        const lastNameSearch = searchLower.split(" ").pop() ?? ""
-        const lastNameResult = fullName.split(" ").pop() ?? ""
+        const providerName = detail.displayName ?? detail.fullName ?? ""
 
-        if (fullName === searchLower || fullName.includes(searchLower) || lastNameSearch === lastNameResult) {
-          const headshot = buildHeadshotUrl(espnId, config.headshotKey)
+        if (isHeadshotNameMatch(playerName, providerName)) {
+          const headshot = detail.headshot?.href || buildHeadshotUrl(espnId, config.headshotKey)
           return {
             espnId,
             headshot,
@@ -327,5 +340,7 @@ async function searchESPNCore(
 }
 
 export const GET = withSecurity(handleGET, {
-  cacheControl: CACHE_CONTROL.IMMUTABLE,
+  // The CDN image is independently cacheable. Do not let browsers retain a
+  // JSON 404 after a provider/name-resolution fix or roster update.
+  cacheControl: CACHE_CONTROL.SENSITIVE,
 })

@@ -63,6 +63,20 @@ export const POST = withSecurity(async (request: Request) => {
   switch (outcome) {
     case "completed":
       return NextResponse.json({ success: true })
+    // purchase_pick now verifies p_buyer_id against auth.uid() itself (see
+    // 20260914_lock_down_money_rpcs.sql). These two can only surface if the RPC
+    // is called directly with someone else's id — the route always passes
+    // user.id — so they mean "someone is probing the RPC", not a user error.
+    case "unauthenticated":
+      return NextResponse.json(
+        { error: "You must be logged in to unlock picks." },
+        { status: 401 }
+      )
+    case "forbidden":
+      return NextResponse.json(
+        { error: "You can only spend your own balance." },
+        { status: 403 }
+      )
     case "self_purchase":
       return NextResponse.json(
         { error: "You cannot purchase your own pick." },

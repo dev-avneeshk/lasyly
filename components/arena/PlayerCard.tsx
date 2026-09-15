@@ -4,132 +4,124 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import type { SeasonPlayer } from "@/lib/arena/types"
 import { headshotUrl } from "@/lib/arena/data"
-import { cn } from "@/lib/utils"
 
 function initials(name: string): string {
-  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+  return name.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase()
 }
 
 function Headshot({ player }: { player: SeasonPlayer }) {
   const url = headshotUrl(player)
   const [failed, setFailed] = useState(false)
+
   return (
-    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/10 to-white/[0.02] ring-1 ring-white/10">
+    <div className="relative h-[8.75rem] w-[8.75rem] shrink-0 overflow-hidden rounded-[1.15rem] border border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(123,110,255,0.52),transparent_58%),linear-gradient(145deg,#202955,#0c1025)] sm:h-40 sm:w-40">
       {url && !failed ? (
-        // Plain <img> (not next/image) so we don't need remotePatterns config.
+        // Plain img avoids configuring a remote pattern for NBA's CDN.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
           alt={player.name}
           loading="lazy"
           onError={() => setFailed(true)}
-          className="h-full w-full object-cover object-top"
+          className="h-full w-full object-cover object-top [filter:contrast(1.06)_saturate(.92)]"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-2xl font-black text-[var(--color-text-muted)]">
+        <span className="flex h-full w-full items-center justify-center text-3xl font-black tracking-tight text-white/60">
           {initials(player.name)}
-        </div>
+        </span>
       )}
+      <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[#0b1028] to-transparent" />
     </div>
   )
 }
 
 const TIER_LABEL: Record<number, string> = { 1: "SUPERSTAR", 2: "ALL-STAR", 3: "STARTER", 4: "ROLE PLAYER" }
-const TIER_GLOW: Record<number, string> = {
-  1: "shadow-[0_0_60px_-10px_rgba(212,255,0,0.55)] border-[var(--color-lime)]/60",
-  2: "shadow-[0_0_50px_-14px_rgba(108,99,255,0.55)] border-[var(--color-primary)]/50",
-  3: "shadow-[0_0_40px_-16px_rgba(0,212,170,0.4)] border-[var(--color-secondary)]/40",
-  4: "border-[var(--color-border)]",
-}
 
-function StatBar({ label, value }: { label: string; value: number }) {
-  const color =
-    value >= 88 ? "var(--color-lime)" : value >= 75 ? "var(--color-secondary)" : value >= 60 ? "var(--color-primary)" : "var(--color-text-muted)"
+function StatBar({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+    <div className="grid grid-cols-[3.6rem_1fr_1.55rem] items-center gap-2">
+      <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-[#9da6be]">{label}</span>
+      <span className="h-1.5 overflow-hidden rounded-full bg-white/[0.09]">
+        <motion.span
+          className="block h-full rounded-full"
+          style={{ backgroundColor: tone, transformOrigin: "left" }}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: value / 100 }}
+          transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
         />
-      </div>
-      <span className="w-6 text-right text-[11px] font-semibold tabular-nums text-[var(--color-text-primary)]">{value}</span>
+      </span>
+      <span className="text-right text-[10px] font-bold tabular-nums text-[#e1e5f1]">{value}</span>
     </div>
   )
 }
 
 export function PlayerCard({ player }: { player: SeasonPlayer }) {
-  const a = player.attributes
+  const attributes = player.attributes
   const positions = [player.primaryPosition, ...player.secondaryPositions].join(" / ")
-
-  const keyStats: { label: string; value: number }[] = [
-    { label: "Score", value: a.scoring },
-    { label: "3PT", value: a.threePointShooting },
-    { label: "Playmk", value: a.playmaking },
-    { label: "Reb", value: a.rebounding },
-    { label: "Per D", value: a.perimeterDefense },
-    { label: "Rim", value: a.rimProtection },
+  const keyStats = [
+    { label: "Scoring", value: attributes.scoring, tone: "#caff12" },
+    { label: "3PT", value: attributes.threePointShooting, tone: "#24dbc4" },
+    { label: "Playmaking", value: attributes.playmaking, tone: "#5f91ff" },
+    { label: "Rebounding", value: attributes.rebounding, tone: "#8b5cf6" },
+    { label: "Per. defense", value: attributes.perimeterDefense, tone: "#2ad8b5" },
+    { label: "Rim defense", value: attributes.rimProtection, tone: "#b8bfce" },
   ]
 
   return (
-    <motion.div
+    <motion.article
       key={player.id}
-      initial={{ opacity: 0, scale: 0.94, y: 14 }}
+      initial={{ opacity: 0, scale: 0.97, y: 12 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.94, y: -14 }}
-      transition={{ type: "spring", stiffness: 260, damping: 24 }}
-      className={cn(
-        "relative w-full max-w-md overflow-hidden rounded-3xl border bg-gradient-to-b from-[var(--color-surface-elevated)] to-[var(--color-surface)] p-6",
-        TIER_GLOW[player.tier]
-      )}
+      exit={{ opacity: 0, scale: 0.97, y: -12 }}
+      transition={{ type: "spring", stiffness: 260, damping: 25 }}
+      className="relative w-full overflow-hidden rounded-[1.45rem] border border-[#5f48d9]/80 bg-[linear-gradient(145deg,#19265f_0%,#0b1030_48%,#0d1122_100%)] p-4 shadow-[0_24px_64px_rgba(47,44,174,0.3)] sm:p-5"
     >
-      <div className="flex items-start gap-4">
+      <div aria-hidden className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(ellipse_at_15%_-20%,rgba(117,144,255,0.42),transparent_70%)]" />
+      <div className="relative flex items-start gap-3 sm:gap-4">
         <Headshot player={player} />
-        <div className="min-w-0 flex-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-lime)]">
+        <div className="min-w-0 flex-1 pt-1">
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[#d4ff00]">
+            <span className="grid h-3 w-3 place-items-center rounded-full border border-[#d4ff00]/70 text-[7px]">+</span>
             {TIER_LABEL[player.tier]}
           </span>
-          <h2 className="mt-1 text-2xl font-black leading-tight text-[var(--color-text-primary)]">
-            {player.name}
-          </h2>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            {positions} · {player.team}
-          </p>
+          <h2 className="mt-2 text-[1.65rem] font-black leading-[0.93] tracking-[-0.05em] text-[#f5f7ff] sm:text-3xl">{player.name}</h2>
+          <p className="mt-1 text-[11px] font-medium text-[#adb8d2]">{positions} · {player.team}</p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {player.strengths.slice(0, 3).map((strength) => (
+              <span key={strength} className="rounded-full border border-[#7069dd]/70 bg-[#241e68]/60 px-2 py-0.5 text-[8px] font-medium text-[#d5d6ff]">{strength}</span>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col items-center rounded-2xl bg-black/30 px-4 py-2">
-          <span className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)]">OVR</span>
-          <span className="text-3xl font-black tabular-nums text-[var(--color-lime)]">{player.overall}</span>
+        <div className="grid h-[4.4rem] w-[4.4rem] shrink-0 place-items-center rounded-xl border border-white/[0.06] bg-[#090d1f]/65 text-center">
+          <div>
+            <span className="block text-[8px] font-semibold uppercase tracking-[0.16em] text-[#9da6be]">OVR</span>
+            <span className="mt-0.5 block text-3xl font-black leading-none tabular-nums text-[#d4ff00]">{player.overall}</span>
+          </div>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-1.5">
-        {keyStats.map((s) => (
-          <StatBar key={s.label} label={s.label} value={s.value} />
-        ))}
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
-        <div>
-          <p className="mb-1 font-semibold uppercase tracking-wide text-[var(--color-secondary)]">Strengths</p>
-          <ul className="space-y-0.5 text-[var(--color-text-muted)]">
-            {player.strengths.slice(0, 4).map((s) => (
-              <li key={s} className="flex gap-1"><span className="text-[var(--color-lime)]">+</span>{s}</li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <p className="mb-1 font-semibold uppercase tracking-wide text-[var(--color-danger)]">Weaknesses</p>
-          <ul className="space-y-0.5 text-[var(--color-text-muted)]">
-            {player.weaknesses.slice(0, 3).map((s) => (
-              <li key={s} className="flex gap-1"><span className="text-[var(--color-danger)]">−</span>{s}</li>
-            ))}
-          </ul>
+      <div className="relative mt-5 grid gap-3 sm:grid-cols-[1fr_0.9fr]">
+        <section className="rounded-xl border border-white/[0.06] bg-[#090d1f]/45 p-3">
+          <h3 className="mb-3 text-[9px] font-bold uppercase tracking-[0.16em] text-[#d7ddeb]">Attributes</h3>
+          <div className="space-y-2.5">
+            {keyStats.map((stat) => <StatBar key={stat.label} {...stat} />)}
+          </div>
+        </section>
+        <div className="grid gap-3">
+          <section className="rounded-xl border border-[#15bfa8]/20 bg-[#0c202a]/50 p-3">
+            <h3 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#24dfc5]">Strengths</h3>
+            <ul className="mt-2 space-y-1 text-[9px] leading-3.5 text-[#c4cedc]">
+              {player.strengths.slice(0, 4).map((strength) => <li key={strength} className="flex gap-1.5"><span className="font-bold text-[#d4ff00]">+</span>{strength}</li>)}
+            </ul>
+          </section>
+          <section className="rounded-xl border border-[#ef6363]/15 bg-[#24121e]/45 p-3">
+            <h3 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#ff7d88]">Weaknesses</h3>
+            <ul className="mt-2 space-y-1 text-[9px] leading-3.5 text-[#c4cedc]">
+              {player.weaknesses.slice(0, 3).map((weakness) => <li key={weakness} className="flex gap-1.5"><span className="font-bold text-[#ff7d88]">−</span>{weakness}</li>)}
+            </ul>
+          </section>
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   )
 }

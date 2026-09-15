@@ -8,6 +8,10 @@ import {
   _resetStores,
   _stopCleanup,
 } from "@/lib/security/rateLimiter"
+import {
+  IP_BLOCK_THRESHOLD_MULTIPLIER,
+  RATE_LIMIT_STANDARD,
+} from "@/lib/security/constants"
 import type { RateLimitResult } from "@/lib/security/types"
 
 afterAll(() => {
@@ -123,18 +127,23 @@ describe("rateLimiter", () => {
   })
 
   describe("trackIPRequest", () => {
+    // Derived from the constants rather than hardcoded. These assertions used to
+    // contain a literal 300, which silently encoded
+    // RATE_LIMIT_STANDARD.maxRequests = 60. That ceiling is now 240 and keyed
+    // per session rather than per IP, so the literal broke the tests without any
+    // behavioural change in the code under test.
+    const THRESHOLD = RATE_LIMIT_STANDARD.maxRequests * IP_BLOCK_THRESHOLD_MULTIPLIER
+
     it("does not block IPs under the threshold", () => {
-      // Standard limit is 60, threshold is 5× = 300
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < Math.floor(THRESHOLD / 2); i++) {
         trackIPRequest("192.168.1.100")
       }
       const result = checkIPBlock("192.168.1.100")
       expect(result.blocked).toBe(false)
     })
 
-    it("auto-blocks IPs exceeding 5× standard limit (300 req/min)", () => {
-      // Exceed 300 requests
-      for (let i = 0; i <= 300; i++) {
+    it("auto-blocks IPs exceeding 5× the standard limit", () => {
+      for (let i = 0; i <= THRESHOLD; i++) {
         trackIPRequest("192.168.1.200")
       }
       const result = checkIPBlock("192.168.1.200")
@@ -145,11 +154,11 @@ describe("rateLimiter", () => {
     })
 
     it("returns true when auto-block is triggered", () => {
-      for (let i = 0; i < 300; i++) {
+      for (let i = 0; i < THRESHOLD; i++) {
         const blocked = trackIPRequest("192.168.1.201")
         expect(blocked).toBe(false)
       }
-      // The 301st request should trigger the block
+      // The next request crosses the threshold.
       const blocked = trackIPRequest("192.168.1.201")
       expect(blocked).toBe(true)
     })

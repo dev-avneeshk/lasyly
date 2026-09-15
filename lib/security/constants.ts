@@ -13,15 +13,42 @@ export const RATE_LIMIT_AUTH: RateLimitConfig = {
   windowMs: 60_000,
 }
 
-/** Standard API endpoints (authenticated): 60 requests per minute */
+/**
+ * Standard API endpoints, keyed PER SESSION: 240 requests per minute.
+ *
+ * This was 60/min keyed per IP, which was the single worst self-inflicted
+ * availability bug in the app. Two consequences, both measured:
+ *
+ *   1. A single legitimate user exceeded it alone. The arena client polled every
+ *      900ms (66.7 req/min) — over the whole-app budget before adding the
+ *      notification badge, live scores, or a second tab. `refresh()` swallowed
+ *      the 429 and kept polling, so it never recovered.
+ *   2. It is a shared bucket for everyone behind one egress IP. On mobile
+ *      carriers (CGNAT) or a corporate NAT that is ~15 users at 4 req/min each
+ *      before the whole population starts seeing 429s — indistinguishable from
+ *      an outage.
+ *
+ * The ceiling is now per session (see proxy.ts), so NAT is irrelevant, and it
+ * is high enough that a heavy real user with several tabs never reaches it. The
+ * precise, per-action limits live in the routes themselves (RATE_LIMITS in
+ * lib/rateLimit.ts) — this is only the coarse backstop.
+ */
 export const RATE_LIMIT_STANDARD: RateLimitConfig = {
-  maxRequests: 60,
+  maxRequests: 240,
   windowMs: 60_000,
 }
 
-/** Unauthenticated requests: 30 requests per minute */
+/**
+ * Anonymous requests, keyed per IP: 120 requests per minute.
+ *
+ * Anonymous traffic has no session to key on, so IP is all we have and the NAT
+ * problem is unavoidable here. 120/min accommodates a public page's read
+ * fan-out (scores + props + rankings) for several users on one address, while
+ * still bounding scripted abuse. Expensive anonymous endpoints carry their own
+ * tighter per-IP limits (RATE_LIMITS.expensiveRead).
+ */
 export const RATE_LIMIT_UNAUTHENTICATED: RateLimitConfig = {
-  maxRequests: 30,
+  maxRequests: 120,
   windowMs: 60_000,
 }
 
@@ -195,6 +222,12 @@ export const ERROR_CODES = {
   PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
   RATE_LIMITED: "RATE_LIMITED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
+  /**
+   * A dependency we cannot proceed safely without (currently: the Redis lock
+   * behind the auction store) is unavailable. Distinct from INTERNAL_ERROR
+   * because it is retryable and must not be reported as a bug.
+   */
+  SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

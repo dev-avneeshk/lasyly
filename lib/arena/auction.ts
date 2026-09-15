@@ -86,7 +86,7 @@ export function otherTeam(t: TeamId): TeamId {
  * few extra so there's genuine competition and choice, but cap it so the
  * auction doesn't drag through the entire 38-player pool.
  */
-export const MAX_LOTS = 20
+export const MAX_LOTS = 26
 
 /**
  * Minimum eligible players per position the board must contain: one for each of
@@ -94,13 +94,13 @@ export const MAX_LOTS = 20
  * (say) zero centers, making it impossible for both teams to field a legal
  * lineup — they'd get silently auto-filled with $1 scrubs at the end.
  */
-const MIN_PER_POSITION = 2
+const MIN_PER_POSITION = 4
 
 /**
  * How many times a passed-out player may be re-offered before the board gives up
  * on them. Bounded so the auction is guaranteed to terminate.
  */
-const MAX_REOFFERS = 3
+const MAX_REOFFERS = 8
 
 /**
  * Guarantee the capped board can actually fill both rosters: every position must
@@ -161,11 +161,19 @@ export function buildAuctionOrder(rng: RNG, pool: SeasonPlayer[], budget = 25): 
   // elite tier-1/2 studs as the finale. We reserve the last ~5 lots for stars
   // so the "can you still afford a stud?" drama survives the cap.
   if (budget <= 25) {
-    const starCount = Math.min(5, byTier[1].length)
+    // Pick a RANDOM subset of the tier-1 stars for the finale (byTier[1] is
+    // already shuffled above), rather than always the same slice, so the star
+    // lineup genuinely varies between games.
+    const starCount = Math.min(4, byTier[1].length)
     const stars = byTier[1].slice(0, starCount)
     const restQuota = cap - stars.length
-    // Fill the front from cheapest → up: tier 4, then 3, then leftover tier 2.
-    const front = [...byTier[4], ...byTier[3], ...byTier[2]].slice(0, restQuota)
+    // Fill the front from a SHUFFLED mix of the lower tiers so the non-star
+    // board is a random sample of the pool each game, not a fixed cheapest-first
+    // list. This maximizes variety given the pool size.
+    const front = shuffle(rng, [...byTier[4], ...byTier[3], ...byTier[2]]).slice(
+      0,
+      restQuota
+    )
     // Coverage is enforced on the non-star block so the "stars last" finale is
     // preserved; stars stay pinned to the back.
     const covered = ensurePositionalCoverage(front, [
@@ -253,6 +261,48 @@ function activeTeams(state: ArenaState): TeamId[] {
 }
 
 /**
+ * A non-elite player filling a team's LAST open slot may open below the normal
+ * reserve, clamped to what that team can actually pay. This lets a team that
+ * legitimately spent down still buy a real role player for its final slot
+ * instead of silently getting an emergency auto-fill.
+ *
+ * Elite players (tier 1/2) are explicitly excluded, so a superstar can never be
+ * fire-sold to a team's last dollar — that guard is the whole point of pricing.
+ */
+function relaxedOpeningFloor(state: ArenaState, player: SeasonPlayer, team: TeamId): number | null {
+  if (player.tier <= 2) return null // never relax an elite player's reserve
+  const roster = state.rosters[team]
+  if (isRosterComplete(roster)) return null
+  if (!canAddPlayer(roster, player)) return null
+
+  // Only relax a NON-ELITE player's reserve when this team cannot afford it at
+  // full price — otherwise it would be filtered off the board and the roster
+  // would be completed by an emergency auto-fill instead of a real bid. A team
+  // that can pay the full reserve still does. This keeps the star fire-sale
+  // guard intact (tier 1/2 are excluded) while letting affordable role players
+  // actually be auctioned for a team that has spent down.
+  const reserve = scaledOpeningBid(player, state.config.budgetPerPlayer, state.config.rosterSize)
+  const max = maxAffordable(state.config.budgetPerPlayer, roster)
+  if (max >= reserve) return null
+  return max >= MIN_BID ? max : null
+}
+
+/**
+ * The opening price for `player`, allowing a below-reserve opener only when a
+ * non-elite player is filling some active team's final slot. Returns the normal
+ * scaled reserve otherwise.
+ */
+function effectiveOpeningBid(state: ArenaState, player: SeasonPlayer): number {
+  const reserve = scaledOpeningBid(player, state.config.budgetPerPlayer, state.config.rosterSize)
+  let floor = reserve
+  for (const t of ["P1", "P2"] as TeamId[]) {
+    const clamp = relaxedOpeningFloor(state, player, t)
+    if (clamp !== null) floor = Math.min(floor, Math.max(MIN_BID, Math.min(reserve, clamp)))
+  }
+  return Math.max(MIN_BID, floor)
+}
+
+/**
  * Choose which queued player goes up next, so the board never wastes its final
  * lots on players who fill nobody's actual need.
  *
@@ -275,12 +325,18 @@ function selectNextLot(state: ArenaState): boolean {
 
   const queued = state.queue.map((id) => playerById(state, id))
 
-  // Only consider players SOME active team can legally take right now. Opening a
-  // lot nobody can bid on would resolve unsold and delete that player from the
-  // board for good (resolveLot drops the lot either way).
-  const biddable = queued.filter((p) =>
-    teams.some((t) => canAddPlayer(state.rosters[t], p))
-  )
+  // Only consider players that an active team can both roster and afford at the
+  // player's normal reserve. A low remaining budget must never collapse an
+  // elite player's opening price to $1; teams that overspend finish with a
+  // low-value fallback instead.
+  const biddable = queued.filter((p) => {
+    const openingBid = effectiveOpeningBid(state, p)
+    return teams.some(
+      (t) =>
+        canAddPlayer(state.rosters[t], p) &&
+        maxAffordable(state.config.budgetPerPlayer, state.rosters[t]) >= openingBid
+    )
+  })
   if (biddable.length === 0) return false
 
   // Demand: how many active teams still need each starter position.
@@ -347,20 +403,7 @@ export function openNextLot(state: ArenaState): boolean {
   }
   const id = state.queue[0]
   const player = playerById(state, id)
-  let open = scaledOpeningBid(player, state.config.budgetPerPlayer, state.config.rosterSize)
-
-  // Clamp the opening bid to what an active, eligible team can actually afford.
-  // Otherwise a $3 opener is un-buyable when both teams have only $1 left — the
-  // lot could never sell and the auction would stall. We drop the floor to the
-  // highest affordable amount among teams that can still roster this player.
-  let affordableFloor = 0
-  for (const t of ["P1", "P2"] as TeamId[]) {
-    if (isRosterComplete(state.rosters[t])) continue
-    if (!canAddPlayer(state.rosters[t], player)) continue
-    affordableFloor = Math.max(affordableFloor, maxAffordable(state.config.budgetPerPlayer, state.rosters[t]))
-  }
-  if (affordableFloor > 0) open = Math.min(open, affordableFloor)
-  open = Math.max(1, open)
+  const open = effectiveOpeningBid(state, player)
 
   state.lot = {
     player,
@@ -406,6 +449,14 @@ export function placeBid(
   if (!teamActive(state, team)) {
     return { ok: false, error: "Your roster is already full.", state }
   }
+  // Already winning? Raising against yourself only inflates your own price.
+  // This is the natural outcome of double-clicking Bid: the first click makes
+  // you high bidder at $5, the re-render sets minRaise to $6, and the second
+  // click bids $6 against nobody. The AI never does this (driveAI skips a seat
+  // that already holds the high bid), so a human shouldn't be able to either.
+  if (state.lot.highBidder === team) {
+    return { ok: false, error: "You're already the high bidder.", state }
+  }
   const player = state.lot.player
   if (ownsPlayer(state.rosters[team], player.id)) {
     return { ok: false, error: "You already own this player.", state }
@@ -436,6 +487,11 @@ export function placeBid(
     ts: Date.now(),
   })
   state.lotDeadline = Date.now() + state.config.auctionTimerResetSeconds * 1000
+
+  // Do not show a fake response countdown when nobody can legally counter. A
+  // complete, position-blocked, or budget-capped opponent makes this bid final.
+  // Strategic opponents that could still raise keep the normal countdown.
+  maybeResolveLot(state)
   return { ok: true, state }
 }
 
@@ -595,10 +651,12 @@ function autoFillIfNeeded(state: ArenaState, team: TeamId): void {
       if (s) owned.add(s.player.id)
     }
   }
-  // Best-value available players, cheapest realistic price.
+  // This path is only reached when no normally priced lot can complete the
+  // roster. Fill with the lowest-rated legal free agents so spending down to
+  // the mandatory final dollar never turns into a $1 superstar giveaway.
   const available = pool
     .filter((p) => !owned.has(p.id))
-    .sort((a, b) => b.overall - a.overall)
+    .sort((a, b) => a.overall - b.overall || a.startingBid - b.startingBid)
 
   let guard = 0
   while (!isRosterComplete(state.rosters[team]) && guard++ < 50) {

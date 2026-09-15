@@ -1,0 +1,17 @@
+# Training artifacts churn a lot — keep the repo clean. The EXPORTED production
+# policy lives in lib/arena/data/cpu-policy.json (committed), not here.
+models/checkpoints/
+models/train_run.log
+models/train_state.json
+models/ground_truth/checkpoints/
+models/ground_truth/train_gt.log
+models/ground_truth/training_data.jsonl
+models/champion/experiment.log
+models/STALE_POLICY.txt
+# Keep: models/champion/{champion_policy,last_known_good_policy,leaderboard,
+# experiment_report}.json — small, auditable.
+__pycache__/
+*.pyc
+
+# Keep: best_*_policy.json, learning_curve.json, proxy_calibration.json,
+# validation/parity_fixtures.json — small, useful for inspection/drift checks.

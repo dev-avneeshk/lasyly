@@ -1,0 +1,1580 @@
+{
+  "season": "2025-26",
+  "fixtures": [
+    {
+      "pair": 0,
+      "seedBase": 17,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "jalen-brunson",
+          "price": 1
+        },
+        "SG": {
+          "id": "derrick-white",
+          "price": 6
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 2
+        },
+        "PF": {
+          "id": "nikola-jokic",
+          "price": 3
+        },
+        "C": {
+          "id": "evan-mobley",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "damian-lillard",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "immanuel-quickley",
+          "price": 3
+        },
+        "SG": {
+          "id": "luka-doncic",
+          "price": 2
+        },
+        "SF": {
+          "id": "jaylen-brown",
+          "price": 6
+        },
+        "PF": {
+          "id": "anthony-davis",
+          "price": 4
+        },
+        "C": {
+          "id": "lauri-markkanen",
+          "price": 5
+        },
+        "BENCH": {
+          "id": "mikal-bridges",
+          "price": 6
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.585,
+        "avgP1": 114.33,
+        "avgP2": 111.7675
+      }
+    },
+    {
+      "pair": 1,
+      "seedBase": 100020,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "stephen-curry",
+          "price": 4
+        },
+        "SG": {
+          "id": "jalen-brunson",
+          "price": 5
+        },
+        "SF": {
+          "id": "franz-wagner",
+          "price": 3
+        },
+        "PF": {
+          "id": "herbert-jones",
+          "price": 2
+        },
+        "C": {
+          "id": "evan-mobley",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "kawhi-leonard",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "trae-young",
+          "price": 2
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 6
+        },
+        "SF": {
+          "id": "og-anunoby",
+          "price": 1
+        },
+        "PF": {
+          "id": "giannis-antetokounmpo",
+          "price": 1
+        },
+        "C": {
+          "id": "rudy-gobert",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "mikal-bridges",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.4225,
+        "avgP1": 109.055,
+        "avgP2": 113.6375
+      }
+    },
+    {
+      "pair": 2,
+      "seedBase": 200023,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "jalen-brunson",
+          "price": 6
+        },
+        "SG": {
+          "id": "jrue-holiday",
+          "price": 5
+        },
+        "SF": {
+          "id": "og-anunoby",
+          "price": 1
+        },
+        "PF": {
+          "id": "domantas-sabonis",
+          "price": 4
+        },
+        "C": {
+          "id": "myles-turner",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "stephen-curry",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "damian-lillard",
+          "price": 5
+        },
+        "SG": {
+          "id": "jaylen-brown",
+          "price": 4
+        },
+        "SF": {
+          "id": "mikal-bridges",
+          "price": 1
+        },
+        "PF": {
+          "id": "herbert-jones",
+          "price": 4
+        },
+        "C": {
+          "id": "bam-adebayo",
+          "price": 5
+        },
+        "BENCH": {
+          "id": "anthony-davis",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.4875,
+        "avgP1": 111.53,
+        "avgP2": 111.3075
+      }
+    },
+    {
+      "pair": 3,
+      "seedBase": 300026,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "derrick-white",
+          "price": 5
+        },
+        "SG": {
+          "id": "jalen-brunson",
+          "price": 1
+        },
+        "SF": {
+          "id": "lauri-markkanen",
+          "price": 3
+        },
+        "PF": {
+          "id": "herbert-jones",
+          "price": 4
+        },
+        "C": {
+          "id": "victor-wembanyama",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "damian-lillard",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "immanuel-quickley",
+          "price": 4
+        },
+        "SG": {
+          "id": "shai-gilgeous-alexander",
+          "price": 6
+        },
+        "SF": {
+          "id": "og-anunoby",
+          "price": 2
+        },
+        "PF": {
+          "id": "naz-reid",
+          "price": 5
+        },
+        "C": {
+          "id": "nikola-jokic",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "franz-wagner",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.775,
+        "avgP1": 122.115,
+        "avgP2": 109.955
+      }
+    },
+    {
+      "pair": 4,
+      "seedBase": 400029,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "dyson-daniels",
+          "price": 3
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 6
+        },
+        "SF": {
+          "id": "lauri-markkanen",
+          "price": 4
+        },
+        "PF": {
+          "id": "bam-adebayo",
+          "price": 3
+        },
+        "C": {
+          "id": "anthony-davis",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "mikal-bridges",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "cade-cunningham",
+          "price": 5
+        },
+        "SG": {
+          "id": "jalen-brunson",
+          "price": 4
+        },
+        "SF": {
+          "id": "luka-doncic",
+          "price": 3
+        },
+        "PF": {
+          "id": "evan-mobley",
+          "price": 3
+        },
+        "C": {
+          "id": "giannis-antetokounmpo",
+          "price": 5
+        },
+        "BENCH": {
+          "id": "franz-wagner",
+          "price": 2
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.6025,
+        "avgP1": 111.62,
+        "avgP2": 106.865
+      }
+    },
+    {
+      "pair": 5,
+      "seedBase": 500032,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "dyson-daniels",
+          "price": 1
+        },
+        "SG": {
+          "id": "de-aaron-fox",
+          "price": 6
+        },
+        "SF": {
+          "id": "jayson-tatum",
+          "price": 5
+        },
+        "PF": {
+          "id": "myles-turner",
+          "price": 4
+        },
+        "C": {
+          "id": "victor-wembanyama",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "jalen-brunson",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "damian-lillard",
+          "price": 1
+        },
+        "SG": {
+          "id": "donovan-mitchell",
+          "price": 6
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 2
+        },
+        "PF": {
+          "id": "jaren-jackson-jr",
+          "price": 4
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "anthony-edwards",
+          "price": 3
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.615,
+        "avgP1": 111.58,
+        "avgP2": 105.84
+      }
+    },
+    {
+      "pair": 6,
+      "seedBase": 600035,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "jrue-holiday",
+          "price": 6
+        },
+        "SG": {
+          "id": "jaylen-brown",
+          "price": 4
+        },
+        "SF": {
+          "id": "lauri-markkanen",
+          "price": 5
+        },
+        "PF": {
+          "id": "domantas-sabonis",
+          "price": 4
+        },
+        "C": {
+          "id": "nikola-jokic",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "trae-young",
+          "price": 6
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "donovan-mitchell",
+          "price": 1
+        },
+        "SG": {
+          "id": "devin-booker",
+          "price": 4
+        },
+        "SF": {
+          "id": "og-anunoby",
+          "price": 5
+        },
+        "PF": {
+          "id": "kevin-durant",
+          "price": 5
+        },
+        "C": {
+          "id": "victor-wembanyama",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "rudy-gobert",
+          "price": 4
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.1475,
+        "avgP1": 107.6375,
+        "avgP2": 124.5325
+      }
+    },
+    {
+      "pair": 7,
+      "seedBase": 700038,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "luka-doncic",
+          "price": 2
+        },
+        "SG": {
+          "id": "cade-cunningham",
+          "price": 5
+        },
+        "SF": {
+          "id": "mikal-bridges",
+          "price": 6
+        },
+        "PF": {
+          "id": "herbert-jones",
+          "price": 6
+        },
+        "C": {
+          "id": "evan-mobley",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "paolo-banchero",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "damian-lillard",
+          "price": 2
+        },
+        "SG": {
+          "id": "jaylen-brown",
+          "price": 5
+        },
+        "SF": {
+          "id": "kevin-durant",
+          "price": 5
+        },
+        "PF": {
+          "id": "naz-reid",
+          "price": 1
+        },
+        "C": {
+          "id": "anthony-davis",
+          "price": 2
+        },
+        "BENCH": {
+          "id": "jrue-holiday",
+          "price": 3
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.51,
+        "avgP1": 111.3975,
+        "avgP2": 111.2625
+      }
+    },
+    {
+      "pair": 8,
+      "seedBase": 800041,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "dyson-daniels",
+          "price": 3
+        },
+        "SG": {
+          "id": "mikal-bridges",
+          "price": 6
+        },
+        "SF": {
+          "id": "kevin-durant",
+          "price": 1
+        },
+        "PF": {
+          "id": "nikola-jokic",
+          "price": 6
+        },
+        "C": {
+          "id": "jaren-jackson-jr",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "immanuel-quickley",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "jrue-holiday",
+          "price": 4
+        },
+        "SG": {
+          "id": "jaylen-brown",
+          "price": 5
+        },
+        "SF": {
+          "id": "herbert-jones",
+          "price": 1
+        },
+        "PF": {
+          "id": "anthony-davis",
+          "price": 1
+        },
+        "C": {
+          "id": "myles-turner",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "donovan-mitchell",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.5125,
+        "avgP1": 107.05,
+        "avgP2": 105.565
+      }
+    },
+    {
+      "pair": 9,
+      "seedBase": 900044,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "shai-gilgeous-alexander",
+          "price": 2
+        },
+        "SG": {
+          "id": "immanuel-quickley",
+          "price": 3
+        },
+        "SF": {
+          "id": "luka-doncic",
+          "price": 5
+        },
+        "PF": {
+          "id": "paolo-banchero",
+          "price": 1
+        },
+        "C": {
+          "id": "alperen-sengun",
+          "price": 5
+        },
+        "BENCH": {
+          "id": "jalen-brunson",
+          "price": 3
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "tyrese-haliburton",
+          "price": 6
+        },
+        "SG": {
+          "id": "devin-booker",
+          "price": 6
+        },
+        "SF": {
+          "id": "lauri-markkanen",
+          "price": 2
+        },
+        "PF": {
+          "id": "kawhi-leonard",
+          "price": 1
+        },
+        "C": {
+          "id": "anthony-davis",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "cade-cunningham",
+          "price": 3
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.2275,
+        "avgP1": 113.905,
+        "avgP2": 127.7075
+      }
+    },
+    {
+      "pair": 10,
+      "seedBase": 1000047,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "dyson-daniels",
+          "price": 1
+        },
+        "SG": {
+          "id": "jaylen-brown",
+          "price": 2
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 1
+        },
+        "PF": {
+          "id": "nikola-jokic",
+          "price": 4
+        },
+        "C": {
+          "id": "evan-mobley",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "trae-young",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "tyrese-haliburton",
+          "price": 5
+        },
+        "SG": {
+          "id": "og-anunoby",
+          "price": 6
+        },
+        "SF": {
+          "id": "mikal-bridges",
+          "price": 1
+        },
+        "PF": {
+          "id": "paolo-banchero",
+          "price": 6
+        },
+        "C": {
+          "id": "jaren-jackson-jr",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "alperen-sengun",
+          "price": 3
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.7275,
+        "avgP1": 112.6275,
+        "avgP2": 103.185
+      }
+    },
+    {
+      "pair": 11,
+      "seedBase": 1100050,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "luka-doncic",
+          "price": 1
+        },
+        "SG": {
+          "id": "jrue-holiday",
+          "price": 2
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 3
+        },
+        "PF": {
+          "id": "franz-wagner",
+          "price": 5
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "anthony-davis",
+          "price": 6
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "shai-gilgeous-alexander",
+          "price": 1
+        },
+        "SG": {
+          "id": "trae-young",
+          "price": 1
+        },
+        "SF": {
+          "id": "mikal-bridges",
+          "price": 2
+        },
+        "PF": {
+          "id": "jayson-tatum",
+          "price": 2
+        },
+        "C": {
+          "id": "evan-mobley",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "kawhi-leonard",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.53,
+        "avgP1": 115.1125,
+        "avgP2": 114.12
+      }
+    },
+    {
+      "pair": 12,
+      "seedBase": 1200053,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "devin-booker",
+          "price": 2
+        },
+        "SG": {
+          "id": "tyrese-haliburton",
+          "price": 5
+        },
+        "SF": {
+          "id": "herbert-jones",
+          "price": 3
+        },
+        "PF": {
+          "id": "jaren-jackson-jr",
+          "price": 4
+        },
+        "C": {
+          "id": "rudy-gobert",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "jalen-brunson",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "stephen-curry",
+          "price": 6
+        },
+        "SG": {
+          "id": "de-aaron-fox",
+          "price": 5
+        },
+        "SF": {
+          "id": "kevin-durant",
+          "price": 1
+        },
+        "PF": {
+          "id": "jayson-tatum",
+          "price": 5
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "paolo-banchero",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.6525,
+        "avgP1": 120.3675,
+        "avgP2": 112.29
+      }
+    },
+    {
+      "pair": 13,
+      "seedBase": 1300056,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "trae-young",
+          "price": 5
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 5
+        },
+        "SF": {
+          "id": "dyson-daniels",
+          "price": 2
+        },
+        "PF": {
+          "id": "bam-adebayo",
+          "price": 5
+        },
+        "C": {
+          "id": "anthony-davis",
+          "price": 2
+        },
+        "BENCH": {
+          "id": "donovan-mitchell",
+          "price": 4
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "stephen-curry",
+          "price": 6
+        },
+        "SG": {
+          "id": "jrue-holiday",
+          "price": 3
+        },
+        "SF": {
+          "id": "paolo-banchero",
+          "price": 6
+        },
+        "PF": {
+          "id": "evan-mobley",
+          "price": 3
+        },
+        "C": {
+          "id": "domantas-sabonis",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "immanuel-quickley",
+          "price": 6
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.5675,
+        "avgP1": 111.3175,
+        "avgP2": 107.805
+      }
+    },
+    {
+      "pair": 14,
+      "seedBase": 1400059,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "de-aaron-fox",
+          "price": 5
+        },
+        "SG": {
+          "id": "stephen-curry",
+          "price": 5
+        },
+        "SF": {
+          "id": "paolo-banchero",
+          "price": 1
+        },
+        "PF": {
+          "id": "lauri-markkanen",
+          "price": 4
+        },
+        "C": {
+          "id": "bam-adebayo",
+          "price": 2
+        },
+        "BENCH": {
+          "id": "herbert-jones",
+          "price": 4
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "trae-young",
+          "price": 4
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 5
+        },
+        "SF": {
+          "id": "luka-doncic",
+          "price": 1
+        },
+        "PF": {
+          "id": "nikola-jokic",
+          "price": 2
+        },
+        "C": {
+          "id": "domantas-sabonis",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "giannis-antetokounmpo",
+          "price": 2
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.575,
+        "avgP1": 123.3975,
+        "avgP2": 120.6975
+      }
+    },
+    {
+      "pair": 15,
+      "seedBase": 1500062,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "jalen-brunson",
+          "price": 1
+        },
+        "SG": {
+          "id": "jrue-holiday",
+          "price": 3
+        },
+        "SF": {
+          "id": "kawhi-leonard",
+          "price": 3
+        },
+        "PF": {
+          "id": "og-anunoby",
+          "price": 4
+        },
+        "C": {
+          "id": "jaren-jackson-jr",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "bam-adebayo",
+          "price": 6
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "de-aaron-fox",
+          "price": 3
+        },
+        "SG": {
+          "id": "shai-gilgeous-alexander",
+          "price": 2
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 5
+        },
+        "PF": {
+          "id": "anthony-davis",
+          "price": 6
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "mikal-bridges",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.4025,
+        "avgP1": 107.1975,
+        "avgP2": 112.4375
+      }
+    },
+    {
+      "pair": 16,
+      "seedBase": 1600065,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "derrick-white",
+          "price": 4
+        },
+        "SG": {
+          "id": "trae-young",
+          "price": 3
+        },
+        "SF": {
+          "id": "paolo-banchero",
+          "price": 3
+        },
+        "PF": {
+          "id": "victor-wembanyama",
+          "price": 6
+        },
+        "C": {
+          "id": "giannis-antetokounmpo",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "nikola-jokic",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "immanuel-quickley",
+          "price": 2
+        },
+        "SG": {
+          "id": "franz-wagner",
+          "price": 5
+        },
+        "SF": {
+          "id": "kevin-durant",
+          "price": 1
+        },
+        "PF": {
+          "id": "og-anunoby",
+          "price": 4
+        },
+        "C": {
+          "id": "bam-adebayo",
+          "price": 5
+        },
+        "BENCH": {
+          "id": "anthony-edwards",
+          "price": 5
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.6725,
+        "avgP1": 113.445,
+        "avgP2": 105.9325
+      }
+    },
+    {
+      "pair": 17,
+      "seedBase": 1700068,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "tyrese-haliburton",
+          "price": 2
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 4
+        },
+        "SF": {
+          "id": "paolo-banchero",
+          "price": 2
+        },
+        "PF": {
+          "id": "lauri-markkanen",
+          "price": 3
+        },
+        "C": {
+          "id": "jaren-jackson-jr",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "myles-turner",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "devin-booker",
+          "price": 5
+        },
+        "SG": {
+          "id": "herbert-jones",
+          "price": 5
+        },
+        "SF": {
+          "id": "kawhi-leonard",
+          "price": 2
+        },
+        "PF": {
+          "id": "jayson-tatum",
+          "price": 5
+        },
+        "C": {
+          "id": "alperen-sengun",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "franz-wagner",
+          "price": 1
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.64,
+        "avgP1": 119.475,
+        "avgP2": 113.795
+      }
+    },
+    {
+      "pair": 18,
+      "seedBase": 1800071,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "donovan-mitchell",
+          "price": 1
+        },
+        "SG": {
+          "id": "dyson-daniels",
+          "price": 5
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 1
+        },
+        "PF": {
+          "id": "herbert-jones",
+          "price": 5
+        },
+        "C": {
+          "id": "domantas-sabonis",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "anthony-edwards",
+          "price": 3
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "stephen-curry",
+          "price": 3
+        },
+        "SG": {
+          "id": "devin-booker",
+          "price": 3
+        },
+        "SF": {
+          "id": "kawhi-leonard",
+          "price": 5
+        },
+        "PF": {
+          "id": "myles-turner",
+          "price": 1
+        },
+        "C": {
+          "id": "nikola-jokic",
+          "price": 2
+        },
+        "BENCH": {
+          "id": "luka-doncic",
+          "price": 1
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.38,
+        "avgP1": 112.3325,
+        "avgP2": 116.5525
+      }
+    },
+    {
+      "pair": 19,
+      "seedBase": 1900074,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "jrue-holiday",
+          "price": 6
+        },
+        "SG": {
+          "id": "jalen-brunson",
+          "price": 4
+        },
+        "SF": {
+          "id": "mikal-bridges",
+          "price": 1
+        },
+        "PF": {
+          "id": "paolo-banchero",
+          "price": 2
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "rudy-gobert",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "trae-young",
+          "price": 5
+        },
+        "SG": {
+          "id": "derrick-white",
+          "price": 2
+        },
+        "SF": {
+          "id": "anthony-edwards",
+          "price": 2
+        },
+        "PF": {
+          "id": "domantas-sabonis",
+          "price": 5
+        },
+        "C": {
+          "id": "anthony-davis",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "franz-wagner",
+          "price": 4
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.3075,
+        "avgP1": 107.6475,
+        "avgP2": 115.7975
+      }
+    },
+    {
+      "pair": 20,
+      "seedBase": 2000077,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "devin-booker",
+          "price": 2
+        },
+        "SG": {
+          "id": "jalen-brunson",
+          "price": 4
+        },
+        "SF": {
+          "id": "kawhi-leonard",
+          "price": 6
+        },
+        "PF": {
+          "id": "nikola-jokic",
+          "price": 6
+        },
+        "C": {
+          "id": "myles-turner",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "paolo-banchero",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "derrick-white",
+          "price": 1
+        },
+        "SG": {
+          "id": "franz-wagner",
+          "price": 4
+        },
+        "SF": {
+          "id": "luka-doncic",
+          "price": 1
+        },
+        "PF": {
+          "id": "bam-adebayo",
+          "price": 6
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 4
+        },
+        "BENCH": {
+          "id": "donovan-mitchell",
+          "price": 4
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.6325,
+        "avgP1": 118.3175,
+        "avgP2": 112.4925
+      }
+    },
+    {
+      "pair": 21,
+      "seedBase": 2100080,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "devin-booker",
+          "price": 4
+        },
+        "SG": {
+          "id": "jrue-holiday",
+          "price": 1
+        },
+        "SF": {
+          "id": "lauri-markkanen",
+          "price": 6
+        },
+        "PF": {
+          "id": "franz-wagner",
+          "price": 6
+        },
+        "C": {
+          "id": "alperen-sengun",
+          "price": 2
+        },
+        "BENCH": {
+          "id": "jaren-jackson-jr",
+          "price": 2
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "tyrese-haliburton",
+          "price": 5
+        },
+        "SG": {
+          "id": "cade-cunningham",
+          "price": 5
+        },
+        "SF": {
+          "id": "giannis-antetokounmpo",
+          "price": 4
+        },
+        "PF": {
+          "id": "jayson-tatum",
+          "price": 3
+        },
+        "C": {
+          "id": "rudy-gobert",
+          "price": 2
+        },
+        "BENCH": {
+          "id": "shai-gilgeous-alexander",
+          "price": 4
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.1575,
+        "avgP1": 104.5275,
+        "avgP2": 122.0475
+      }
+    },
+    {
+      "pair": 22,
+      "seedBase": 2200083,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "derrick-white",
+          "price": 3
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 6
+        },
+        "SF": {
+          "id": "herbert-jones",
+          "price": 3
+        },
+        "PF": {
+          "id": "evan-mobley",
+          "price": 4
+        },
+        "C": {
+          "id": "naz-reid",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "shai-gilgeous-alexander",
+          "price": 6
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "stephen-curry",
+          "price": 3
+        },
+        "SG": {
+          "id": "jalen-brunson",
+          "price": 6
+        },
+        "SF": {
+          "id": "lauri-markkanen",
+          "price": 1
+        },
+        "PF": {
+          "id": "alperen-sengun",
+          "price": 3
+        },
+        "C": {
+          "id": "anthony-davis",
+          "price": 6
+        },
+        "BENCH": {
+          "id": "nikola-jokic",
+          "price": 3
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.53,
+        "avgP1": 113.35,
+        "avgP2": 112.1525
+      }
+    },
+    {
+      "pair": 23,
+      "seedBase": 2300086,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "jalen-brunson",
+          "price": 3
+        },
+        "SG": {
+          "id": "de-aaron-fox",
+          "price": 5
+        },
+        "SF": {
+          "id": "luka-doncic",
+          "price": 6
+        },
+        "PF": {
+          "id": "alperen-sengun",
+          "price": 3
+        },
+        "C": {
+          "id": "bam-adebayo",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "anthony-edwards",
+          "price": 6
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "damian-lillard",
+          "price": 6
+        },
+        "SG": {
+          "id": "shai-gilgeous-alexander",
+          "price": 5
+        },
+        "SF": {
+          "id": "jaylen-brown",
+          "price": 4
+        },
+        "PF": {
+          "id": "domantas-sabonis",
+          "price": 1
+        },
+        "C": {
+          "id": "jaren-jackson-jr",
+          "price": 1
+        },
+        "BENCH": {
+          "id": "stephen-curry",
+          "price": 3
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.3,
+        "avgP1": 113.9825,
+        "avgP2": 122.2275
+      }
+    },
+    {
+      "pair": 24,
+      "seedBase": 2400089,
+      "seedStep": 31,
+      "games": 400,
+      "p1": {
+        "PG": {
+          "id": "tyrese-haliburton",
+          "price": 1
+        },
+        "SG": {
+          "id": "de-aaron-fox",
+          "price": 5
+        },
+        "SF": {
+          "id": "paolo-banchero",
+          "price": 4
+        },
+        "PF": {
+          "id": "lauri-markkanen",
+          "price": 4
+        },
+        "C": {
+          "id": "alperen-sengun",
+          "price": 5
+        },
+        "BENCH": {
+          "id": "jalen-brunson",
+          "price": 1
+        }
+      },
+      "p2": {
+        "PG": {
+          "id": "damian-lillard",
+          "price": 2
+        },
+        "SG": {
+          "id": "anthony-edwards",
+          "price": 5
+        },
+        "SF": {
+          "id": "kawhi-leonard",
+          "price": 2
+        },
+        "PF": {
+          "id": "giannis-antetokounmpo",
+          "price": 5
+        },
+        "C": {
+          "id": "jaren-jackson-jr",
+          "price": 3
+        },
+        "BENCH": {
+          "id": "nikola-jokic",
+          "price": 2
+        }
+      },
+      "ts": {
+        "p1WinRate": 0.1375,
+        "avgP1": 108.6225,
+        "avgP2": 127.355
+      }
+    }
+  ]
+}

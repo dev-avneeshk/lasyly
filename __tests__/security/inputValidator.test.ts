@@ -173,11 +173,38 @@ describe("enforceBodySize", () => {
     expect(enforceBodySize(request, 1_000_000)).toBe(false)
   })
 
-  it("returns false when no content-length header is present", () => {
+  it("returns false when no content-length header is present (empty body)", () => {
     const request = new Request("http://localhost", {
       method: "POST",
     })
     expect(enforceBodySize(request, 1_000_000)).toBe(false)
+  })
+
+  it("REJECTS chunked encoding, which used to bypass the limit entirely", () => {
+    // Content-Length is optional. A client sending Transfer-Encoding: chunked
+    // sends none, and the old implementation returned false ("cannot enforce,
+    // allow through"), streaming an unbounded body into request.json().
+    const request = new Request("http://localhost", {
+      method: "POST",
+      headers: { "transfer-encoding": "chunked" },
+    })
+    expect(enforceBodySize(request, 1_000_000)).toBe(true)
+  })
+
+  it("rejects chunked encoding regardless of header casing or extra codings", () => {
+    const request = new Request("http://localhost", {
+      method: "POST",
+      headers: { "transfer-encoding": "gzip, Chunked" },
+    })
+    expect(enforceBodySize(request, 1_000_000)).toBe(true)
+  })
+
+  it("returns true for a negative content-length", () => {
+    const request = new Request("http://localhost", {
+      method: "POST",
+      headers: { "content-length": "-1" },
+    })
+    expect(enforceBodySize(request, 1_000_000)).toBe(true)
   })
 
   it("returns true for invalid content-length header", () => {

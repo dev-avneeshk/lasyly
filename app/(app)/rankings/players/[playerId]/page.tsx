@@ -3,7 +3,7 @@
 import { use, useEffect, useMemo, useState } from "react"
 import { notFound } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, Plus, ArrowLeftRight, ChevronRight, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Plus, Check, ArrowLeftRight, ChevronRight, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import { TierBadge } from "@/components/rankings/TierBadge"
 import { RankMovement } from "@/components/rankings/RankMovement"
@@ -30,7 +30,8 @@ type SeasonStats = {
 
 type GameRow = {
   date: string | null; opponent: string; pts: number; trb: number; ast: number
-  fg: number; fga: number; tp: number; tpa: number; ft: number; fta: number; minutes?: number
+  fg: number; fga: number; tp: number; tpa: number; ft: number; fta: number
+  minutes?: string | number | null
 }
 
 type StatsRef = {
@@ -61,6 +62,7 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
   const [headshot, setHeadshot] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>("overview")
+  const [isWatchlisted, setIsWatchlisted] = useState(false)
 
   // 1. Ranking data (rank, tier, radar, narrative)
   useEffect(() => {
@@ -91,7 +93,11 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
     const name = data.player_name as string
     const team = (data.team ?? data.historical_team ?? "") as string
 
-    fetch(`/api/props/stats-reference?player=${encodeURIComponent(name)}&stat=pts`)
+    // Clear a previous player's portrait immediately during client-side
+    // navigation, then show the persisted image while the provider refreshes.
+    setHeadshot(data.headshot_url ?? null)
+
+    fetch(`/api/props/stats-reference?player=${encodeURIComponent(name)}&stat=pts`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (cancelled || !json) return
@@ -103,7 +109,8 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
       })
       .catch(() => {})
 
-    fetch(`/api/players/headshot?name=${encodeURIComponent(name)}&team=${encodeURIComponent(team)}&sport=NBA`)
+    const headshotEndpoint = `/api/players/headshot?name=${encodeURIComponent(name)}&team=${encodeURIComponent(team)}&sport=NBA&resolver=accent-v2`
+    fetch(headshotEndpoint, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (!cancelled && json?.success && json.headshot) setHeadshot(json.headshot)
@@ -111,7 +118,7 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
       .catch(() => {})
 
     return () => { cancelled = true }
-  }, [data?.player_name, data?.team, data?.historical_team])
+  }, [data?.player_name, data?.team, data?.historical_team, data?.headshot_url])
 
   // NOTE: getTeamLogoUrl matches sport case-sensitively ("NBA", not "nba").
   const logoUrl = useMemo(() => getTeamLogoUrl(data?.team ?? "", "NBA"), [data?.team])
@@ -135,7 +142,6 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
   // (e.g. 2026-27) before that season has games, this will be the prior season
   // (2025-26) — and auto-advances to 2026-27 once those games are scraped.
   const statsSeason = stats?.statsSeason ?? season
-  const isPriorSeason = statsSeason !== season
   const statsSeasonLabel = statsSeason ? `${statsSeason} Season` : "—"
 
   if (loading) return <PlayerDetailSkeleton />
@@ -143,154 +149,185 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
 
   const initials = data.player_name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2)
 
+  // Editorial name wrap: first name on line 1, the remainder (surname, which
+  // may itself be hyphenated like "Gilgeous-Alexander") on line 2. Single-word
+  // names stay on one line.
+  const nameParts: string[] = (data.player_name ?? "").split(" ").filter(Boolean)
+  const nameLines: string[] =
+    nameParts.length <= 1 ? nameParts : [nameParts[0], nameParts.slice(1).join(" ")]
+
+  // Bio formatting: height stored as "6-6" → 6'6", weight as "195" → "195 lbs".
+  const heightDisplay = fmtHeight(data.height)
+  const weightDisplay = data.weight ? `${data.weight} lbs` : null
+  const birthDisplay = fmtBirthDate(data.birth_date)
+
   return (
     <div className="min-h-full pb-20">
-      {/* ── Back nav ─────────────────────────────────────────────────────── */}
-      <div className="max-w-6xl mx-auto px-4 md:px-6 pt-4">
-        <Link
-          href={`/rankings?season=${season}`}
-          className="inline-flex w-fit items-center gap-1.5 text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-lime)] transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Rankings
-          <ChevronRight className="w-3.5 h-3.5 opacity-40" />
-          <span className="text-[var(--color-text-primary)]">{data.player_name}</span>
-        </Link>
-      </div>
-
       {/* ── Cinematic hero ───────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-6xl mx-auto px-4 md:px-6 mt-3"
+        className="max-w-6xl mx-auto px-4 md:px-6 pt-3"
       >
-        <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-black">
-          {/* Full-bleed backdrop */}
+        <div className="relative overflow-hidden rounded-[18px] border border-white/[0.06] bg-[#050607]">
+          {/* Atmospheric backdrop */}
           <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-surface-elevated)] via-black to-black" />
-            {/* Big team-logo watermark, upper-left (like the reference) */}
-            {logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoUrl}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute left-2 top-2 w-40 h-40 object-contain opacity-[0.13]"
-              />
-            )}
-            {/* Player initials watermark (right) */}
-            <span className="absolute right-8 md:right-24 top-1/2 -translate-y-1/2 text-[130px] md:text-[190px] font-black leading-none text-white/[0.025] select-none pointer-events-none">
-              {initials}
+            <div className="absolute inset-0 bg-[radial-gradient(95%_130%_at_19%_100%,#20242b_0%,#0b0d11_43%,#050607_78%)]" />
+            <div className="absolute left-16 bottom-0 h-64 w-72 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,transparent_70%)] blur-2xl" />
+            <div className="absolute -left-16 -bottom-24 h-64 w-64 rounded-full bg-[var(--color-lime)]/[0.04] blur-3xl" />
+            <span aria-hidden="true" className="pointer-events-none absolute right-6 top-16 hidden select-none text-[9px] font-bold uppercase leading-[1.8] tracking-[0.28em] text-white/[0.08] xl:block">
+              Discipline<br />Creates<br />Freedom.
             </span>
           </div>
 
-          <div className="relative flex flex-col md:flex-row items-stretch min-h-[230px]">
-            {/* Left rail: vertical name + rank (like the reference) */}
-            <div className="hidden lg:flex flex-col justify-end shrink-0 w-24 pl-5 pb-6 z-10">
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]/50 leading-relaxed">
-                {data.player_name?.split(" ").map((w: string) => (
-                  <div key={w}>{w}</div>
-                ))}
-                <div className="mt-1.5">#{data.overall_rank ?? "—"}</div>
-              </div>
-            </div>
+          {/* Breadcrumb belongs to the banner, not a separate page row. */}
+          <nav
+            aria-label="Player ranking breadcrumb"
+            className="absolute left-4 right-4 top-3 z-30 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--color-text-muted)]"
+          >
+            <Link
+              href={`/rankings?season=${season}`}
+              className="inline-flex shrink-0 items-center gap-1.5 transition-colors hover:text-[var(--color-lime)]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Rankings
+            </Link>
+            <ChevronRight aria-hidden className="h-3 w-3 shrink-0 opacity-40" />
+            <span aria-current="page" className="min-w-0 truncate text-[var(--color-text-primary)]">
+              {data.player_name}
+            </span>
+          </nav>
 
-            {/* Headshot column */}
-            <div className="relative w-full md:w-56 lg:w-64 shrink-0 flex items-end justify-center md:justify-start">
+          <div className="relative flex min-h-[250px] flex-col pt-10 md:grid md:grid-cols-[250px_minmax(0,1fr)] md:pt-9">
+            {/* Portrait art zone: watermark, autograph, vertical name, and player share one compact column. */}
+            <div className="relative min-h-[238px] overflow-hidden md:min-h-0">
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt=""
+                  aria-hidden
+                  className="pointer-events-none absolute left-4 top-4 h-28 w-28 object-contain opacity-[0.11]"
+                />
+              )}
+
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-4 top-[74px] z-20 -rotate-6 select-none text-[43px] italic leading-none text-white/45"
+                style={{ fontFamily: '"Brush Script MT", "Segoe Script", cursive' }}
+              >
+                {nameParts[0] ?? initials}
+              </span>
+
+              <div aria-hidden="true" className="pointer-events-none absolute bottom-5 left-4 z-20 hidden w-16 select-none md:block">
+                <div className="text-[8px] font-bold uppercase leading-[1.45] tracking-[0.2em] text-white/35">
+                  {data.player_name?.split(" ").map((word: string) => (
+                    <span key={word} className="block">{word}</span>
+                  ))}
+                  <span className="mt-1 block">#{data.overall_rank ?? "—"}</span>
+                </div>
+              </div>
+
               {headshot ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={headshot}
                   alt={data.player_name}
-                  className="h-52 md:h-[260px] w-auto object-contain object-bottom drop-shadow-2xl"
+                  className="absolute bottom-0 left-1/2 z-10 h-[272px] w-auto -translate-x-[38%] object-contain object-bottom drop-shadow-[0_22px_36px_rgba(0,0,0,0.55)] md:left-auto md:right-[-10px] md:translate-x-0"
                 />
               ) : (
-                <div className="w-40 h-44 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center text-4xl font-black text-[var(--color-text-muted)]/40 mb-4">
+                <div className="absolute bottom-4 right-5 flex h-48 w-36 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-4xl font-black text-white/20">
                   {initials}
                 </div>
               )}
             </div>
 
-            {/* Identity */}
-            <div className="flex-1 min-w-0 px-6 md:px-4 pb-6 pt-4 md:pt-8 flex flex-col justify-center">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-[14px] font-black text-[var(--color-text-primary)] tabular-nums bg-white/[0.06] border border-[var(--color-border)] px-2 py-0.5 rounded-md">
+            {/* Identity begins immediately after the portrait, with no empty rail. */}
+            <div className="relative z-20 flex min-w-0 flex-col justify-center px-5 pb-6 pt-3 md:px-5 md:pb-5 md:pt-5 lg:pr-16">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-md border border-white/[0.08] bg-white/[0.06] px-2 py-0.5 text-[12px] font-black tabular-nums text-white">
                   #{data.overall_rank ?? "—"}
                 </span>
                 <TierBadge tier={data.tier} />
                 <RankMovement change={data.rank_change} isNew={data.is_new} />
               </div>
 
-              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white mt-2 leading-[0.92]">
-                {data.player_name}
+              <h1 className="mt-2 font-black uppercase leading-[0.84] tracking-[-0.05em] text-white [font-size:clamp(36px,4.35vw,66px)]">
+                {nameLines.map((line, i) => (
+                  <span key={i} className="block">{line}</span>
+                ))}
               </h1>
 
-              {/* Team row — logo + FULL name */}
-              <div className="flex items-center gap-2.5 mt-3">
-                {logoUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="" className="w-7 h-7 object-contain" />
+              <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-end lg:gap-5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    {logoUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logoUrl} alt="" className="h-7 w-7 object-contain" />
+                    )}
+                    <span className="truncate text-[14px] font-bold tracking-tight text-white">{teamFullName}</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    {data.position && <span className="text-[var(--color-text-primary)]">{data.position}</span>}
+                    {data.age != null && <><Sep />{data.age} Yrs</>}
+                    {heightDisplay && <><Sep />{heightDisplay}</>}
+                    {weightDisplay && <><Sep />{weightDisplay.toUpperCase()}</>}
+                  </div>
+                </div>
+
+                {data.signature && (
+                  <blockquote className="max-w-[230px] border-l border-white/10 pl-3 lg:max-w-[210px] lg:pl-4">
+                    <p className="font-serif text-[12px] italic leading-snug text-white/70 lg:text-[13px]">
+                      &ldquo;{data.signature}&rdquo;
+                    </p>
+                    {data.player_class && (
+                      <cite className="mt-1 block text-[8px] not-italic uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+                        {data.player_class}
+                      </cite>
+                    )}
+                  </blockquote>
                 )}
-                <span className="text-[15px] md:text-[17px] font-bold text-[var(--color-text-primary)]">{teamFullName}</span>
               </div>
 
-              {/* Attribute row with separators */}
-              <div className="flex items-center gap-2.5 flex-wrap mt-2 text-[13px] text-[var(--color-text-muted)]">
-                {data.position && <span className="font-semibold text-[var(--color-text-primary)]">{data.position}</span>}
-                {data.age != null && <><Sep />Age {data.age}</>}
-                {data.games_played != null && <><Sep />{data.games_played} GP</>}
-                {data.minutes_per_game != null && <><Sep />{fmt(data.minutes_per_game)} MPG</>}
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 mt-4">
-                <button className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--color-lime)] text-black text-[13px] font-bold hover:opacity-90 transition-opacity">
-                  <Plus className="w-4 h-4" /> Add to Watchlist
+              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_40px] gap-2 sm:flex sm:items-center">
+                <button
+                  type="button"
+                  aria-pressed={isWatchlisted}
+                  onClick={() => setIsWatchlisted((current) => !current)}
+                  className="col-span-2 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[var(--color-lime)] px-4 text-[12px] font-bold text-black shadow-[0_8px_22px_-10px_rgba(212,255,0,0.55)] transition-all hover:-translate-y-px hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lime)]/60 sm:col-auto"
+                >
+                  {isWatchlisted ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {isWatchlisted ? "In Watchlist" : "Add to Watchlist"}
                 </button>
-                <button className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/[0.06] border border-[var(--color-border)] text-[13px] font-semibold text-[var(--color-text-primary)] hover:bg-white/[0.1] transition-colors">
-                  <ArrowLeftRight className="w-4 h-4" /> Compare
+                <button
+                  type="button"
+                  disabled
+                  title="Player comparison is coming soon"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.05] px-4 text-[12px] font-semibold text-[var(--color-text-primary)] disabled:cursor-not-allowed disabled:text-[var(--color-text-muted)]"
+                >
+                  <ArrowLeftRight className="h-4 w-4" /> Compare
                 </button>
-                <button className="w-10 h-10 rounded-xl bg-white/[0.06] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-muted)] hover:bg-white/[0.1] transition-colors">
-                  <MoreHorizontal className="w-4 h-4" />
+                <button
+                  type="button"
+                  disabled
+                  title="More player actions are coming soon"
+                  aria-label="More player actions are coming soon"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.04] text-[var(--color-text-muted)] disabled:cursor-not-allowed"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
                 </button>
               </div>
             </div>
-
-            {/* Quote / signature block (right) */}
-            {data.signature && (
-              <div className="hidden lg:flex flex-col justify-center pr-10 max-w-[230px] z-10">
-                <p className="text-[14px] italic text-[var(--color-text-primary)]/85 leading-snug">
-                  &ldquo;{data.signature}&rdquo;
-                </p>
-                {data.player_class && (
-                  <p className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] mt-1.5">
-                    — {data.player_class}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Stats-season caption */}
-          <div className="relative flex items-center gap-2 border-t border-[var(--color-border)] bg-black/20 px-4 pt-2.5">
-            <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-              {statsSeasonLabel} Stats
-            </span>
-            {isPriorSeason && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--color-warning)]/15 text-[var(--color-warning)]">
-                LAST SEASON · {season} not started
-              </span>
-            )}
-          </div>
-
-          {/* Headline stat bar. Sub-ranks come from the ranking engine's
-              per-dimension league ranks (scoring / rebounding / playmaking /
-              shooting) — the closest real rank we have for each stat. */}
-          <div className="relative flex items-stretch bg-black/30 border-t border-[var(--color-border)] overflow-x-auto scrollbar-hide">
+          {/* Headline stat bar — broadcast-style. The Overall Score module is
+              deliberately distinct; the rest read cleaner. Sub-ranks come from
+              the ranking engine's per-dimension league ranks. */}
+          <div className="relative flex items-stretch bg-black/30 border-t border-white/[0.06] overflow-x-auto scrollbar-hide">
             <HeadlineStat
               value={fmt(data.overall_score)}
               label="Overall Score"
-              sub={data.overall_rank != null ? `#${data.overall_rank} in NBA` : null}
+              sub={data.overall_rank != null ? `#${data.overall_rank} IN NBA` : null}
               highlight
             />
             <HeadlineStat value={fmt(s?.ppg)} label="PPG" rank={byType.scoring} />
@@ -320,14 +357,14 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
         {/* Sidebar */}
         <div className="space-y-5">
           {/* Team card */}
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-[var(--color-surface)] px-4 py-3.5">
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt="" className="w-9 h-9 object-contain" />
             )}
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-bold text-[var(--color-text-primary)] truncate">{data.team ?? "Free Agent"}</div>
-              <div className="text-[11px] text-[var(--color-text-muted)]">{statsSeasonLabel}</div>
+              <div className="text-[13px] font-bold text-white truncate">{teamFullName}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{statsSeasonLabel}</div>
             </div>
             <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)]" />
           </div>
@@ -338,6 +375,9 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
               <InfoRow label="Team" value={teamFullName} />
               <InfoRow label="Position" value={data.position} />
               <InfoRow label="Age" value={data.age} />
+              <InfoRow label="Height" value={heightDisplay} />
+              <InfoRow label="Weight" value={weightDisplay} />
+              <InfoRow label="Born" value={birthDisplay} />
               <InfoRow label="Games Played" value={data.games_played} />
               <InfoRow label="Min / Game" value={data.minutes_per_game != null ? fmt(data.minutes_per_game) : null} />
               <InfoRow label="Tier" value={data.tier} />
@@ -372,7 +412,7 @@ function OverviewTab({ data, games, s }: { data: any; games: GameRow[] | null; s
   return (
     <div className="space-y-5">
       <Panel title="Recent Games">
-        <RecentGamesTable games={games?.slice(0, 5) ?? null} />
+        <RecentGamesTable games={games ? games.slice(-5).reverse() : null} />
       </Panel>
 
       {/* Advanced metrics on overview */}
@@ -573,4 +613,20 @@ function fmtDate(date: string | null): string {
   const d = new Date(date)
   if (Number.isNaN(d.getTime())) return date
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+/** Convert a Basketball-Reference height ("6-6") to display form (6'6"). */
+function fmtHeight(height: string | null | undefined): string | null {
+  if (!height) return null
+  const m = /^(\d)-(\d{1,2})$/.exec(height.trim())
+  if (!m) return height
+  return `${m[1]}'${m[2]}"`
+}
+
+/** Format a birth date (ISO) as "Mon D, YYYY". */
+function fmtBirthDate(date: string | null | undefined): string | null {
+  if (!date) return null
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }

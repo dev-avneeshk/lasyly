@@ -1,6 +1,11 @@
 import { createGame, openNextLot, resolveLot } from "@/lib/arena/auction"
-import { walkAwayPrice } from "@/lib/arena/ai"
-import { DEFAULT_CONFIG } from "@/lib/arena/types"
+import { decideAI, walkAwayPrice } from "@/lib/arena/ai"
+import { getSeasonPlayers } from "@/lib/arena/data"
+import { canFillSlot, emptyRoster, placePlayer } from "@/lib/arena/roster"
+import { DEFAULT_CONFIG, POSITIONS } from "@/lib/arena/types"
+import { scaledOpeningBid } from "@/lib/arena/value"
+
+const SEASON = "2025-26"
 
 // The planning AI is DISCIPLINED: it opens/contests at fair value but won't
 // overpay early when comparable players are still coming (that's the whole
@@ -44,5 +49,92 @@ describe("Arena — AI engages auctions (planning-disciplined)", () => {
       expect(wa).toBeGreaterThanOrEqual(1)
     }
     expect(true).toBe(true)
+  })
+
+  it("uses a $1 legal counter when the configured increment overshoots value", () => {
+    const state = createGame({
+      gameId: "pace-counter-step",
+      config: {
+        ...DEFAULT_CONFIG,
+        budgetPerPlayer: 100,
+        bidIncrement: 5,
+        difficulty: "hard",
+      },
+      vsAI: true,
+      seed: 11,
+    })
+    const curry = getSeasonPlayers(SEASON).find(
+      (player) => player.id === "stephen-curry"
+    )!
+    const openingBid = scaledOpeningBid(curry, 100, state.config.rosterSize)
+    state.queue = [curry.id]
+    state.lot = {
+      player: curry,
+      openingBid,
+      currentBid: openingBid,
+      highBidder: null,
+    }
+
+    const walkAway = walkAwayPrice(state, "P2")
+    expect(walkAway).toBeGreaterThan(openingBid)
+
+    // The human is $1 below the CPU's walk-away. A +$5 preset raise would
+    // overshoot, but a legal +$1 counter is still strategically correct.
+    state.lot.currentBid = walkAway - 1
+    state.lot.highBidder = "P1"
+
+    expect(decideAI(state, "P2")).toEqual({ action: "bid", amount: walkAway })
+  })
+
+  it("does not randomly fold a needed star far below its walk-away price", () => {
+    const curry = getSeasonPlayers(SEASON).find(
+      (player) => player.id === "stephen-curry"
+    )!
+    let deepValueOpportunities = 0
+
+    for (let game = 0; game < 24; game++) {
+      const state = createGame({
+        gameId: `pace-needed-star-${game}`,
+        config: {
+          ...DEFAULT_CONFIG,
+          budgetPerPlayer: 100,
+          bidIncrement: 5,
+          difficulty: "medium",
+        },
+        vsAI: true,
+        seed: game + 100,
+      })
+      const used = new Set([curry.id])
+      let cpu = emptyRoster()
+      for (const slot of POSITIONS) {
+        const player = getSeasonPlayers(SEASON).find(
+          (candidate) => !used.has(candidate.id) && canFillSlot(candidate, slot)
+        )!
+        used.add(player.id)
+        cpu = placePlayer(cpu, player, 1, slot)
+      }
+      state.rosters.P2 = cpu
+
+      const openingBid = scaledOpeningBid(curry, 100, state.config.rosterSize)
+      state.queue = [curry.id]
+      state.lot = {
+        player: curry,
+        openingBid,
+        currentBid: openingBid + 1,
+        highBidder: "P1",
+      }
+
+      const walkAway = walkAwayPrice(state, "P2")
+      const cheapestCounter = state.lot.currentBid + 1
+      if (cheapestCounter <= walkAway * 0.8) {
+        deepValueOpportunities++
+        expect(decideAI(state, "P2")).toEqual({
+          action: "bid",
+          amount: state.lot.currentBid + state.config.bidIncrement,
+        })
+      }
+    }
+
+    expect(deepValueOpportunities).toBeGreaterThan(10)
   })
 })

@@ -1,25 +1,25 @@
 import { NextResponse } from "next/server"
 import { cached } from "@/lib/cache"
-import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import {
+  isHeadshotNameMatch,
+  normalizeHeadshotName,
+} from "@/lib/players/headshotResolver"
+import { withSecurity } from "@/lib/security/routeHelpers"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
- * GET /api/players/headshots?names=Nikola+Jokic,Luka+Doncic&sport=NBA
+ * GET /api/players/headshots?name=Nikola+Jokic&name=Luka+Doncic&sport=NBA
  *
- * Batch headshot resolver. Given a comma-separated list of player names,
- * returns a map of { [name]: headshotUrl } for every name we can resolve.
- *
- * Designed for list views (e.g. rankings) where fetching one headshot per
- * player would fan out into dozens of requests. Does a single bulk lookup
- * against espn_players, then constructs ESPN CDN URLs for any players that
- * have an espn_id but no stored headshot_url.
- *
- * Cache-aside via Redis (24h TTL) — the resolved map is cached per sorted
- * set of names so repeat loads for the same ranking list are a cache hit.
+ * Batch headshot resolver for list views. It checks persisted URLs first,
+ * resolves active NBA players from one cached league-roster index, and uses a
+ * small ESPN search fallback only for names absent from active rosters.
  */
 
 const HEADSHOT_CACHE_TTL = 86_400_000 // 24 hours
-const MAX_NAMES = 250
+const HEADSHOT_RESPONSE_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+const MAX_NAMES = 100
+const MAX_NAME_LENGTH = 100
+const MAX_CORE_SEARCHES = 5
 
 const HEADSHOT_PATTERNS: Record<string, string> = {
   nba: "https://a.espncdn.com/i/headshots/nba/players/full/{id}.png",
@@ -36,11 +36,39 @@ const SPORT_KEY: Record<string, string> = {
   soccer: "soccer",
 }
 
+const ESPN_SPORT_VALUES: Record<string, string> = {
+  nba: "basketball",
+  nfl: "football",
+  nhl: "hockey",
+  soccer: "soccer",
+}
+
+const NBA_TEAM_SLUGS = [
+  "atl", "bos", "bkn", "cha", "chi", "cle", "dal", "den", "det", "gs",
+  "hou", "ind", "lac", "lal", "mem", "mia", "mil", "min", "no", "ny",
+  "okc", "orl", "phi", "phx", "por", "sac", "sa", "tor", "utah", "wsh",
+] as const
+
 interface PlayerRow {
   name: string | null
   espn_id: string | number | null
   headshot_url: string | null
-  sport: string | null
+}
+
+interface NbaPlayerRow {
+  player_name: string
+  headshot_url: string | null
+}
+
+interface EspnAthlete {
+  id?: string | number
+  displayName?: string
+  fullName?: string
+  headshot?: { href?: string }
+}
+
+interface EspnRosterGroup extends EspnAthlete {
+  items?: EspnAthlete[]
 }
 
 function buildHeadshotUrl(espnId: string, sportKey: string): string {
@@ -48,44 +76,31 @@ function buildHeadshotUrl(espnId: string, sportKey: string): string {
   return pattern.replace("{id}", espnId)
 }
 
-/** Normalize a name for fuzzy matching (lowercase, strip punctuation/accents). */
-function normalize(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
 async function handleGET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const namesParam = searchParams.get("names") ?? ""
+  const repeatedNames = searchParams.getAll("name")
+  const rawNames = repeatedNames.length > 0
+    ? repeatedNames
+    : (searchParams.get("names") ?? "").split(",")
   const sportParam = (searchParams.get("sport") ?? "NBA").toLowerCase()
   const sportKey = SPORT_KEY[sportParam] ?? "nba"
-
   const names = Array.from(
-    new Set(
-      namesParam
-        .split(",")
-        .map((n) => n.trim())
-        .filter((n) => n.length >= 2)
-    )
-  ).slice(0, MAX_NAMES)
+    new Set(rawNames.map((name) => name.trim()).filter((name) => name.length >= 2))
+  )
 
   if (names.length === 0) {
     return NextResponse.json({ success: true, headshots: {} })
   }
 
-  const cacheKey = `headshots:${sportKey}:${[...names].sort().join("|")}`
+  if (names.length > MAX_NAMES || names.some((name) => name.length > MAX_NAME_LENGTH)) {
+    return NextResponse.json(
+      { success: false, error: `Provide at most ${MAX_NAMES} names of ${MAX_NAME_LENGTH} characters or fewer.` },
+      { status: 400 }
+    )
+  }
 
   try {
-    const headshots = await cached(
-      cacheKey,
-      () => resolveHeadshots(names, sportKey),
-      HEADSHOT_CACHE_TTL
-    )
+    const headshots = await resolveHeadshots(names, sportKey)
     return NextResponse.json({ success: true, headshots })
   } catch (error) {
     console.error("Batch headshot error:", error instanceof Error ? error.message : error)
@@ -97,71 +112,176 @@ async function resolveHeadshots(
   names: string[],
   sportKey: string
 ): Promise<Record<string, string>> {
-  const result: Record<string, string> = {}
+  const result = await resolveStoredHeadshots(names, sportKey)
+  if (sportKey !== "nba") return result
 
-  try {
-    const supabase = createAdminClient()
+  const unresolved = names.filter((name) => !result[name])
+  if (unresolved.length === 0) return result
 
-    // Single bulk query: fetch every player row whose name matches any of the
-    // requested names. We over-fetch with `in` on exact names, then fuzzy-match
-    // in memory to tolerate small formatting differences.
-    const { data, error } = await supabase
-      .from("espn_players")
-      .select("name, espn_id, headshot_url, sport")
-      .in("name", names)
+  Object.assign(result, await resolveFromNbaRosters(unresolved))
 
-    let rows = error ? [] : data ?? []
-
-    // For any names not matched exactly, do a second pass with ilike per missing
-    // name (bounded — only the unresolved ones).
-    const matchedExact = new Set(rows.map((r) => normalize((r as PlayerRow).name ?? "")))
-    const missing = names.filter((n) => !matchedExact.has(normalize(n)))
-
-    if (missing.length > 0) {
-      const orFilter = missing
-        .slice(0, 50)
-        .map((n) => `name.ilike.%${n.replace(/[%,]/g, "")}%`)
-        .join(",")
-      if (orFilter) {
-        const { data: fuzzy } = await supabase
-          .from("espn_players")
-          .select("name, espn_id, headshot_url, sport")
-          .or(orFilter)
-          .limit(200)
-        if (fuzzy) rows = rows.concat(fuzzy)
-      }
-    }
-
-    // Build a normalized-name -> url lookup from the fetched rows.
-    const byName = new Map<string, string>()
-    for (const row of rows as PlayerRow[]) {
-      const url = row.headshot_url || (row.espn_id ? buildHeadshotUrl(String(row.espn_id), sportKey) : null)
-      if (!url) continue
-      const key = normalize(row.name ?? "")
-      if (key && !byName.has(key)) byName.set(key, url)
-    }
-
-    for (const requested of names) {
-      const norm = normalize(requested)
-      let url = byName.get(norm)
-      if (!url) {
-        // Try last-name / substring match against fetched rows.
-        for (const [key, candidate] of byName.entries()) {
-          if (key === norm || key.includes(norm) || norm.includes(key)) {
-            url = candidate
-            break
-          }
-        }
-      }
-      if (url) result[requested] = url
-    }
-  } catch {
-    // Best-effort — return whatever we resolved.
+  const fallbackNames = names
+    .filter((name) => !result[name])
+    .slice(0, MAX_CORE_SEARCHES)
+  const searched = await Promise.all(
+    fallbackNames.map(async (name) => [name, await searchEspnNbaAthlete(name)] as const)
+  )
+  for (const [name, url] of searched) {
+    if (url) result[name] = url
   }
 
   return result
 }
 
+async function resolveStoredHeadshots(
+  names: string[],
+  sportKey: string
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {}
+  const supabase = createAdminClient()
+
+  if (sportKey === "nba") {
+    const { data, error } = await supabase
+      .from("nba_players")
+      .select("player_name, headshot_url")
+      .not("headshot_url", "is", null)
+      .limit(1000)
+
+    if (error) {
+      console.error("NBA headshot lookup failed:", error.message)
+    } else {
+      for (const requested of names) {
+        const match = (data as NbaPlayerRow[] | null)?.find((player) =>
+          Boolean(player.headshot_url) && isHeadshotNameMatch(requested, player.player_name)
+        )
+        if (match?.headshot_url) result[requested] = match.headshot_url
+      }
+    }
+  }
+
+  const unresolved = names.filter((name) => !result[name])
+  if (unresolved.length === 0) return result
+
+  // Fetch the bounded provider index and match locally. This avoids building
+  // PostgREST filter expressions from public query-string input.
+  const providerSport = ESPN_SPORT_VALUES[sportKey] ?? sportKey
+  const { data, error } = await supabase
+    .from("espn_players")
+    .select("name, espn_id, headshot_url")
+    .eq("sport", providerSport)
+    .limit(1000)
+
+  if (error) {
+    console.error("Stored ESPN headshot lookup failed:", error.message)
+    return result
+  }
+
+  const rows = (data ?? []) as PlayerRow[]
+  for (const requested of unresolved) {
+    const match = rows.find((row) => isHeadshotNameMatch(requested, row.name ?? ""))
+    if (!match) continue
+
+    const url = match.headshot_url
+      || (match.espn_id ? buildHeadshotUrl(String(match.espn_id), sportKey) : null)
+    if (url) result[requested] = url
+  }
+
+  return result
+}
+
+async function resolveFromNbaRosters(names: string[]): Promise<Record<string, string>> {
+  let athletes: EspnAthlete[]
+  try {
+    athletes = await cached(
+      "headshots:provider:nba-rosters:v1",
+      fetchNbaRosterAthletes,
+      HEADSHOT_CACHE_TTL
+    )
+  } catch (error) {
+    console.error("ESPN NBA roster lookup failed:", error instanceof Error ? error.message : error)
+    return {}
+  }
+
+  const result: Record<string, string> = {}
+  for (const requested of names) {
+    const athlete = athletes.find((candidate) =>
+      isHeadshotNameMatch(requested, candidate.displayName ?? candidate.fullName ?? "")
+    )
+    if (!athlete?.id) continue
+
+    result[requested] = athlete.headshot?.href
+      || buildHeadshotUrl(String(athlete.id), "nba")
+  }
+
+  return result
+}
+
+async function fetchNbaRosterAthletes(): Promise<EspnAthlete[]> {
+  const rosterResults = await Promise.allSettled(
+    NBA_TEAM_SLUGS.map(async (teamSlug) => {
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamSlug}/roster`,
+        {
+          signal: AbortSignal.timeout(5000),
+          next: { revalidate: 86400 },
+        }
+      )
+      if (!response.ok) throw new Error(`ESPN roster ${teamSlug}: ${response.status}`)
+
+      const data = await response.json() as { athletes?: EspnRosterGroup[] }
+      return (data.athletes ?? []).flatMap((group) =>
+        group.items ?? (group.id ? [group] : [])
+      )
+    })
+  )
+
+  const successfulRosters = rosterResults.filter((result) => result.status === "fulfilled")
+  if (successfulRosters.length < NBA_TEAM_SLUGS.length * 0.8) {
+    throw new Error(`Only ${successfulRosters.length} of ${NBA_TEAM_SLUGS.length} NBA rosters loaded`)
+  }
+
+  return successfulRosters.flatMap((result) => result.value)
+}
+
+async function searchEspnNbaAthlete(playerName: string): Promise<string | null> {
+  try {
+    const query = encodeURIComponent(normalizeHeadshotName(playerName))
+    const response = await fetch(
+      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/athletes?limit=5&search=${query}`,
+      {
+        signal: AbortSignal.timeout(5000),
+        next: { revalidate: 86400 },
+      }
+    )
+    if (!response.ok) return null
+
+    const data = await response.json() as { items?: Array<{ $ref?: string }> }
+    for (const item of data.items ?? []) {
+      const espnId = item.$ref?.match(/athletes\/(\d+)/)?.[1]
+      if (!espnId) continue
+
+      const detailResponse = await fetch(
+        `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/athletes/${espnId}`,
+        {
+          signal: AbortSignal.timeout(3000),
+          next: { revalidate: 86400 },
+        }
+      )
+      if (!detailResponse.ok) continue
+
+      const athlete = await detailResponse.json() as EspnAthlete
+      const providerName = athlete.displayName ?? athlete.fullName ?? ""
+      if (!isHeadshotNameMatch(playerName, providerName)) continue
+
+      return athlete.headshot?.href || buildHeadshotUrl(espnId, "nba")
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 export const GET = withSecurity(handleGET, {
-  cacheControl: CACHE_CONTROL.IMMUTABLE,
+  cacheControl: HEADSHOT_RESPONSE_CACHE,
 })

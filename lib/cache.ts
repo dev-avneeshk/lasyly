@@ -116,7 +116,60 @@ async function redisSetTimestamp(key: string, ttlMs: number): Promise<void> {
 
 // ─── In-flight refresh tracking (thundering herd protection) ─────────────────
 
+/**
+ * Same-instance dedup. Necessary but nowhere near sufficient on serverless: this
+ * Map lives inside one lambda, so at TTL expiry every warm instance independently
+ * decided it was the one to refresh. For /api/scores that meant each instance
+ * firing 54 outbound ESPN requests (18 leagues x 3 dates); with 50 warm instances
+ * that is ~2,700 requests to an unofficial API in one second. For /api/props it
+ * meant ~42 Supabase queries and up to 30k rows per instance.
+ *
+ * `withRefreshLease` below adds the cross-instance half.
+ */
 const inflightRefreshes = new Map<string, Promise<unknown>>()
+
+/** Lease key namespace for cross-instance refresh coordination. */
+const LEASE_PREFIX = "cache_lock:"
+
+/**
+ * How long a refresh lease is held. Long enough for the slowest fetcher
+ * (~42 Supabase queries, or 54 ESPN calls at a 5s timeout each), short enough
+ * that a crashed holder doesn't block refreshes for long.
+ */
+const LEASE_TTL_MS = 30_000
+
+/**
+ * Try to become the single instance responsible for refreshing `key`.
+ *
+ * Returns a release function on success, or null if someone else holds it.
+ * Fails OPEN (grants the lease) when Redis is unavailable: this is a cache, and
+ * a duplicated recomputation is a cost problem, not a correctness one. That is
+ * the opposite of the game store's lock, which fails closed because there
+ * correctness is at stake.
+ */
+async function acquireRefreshLease(key: string): Promise<(() => Promise<void>) | null> {
+  const redis = getRedisClient()
+  if (!redis) return async () => {}
+
+  try {
+    const res = await redis.set(`${LEASE_PREFIX}${key}`, "1", {
+      nx: true,
+      px: LEASE_TTL_MS,
+    })
+    if (res !== "OK") return null
+    return async () => {
+      try {
+        await redis.del(`${LEASE_PREFIX}${key}`)
+      } catch {
+        // Expires on its own.
+      }
+    }
+  } catch {
+    return async () => {}
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // ─── Core Cache Function ─────────────────────────────────────────────────────
 
@@ -152,17 +205,26 @@ export async function cached<T>(
         return cachedData
       }
 
-      // Stale hit — serve stale, refresh in background
+      // Stale hit — serve stale, refresh in background.
+      // Only ONE instance across the whole fleet does the refresh; the rest just
+      // serve the stale value they already have, which is exactly the right
+      // outcome and costs them nothing.
       if (cachedData !== null && timestamp !== null && now - timestamp < ttlMs * 2) {
         if (!inflightRefreshes.has(key)) {
-          const refreshPromise = fetcher()
-            .then(async (data) => {
+          const refreshPromise = (async () => {
+            const release = await acquireRefreshLease(key)
+            if (!release) return // another instance is on it
+            try {
+              const data = await fetcher()
               await Promise.all([
                 redisSet(key, data, ttlMs),
                 redisSetTimestamp(key, ttlMs),
               ])
               return data
-            })
+            } finally {
+              await release()
+            }
+          })()
             .catch(() => {})
             .finally(() => {
               inflightRefreshes.delete(key)
@@ -172,19 +234,42 @@ export async function cached<T>(
         return cachedData
       }
 
-      // Cache miss — fetch synchronously (with thundering herd protection)
+      // Hard miss — nothing to serve, so someone must compute synchronously.
       const existing = inflightRefreshes.get(key)
       if (existing) {
         return (await existing) as T
       }
 
-      const fetchPromise = fetcher().then(async (data) => {
-        await Promise.all([
-          redisSet(key, data, ttlMs),
-          redisSetTimestamp(key, ttlMs),
-        ])
-        return data
-      })
+      const fetchPromise = (async (): Promise<T> => {
+        const release = await acquireRefreshLease(key)
+
+        if (!release) {
+          // Another instance is already computing this. Give it a moment and
+          // read its result rather than duplicating the work — this is what
+          // collapses a cold-cache stampede into a single computation.
+          for (let attempt = 0; attempt < 5; attempt++) {
+            await sleep(200)
+            const [data, ts] = await Promise.all([
+              redisGet<T>(key),
+              redisGetTimestamp(key),
+            ])
+            if (data !== null && ts !== null) return data
+          }
+          // The holder died or is slower than we're willing to wait. Compute
+          // without the lease rather than failing the request.
+          const data = await fetcher()
+          await Promise.all([redisSet(key, data, ttlMs), redisSetTimestamp(key, ttlMs)])
+          return data
+        }
+
+        try {
+          const data = await fetcher()
+          await Promise.all([redisSet(key, data, ttlMs), redisSetTimestamp(key, ttlMs)])
+          return data
+        } finally {
+          await release()
+        }
+      })()
 
       inflightRefreshes.set(key, fetchPromise)
 

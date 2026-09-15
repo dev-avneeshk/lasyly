@@ -33,7 +33,33 @@ const PUBLIC_URLS = [
   `${BASE_URL}/signup`,
 ]
 
+/**
+ * Only URLs on our own origin may be submitted.
+ *
+ * `?url=` was passed straight through to IndexNow. Combined with the missing
+ * auth check below, anyone could POST here repeatedly to burn the shared
+ * IndexNow quota (and risk the key being throttled or blocked), or submit
+ * unrelated URLs under our `host` + `keyLocation` claim.
+ */
+function isOwnOrigin(candidate: string): boolean {
+  try {
+    const parsed = new URL(candidate)
+    const base = new URL(BASE_URL)
+    return parsed.protocol === "https:" && parsed.hostname === base.hostname
+  } catch {
+    return false
+  }
+}
+
 export async function POST(request: NextRequest) {
+  // Search-engine pings are an operational task, not a user-facing one. This
+  // endpoint was entirely unauthenticated while making outbound requests on our
+  // behalf; it is now gated on the same secret as the other scheduled jobs.
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   if (!INDEXNOW_KEY) {
     return NextResponse.json(
       { error: "INDEXNOW_KEY environment variable is not set" },
@@ -43,6 +69,13 @@ export async function POST(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const singleUrl = searchParams.get("url")
+
+  if (singleUrl && !isOwnOrigin(singleUrl)) {
+    return NextResponse.json(
+      { error: "Only URLs on this site's own origin can be submitted." },
+      { status: 400 }
+    )
+  }
 
   const urlsToSubmit = singleUrl ? [singleUrl] : PUBLIC_URLS
 
@@ -67,8 +100,11 @@ export async function POST(request: NextRequest) {
       bing: bingResponse.status,
     })
   } catch (error) {
+    // Don't echo the raw error: String(error) on a fetch failure leaks the
+    // upstream host, resolver errors and occasionally proxy details.
+    console.error("[indexnow] submission failed:", error)
     return NextResponse.json(
-      { error: "Failed to submit to IndexNow", details: String(error) },
+      { error: "Failed to submit to IndexNow" },
       { status: 500 }
     )
   }

@@ -183,6 +183,23 @@ export function bidIncrementForBudget(budget: number): number {
   return 1
 }
 
+/**
+ * The bot personality that plays TOUGHEST for a given difficulty. Higher
+ * difficulties lean into value discipline / balance; easy stays soft. Mirrors
+ * the NBA arena so the two products behave consistently.
+ */
+export function bestPersonalityForDifficulty(d: AIDifficulty): AIPersonality {
+  switch (d) {
+    case "hard":
+      return "balanced"
+    case "easy":
+      return "aggressive"
+    case "medium":
+    default:
+      return "balanced"
+  }
+}
+
 // ─── Simulation output ───────────────────────────────────────────────────────
 
 /** A single player's stat line from the drive sim. Fields are role-dependent. */

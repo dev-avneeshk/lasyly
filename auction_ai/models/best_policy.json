@@ -1,0 +1,19 @@
+{
+  "version": 6,
+  "weights": {
+    "player_value_weight": 1.785342,
+    "offense_weight": 0.177256,
+    "defense_weight": 1.534624,
+    "spacing_weight": 1.37393,
+    "team_fit_weight": 0.0,
+    "potential_weight": 0.0,
+    "age_weight": 0.0,
+    "positional_need_weight": 0.315581,
+    "scarcity_weight": 0.470864,
+    "budget_weight": 1.92142,
+    "future_value_weight": 0.447866,
+    "overpay_penalty": 1.612736,
+    "urgency_weight": 2.813728,
+    "risk_tolerance": 0.607884
+  }
+}

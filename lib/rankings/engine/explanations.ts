@@ -8,6 +8,7 @@
  */
 
 import { TIER_THRESHOLDS } from "../config"
+import { getPlayerProfile } from "../playerProfiles"
 import type {
   PlayerScoreBreakdown,
   RankingTier,
@@ -261,7 +262,29 @@ function getTeamRankingRationale(
 
 // ─── Power Profile Generators ─────────────────────────────────────────────────
 
+/**
+ * The "signature" is the italic display quote on the player profile. We prefer
+ * a hand-curated quote (see playerProfiles.ts) and fall back to a score-derived
+ * archetype label for players not in the curated list.
+ */
 export function generateSignature(breakdown: PlayerScoreBreakdown): string {
+  const curated = getPlayerProfile(breakdown.player_name)
+  if (curated) return curated.quote
+  return generateArchetype(breakdown)
+}
+
+/**
+ * The "player class" is the nickname/moniker rendered as the attribution under
+ * the signature quote. Prefer the curated nickname; fall back to the archetype.
+ */
+export function generatePlayerClass(breakdown: PlayerScoreBreakdown): string {
+  const curated = getPlayerProfile(breakdown.player_name)
+  if (curated) return curated.nickname
+  return generateArchetype(breakdown)
+}
+
+/** Score-derived archetype label — the generic fallback for both fields. */
+function generateArchetype(breakdown: PlayerScoreBreakdown): string {
   const b = breakdown
   if (b.scoring_score >= 90 && b.playmaking_score >= 85) return "THE ENGINE"
   if (b.scoring_score >= 90) return "THE EXECUTOR"
@@ -276,10 +299,6 @@ export function generateSignature(breakdown: PlayerScoreBreakdown): string {
   if (b.offense_score > b.defense_score + 15) return "THE OFFENSIVE THREAT"
   if (b.defense_score > b.offense_score + 15) return "THE SPECIALIST"
   return "THE GENERALIST"
-}
-
-export function generatePlayerClass(breakdown: PlayerScoreBreakdown): string {
-  return generateSignature(breakdown)
 }
 
 export function generatePotential(age: number | null, rankChange: number | null, score: number): string {

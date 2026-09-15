@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { invalidateCachePrefix } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { handleConflict } from "@/lib/security/concurrency"
+import { broadcastMembersChanged } from "@/lib/realtime/members"
 
 export const POST = withSecurity(async (
   _request: Request,
@@ -107,6 +108,11 @@ export const POST = withSecurity(async (
     .eq("room_id", roomId)
 
   invalidateCachePrefix(`feed-graph:${user.id}`).catch(() => {})
+
+  // Nudge every other viewer of this room to refetch its members list. The
+  // membership row is already committed; this is best-effort and must not
+  // affect the response (see lib/realtime/members.ts).
+  await broadcastMembersChanged(roomId)
 
   return NextResponse.json({
     joined: !existing,

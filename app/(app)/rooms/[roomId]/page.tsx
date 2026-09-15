@@ -188,7 +188,29 @@ export default function RoomPage() {
     load()
   }, [supabase, roomId, loadChannels])
 
-  // Members are loaded in the main load effect above
+  // Members are loaded in the main load effect above; this keeps them fresh.
+  //
+  // Room membership is a ROOM-level concern, so it rides its own channel
+  // (`room-members-<roomId>`) rather than the subchannel-keyed chat channel —
+  // otherwise switching sub-channels would drop the subscription and miss
+  // joins/leaves. The server broadcasts a payload-free `members_changed` nudge
+  // from the join/leave route (lib/realtime/members.ts) and we refetch the
+  // authorized members endpoint on receipt, so RLS is evaluated once per client
+  // on demand instead of once per subscriber per row inside Realtime.
+  useEffect(() => {
+    let ignore = false
+    const refetch = async () => {
+      const res = await fetch(`/api/rooms/${roomId}/members`)
+      if (ignore || !res.ok) return
+      const data = await res.json()
+      setMembers(data.members ?? [])
+    }
+    const channel = supabase
+      .channel(`room-members-${roomId}`)
+      .on("broadcast", { event: "members_changed" }, () => { void refetch() })
+      .subscribe()
+    return () => { ignore = true; supabase.removeChannel(channel) }
+  }, [supabase, roomId])
 
   // ─── Load Messages + Realtime ───────────────────────────────────────────────
 
@@ -217,15 +239,19 @@ export default function RoomPage() {
     // Guard against stale responses: if the sub-channel changes (or we unmount)
     // before this fetch resolves, don't let its result overwrite newer state.
     let ignore = false
-    const fetchMessages = async () => {
+    const fetchMessages = async (mode: "replace" | "merge" = "replace") => {
       const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
       const data = await res.json()
       if (ignore || !res.ok || !data.messages) return
-      setMessages(mergeMessages([], data.messages))
-      setHasMoreOlder(Boolean(data.hasMore))
-      setOlderCursor(data.nextCursor ?? null)
+      // On a reconnect we MERGE rather than replace, so optimistic rows and
+      // anything already on screen survive.
+      setMessages((prev) => mergeMessages(mode === "replace" ? [] : prev, data.messages))
+      if (mode === "replace") {
+        setHasMoreOlder(Boolean(data.hasMore))
+        setOlderCursor(data.nextCursor ?? null)
+      }
     }
-    fetchMessages()
+    fetchMessages("replace")
 
     // Hydrate a realtime row that arrives without a profile join (broadcast/
     // postgres_changes carry the raw row). Falls back to the sender's cached
@@ -235,19 +261,29 @@ export default function RoomPage() {
       profile: msg.profile ?? profileCacheRef.current.get(msg.user_id) ?? null,
     })
 
-    // Two realtime paths on the SAME channel:
-    //   1) broadcast — low-latency echo relayed by the sender's client.
-    //   2) postgres_changes — the RELIABLE backstop. If the sender's tab dies
-    //      between the DB insert and the broadcast, this still delivers the row
-    //      to everyone. Both dedupe by id via mergeMessages, so double delivery
-    //      is harmless.
-    const channel = supabase
+    // Delivery is now BROADCAST-ONLY, from two senders on the same channel:
+    //   1) the sender's own client — instant echo, carries their profile so the
+    //      name/avatar render without a lookup;
+    //   2) the messages API route — authoritative, fires in the same request as
+    //      the insert, so delivery no longer depends on the sender's tab
+    //      surviving (lib/realtime/chat.ts).
+    // Both dedupe by id via mergeMessages, so double delivery is harmless.
+    //
+    // `postgres_changes` used to be the reliability backstop for (1). It is now
+    // redundant and OFF by default, because Realtime evaluates the row filter and
+    // the `messages` RLS policy (`can_view_subchannel`, 2-3 index lookups) once
+    // PER SUBSCRIBER PER ROW — one message in a room with N viewers costs ~2-3N
+    // lookups. Set NEXT_PUBLIC_CHAT_PG_CHANGES=true to re-enable it without a
+    // code change if a delivery gap ever shows up in practice.
+    let channelBuilder = supabase
       .channel(`room-sub-${activeSubchannelId}`)
       .on("broadcast", { event: "new_message" }, (payload) => {
         const msg = payload.payload as ChatMessage
         setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
       })
-      .on(
+
+    if (process.env.NEXT_PUBLIC_CHAT_PG_CHANGES === "true") {
+      channelBuilder = channelBuilder.on(
         "postgres_changes",
         {
           event: "INSERT",
@@ -279,7 +315,20 @@ export default function RoomPage() {
           )
         }
       )
-      .subscribe()
+    }
+
+    // Catch-up on (re)subscribe. This is what actually makes delivery reliable:
+    // broadcasts sent while the socket was down are gone, so on every successful
+    // subscribe after the first we re-read recent history and merge it. That
+    // covers backgrounded tabs, network drops and failed server broadcasts —
+    // strictly more robust than postgres_changes, which also delivered nothing
+    // while disconnected.
+    let subscribedOnce = false
+    const channel = channelBuilder.subscribe((status) => {
+      if (status !== "SUBSCRIBED") return
+      if (subscribedOnce) void fetchMessages("merge")
+      subscribedOnce = true
+    })
     channelRef.current = channel
 
     return () => { ignore = true; supabase.removeChannel(channel); channelRef.current = null }
@@ -389,7 +438,11 @@ export default function RoomPage() {
             { ...optimistic, id: saved.id, created_at: saved.created_at, content: savedContent },
           ])
         })
-        // Relay to other clients in the active sub-channel with the masked content.
+        // Fast local echo with the masked content and this user's profile, so
+        // other viewers get the name/avatar without a lookup. This is an
+        // OPTIMISATION, not the delivery mechanism — the API route broadcasts the
+        // same message server-side in the same request, so nothing is lost if
+        // this tab dies here.
         channelRef.current?.send({
           type: "broadcast",
           event: "new_message",

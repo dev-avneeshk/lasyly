@@ -137,19 +137,11 @@ export const PATCH = withSecurity(async (
       .order("leg_order", { ascending: true })
 
     const channel = supabase.channel("parlays-feed")
-    await channel.send({
-      type: "broadcast",
-      event: "new_parlay",
-      payload: { parlay: { ...updatedParlay, legs: legs || [] } },
-    })
+    await channel.httpSend("new_parlay", { parlay: { ...updatedParlay, legs: legs || [] } })
     await supabase.removeChannel(channel)
   } else if (visibility === "private") {
     const channel = supabase.channel("parlays-feed")
-    await channel.send({
-      type: "broadcast",
-      event: "remove_parlay",
-      payload: { parlayId: id },
-    })
+    await channel.httpSend("remove_parlay", { parlayId: id })
     await supabase.removeChannel(channel)
   }
 

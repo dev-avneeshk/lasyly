@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { checkRateLimitBatch, RATE_LIMITS } from "@/lib/rateLimit"
 import { sanitizeText, isSpamMessage, maskProfanity } from "@/lib/sanitize"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { broadcastChatMessage } from "@/lib/realtime/chat"
 
 
 const MESSAGE_TTL_DAYS = 30
@@ -358,6 +359,30 @@ export const POST = withSecurity(async (
       { error: denied ? "You don't have permission to post in this channel." : "Failed to send message." },
       { status: denied ? 403 : 500 }
     )
+  }
+
+  // Broadcast from the SERVER, not from the sender's browser.
+  //
+  // Delivery used to depend on the sender's client relaying the message after
+  // the POST resolved, which is why a `postgres_changes` subscription existed as
+  // a backstop — and that subscription is what made chat expensive, because
+  // Realtime evaluates the messages RLS policy per subscriber per row. Sending
+  // here removes the need for it: the message reaches everyone even if the
+  // sender's tab dies the instant this request returns.
+  //
+  // Awaited so it's guaranteed to run before the serverless invocation can be
+  // frozen, but it never fails the request — the row is already committed, and
+  // clients re-fetch on (re)subscribe.
+  if (subchannelId && message) {
+    await broadcastChatMessage(subchannelId, {
+      id: message.id,
+      content: message.content,
+      is_system: false,
+      created_at: message.created_at,
+      user_id: user.id,
+      kind: data.kind,
+      betslip_id: isBetslip ? data.betslipId : null,
+    })
   }
 
   return NextResponse.json(message, { status: 201 })

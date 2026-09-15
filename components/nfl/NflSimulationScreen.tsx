@@ -1,0 +1,157 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
+import type { NflGameResult, ScoringPlay, TeamId } from "@/lib/nfl/types"
+import { cn } from "@/lib/utils"
+
+/**
+ * Paces the reveal of a pre-computed NflGameResult: walks the recorded scoring
+ * plays, ticking a live scoreboard and a quarter-by-quarter line score, then
+ * hands off to results. Sibling of the NBA arena SimulationScreen.
+ */
+export function NflSimulationScreen({
+  result,
+  p1Label,
+  p2Label,
+  onDone,
+}: {
+  result: NflGameResult
+  p1Label: string
+  p2Label: string
+  onDone: () => void
+}) {
+  const [idx, setIdx] = useState(0)
+  const [score, setScore] = useState({ p1: 0, p2: 0 })
+  const [quarter, setQuarter] = useState(1)
+  const [lastPlay, setLastPlay] = useState<ScoringPlay | null>(null)
+
+  const plays = result.scoringPlays
+
+  useEffect(() => {
+    if (idx >= plays.length) {
+      const t = setTimeout(onDone, 1400)
+      return () => clearTimeout(t)
+    }
+    const p = plays[idx]
+    const delay = p.big ? 620 : 340
+    const t = setTimeout(() => {
+      setScore({ p1: p.p1Score, p2: p.p2Score })
+      setQuarter(p.quarter)
+      setLastPlay(p)
+      setIdx((i) => i + 1)
+    }, delay)
+    return () => clearTimeout(t)
+  }, [idx, plays, onDone])
+
+  const leader: TeamId | null = score.p1 === score.p2 ? null : score.p1 > score.p2 ? "P1" : "P2"
+  const qLabel = quarter <= 4 ? `Q${quarter}` : "OT"
+  const progress = plays.length ? Math.min(100, (idx / plays.length) * 100) : 100
+  const done = idx >= plays.length
+  const lines = buildQuarterLines(result.quarters, quarter, done)
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
+      <span className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--color-lime)]">
+        Kickoff · Live Sim · {qLabel}
+      </span>
+
+      <div className="grid w-full grid-cols-3 items-center gap-4 rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-6 backdrop-blur-xl">
+        <ScoreSide label={p1Label} score={score.p1} leading={leader === "P1"} align="left" />
+        <div className="text-center">
+          <div className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">{qLabel}</div>
+          <div className="text-2xl font-black text-[var(--color-text-muted)]">vs</div>
+        </div>
+        <ScoreSide label={p2Label} score={score.p2} leading={leader === "P2"} align="right" />
+      </div>
+
+      {/* Latest scoring play ticker */}
+      <div className="h-6 text-center text-xs font-semibold text-[var(--color-text-muted)]">
+        {lastPlay && !done && (
+          <motion.span key={idx} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            {lastPlay.text}
+          </motion.span>
+        )}
+      </div>
+
+      <div className="h-1 w-full overflow-hidden rounded-full bg-white/5">
+        <motion.div className="h-full bg-[var(--color-lime)]" animate={{ width: `${progress}%` }} transition={{ ease: "linear" }} />
+      </div>
+
+      <div className="w-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-black/20">
+        <table className="w-full text-sm tabular-nums">
+          <thead>
+            <tr className="border-b border-[var(--color-border)] text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">
+              <th className="px-4 py-2 text-left font-bold">Team</th>
+              {lines.headers.map((h) => (
+                <th key={h} className="px-3 py-2 text-center font-bold">{h}</th>
+              ))}
+              <th className="px-4 py-2 text-center font-black text-[var(--color-lime)]">T</th>
+            </tr>
+          </thead>
+          <tbody>
+            <LineRow label={p1Label} cells={lines.p1} total={score.p1} leading={leader === "P1"} />
+            <LineRow label={p2Label} cells={lines.p2} total={score.p2} leading={leader === "P2"} />
+          </tbody>
+        </table>
+        {done && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-2 text-center text-sm font-bold text-[var(--color-lime)]">
+            Final whistle…
+          </motion.div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function buildQuarterLines(
+  quarters: NflGameResult["quarters"],
+  currentQuarter: number,
+  done: boolean,
+): { headers: string[]; p1: (number | null)[]; p2: (number | null)[] } {
+  const headers: string[] = []
+  const p1: (number | null)[] = []
+  const p2: (number | null)[] = []
+  for (const q of quarters) {
+    headers.push(q.quarter <= 4 ? `Q${q.quarter}` : "OT")
+    const revealed = done || q.quarter < currentQuarter
+    // NFL quarters are already per-quarter points (not cumulative).
+    p1.push(revealed ? q.p1 : null)
+    p2.push(revealed ? q.p2 : null)
+  }
+  return { headers, p1, p2 }
+}
+
+function LineRow({ label, cells, total, leading }: { label: string; cells: (number | null)[]; total: number; leading: boolean }) {
+  return (
+    <tr className="border-b border-[var(--color-border)]/40 last:border-0">
+      <td className="max-w-[9rem] truncate px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+        {label}
+      </td>
+      {cells.map((c, i) => (
+        <td key={i} className="px-3 py-2.5 text-center text-[var(--color-text-primary)]">
+          {c === null ? <span className="text-[var(--color-text-muted)]">–</span> : c}
+        </td>
+      ))}
+      <td className={cn("px-4 py-2.5 text-center text-lg font-black", leading ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]")}>
+        {total}
+      </td>
+    </tr>
+  )
+}
+
+function ScoreSide({ label, score, leading, align }: { label: string; score: number; leading: boolean; align: "left" | "right" }) {
+  return (
+    <div className={cn("flex flex-col", align === "right" ? "items-end text-right" : "items-start text-left")}>
+      <span className="max-w-full truncate text-sm font-bold uppercase tracking-wide text-[var(--color-text-muted)]">{label}</span>
+      <motion.span
+        key={score}
+        initial={{ scale: 1.3 }}
+        animate={{ scale: 1 }}
+        className={cn("text-5xl font-black tabular-nums", leading ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]")}
+      >
+        {score}
+      </motion.span>
+    </div>
+  )
+}

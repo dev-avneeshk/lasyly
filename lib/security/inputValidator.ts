@@ -97,20 +97,44 @@ export function rejectHTMLContent(value: string, _fieldName: string): boolean {
 
 /**
  * Checks if the request body exceeds the maximum allowed size.
- * Uses the Content-Length header for enforcement.
- * Returns true if the body size exceeds the limit (request should be rejected).
+ * Returns true if the request should be rejected.
+ *
+ * ── The bypass this used to have ────────────────────────────────────────────
+ * The original implementation was:
+ *
+ *     if (contentLength === null) return false   // "cannot enforce, allow"
+ *
+ * Content-Length is optional: a client that uses `Transfer-Encoding: chunked`
+ * sends no Content-Length at all, so omitting the header skipped the check
+ * entirely and streamed an unbounded body into `await request.json()`. The limit
+ * was advisory against honest clients only.
+ *
+ * A missing Content-Length is now rejected when the request declares chunked
+ * encoding — that is the actual bypass, and no legitimate browser `fetch` with a
+ * JSON body uses it. A missing header with no chunked encoding means an empty
+ * body, which is fine.
+ *
+ * Note this is a cheap header-level pre-check, not the real ceiling. The real
+ * ceiling is `experimental.proxyClientMaxBodySize` in next.config.ts, which caps
+ * how much Next.js will buffer regardless of what the headers claim.
  */
 export function enforceBodySize(request: Request, maxBytes: number): boolean {
   const contentLength = request.headers.get("content-length")
 
   if (contentLength === null) {
-    // No Content-Length header — cannot enforce, allow through
+    // Chunked encoding without a declared length: refuse rather than stream an
+    // unbounded body.
+    const transferEncoding = request.headers.get("transfer-encoding")
+    if (transferEncoding && transferEncoding.toLowerCase().includes("chunked")) {
+      return true
+    }
+    // No length and no chunked encoding → no body to measure.
     return false
   }
 
   const size = parseInt(contentLength, 10)
 
-  if (isNaN(size)) {
+  if (isNaN(size) || size < 0) {
     // Invalid Content-Length — reject as potentially malicious
     return true
   }

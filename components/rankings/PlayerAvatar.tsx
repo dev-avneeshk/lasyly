@@ -37,8 +37,8 @@ export function PlayerAvatar({
   highlight = false,
   className,
 }: PlayerAvatarProps) {
-  const [imgFailed, setImgFailed] = useState(false)
-  const showPhoto = photoUrl && !imgFailed
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const showPhoto = Boolean(photoUrl && photoUrl !== failedUrl)
   const badge = Math.round(size * 0.42)
 
   return (
@@ -62,7 +62,7 @@ export function PlayerAvatar({
             alt={name}
             className="w-full h-full object-cover object-top scale-105"
             loading="lazy"
-            onError={() => setImgFailed(true)}
+            onError={() => setFailedUrl(photoUrl ?? null)}
           />
         ) : (
           <span

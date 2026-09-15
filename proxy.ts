@@ -1,13 +1,10 @@
+import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
-import type { User } from "@supabase/supabase-js"
-import {
-  checkIPBlock,
-  trackIPRequest,
-  applyRateLimitHeaders,
-} from "@/lib/security/rateLimiter"
+import { applyRateLimitHeaders } from "@/lib/security/rateLimiter"
 import { checkRateLimitDistributed } from "@/lib/security/rateLimiterRedis"
+import { getClientIp } from "@/lib/security/clientIp"
 import {
   GUEST_COOKIE_NAME,
   verifyGuestToken,
@@ -49,6 +46,33 @@ const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
 ].filter(Boolean)
 
+/**
+ * The one host the whole app must run on.
+ *
+ * Why this exists: `lasyly.me` and `www.lasyly.me` are both attached to the
+ * project. When a browser sits on one host and an auth flow sets a cookie on
+ * the other, the cookie is scoped to the host that answered the request (no
+ * Domain attribute), so the page that reads it back never sees it. That is why
+ * "Continue as guest" and Google sign-in appeared to do nothing on the apex:
+ * POST /api/auth/guest was 307'd to www, the cookie landed on www, and the
+ * following navigation to /explore stayed on the apex with no cookie, bouncing
+ * straight back to /login.
+ *
+ * Fix: canonicalize the host in the proxy, before any cookie is set, so every
+ * request — document navigation, fetch, and OAuth callback alike — is on one
+ * origin. Derived from NEXT_PUBLIC_SITE_URL so the code and the deployed domain
+ * cannot drift apart. Falls back to the apex to match the rest of the codebase
+ * (sitemap/robots/canonical all use lasyly.me).
+ */
+const CANONICAL_HOST = (() => {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || "https://www.lasyly.me"
+  try {
+    return new URL(raw).host
+  } catch {
+    return "www.lasyly.me"
+  }
+})()
+
 const CORS_OPTIONS = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
@@ -57,27 +81,56 @@ const CORS_OPTIONS = {
 }
 
 // Auth routes that should be tightly limited (login attempts, guest creation,
-// logout). These are matched as exact prefixes against the request pathname.
-const AUTH_API_PREFIXES = ["/api/auth/", "/api/webhooks/stripe"]
+// logout). Matched as exact prefixes against the request pathname.
+const AUTH_API_PREFIXES = ["/api/auth/"]
+
+/**
+ * Paths exempt from proxy rate limiting entirely.
+ *
+ * Stripe's webhook used to match AUTH_API_PREFIXES and inherit the 10 req/min
+ * per-IP auth tier. Stripe delivers from a small set of source addresses, so a
+ * burst of top-ups above ten a minute started returning 429 to Stripe. Stripe
+ * retries with backoff, so payments arrived late rather than never — but those
+ * retries are precisely what used to trigger the double-credit race in
+ * process_stripe_topup (now closed by uq_transactions_stripe_session).
+ *
+ * A webhook's authenticity is established by its signature, not by its rate, and
+ * the handler rejects anything that fails `constructEvent`. Rate limiting it
+ * only creates a way to make us drop legitimate payment events.
+ */
+const RATE_LIMIT_EXEMPT_PREFIXES = ["/api/webhooks/"]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Best-effort client IP extraction from common proxy headers, falling back to
- * a string sentinel so the rate-limit key space never collapses to a single
- * bucket when headers are missing.
+ * Stable, per-session rate-limit bucket derived from the Supabase auth cookie.
+ *
+ * Why not the user id? Getting it would require verifying the JWT, which is a
+ * network round-trip on symmetric-key projects — the exact cost this refactor
+ * removes from the API path. Why not the unverified `sub` claim? Because an
+ * unverified claim is attacker-chosen, so it would hand out a fresh bucket per
+ * forged request.
+ *
+ * The cookie VALUE is signed by Supabase and cannot be forged into something
+ * that also authenticates, so hashing it gives a bucket that is stable for a
+ * real session and useless to rotate: a request with a made-up cookie gets its
+ * own bucket but is rejected by the route with a 401 anyway.
+ *
+ * Supabase splits large tokens across `...auth-token.0` / `.1` chunks, so all
+ * matching cookies are concatenated in name order.
  */
-function getClientIp(request: NextRequest): string {
-  const xff = request.headers.get("x-forwarded-for")
-  if (xff) {
-    // x-forwarded-for is a comma-separated chain; the leftmost entry is the
-    // original client. Trim aggressively because some proxies pad with spaces.
-    const first = xff.split(",")[0]?.trim()
-    if (first) return first
-  }
-  const real = request.headers.get("x-real-ip")
-  if (real) return real
-  return "unknown"
+function sessionBucket(request: NextRequest): string | null {
+  const authCookies = request.cookies
+    .getAll()
+    .filter((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  if (authCookies.length === 0) return null
+
+  const material = authCookies.map((c) => `${c.name}=${c.value}`).join("|")
+  // Truncated digest: 128 bits is far beyond collision risk for a bucket key,
+  // and keeps the Redis key small.
+  return createHash("sha256").update(material).digest("hex").slice(0, 32)
 }
 
 /**
@@ -123,26 +176,50 @@ function buildCSPHeader(): string {
 }
 
 /**
- * Determine which rate-limit tier a request falls into.
- * Auth/webhook routes get the strictest tier; other API routes get standard;
- * everything else (page navigations, prefetches that slip past the matcher)
- * is unauthenticated.
+ * Which rate-limit tier a request falls into.
+ *
+ * "standard" is the per-session tier; "unauthenticated" is the per-IP tier. The
+ * distinction is now about which KEY we can use, not just which ceiling — see
+ * RATE_LIMIT_STANDARD in lib/security/constants.ts.
  */
-function tierForPath(pathname: string): "auth" | "standard" | "unauthenticated" {
+function tierForPath(
+  pathname: string,
+  hasSession: boolean
+): "auth" | "standard" | "unauthenticated" {
   if (AUTH_API_PREFIXES.some((p) => pathname.startsWith(p))) {
     return "auth"
   }
-  if (pathname.startsWith("/api/")) {
-    return "standard"
-  }
-  return "unauthenticated"
+  return hasSession ? "standard" : "unauthenticated"
 }
 
 // ─── Proxy Function ──────────────────────────────────────────────────────────
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const clientIp = getClientIp(request)
+
+  // ── 0a. Canonical-host redirect ───────────────────────────────────────────
+  // Force every request onto CANONICAL_HOST so auth cookies are always set and
+  // read on the same origin. Runs first, before rate limiting / auth / cookie
+  // writes, and only in production against real hosts (localhost, previews, and
+  // Vercel *.vercel.app deploys are left alone). 308 preserves the method and
+  // body, so a POST to /api/auth/guest on the wrong host is re-issued as a POST
+  // to the right one instead of silently becoming a GET.
+  const requestHost = request.headers.get("host")
+  const isLocalHost =
+    !requestHost ||
+    requestHost.startsWith("localhost") ||
+    requestHost.startsWith("127.0.0.1") ||
+    requestHost.endsWith(".vercel.app")
+  if (
+    process.env.NODE_ENV !== "development" &&
+    !isLocalHost &&
+    requestHost !== CANONICAL_HOST
+  ) {
+    const canonicalUrl = new URL(request.url)
+    canonicalUrl.host = CANONICAL_HOST
+    canonicalUrl.port = ""
+    return NextResponse.redirect(canonicalUrl, 308)
+  }
 
   // ── 0. Build CSP header (no nonce — pages are statically cached) ────────
   const cspHeader = buildCSPHeader()
@@ -151,22 +228,7 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("Content-Security-Policy", cspHeader)
 
-  // ── 1. IP block check (cheapest reject — do it first) ────────────────────
-  const ipBlock = checkIPBlock(clientIp)
-  if (ipBlock.blocked) {
-    const blockedResponse = NextResponse.json(
-      {
-        error: "Too many requests. Try again later.",
-        code: "IP_BLOCKED",
-      },
-      { status: 429 }
-    )
-    blockedResponse.headers.set("Retry-After", String(ipBlock.retryAfterSeconds))
-    blockedResponse.headers.set("Content-Security-Policy", cspHeader)
-    return blockedResponse
-  }
-
-  // ── 2. CORS preflight (no rate limiting) ──────────────────────────────────
+  // ── 1. CORS preflight (no rate limiting) ──────────────────────────────────
   if (pathname.startsWith("/api/") && request.method === "OPTIONS") {
     const origin = request.headers.get("origin") ?? ""
     const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin)
@@ -177,21 +239,40 @@ export async function proxy(request: NextRequest) {
     return NextResponse.json({}, { headers: preflightHeaders })
   }
 
-  // ── 3. Distributed rate limit (Upstash in prod, in-memory fallback) ──────
-  // Only rate-limit API routes. Page navigations (HTML responses) are NOT
-  // rate-limited here — they're protected by the CSP + IP block above.
-  // Applying rate limits to page loads causes 429s during normal browsing
-  // when the IP resolves to "unknown" (no proxy headers) and all requests
-  // share the same bucket.
-  const isApiRoute2 = pathname.startsWith("/api/")
-  let _rateLimitResult: Awaited<ReturnType<typeof checkRateLimitDistributed>> | null = null
+  // Supabase keeps the session in cookies named `sb-<project-ref>-auth-token`,
+  // split into `...auth-token.0` / `.1` chunks when the JWT is too big for one
+  // cookie. Their presence is the cheapest available signal that there is a
+  // session worth validating.
+  const bucket = sessionBucket(request)
+  const hasSupabaseSessionCookie = bucket !== null
 
-  if (isApiRoute2) {
-    // Track every API request against the IP-level abuse detector.
-    trackIPRequest(clientIp)
+  // ── 2. Distributed rate limit (Upstash in prod, in-memory fallback) ──────
+  // Only API routes. Page navigations are not rate-limited here — doing so
+  // produced 429s during normal browsing.
+  //
+  // The in-memory IP blocker that used to run here (checkIPBlock /
+  // trackIPRequest from lib/security/rateLimiter) has been removed from this
+  // path. Its stores are module-scoped Maps, so on serverless every instance
+  // had its own: the 300 req/min auto-block threshold was effectively
+  // unreachable and a block never propagated to the instance serving the next
+  // request. The Next.js proxy docs are explicit that proxy code must not rely
+  // on shared globals. It was protection on paper only, and keeping it made the
+  // real (Redis-backed) limit below look like a second layer when it was the
+  // only one.
+  const isApiRoute = pathname.startsWith("/api/")
+  const isRateLimitExempt = RATE_LIMIT_EXEMPT_PREFIXES.some((p) =>
+    pathname.startsWith(p)
+  )
+  let rateLimitResult: Awaited<ReturnType<typeof checkRateLimitDistributed>> | null = null
 
-    const tier = tierForPath(pathname)
-    const rateLimitKey = `${tier}:${clientIp}`
+  if (isApiRoute && !isRateLimitExempt) {
+    const tier = tierForPath(pathname, hasSupabaseSessionCookie)
+    // Authenticated traffic is keyed per session so users behind one NAT don't
+    // share a bucket; anonymous traffic falls back to IP, read from
+    // platform-set headers rather than the client-forgeable x-forwarded-for.
+    const rateLimitKey =
+      bucket !== null ? `${tier}:s:${bucket}` : `${tier}:i:${getClientIp(request)}`
+
     const rateResult = await checkRateLimitDistributed(rateLimitKey, tier)
 
     if (!rateResult.allowed) {
@@ -207,24 +288,23 @@ export async function proxy(request: NextRequest) {
       return limitedResponse
     }
 
-    // Store result so we can attach headers after the response is built
-    _rateLimitResult = rateResult
+    rateLimitResult = rateResult
   }
 
-  // ── 4. Build response with forwarded headers (nonce visible to RSC) ──────
+  // ── 3. Build response with forwarded headers ─────────────────────────────
   const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   })
 
-  // ── 5. Apply rate-limit headers on API responses (informational) ─────────
-  if (_rateLimitResult) {
-    applyRateLimitHeaders(response, _rateLimitResult)
+  // ── 4. Apply rate-limit headers on API responses (informational) ─────────
+  if (rateLimitResult) {
+    applyRateLimitHeaders(response, rateLimitResult)
   }
 
-  // ── 6. CORS headers on API responses ──────────────────────────────────────
-  if (pathname.startsWith("/api/")) {
+  // ── 5. CORS headers on API responses ──────────────────────────────────────
+  if (isApiRoute) {
     const origin = request.headers.get("origin") ?? ""
     const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin)
     if (isAllowedOrigin) {
@@ -235,7 +315,7 @@ export async function proxy(request: NextRequest) {
     })
   }
 
-  // ── 7. Security headers (CSP + HSTS + co.) ───────────────────────────────
+  // ── 6. Security headers (CSP + HSTS + co.) ───────────────────────────────
   response.headers.set("Content-Security-Policy", cspHeader)
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-Frame-Options", "DENY")
@@ -259,39 +339,45 @@ export async function proxy(request: NextRequest) {
   response.headers.delete("X-Powered-By")
   response.headers.delete("Server")
 
-  // ── 8. Session refresh & Auth guard ────────────────────────────────────────
+  // ── 7. Session refresh & auth guard ───────────────────────────────────────
   const isPublicRoute = PUBLIC_ROUTES.some((route) =>
     route === "/" ? pathname === "/" : pathname.startsWith(route)
   )
-  const isApiRoute = pathname.startsWith("/api/")
   const isStaticAsset =
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname === "/manifest.json" ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|ico|webp|woff2?|ttf|css|js)$/)
 
-  // Supabase keeps the session in cookies named `sb-<project-ref>-auth-token`,
-  // split into `...auth-token.0` / `.1` chunks when the JWT is too big for one
-  // cookie. Their presence is the cheapest available signal that there is a
-  // session worth validating.
-  const hasSupabaseSessionCookie = request.cookies
-    .getAll()
-    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"))
+  /**
+   * Validate the session only for PAGE requests.
+   *
+   * API routes are deliberately excluded. Every one of them calls
+   * `createClient()` + `auth.getUser()` itself — they have to, because the proxy
+   * cannot be their authorization boundary (the Next docs note that a matcher
+   * change can silently remove proxy coverage, and Server Functions are POSTs to
+   * whatever route they live in). So validating here as well meant every API
+   * request paid TWO Supabase Auth round-trips, each an HTTP call plus an
+   * auth.users read, serialized ahead of the response. On the arena poll path
+   * that was 2 auth calls every 900ms per player.
+   *
+   * Dropping the API-side call halves that. Token refresh still happens: the
+   * route's own server client refreshes an expired access token and writes the
+   * new cookies (cookies() is writable in Route Handlers), and the browser
+   * client refreshes proactively via autoRefreshToken + AuthListener.
+   *
+   * For pages we use getClaims() rather than getUser(). It verifies the JWT
+   * locally with WebCrypto when the project uses asymmetric signing keys — no
+   * network at all — and falls back to a server call otherwise, so it is never
+   * worse than the getUser() it replaces. It also refreshes a near-expiry
+   * session, which is the other thing this block is here for.
+   */
+  const needsSessionCheck =
+    !isStaticAsset && !isApiRoute && hasSupabaseSessionCookie
 
-  // Refresh session tokens for non-static requests (pages AND API routes).
-  // Without this, API routes can't read the session when the access token expires.
-  //
-  // But `getUser()` validates the JWT against the Supabase Auth API, and that
-  // network round-trip is serialized in front of every HTML response — it is
-  // pure TTFB, which propagates straight into FCP. When the request carries no
-  // session cookie there is nothing to validate or refresh, so skip building
-  // the client at all. The guest check below is local HMAC work and still runs,
-  // so guests and signed-out visitors are gated exactly as before.
-  const needsSessionRefresh = !isStaticAsset && hasSupabaseSessionCookie
+  let authenticatedUserId: string | null = null
 
-  let user: User | null = null
-
-  if (needsSessionRefresh) {
+  if (needsSessionCheck) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -313,28 +399,28 @@ export async function proxy(request: NextRequest) {
       }
     )
 
-    // Assigns the outer `user` — this used to be a `const` destructure, which
-    // shadowed it and kept the value trapped inside this block.
-    const { data } = await supabase.auth.getUser()
-    user = data.user
+    try {
+      const { data } = await supabase.auth.getClaims()
+      const sub = data?.claims?.sub
+      authenticatedUserId = typeof sub === "string" ? sub : null
+    } catch {
+      // Treat a validation failure as "not signed in" and let the guard below
+      // redirect. Never fail the request open on a protected page.
+      authenticatedUserId = null
+    }
   }
 
-  // ── 9. Auth guard (no network calls — safe to run on every request) ───────
-  // Previously nested inside the session-refresh block. Hoisting it means the
-  // guard no longer depends on whether we chose to talk to Supabase, so
-  // skipping the round-trip above cannot accidentally open a protected route.
+  // ── 8. Auth guard (no network calls — safe to run on every request) ───────
   if (!isStaticAsset) {
     // Verify the HMAC-signed guest cookie.
     const isGuest = verifyGuestToken(
       request.cookies.get(GUEST_COOKIE_NAME)?.value
     )
 
-    const isAuthed = Boolean(user || isGuest)
+    const isAuthed = Boolean(authenticatedUserId || isGuest)
 
     // Protected page routes require authentication (API routes self-enforce).
-    const needsAuthGuard =
-      !isApiRoute &&
-      !isPublicRoute
+    const needsAuthGuard = !isApiRoute && !isPublicRoute
 
     // Write-only pages need a real Supabase user, so a guest cookie does not
     // satisfy them even though it satisfies needsAuthGuard.
@@ -342,7 +428,10 @@ export async function proxy(request: NextRequest) {
       !isApiRoute &&
       ACCOUNT_REQUIRED_ROUTES.some((route) => pathname.startsWith(route))
 
-    if ((needsAuthGuard && !isAuthed) || (needsRealAccount && !user)) {
+    if (
+      (needsAuthGuard && !isAuthed) ||
+      (needsRealAccount && !authenticatedUserId)
+    ) {
       const loginUrl = new URL("/login", request.url)
       loginUrl.searchParams.set("redirect", pathname)
       const redirectResponse = NextResponse.redirect(loginUrl)
@@ -358,9 +447,9 @@ export async function proxy(request: NextRequest) {
 }
 
 // ─── Matcher Configuration ───────────────────────────────────────────────────
-// Skip Next-internal prefetches so we don't burn nonces (and rate-limit budget)
-// on hidden link previews. Static asset paths and Next image optimization are
-// also skipped so they can stay cacheable at the CDN.
+// Skip Next-internal prefetches so we don't burn rate-limit budget on hidden
+// link previews. Static asset paths and Next image optimization are also
+// skipped so they can stay cacheable at the CDN.
 //
 // The extension list matters more than it looks: proxy runs on `public/` folder
 // assets too, not just routes, so every image, font, and icon request was
@@ -369,7 +458,7 @@ export async function proxy(request: NextRequest) {
 //
 // `svg` is deliberately NOT excluded. An SVG opened by direct navigation is a
 // document and can execute script, so those responses should keep the CSP that
-// section 7 sets. The public SVGs are ~1 KB and off the critical path, so the
+// section 6 sets. The public SVGs are ~1 KB and off the critical path, so the
 // proxy hop costs nothing there. Everything excluded here still receives
 // nosniff / X-Frame-Options / HSTS from next.config.ts `headers()`, which
 // applies to `/(.*)` independently of this matcher.

@@ -9,6 +9,7 @@
  */
 
 import { LiveMatch, MatchStatus, MatchSummary } from "@/types"
+import { withCircuitBreaker } from "./circuitBreaker"
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports"
 
@@ -96,24 +97,53 @@ interface ESPNScoreboardResponse {
 
 /**
  * Fetch live scores from ESPN for all configured leagues.
- * Fetches all leagues in parallel with a 5-second timeout per request.
- * Returns combined results — failed leagues are silently skipped.
+ *
+ * This is an 18-request fan-out, and `getScoresForDate` calls it for three dates,
+ * so one uncached /api/scores request costs up to 54 outbound requests to an
+ * unofficial API with no SLA and no published rate limit.
+ *
+ * Two protections:
+ *
+ *  - A circuit breaker. `Promise.allSettled` swallows individual failures, so a
+ *    throttled or blocked upstream previously presented as "no games today" and
+ *    every subsequent cache miss retried the full fan-out at the same rate. The
+ *    breaker gives that failure a memory: after repeated total failures the
+ *    circuit opens for a minute and calls return immediately.
+ *
+ *  - Cross-instance de-duplication, which lives one layer up: callers reach this
+ *    through `cached()`, whose refresh lease (lib/cache.ts) now ensures a single
+ *    instance refreshes per TTL window instead of every warm lambda doing it.
+ *
+ * "Every league failed" is treated as the failure signal rather than a rejected
+ * promise, because the fan-out never rejects.
  *
  * @param date - Optional date in YYYYMMDD format to fetch scores for a specific date
  */
 export async function fetchESPNScores(date?: string): Promise<LiveMatch[]> {
-  const results = await Promise.allSettled(
-    LEAGUES.map((league) => fetchLeagueScoreboard(league, date))
+  return withCircuitBreaker(
+    "espn-scoreboard",
+    async () => {
+      const results = await Promise.allSettled(
+        LEAGUES.map((league) => fetchLeagueScoreboard(league, date))
+      )
+
+      const matches: LiveMatch[] = []
+      let anyFulfilled = false
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          anyFulfilled = true
+          matches.push(...result.value)
+        }
+      }
+
+      // Distinguish "upstream is unreachable" from "upstream says no games".
+      // Only the former should count against the breaker.
+      if (!anyFulfilled) throw new Error("all ESPN league requests failed")
+
+      return matches
+    },
+    { fallback: [] }
   )
-
-  const matches: LiveMatch[] = []
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      matches.push(...result.value)
-    }
-  }
-
-  return matches
 }
 
 /**
