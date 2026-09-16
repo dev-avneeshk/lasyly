@@ -4,31 +4,19 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2, Shield, ChevronDown, Brain } from "lucide-react"
+import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
 type NavLeaf = { icon: typeof Compass; label: string; href: string; comingSoon: boolean }
-type NavGroup = { icon: typeof Compass; label: string; children: NavLeaf[] }
-type NavEntry = NavLeaf | NavGroup
 
-const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry
-
-const navItems: NavEntry[] = [
+const navItems: NavLeaf[] = [
   { icon: Compass, label: "Explore", href: "/explore", comingSoon: false },
   { icon: Trophy, label: "Live Scores", href: "/scores", comingSoon: false },
   { icon: Newspaper, label: "News", href: "/news", comingSoon: false },
   { icon: Target, label: "Props", href: "/analysis", comingSoon: false },
   { icon: Medal, label: "Rankings", href: "/rankings", comingSoon: false },
-  {
-    icon: Gamepad2,
-    label: "Auction",
-    children: [
-      { icon: Gamepad2, label: "NBA Auction", href: "/arena", comingSoon: false },
-      { icon: Shield, label: "NFL Auction", href: "/nfl", comingSoon: false },
-    ],
-  },
-  { icon: Brain, label: "Quiz", href: "/quiz", comingSoon: false },
+  { icon: Gamepad2, label: "Arena", href: "/arena", comingSoon: false },
   { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: false },
   { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: false },
   { icon: Store, label: "Tipsters", href: "/marketplace", comingSoon: false },
@@ -40,9 +28,6 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  // Keep a group expanded when it's collapsed by default but one of its
-  // children is the active route, so the user always sees where they are.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   const handleLogout = async () => {
     try {
@@ -82,72 +67,6 @@ export default function Sidebar() {
       {/* Nav items */}
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {
-          if (isGroup(item)) {
-            const groupActive = item.children.some((c) => pathname.startsWith(c.href))
-            const expanded = openGroups[item.label] ?? groupActive
-
-            // When collapsed, the flyout section header links straight into the
-            // first child so the group is still reachable in the narrow rail.
-            const toggle = () =>
-              setOpenGroups((prev) => ({ ...prev, [item.label]: !(prev[item.label] ?? groupActive) }))
-
-            return (
-              <div key={item.label}>
-                <button
-                  type="button"
-                  onClick={collapsed ? () => router.push(item.children[0].href) : toggle}
-                  title={collapsed ? item.label : undefined}
-                  className={cn(
-                    "flex w-full items-center gap-4 rounded-xl transition-all group relative overflow-hidden",
-                    collapsed ? "justify-center px-0 py-3" : "px-4 py-3",
-                    groupActive
-                      ? "text-[var(--color-lime)] font-medium"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/20"
-                  )}
-                >
-                  <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110 flex-shrink-0", groupActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      <ChevronDown className={cn("w-4 h-4 transition-transform flex-shrink-0", expanded && "rotate-180")} />
-                    </>
-                  )}
-                </button>
-
-                {!collapsed && expanded && (
-                  <div className="mt-1 space-y-1 pl-4">
-                    {item.children.map((child) => {
-                      const childActive = pathname.startsWith(child.href)
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl transition-all group relative overflow-hidden px-4 py-2.5",
-                            childActive
-                              ? "bg-[var(--color-lime)]/10 text-[var(--color-lime)] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
-                              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/20"
-                          )}
-                        >
-                          {childActive && (
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--color-lime)] shadow-[0_0_10px_rgba(212,255,0,0.6)]" />
-                          )}
-                          <child.icon className={cn("w-4 h-4 transition-transform group-hover:scale-110 flex-shrink-0", childActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
-                          <span className="flex items-center gap-2 text-sm">
-                            {child.label}
-                            {child.comingSoon && (
-                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/40">Soon</span>
-                            )}
-                          </span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          }
-
           const isActive = pathname.startsWith(item.href)
           return (
             <Link
