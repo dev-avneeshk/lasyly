@@ -67,7 +67,14 @@ export default function ArenaClient() {
         </Section>
         {AVAILABLE_SEASONS.length > 1 && <Section step={4} title="Season"><div className="flex gap-2">{AVAILABLE_SEASONS.map((item) => <Chip key={item} active={season === item} onClick={() => setSeason(item)}>{item}</Chip>)}</div></Section>}
         {server.error && <p className="text-center text-sm text-[var(--color-danger)]">{server.error}</p>}
-        <div className="sticky bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-10 md:bottom-4"><Button size="lg" className="w-full rounded-2xl py-6 text-lg font-black shadow-[0_10px_40px_-10px_rgba(212,255,0,0.5)]" disabled={server.connecting} onClick={() => { if (mode === "ai") game.start({ season, budget, difficulty }); else if (matchType === "global") server.matchmake({ season, budget, difficulty }); else server.create({ season, budget, difficulty, mode: "human" }) }}>{ctaLabel(mode, matchType, server.connecting)} <ChevronRight className="ml-1 h-5 w-5" /></Button></div>
+        {/* CTA: pinned to the bottom on mobile (fixed, clear of the bottom nav)
+            so it never floats on top of the option cards; a normal in-flow
+            button on md+ where there's room. */}
+        <div className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 border-t border-[var(--color-border)] bg-[var(--color-background)]/95 px-4 py-3 backdrop-blur-xl md:static md:z-auto md:mt-2 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          <div className="mx-auto w-full max-w-3xl">
+            <Button size="lg" className="w-full rounded-2xl py-6 text-lg font-black shadow-[0_10px_40px_-10px_rgba(212,255,0,0.5)]" disabled={server.connecting} onClick={() => { if (mode === "ai") game.start({ season, budget, difficulty }); else if (matchType === "global") server.matchmake({ season, budget, difficulty }); else server.create({ season, budget, difficulty, mode: "human" }) }}>{ctaLabel(mode, matchType, server.connecting)} <ChevronRight className="ml-1 h-5 w-5" /></Button>
+          </div>
+        </div>
       </div>
     )
   }
