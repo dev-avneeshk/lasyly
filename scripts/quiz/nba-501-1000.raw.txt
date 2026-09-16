@@ -1,0 +1,3000 @@
+501. Which player was nicknamed The Glove?
+A) Gary Payton
+B) Jason Kidd
+C) Shawn Kemp
+D) John Stockton
+Answer: A
+502. Which player was known as The Matrix?
+A) Shawn Marion
+B) Metta World Peace
+C) Lamar Odom
+D) Andrei Kirilenko
+Answer: A
+503. Which player was nicknamed White Chocolate?
+A) Jason Williams
+B) Jason Kidd
+C) Steve Nash
+D) Mike Bibby
+Answer: A
+504. Which player was called Half Man, Half Amazing?
+A) Vince Carter
+B) Tracy McGrady
+C) Grant Hill
+D) Richard Jefferson
+Answer: A
+505. Which player was called The Truth?
+A) Paul Pierce
+B) Kevin Garnett
+C) Ray Allen
+D) Ray Richardson
+Answer: A
+506. Which player was called The Big Fundamental?
+A) Tim Duncan
+B) Kevin Garnett
+C) Pau Gasol
+D) Hakeem Olajuwon
+Answer: A
+507. Which player was known as The Dream?
+A) Hakeem Olajuwon
+B) David Robinson
+C) Patrick Ewing
+D) Moses Malone
+Answer: A
+508. Which player was nicknamed The Mailman?
+A) Karl Malone
+B) Moses Malone
+C) Karl-Anthony Towns
+D) John Stockton
+Answer: A
+509. Which player was nicknamed The Worm?
+A) Dennis Rodman
+B) Dennis Johnson
+C) Ben Wallace
+D) Ron Harper
+Answer: A
+510. Which player was called The Glider?
+A) Clyde Drexler
+B) Dominique Wilkins
+C) David Thompson
+D) Grant Hill
+Answer: A
+511. Which player was nicknamed The Human Highlight Film?
+A) Dominique Wilkins
+B) Shawn Kemp
+C) Vince Carter
+D) Julius Erving
+Answer: A
+512. Which player was nicknamed Dr. J?
+A) Julius Erving
+B) Julius Randle
+C) Jerry West
+D) George Gervin
+Answer: A
+513. Which player was called Iceman?
+A) George Gervin
+B) Artis Gilmore
+C) David Thompson
+D) Moses Malone
+Answer: A
+514. Which player was nicknamed The Skywalker?
+A) David Thompson
+B) George Gervin
+C) Adrian Dantley
+D) Bob McAdoo
+Answer: A
+515. Which player was known as Chocolate Thunder?
+A) Darryl Dawkins
+B) Moses Malone
+C) Artis Gilmore
+D) Maurice Lucas
+Answer: A
+516. Which player was called The Big O?
+A) Oscar Robertson
+B) O.J. Mayo
+C) David Thompson
+D) Elgin Baylor
+Answer: A
+517. Which player was nicknamed Big Game James?
+A) James Worthy
+B) James Harden
+C) James Posey
+D) James Edwards
+Answer: A
+518. Which player was called The Rifleman?
+A) Chuck Person
+B) Reggie Miller
+C) Dell Curry
+D) Chris Mullin
+Answer: A
+519. Which player was known as The Human Eraser?
+A) Bill Russell
+B) Dikembe Mutombo
+C) Nate Thurmond
+D) Ben Wallace
+Answer: A
+520. Which player was nicknamed Mount Mutombo?
+A) Dikembe Mutombo
+B) Dikembe Dantley
+C) Patrick Ewing
+D) Manute Bol
+Answer: A
+521. Which team did LeBron James face in the 2007 NBA Finals?
+A) Spurs
+B) Mavericks
+C) Pistons
+D) Suns
+Answer: A
+522. Who swept Cleveland in the 2007 NBA Finals?
+A) San Antonio
+B) Detroit
+C) Boston
+D) Los Angeles
+Answer: A
+523. Which team did Boston beat in the 2008 NBA Finals?
+A) Lakers
+B) Spurs
+C) Cavaliers
+D) Pistons
+Answer: A
+524. Which team did the Lakers beat in the 2009 Finals?
+A) Magic
+B) Celtics
+C) Cavaliers
+D) Nuggets
+Answer: A
+525. Which team did the Lakers beat in the 2010 Finals?
+A) Celtics
+B) Magic
+C) Suns
+D) Thunder
+Answer: A
+526. Which team did Miami beat in the 2012 Finals?
+A) Thunder
+B) Spurs
+C) Celtics
+D) Bulls
+Answer: A
+527. Which team did Miami beat in the 2013 Finals?
+A) Spurs
+B) Pacers
+C) Thunder
+D) Bulls
+Answer: A
+528. Which team did San Antonio beat in the 2014 Finals?
+A) Heat
+B) Thunder
+C) Clippers
+D) Pacers
+Answer: A
+529. Which team did Golden State beat in the 2015 Finals?
+A) Cavaliers
+B) Rockets
+C) Grizzlies
+D) Clippers
+Answer: A
+530. Which team did Golden State beat in the 2017 Finals?
+A) Cavaliers
+B) Spurs
+C) Celtics
+D) Raptors
+Answer: A
+531. Which team did Golden State beat in the 2018 Finals?
+A) Cavaliers
+B) Rockets
+C) Celtics
+D) Raptors
+Answer: A
+532. Which team did Toronto beat in the 2019 Finals?
+A) Warriors
+B) Bucks
+C) 76ers
+D) Celtics
+Answer: A
+533. Which team did the Lakers beat in the 2020 Finals?
+A) Heat
+B) Celtics
+C) Nuggets
+D) Clippers
+Answer: A
+534. Which team did Milwaukee beat in the 2021 Finals?
+A) Suns
+B) Nets
+C) Hawks
+D) Clippers
+Answer: A
+535. Which team did Golden State beat in the 2022 Finals?
+A) Celtics
+B) Mavericks
+C) Grizzlies
+D) Heat
+Answer: A
+536. Which team did Denver beat in the 2023 Finals?
+A) Heat
+B) Celtics
+C) Suns
+D) Lakers
+Answer: A
+537. Which team did Boston beat in the 2024 Finals?
+A) Mavericks
+B) Timberwolves
+C) Pacers
+D) Thunder
+Answer: A
+538. Which team eliminated Toronto in the 2020 Eastern Conference second round?
+A) Celtics
+B) Heat
+C) Bucks
+D) 76ers
+Answer: A
+539. Which team did Miami upset in the 2020 conference semifinals?
+A) Bucks
+B) Raptors
+C) Celtics
+D) Pacers
+Answer: A
+540. Which team beat Milwaukee in the 2020 second round?
+A) Heat
+B) Raptors
+C) Celtics
+D) Magic
+Answer: A
+541. Which team did Denver beat in the 2023 Western Conference Finals?
+A) Lakers
+B) Suns
+C) Warriors
+D) Clippers
+Answer: A
+542. Which team did Denver beat in the 2023 second round?
+A) Suns
+B) Lakers
+C) Warriors
+D) Timberwolves
+Answer: A
+543. Which team did Boston beat in the 2024 Eastern Conference Finals?
+A) Pacers
+B) Knicks
+C) Cavaliers
+D) Heat
+Answer: A
+544. Which team did Dallas beat in the 2024 Western Conference Finals?
+A) Timberwolves
+B) Nuggets
+C) Thunder
+D) Suns
+Answer: A
+545. Which team did Dallas beat in the 2024 second round?
+A) Thunder
+B) Clippers
+C) Nuggets
+D) Lakers
+Answer: A
+546. Which team eliminated the defending champion Nuggets in the 2024 second round?
+A) Timberwolves
+B) Mavericks
+C) Suns
+D) Clippers
+Answer: A
+547. Which team did Minnesota beat in the 2024 first round?
+A) Suns
+B) Lakers
+C) Clippers
+D) Pelicans
+Answer: A
+548. Which player hit the famous four-point play against Indiana in the 2018 playoffs while with Cleveland?
+A) LeBron James
+B) Kevin Love
+C) Kyle Korver
+D) George Hill
+Answer: A
+549. Which team did LeBron hit the 2018 playoff buzzer-beater against in Game 5?
+A) Pacers
+B) Raptors
+C) Celtics
+D) 76ers
+Answer: A
+550. LeBron's 2018 Game 5 buzzer-beater against Indiana came on a fadeaway from which side?
+A) Right side
+B) Left side
+C) Baseline corner
+D) Half court
+Answer: A
+551. Which player scored the final basket of the 2018 Eastern Conference Finals Game 7 for Cleveland?
+A) LeBron James
+B) J.R. Smith
+C) George Hill
+D) Jeff Green
+Answer: A
+552. Which team did Cleveland beat in the 2018 Eastern Conference Finals?
+A) Celtics
+B) Raptors
+C) 76ers
+D) Pacers
+Answer: A
+553. Which Boston player hit a huge corner three in Game 7 of the 2018 East Finals?
+A) Jayson Tatum
+B) Marcus Smart
+C) Terry Rozier
+D) Jaylen Brown
+Answer: A
+554. Which player scored 55 points in double overtime against Denver in 2021?
+A) Jamal Murray
+B) Nikola Jokic
+C) Donovan Mitchell
+D) Luka Doncic
+Answer: A
+555. Which player famously scored 53 points against Phoenix in the 2003 playoffs?
+A) Dirk Nowitzki
+B) Steve Nash
+C) Kobe Bryant
+D) Kevin Garnett
+Answer: A
+556. Which player scored 54 points against the Warriors in 2003 while with Dallas?
+A) Dirk Nowitzki
+B) Michael Finley
+C) Steve Nash
+D) Antoine Walker
+Answer: A
+557. Which player scored 56 points against the Utah Jazz in a 1980 regular-season game?
+A) George Gervin
+B) Magic Johnson
+C) Julius Erving
+D) Bernard King
+Answer: A
+558. Which player scored 60 points against Boston while playing for Phoenix in 2000?
+A) Jason Kidd
+B) Tom Chambers
+C) Walter Davis
+D) Kevin Johnson
+Answer: B
+559. Which player scored 63 points for Boston in a 1959 game?
+A) Bob Cousy
+B) Bill Sharman
+C) Tom Heinsohn
+D) Sam Jones
+Answer: B
+560. Which player scored 58 points in a 1984 playoff game for New York?
+A) Bernard King
+B) Patrick Ewing
+C) Mark Jackson
+D) Bill Cartwright
+Answer: A
+561. Which player scored 60 points for Boston in a famous 1985 game against Atlanta?
+A) Larry Bird
+B) Kevin McHale
+C) Robert Parish
+D) Dennis Johnson
+Answer: A
+562. Larry Bird's 60-point game against Atlanta was played in which city?
+A) New Orleans
+B) Boston
+C) Atlanta
+D) Hartford
+Answer: A
+563. Which player set a Knicks scoring record with 60 points in 2014?
+A) Carmelo Anthony
+B) Amar'e Stoudemire
+C) J.R. Smith
+D) Bernard King
+Answer: A
+564. Which player recorded a 20-point, 20-rebound, 20-assist game in 2019?
+A) Russell Westbrook
+B) James Harden
+C) Nikola Jokic
+D) Draymond Green
+Answer: A
+565. Russell Westbrook's 20-20-20 game was a tribute to which late rapper?
+A) Nipsey Hussle
+B) Tupac Shakur
+C) Mac Miller
+D) Pop Smoke
+Answer: A
+566. Which player recorded a 30-point, 20-rebound, 20-assist game in 2024?
+A) Nikola Jokic
+B) Domantas Sabonis
+C) Luka Doncic
+D) Victor Wembanyama
+Answer: A
+567. Which player became the first center since Kareem-era Lakers to lead the league in assists?
+A) Nikola Jokic
+B) Joel Embiid
+C) Domantas Sabonis
+D) Pau Gasol
+Answer: A
+568. Which player became the first NBA player to record 10 straight triple-doubles?
+A) Russell Westbrook
+B) Oscar Robertson
+C) Jason Kidd
+D) Wilt Chamberlain
+Answer: A
+569. Which player broke Oscar Robertson's triple-double record in 2017?
+A) Russell Westbrook
+B) LeBron James
+C) Jason Kidd
+D) James Harden
+Answer: A
+570. Which player held the single-season triple-double record before Westbrook broke it?
+A) Oscar Robertson
+B) Jason Kidd
+C) Wilt Chamberlain
+D) Magic Johnson
+Answer: A
+571. Which player led the league in triple-doubles four straight seasons from 2016-17 through 2019-20?
+A) Russell Westbrook
+B) James Harden
+C) LeBron James
+D) Nikola Jokic
+Answer: A
+572. Which player became the first NBA player to average a triple-double for a season since Oscar Robertson?
+A) Russell Westbrook
+B) Jason Kidd
+C) Grant Hill
+D) LeBron James
+Answer: A
+573. Who was the first player to average a triple-double for a season?
+A) Oscar Robertson
+B) Wilt Chamberlain
+C) Magic Johnson
+D) Jason Kidd
+Answer: A
+574. Which player averaged a triple-double in his second consecutive season in 2017-18?
+A) Russell Westbrook
+B) James Harden
+C) LeBron James
+D) Ben Simmons
+Answer: A
+575. Which player became the first to average at least 11 assists and 11 rebounds per game in a season?
+A) Oscar Robertson
+B) Russell Westbrook
+C) Nikola Jokic
+D) Wilt Chamberlain
+Answer: A
+576. Which team did Michael Jordan join briefly in 2001 after his Chicago retirement?
+A) Wizards
+B) Knicks
+C) Bulls
+D) Hornets
+Answer: A
+577. How many points did Michael Jordan score in his first game back with Washington?
+A) 19
+B) 17
+C) 23
+D) 29
+Answer: B
+578. Which team did Michael Jordan score 40 points against at age 40?
+A) Nets
+B) Lakers
+C) Celtics
+D) Heat
+Answer: A
+579. Which player scored 51 points against the Wizards while Jordan was on Washington?
+A) Kobe Bryant
+B) LeBron James
+C) Tracy McGrady
+D) Allen Iverson
+Answer: A
+580. Which player scored 55 points against the Wizards in Jordan's Washington era?
+A) Michael Jordan
+B) Kobe Bryant
+C) LeBron James
+D) Tracy McGrady
+Answer: B
+581. Which player famously wore No. 23 after growing up idolizing Michael Jordan?
+A) LeBron James
+B) Anthony Davis
+C) Jimmy Butler
+D) Draymond Green
+Answer: A
+582. Which player switched to No. 6 in 2021 after wearing No. 23 for most of his career?
+A) LeBron James
+B) Anthony Davis
+C) Kevin Durant
+D) Russell Westbrook
+Answer: A
+583. Which player briefly wore No. 24 after Kobe Bryant made it famous in Los Angeles?
+A) No NBA player can own a retired number
+B) Exactly nobody because 24 is retired everywhere
+C) Many players across the league
+D) Only Lakers players
+Answer: C
+584. Which Lakers star wore No. 8 before switching to No. 24?
+A) Kobe Bryant
+B) Shaquille O'Neal
+C) James Worthy
+D) Derek Fisher
+Answer: A
+585. Which Lakers player is the only one with both No. 8 and No. 24 retired by the same franchise?
+A) Kobe Bryant
+B) Kareem Abdul-Jabbar
+C) Magic Johnson
+D) Jerry West
+Answer: A
+586. Which player hit seven threes in the first quarter of an NBA game in 2018?
+A) Klay Thompson
+B) Stephen Curry
+C) James Harden
+D) Damian Lillard
+Answer: A
+587. Klay Thompson's seven first-quarter threes came against which team?
+A) Kings
+B) Thunder
+C) Rockets
+D) Lakers
+Answer: A
+588. Which player broke the NBA single-game 3-point record with 14 made threes in 2018?
+A) Klay Thompson
+B) Stephen Curry
+C) James Harden
+D) Paul George
+Answer: A
+589. Klay Thompson's 14-threes record was set against which team?
+A) Bulls
+B) Bucks
+C) Pacers
+D) Lakers
+Answer: A
+590. Which player scored 37 points in one quarter in 2015?
+A) Klay Thompson
+B) Stephen Curry
+C) Kobe Bryant
+D) James Harden
+Answer: A
+591. Klay Thompson's 37-point quarter came against which team?
+A) Kings
+B) Thunder
+C) Lakers
+D) Clippers
+Answer: A
+592. Which player hit 13 threes in a game in 2016 to set the record at the time?
+A) Stephen Curry
+B) Klay Thompson
+C) James Harden
+D) Ray Allen
+Answer: A
+593. Stephen Curry's 13-three game in 2016 came against which team?
+A) Pelicans
+B) Thunder
+C) Clippers
+D) Knicks
+Answer: A
+594. Which player became the first to hit 10 threes in a playoff game?
+A) Klay Thompson
+B) Stephen Curry
+C) J.R. Smith
+D) Ray Allen
+Answer: A
+595. Which player hit 9 threes in a 2015 Western Conference Finals game against Houston?
+A) Stephen Curry
+B) Klay Thompson
+C) James Harden
+D) Harrison Barnes
+Answer: B
+596. Which player made a record 8 three-pointers in the 2015 All-Star Game?
+A) Paul George
+B) Stephen Curry
+C) Klay Thompson
+D) Russell Westbrook
+Answer: B
+597. Which player won the 2015 Three-Point Contest?
+A) Stephen Curry
+B) Klay Thompson
+C) Kyrie Irving
+D) James Jones
+Answer: A
+598. Which player won the 2016 Three-Point Contest?
+A) Klay Thompson
+B) Stephen Curry
+C) Devin Booker
+D) Eric Gordon
+Answer: A
+599. Which player won the 2018 Three-Point Contest?
+A) Devin Booker
+B) Klay Thompson
+C) Damian Lillard
+D) Buddy Hield
+Answer: A
+600. Which player won the 2020 Three-Point Contest?
+A) Buddy Hield
+B) Devin Booker
+C) Duncan Robinson
+D) Joe Harris
+Answer: A
+601. Which player won the 2021 Three-Point Contest?
+A) Stephen Curry
+B) Joe Harris
+C) Devin Booker
+D) Zach LaVine
+Answer: B
+602. Which player won the 2016 Slam Dunk Contest with a pair of iconic dunks against Aaron Gordon?
+A) Zach LaVine
+B) Aaron Gordon
+C) Derrick Jones Jr.
+D) Blake Griffin
+Answer: A
+603. Which player nearly won the 2016 dunk contest and finished second behind LaVine?
+A) Aaron Gordon
+B) Andre Drummond
+C) Zach LaVine
+D) Will Barton
+Answer: A
+604. Which player won the 2013 Slam Dunk Contest by using a honey dip dunk?
+A) Terrence Ross
+B) Gerald Green
+C) Jeremy Evans
+D) Nate Robinson
+Answer: A
+605. Which player won back-to-back Slam Dunk Contests in 2008 and 2009?
+A) Dwight Howard
+B) Nate Robinson
+C) Rudy Gay
+D) Gerald Green
+Answer: B
+606. Which player won the 2008 Slam Dunk Contest wearing a Superman cape?
+A) Dwight Howard
+B) Jamario Moon
+C) Gerald Green
+D) Nate Robinson
+Answer: A
+607. Which player dunked over a Kia in the 2011 Slam Dunk Contest?
+A) Blake Griffin
+B) JaVale McGee
+C) DeMar DeRozan
+D) Serge Ibaka
+Answer: A
+608. Which player jumped over a Kia and received a lob from Baron Davis in 2000?
+A) Vince Carter
+B) Steve Francis
+C) Tracy McGrady
+D) Jason Richardson
+Answer: A
+609. Which year featured Vince Carter's legendary between-the-legs dunk in the contest?
+A) 2000
+B) 1999
+C) 2001
+D) 2002
+Answer: A
+610. Which player won the 2016 Skills Challenge after a surprise upset as a big man?
+A) Karl-Anthony Towns
+B) Kristaps Porzingis
+C) Draymond Green
+D) Anthony Davis
+Answer: A
+611. Which player was the first center to win the 2016 Skills Challenge?
+A) Karl-Anthony Towns
+B) DeMarcus Cousins
+C) Marc Gasol
+D) Al Horford
+Answer: A
+612. Which player won the 2017 Skills Challenge?
+A) Kristaps Porzingis
+B) Isaiah Thomas
+C) Spencer Dinwiddie
+D) Anthony Davis
+Answer: B
+613. Which player won the 2018 Skills Challenge?
+A) Spencer Dinwiddie
+B) Joel Embiid
+C) Donovan Mitchell
+D) Jayson Tatum
+Answer: A
+614. Which player won the 2019 Skills Challenge?
+A) Jayson Tatum
+B) Jason Kidd
+C) Nikola Jokic
+D) Mike Conley
+Answer: A
+615. Which player was drafted by Charlotte in 1996 but never played for the Hornets?
+A) Kobe Bryant
+B) Allen Iverson
+C) Ray Allen
+D) Steve Nash
+Answer: A
+616. Which player was traded for Kobe Bryant's draft rights?
+A) Vlade Divac
+B) Eddie Jones
+C) Nick Van Exel
+D) Cedric Ceballos
+Answer: A
+617. Which team drafted Scottie Pippen before sending him to Chicago?
+A) Seattle SuperSonics
+B) Bulls
+C) Trail Blazers
+D) Kings
+Answer: A
+618. Which team drafted Pau Gasol in 2001 before he was traded to Memphis on draft night?
+A) Atlanta Hawks
+B) Memphis Grizzlies
+C) Lakers
+D) Bulls
+Answer: A
+619. Which player did the Lakers trade for Pau Gasol?
+A) Kwame Brown and others
+B) Andrew Bynum
+C) Lamar Odom
+D) Trevor Ariza
+Answer: A
+620. Which team selected Rajon Rondo in the 2006 draft before trading him to Boston?
+A) Phoenix Suns
+B) Celtics
+C) Mavericks
+D) Nets
+Answer: A
+621. Which player did Boston select after trading with Phoenix for the pick used on Rajon Rondo?
+A) Rondo
+B) Rudy Gay
+C) Jordan Farmar
+D) Sergio Rodriguez
+Answer: A
+622. Which team drafted Kawhi Leonard before trading him to San Antonio on draft night in 2011?
+A) Pacers
+B) Spurs
+C) Raptors
+D) Clippers
+Answer: A
+623. Which player did San Antonio send to Indiana in the Kawhi Leonard draft-night trade?
+A) George Hill
+B) Danny Green
+C) Tiago Splitter
+D) Cory Joseph
+Answer: A
+624. Which team selected Donovan Mitchell before trading him to Utah?
+A) Nuggets
+B) Jazz
+C) Suns
+D) Magic
+Answer: A
+625. Which team drafted Shai Gilgeous-Alexander before trading him to the Clippers?
+A) Charlotte
+B) Clippers
+C) Thunder
+D) Hornets
+Answer: A
+626. Which franchise selected Giannis Antetokounmpo in 2013?
+A) Bucks
+B) Hawks
+C) Suns
+D) Jazz
+Answer: A
+627. How many players were selected before Giannis Antetokounmpo in 2013?
+A) 14
+B) 12
+C) 15
+D) 16
+Answer: C
+628. Which player was selected 41st overall in 2002 and became a Hall of Fame point guard with the Spurs?
+A) Manu Ginobili
+B) Tony Parker
+C) Steve Nash
+D) Jason Kidd
+Answer: B
+629. Which player was drafted 15th in 1996 and won two MVPs?
+A) Steve Nash
+B) Kobe Bryant
+C) Ray Allen
+D) Peja Stojakovic
+Answer: A
+630. Which player was drafted 13th in 1996 and later became a 7-foot defensive center?
+A) Kobe Bryant
+B) Vitaly Potapenko
+C) John Wallace
+D) Jerome Williams
+Answer: B
+631. Which player was drafted 18th in 1996 and became a major part of Utah's late-1990s teams?
+A) Kerry Kittles
+B) Shandon Anderson
+C) Jerome Williams
+D) Derek Fisher
+Answer: B
+632. Which player was selected 25th in 1996 and became a key starter for Indiana?
+A) Derek Fisher
+B) Marc Jackson
+C) Nash
+D) Jerome Williams
+Answer: A
+633. Which player was selected 27th in 1997 and became a six-time champion with the Lakers and Spurs?
+A) Robert Horry
+B) Derek Fisher
+C) Rick Fox
+D) Brent Barry
+Answer: A
+634. Which player was selected 42nd in 1997 and later won Defensive Player of the Year?
+A) Morris Peterson
+B) Chauncey Billups
+C) None; this premise is false
+D) Antonio Daniels
+Answer: C
+635. Which player was selected 8th in 1998 and later became a 3-point specialist for Detroit?
+A) Dirk Nowitzki
+B) Larry Hughes
+C) Vince Carter
+D) Bonzi Wells
+Answer: B
+636. Which player was selected 26th in 1998 and won a title with San Antonio?
+A) Sam Jacobson
+B) Jason Williams
+C) Jerome James
+D) Matt Harpring
+Answer: A
+637. Which player was selected 28th in 1999 and later became a longtime Knicks wing?
+A) David Lee
+B) Quinton Richardson
+C) Dion Glover
+D) Cuttino Mobley
+Answer: B
+638. Which player was the 58th pick in 2004 and later became a key Mavericks wing?
+A) Trevor Ariza
+B) Devin Harris
+C) Louis Williams
+D) Monta Ellis
+Answer: A
+639. Which player went undrafted in 2003 and later became a seven-time All-Star center?
+A) Ben Wallace
+B) Marc Gasol
+C) Udonis Haslem
+D) Zaza Pachulia
+Answer: A
+640. Which player went undrafted in 1996 and eventually became a Hall of Fame point guard?
+A) Ben Wallace
+B) John Starks
+C) Avery Johnson
+D) Damon Jones
+Answer: B
+641. Which player went undrafted and became a longtime Denver scoring guard after starting in the D-League?
+A) Jameer Nelson
+B) Will Barton
+C) Lou Williams
+D) Gary Neal
+Answer: B
+642. Which undrafted guard became a major Sixth Man for the Clippers and won the 2015 Sixth Man award?
+A) Lou Williams
+B) Jamal Crawford
+C) Eric Gordon
+D) Jordan Crawford
+Answer: B
+643. Which player won three Sixth Man of the Year awards in the 2010s?
+A) Jamal Crawford
+B) Lou Williams
+C) James Harden
+D) Manu Ginobili
+Answer: A
+644. Which player won Sixth Man of the Year in 2018, 2019 and 2020?
+A) Lou Williams
+B) Jamal Crawford
+C) Eric Gordon
+D) Jordan Clarkson
+Answer: A
+645. Which player won Sixth Man of the Year in 2021?
+A) Jordan Clarkson
+B) Joe Ingles
+C) Tyler Herro
+D) Montrezl Harrell
+Answer: A
+646. Which player won Sixth Man of the Year in 2022?
+A) Tyler Herro
+B) Jordan Clarkson
+C) Malcolm Brogdon
+D) Norman Powell
+Answer: A
+647. Which player won Sixth Man of the Year in 2023?
+A) Malcolm Brogdon
+B) Immanuel Quickley
+C) Jordan Poole
+D) Bobby Portis
+Answer: A
+648. Which player won Sixth Man of the Year in 2024?
+A) Naz Reid
+B) Malik Monk
+C) Norman Powell
+D) Buddy Hield
+Answer: A
+649. Which player became the youngest player to score 50 points in an NBA game in 2018?
+A) Devin Booker
+B) LeBron James
+C) Luka Doncic
+D) Donovan Mitchell
+Answer: A
+650. Which player scored 70 points against Boston in 2017?
+A) Devin Booker
+B) Isaiah Thomas
+C) Jayson Tatum
+D) Kyrie Irving
+Answer: A
+651. Which player scored 70 points against Houston in 2018?
+A) James Harden
+B) Damian Lillard
+C) Kemba Walker
+D) Kevin Durant
+Answer: A
+652. Which player scored 71 points against San Antonio in 2017?
+A) Donovan Mitchell
+B) Kevin Durant
+C) Damian Lillard
+D) Kobe Bryant
+Answer: A
+653. Which player scored 71 points against Chicago in 2023?
+A) Damian Lillard
+B) Donovan Mitchell
+C) Zach LaVine
+D) DeMar DeRozan
+Answer: B
+654. Which player scored 71 points against the Rockets in 2023?
+A) Damian Lillard
+B) Donovan Mitchell
+C) Joel Embiid
+D) Luka Doncic
+Answer: A
+655. Which player scored 73 points against Atlanta in 2024?
+A) Luka Doncic
+B) Trae Young
+C) Kyrie Irving
+D) Nikola Jokic
+Answer: A
+656. Which player scored 71 points against Houston in 2023?
+A) Damian Lillard
+B) James Harden
+C) Kobe Bryant
+D) Devin Booker
+Answer: A
+657. Which player scored 60 points in three quarters in 2018?
+A) Klay Thompson
+B) James Harden
+C) Damian Lillard
+D) Stephen Curry
+Answer: B
+658. Which player scored 60 points for the Knicks in 2014, setting the franchise record?
+A) Carmelo Anthony
+B) Julius Randle
+C) Amar'e Stoudemire
+D) J.R. Smith
+Answer: A
+659. Which player scored 71 points for Cleveland against Chicago in 2023?
+A) Donovan Mitchell
+B) Darius Garland
+C) Evan Mobley
+D) Caris LeVert
+Answer: A
+660. Which player scored 60 points for Charlotte against Philadelphia in 2018?
+A) Kemba Walker
+B) LaMelo Ball
+C) Terry Rozier
+D) Miles Bridges
+Answer: A
+661. Which player scored 61 points for Portland in a 2020 game against Golden State?
+A) Damian Lillard
+B) CJ McCollum
+C) Carmelo Anthony
+D) Anfernee Simons
+Answer: A
+662. Which player scored a playoff-record 56 points in a 1994 game against Portland?
+A) Charles Barkley
+B) Hakeem Olajuwon
+C) Clyde Drexler
+D) Kevin Johnson
+Answer: B
+663. Which player scored 55 points in a 1997 Finals game?
+A) Michael Jordan
+B) Karl Malone
+C) John Stockton
+D) Scottie Pippen
+Answer: A
+664. Which player had 22 points in the fourth quarter of a 1997 Finals game?
+A) Michael Jordan
+B) Karl Malone
+C) Ron Harper
+D) Toni Kukoc
+Answer: A
+665. Which Bulls player scored 42 points in Game 5 of the 1991 Finals?
+A) Michael Jordan
+B) Scottie Pippen
+C) Horace Grant
+D) John Paxson
+Answer: A
+666. Which Lakers player scored 44 points in Game 2 of the 1987 Finals?
+A) Magic Johnson
+B) James Worthy
+C) Kareem Abdul-Jabbar
+D) Byron Scott
+Answer: B
+667. Which team did Houston face in the 1986 Finals?
+A) Celtics
+B) Lakers
+C) Bucks
+D) 76ers
+Answer: A
+668. Which team did Houston beat in the 1994 Finals?
+A) Knicks
+B) Jazz
+C) Suns
+D) Bulls
+Answer: A
+669. Which team did Houston beat in the 1995 Finals?
+A) Magic
+B) Spurs
+C) Bulls
+D) Knicks
+Answer: A
+670. Which team did Portland beat in the 1990 Western Conference Finals?
+A) Spurs
+B) Suns
+C) Lakers
+D) Jazz
+Answer: C
+671. Which team did Utah beat to reach its first NBA Finals in 1997?
+A) Rockets
+B) Lakers
+C) Spurs
+D) Sonics
+Answer: A
+672. Which team did Utah beat in the 1998 Western Conference Finals?
+A) Lakers
+B) Rockets
+C) Spurs
+D) Sonics
+Answer: D
+673. Which team did New York beat in the 1999 Eastern Conference Finals?
+A) Pacers
+B) Heat
+C) Magic
+D) Bulls
+Answer: A
+674. Which eighth seed defeated Miami in the 1999 first round?
+A) Knicks
+B) Hornets
+C) Magic
+D) Pacers
+Answer: A
+675. Which player hit the 1995 playoff shot that sent Indiana past New York?
+A) Reggie Miller
+B) Rik Smits
+C) Mark Jackson
+D) Dale Davis
+Answer: A
+676. Which player made the famous 4-point play to beat New York in 1998?
+A) Larry Johnson
+B) Allan Houston
+C) Latrell Sprewell
+D) Patrick Ewing
+Answer: A
+677. Which player hit the series-winning shot for New York against Miami in 1999?
+A) Allan Houston
+B) Latrell Sprewell
+C) Patrick Ewing
+D) Marcus Camby
+Answer: A
+678. Which player hit a buzzer-beating shot for Utah against Houston in 1997?
+A) John Stockton
+B) Karl Malone
+C) Jeff Hornacek
+D) Bryon Russell
+Answer: A
+679. John Stockton's 1997 shot sent Utah to which round?
+A) NBA Finals
+B) Conference Semifinals
+C) First Round
+D) It merely tied the game
+Answer: A
+680. Which player hit a famous buzzer-beater for Phoenix against the Spurs in 2007?
+A) Steve Nash
+B) Boris Diaw
+C) Raja Bell
+D) Robert Horry
+Answer: A
+681. Which Suns player was suspended after his confrontation with Robert Horry in 2007?
+A) Amare Stoudemire
+B) Steve Nash
+C) Shawn Marion
+D) Leandro Barbosa
+Answer: A
+682. Which Spurs player was suspended alongside Phoenix players after the 2007 altercation?
+A) Robert Horry
+B) Bruce Bowen
+C) Manu Ginobili
+D) Tim Duncan
+Answer: A
+683. Which player was pushed into the scorer's table by Horry in the 2007 Suns-Spurs incident?
+A) Steve Nash
+B) Leandro Barbosa
+C) Raja Bell
+D) Boris Diaw
+Answer: A
+684. Which player hit the famous 'Memorial Day Miracle' for San Antonio?
+A) Sean Elliott
+B) Tim Duncan
+C) Avery Johnson
+D) Mario Elie
+Answer: A
+685. Which player hit the 1999 Finals-clinching shot for the Spurs?
+A) Avery Johnson
+B) Sean Elliott
+C) Tim Duncan
+D) David Robinson
+Answer: A
+686. Who defended Avery Johnson on the 1999 Finals-clinching jumper?
+A) Latrell Sprewell
+B) Larry Johnson
+C) Allen Houston
+D) Ewing
+Answer: A
+687. Which player won 1999 Finals MVP for San Antonio?
+A) Tim Duncan
+B) David Robinson
+C) Avery Johnson
+D) Sean Elliott
+Answer: A
+688. Which player hit the famous 2002 Western Conference Finals game-winning shot for the Lakers?
+A) Robert Horry
+B) Kobe Bryant
+C) Shaquille O'Neal
+D) Derek Fisher
+Answer: A
+689. Robert Horry's 2002 Lakers game-winner came against which team?
+A) Kings
+B) Spurs
+C) Mavericks
+D) Blazers
+Answer: A
+690. Who missed the late three that led to Robert Horry's 2002 shot?
+A) Vlade Divac
+B) Mike Bibby
+C) Chris Webber
+D) Doug Christie
+Answer: A
+691. Which Lakers player saved a loose ball before Horry's 2002 game-winner?
+A) Kobe Bryant
+B) Shaquille O'Neal
+C) Rick Fox
+D) Derek Fisher
+Answer: A
+692. Which Kings player was central to a controversial 2002 Game 6 officiating discussion?
+A) Mike Bibby
+B) Chris Webber
+C) Doug Christie
+D) Peja Stojakovic
+Answer: A
+693. Which player hit a .4-second buzzer-beater for Phoenix against San Antonio in 2004?
+A) Tim Duncan
+B) Steve Nash
+C) Robert Horry
+D) Manu Ginobili
+Answer: A
+694. Tim Duncan's .4 shot tied a playoff game against which team?
+A) Lakers
+B) Suns
+C) Mavericks
+D) Kings
+Answer: A
+695. Which player answered Duncan's .4 basket with a buzzer-beater?
+A) Derek Fisher
+B) Kobe Bryant
+C) Robert Horry
+D) Steve Nash
+Answer: A
+696. Which Lakers guard hit the .4-second shot?
+A) Derek Fisher
+B) Gary Payton
+C) Kobe Bryant
+D) Sasha Vujacic
+Answer: A
+697. Which team did the Lakers sweep in the 1987 Finals?
+A) Celtics
+B) Pistons
+C) Rockets
+D) Supersonics
+Answer: A
+698. Which Celtics player missed a crucial late free throw in Game 4 of the 1987 Finals?
+A) Larry Bird
+B) Robert Parish
+C) Kevin McHale
+D) Dennis Johnson
+Answer: A
+699. Which Lakers player threw the famous skyhook-like pass that started the 1987 Finals Game 4 comeback?
+A) Magic Johnson
+B) James Worthy
+C) Michael Cooper
+D) Kareem
+Answer: A
+700. Who won 1987 Finals MVP?
+A) Magic Johnson
+B) James Worthy
+C) Kareem Abdul-Jabbar
+D) Larry Bird
+Answer: A
+701. Which player won 1988 Finals MVP after Detroit's loss to the Lakers?
+A) James Worthy
+B) Magic Johnson
+C) Kareem Abdul-Jabbar
+D) Byron Scott
+Answer: A
+702. Which Lakers player recorded a triple-double in Game 7 of the 1988 Finals?
+A) James Worthy
+B) Magic Johnson
+C) Kareem Abdul-Jabbar
+D) Mychal Thompson
+Answer: A
+703. Which Pistons guard injured his ankle late in the 1988 Finals?
+A) Isiah Thomas
+B) Joe Dumars
+C) Vinnie Johnson
+D) Dennis Rodman
+Answer: A
+704. How many points did Isiah Thomas score in the third quarter of Game 6 of the 1988 Finals?
+A) 25
+B) 31
+C) 35
+D) 37
+Answer: B
+705. Which team did Detroit beat in the 1989 Finals?
+A) Lakers
+B) Bulls
+C) Celtics
+D) Blazers
+Answer: A
+706. Which Pistons player won 1989 Finals MVP?
+A) Joe Dumars
+B) Isiah Thomas
+C) Dennis Rodman
+D) Bill Laimbeer
+Answer: A
+707. Which team did Detroit sweep in the 1990 Finals?
+A) Trail Blazers
+B) Lakers
+C) Bulls
+D) Suns
+Answer: A
+708. Which Pistons player won 1990 Finals MVP?
+A) Isiah Thomas
+B) Joe Dumars
+C) Dennis Rodman
+D) Vinnie Johnson
+Answer: A
+709. Which team did Boston beat in the 1986 Finals?
+A) Rockets
+B) Lakers
+C) Bucks
+D) 76ers
+Answer: A
+710. Which player won 1986 Finals MVP?
+A) Larry Bird
+B) Bill Walton
+C) Kevin McHale
+D) Robert Parish
+Answer: A
+711. Which Celtics player was nicknamed the sixth man during the 1986 title run?
+A) Bill Walton
+B) Dennis Johnson
+C) Scott Wedman
+D) Jerry Sichting
+Answer: A
+712. Which player was traded to Boston in 1985 and became a major sixth man?
+A) Bill Walton
+B) Robert Parish
+C) Danny Ainge
+D) Cedric Maxwell
+Answer: A
+713. Which team did the Lakers beat in the 1985 Finals?
+A) Celtics
+B) 76ers
+C) Pistons
+D) Rockets
+Answer: A
+714. Who won 1985 Finals MVP?
+A) Kareem Abdul-Jabbar
+B) Magic Johnson
+C) James Worthy
+D) Larry Bird
+Answer: A
+715. What nickname did the 1980s Lakers' fast-paced offense become famous for?
+A) Showtime
+B) Run TMC
+C) Seven Seconds or Less
+D) Grit and Grind
+Answer: A
+716. Which team did the Lakers beat in the 1980 Finals?
+A) 76ers
+B) Celtics
+C) Suns
+D) Rockets
+Answer: A
+717. Who replaced Kareem Abdul-Jabbar at center for the Lakers in Game 6 of the 1980 Finals?
+A) Magic Johnson
+B) Jamaal Wilkes
+C) Spencer Haywood
+D) Jim Chones
+Answer: A
+718. How many points did Magic Johnson score in Game 6 of the 1980 Finals?
+A) 42
+B) 39
+C) 36
+D) 45
+Answer: A
+719. Which team did Philadelphia beat in the 1983 Finals?
+A) Lakers
+B) Celtics
+C) Rockets
+D) Bucks
+Answer: A
+720. Who was the 1983 Finals MVP?
+A) Moses Malone
+B) Julius Erving
+C) Bobby Jones
+D) Maurice Cheeks
+Answer: A
+721. What did Moses Malone famously predict before the 1983 playoffs?
+A) Fo', fo', fo'
+B) Three and sweep
+C) Four straight titles
+D) 70 wins
+Answer: A
+722. What did Moses Malone's fo', fo', fo' prediction mean in practical terms?
+A) He expected every playoff series to end in four games
+B) He expected four straight Finals wins
+C) He expected four MVPs
+D) He expected four 30-point games
+Answer: A
+723. Which team did Chicago beat in the 1991 Finals?
+A) Lakers
+B) Pistons
+C) Trail Blazers
+D) Jazz
+Answer: A
+724. Who won 1991 Finals MVP?
+A) Michael Jordan
+B) Magic Johnson
+C) Scottie Pippen
+D) James Worthy
+Answer: A
+725. Which player famously switched hands during a 1991 Finals layup?
+A) Michael Jordan
+B) Scottie Pippen
+C) Clyde Drexler
+D) Magic Johnson
+Answer: A
+726. Jordan's famous 1991 switch-hand layup came against which team?
+A) Lakers
+B) Pistons
+C) Trail Blazers
+D) Jazz
+Answer: A
+727. Which team did Chicago beat in the 1992 Finals?
+A) Trail Blazers
+B) Suns
+C) Jazz
+D) Lakers
+Answer: A
+728. Who won 1992 Finals MVP?
+A) Michael Jordan
+B) Scottie Pippen
+C) Clyde Drexler
+D) Horace Grant
+Answer: A
+729. Which team did Chicago beat in the 1993 Finals?
+A) Suns
+B) Jazz
+C) Knicks
+D) Sonics
+Answer: A
+730. Who won 1993 Finals MVP?
+A) Michael Jordan
+B) Charles Barkley
+C) Scottie Pippen
+D) John Paxson
+Answer: A
+731. Which player scored 55 points against Phoenix in Game 4 of the 1993 Finals?
+A) Michael Jordan
+B) Charles Barkley
+C) Scottie Pippen
+D) Kevin Johnson
+Answer: A
+732. Which Bulls guard hit the title-clinching three in the 1993 Finals?
+A) John Paxson
+B) Steve Kerr
+C) B.J. Armstrong
+D) Craig Hodges
+Answer: A
+733. Which player hit the buzzer-beating three in Game 3 of the 1997 Eastern Conference Finals?
+A) Michael Jordan
+B) Scottie Pippen
+C) Steve Kerr
+D) Toni Kukoc
+Answer: D
+734. Which player hit the famous Game 6 shot against Utah in 1998?
+A) Michael Jordan
+B) Steve Kerr
+C) John Stockton
+D) Karl Malone
+Answer: A
+735. Who threw the ball to Karl Malone on Utah's final possession before Jordan's 1998 shot?
+A) John Stockton
+B) Jeff Hornacek
+C) Bryon Russell
+D) Greg Foster
+Answer: A
+736. Which player won 1994 Defensive Player of the Year?
+A) Hakeem Olajuwon
+B) David Robinson
+C) Dennis Rodman
+D) Dikembe Mutombo
+Answer: A
+737. Which player became the first to win MVP, Finals MVP and DPOY in the same career year?
+A) Hakeem Olajuwon
+B) Michael Jordan
+C) Shaquille O'Neal
+D) Tim Duncan
+Answer: A
+738. Which player won 1995 MVP and 1995 DPOY?
+A) David Robinson
+B) Hakeem Olajuwon
+C) Dennis Rodman
+D) Charles Barkley
+Answer: A
+739. Which player was the first to win Defensive Player of the Year three times?
+A) Dwight Howard
+B) Ben Wallace
+C) Dikembe Mutombo
+D) Dennis Rodman
+Answer: C
+740. Which player joined Ben Wallace as a four-time DPOY winner?
+A) Dikembe Mutombo
+B) Dwight Howard
+C) Rudy Gobert
+D) Ben Wallace
+Answer: C
+741. Which player became the youngest three-time DPOY winner?
+A) Dwight Howard
+B) Rudy Gobert
+C) Draymond Green
+D) Kawhi Leonard
+Answer: A
+742. Which player won DPOY in 2015 and 2016?
+A) Kawhi Leonard
+B) Draymond Green
+C) Rudy Gobert
+D) DeAndre Jordan
+Answer: A
+743. Which player won DPOY in 2017?
+A) Draymond Green
+B) Kawhi Leonard
+C) Rudy Gobert
+D) Hassan Whiteside
+Answer: A
+744. Which player won DPOY in 2020 while also winning MVP?
+A) Giannis Antetokounmpo
+B) Anthony Davis
+C) Rudy Gobert
+D) Bam Adebayo
+Answer: A
+745. Which player became the first unanimous All-Defensive First Team selection?
+A) Kawhi Leonard
+B) Michael Jordan
+C) LeBron James
+D) Gary Payton
+Answer: A
+746. Which guard was the first perimeter player to win Defensive Player of the Year?
+A) Gary Payton
+B) Michael Jordan
+C) Sidney Moncrief
+D) Scottie Pippen
+Answer: A
+747. Which player won DPOY and MVP in 2014?
+A) Giannis Antetokounmpo
+B) None; the awards went to different players
+C) LeBron James
+D) Kawhi Leonard
+Answer: B
+748. Which player won both MVP and DPOY in 2020?
+A) Giannis Antetokounmpo
+B) LeBron James
+C) Anthony Davis
+D) Kawhi Leonard
+Answer: A
+749. Which player won Rookie of the Year in 2000?
+A) Elton Brand
+B) Steve Francis
+C) Lamar Odom
+D) Jason Williams
+Answer: A
+750. Which player won Rookie of the Year in 2001?
+A) Pau Gasol
+B) Tyson Chandler
+C) Shane Battier
+D) Jason Richardson
+Answer: A
+751. Which player won Rookie of the Year in 2002?
+A) Amar'e Stoudemire
+B) Yao Ming
+C) Caron Butler
+D) Dwyane Wade
+Answer: A
+752. Which player won Rookie of the Year in 2003?
+A) LeBron James
+B) Carmelo Anthony
+C) Dwyane Wade
+D) Chris Bosh
+Answer: A
+753. Which player won Rookie of the Year in 2004?
+A) Emeka Okafor
+B) Dwight Howard
+C) Ben Gordon
+D) Luol Deng
+Answer: A
+754. Which player won Rookie of the Year in 2005?
+A) Chris Paul
+B) Deron Williams
+C) Charlie Villanueva
+D) Raymond Felton
+Answer: A
+755. Which player won Rookie of the Year in 2006?
+A) Brandon Roy
+B) LaMarcus Aldridge
+C) Randy Foye
+D) Andrea Bargnani
+Answer: A
+756. Which player won Rookie of the Year in 2007?
+A) Kevin Durant
+B) Al Horford
+C) Mike Conley
+D) Al Thornton
+Answer: A
+757. Which player won Rookie of the Year in 2008?
+A) Derrick Rose
+B) O.J. Mayo
+C) Russell Westbrook
+D) Kevin Love
+Answer: A
+758. Which player won Rookie of the Year in 2009?
+A) Tyreke Evans
+B) Stephen Curry
+C) James Harden
+D) DeMar DeRozan
+Answer: A
+759. Which player won Rookie of the Year in 2010?
+A) Kyrie Irving
+B) Ricky Rubio
+C) Klay Thompson
+D) Kenneth Faried
+Answer: A
+760. Which player won Rookie of the Year in 2011?
+A) Damian Lillard
+B) Anthony Davis
+C) Andre Drummond
+D) Harrison Barnes
+Answer: A
+761. Which player won Rookie of the Year in 2013?
+A) Michael Carter-Williams
+B) Victor Oladipo
+C) Trey Burke
+D) Giannis Antetokounmpo
+Answer: A
+762. Which player won Rookie of the Year in 2014?
+A) Andrew Wiggins
+B) Nikola Jokic
+C) Elfrid Payton
+D) Nerlens Noel
+Answer: A
+763. Which player won Rookie of the Year in 2015?
+A) Karl-Anthony Towns
+B) Kristaps Porzingis
+C) Devin Booker
+D) Jahlil Okafor
+Answer: A
+764. Which player won Rookie of the Year in 2016?
+A) Malcolm Brogdon
+B) Dario Saric
+C) Joel Embiid
+D) Buddy Hield
+Answer: A
+765. Which player won Rookie of the Year in 2017?
+A) Ben Simmons
+B) Donovan Mitchell
+C) Jayson Tatum
+D) Kyle Kuzma
+Answer: A
+766. Which player won Rookie of the Year in 2018?
+A) Luka Doncic
+B) Trae Young
+C) Deandre Ayton
+D) Shai Gilgeous-Alexander
+Answer: A
+767. Which player won Rookie of the Year in 2019?
+A) LaMelo Ball
+B) Anthony Edwards
+C) Tyrese Haliburton
+D) Scottie Barnes
+Answer: A
+768. Which player won Rookie of the Year in 2020?
+A) Scottie Barnes
+B) Cade Cunningham
+C) Evan Mobley
+D) Franz Wagner
+Answer: A
+769. Which player won Rookie of the Year in 2021?
+A) Paolo Banchero
+B) Walker Kessler
+C) Jalen Williams
+D) Bennedict Mathurin
+Answer: A
+770. Which player won Rookie of the Year in 2022?
+A) Victor Wembanyama
+B) Chet Holmgren
+C) Brandon Miller
+D) Scoot Henderson
+Answer: A
+771. Which player won Rookie of the Year in 2023?
+A) Zaccharie Risacher
+B) Reed Sheppard
+C) Stephon Castle
+D) Alex Sarr
+Answer: A
+772. Which franchise was the first NBA team to draft a player directly from high school in the modern lottery era?
+A) Orlando Magic with Dwight Howard
+B) Lakers with Kobe Bryant
+C) Cavaliers with LeBron James
+D) Raptors with Tracy McGrady
+Answer: A
+773. Which player became the first overall pick straight from high school in the modern draft era?
+A) LeBron James
+B) Kwame Brown
+C) Dwight Howard
+D) Amar'e Stoudemire
+Answer: B
+774. Which player became the first high-school player selected No. 1 overall?
+A) Kwame Brown
+B) LeBron James
+C) Dwight Howard
+D) Moses Malone
+Answer: A
+775. Which high-school draftee was selected first overall in 2004?
+A) Dwight Howard
+B) LeBron James
+C) Amar'e Stoudemire
+D) Sebastian Telfair
+Answer: A
+776. Which player was selected first overall in 2002 after playing professionally overseas?
+A) Yao Ming
+B) Pau Gasol
+C) Darko Milicic
+D) Nenad Krstic
+Answer: A
+777. Which player was selected second overall in 2002?
+A) Jay Williams
+B) Mike Dunleavy Jr.
+C) Caron Butler
+D) Amare Stoudemire
+Answer: A
+778. Which player was selected second overall in 2003?
+A) Darko Milicic
+B) Carmelo Anthony
+C) Dwyane Wade
+D) Chris Bosh
+Answer: A
+779. Which player was selected third overall in 2003?
+A) Carmelo Anthony
+B) Chris Bosh
+C) Dwyane Wade
+D) Kirk Hinrich
+Answer: A
+780. Which player was selected fourth overall in 2003?
+A) Chris Bosh
+B) Dwyane Wade
+C) David West
+D) Chris Kaman
+Answer: A
+781. Which player was selected fifth overall in 2003?
+A) Dwyane Wade
+B) David West
+C) Kirk Hinrich
+D) T.J. Ford
+Answer: A
+782. Which team drafted Rajon Rondo 21st overall in 2006?
+A) Suns
+B) Celtics
+C) Pistons
+D) Raptors
+Answer: A
+783. Which player was picked immediately before Rajon Rondo in 2006?
+A) Cedric Simmons
+B) Thabo Sefolosha
+C) Jordan Farmar
+D) Rudy Fernandez
+Answer: B
+784. Which player was selected 24th in 2006 and became a longtime Warriors scorer?
+A) Jordan Farmar
+B) Shannon Brown
+C) David Lee
+D) Sergio Rodriguez
+Answer: A
+785. Which player was selected 8th in 2006 and became an All-Star center?
+A) Rudy Gay
+B) Randy Foye
+C) Patrick O'Bryant
+D) Rodney Carney
+Answer: A
+786. Which player was selected second overall in 2008 and became a two-time MVP?
+A) Michael Beasley
+B) Kevin Love
+C) O.J. Mayo
+D) Russell Westbrook
+Answer: A
+787. Which player was selected fourth in 2008?
+A) Russell Westbrook
+B) Kevin Love
+C) Eric Gordon
+D) Brook Lopez
+Answer: A
+788. Which player was selected fifth in 2008 and became a champion with Miami?
+A) Kevin Love
+B) Russell Westbrook
+C) Danilo Gallinari
+D) Eric Gordon
+Answer: A
+789. Which player was selected sixth in 2008 and later became a major Portland center?
+A) Danilo Gallinari
+B) Kevin Love
+C) Kosta Koufos
+D) Joe Alexander
+Answer: A
+790. Which player was selected 4th overall in 2009 and later won a title with Golden State?
+A) Tyreke Evans
+B) Stephen Curry
+C) James Harden
+D) DeMar DeRozan
+Answer: B
+791. Which player was selected 3rd in 2009 and became the 2018-19 scoring champion?
+A) James Harden
+B) Ricky Rubio
+C) Tyreke Evans
+D) Blake Griffin
+Answer: A
+792. Which player was selected first overall in 2010?
+A) John Wall
+B) Evan Turner
+C) Derrick Favors
+D) DeMarcus Cousins
+Answer: A
+793. Which player was selected second overall in 2010?
+A) Evan Turner
+B) John Wall
+C) DeMarcus Cousins
+D) Wesley Johnson
+Answer: A
+794. Which player was selected first overall in 2011?
+A) Kyrie Irving
+B) Derrick Williams
+C) Kemba Walker
+D) Jonas Valanciunas
+Answer: A
+795. Which player was selected second overall in 2011?
+A) Derrick Williams
+B) Enes Kanter
+C) Tristan Thompson
+D) Kemba Walker
+Answer: A
+796. Which player was selected third overall in 2011?
+A) Enes Kanter
+B) Tristan Thompson
+C) Jonas Valanciunas
+D) Klay Thompson
+Answer: A
+797. Which player was selected first overall in 2012?
+A) Anthony Davis
+B) Michael Kidd-Gilchrist
+C) Bradley Beal
+D) Thomas Robinson
+Answer: A
+798. Which player was selected third overall in 2012?
+A) Bradley Beal
+B) Michael Kidd-Gilchrist
+C) Dion Waiters
+D) Damian Lillard
+Answer: A
+799. Which player was selected sixth overall in 2012 and later became an elite point guard in Portland?
+A) Damian Lillard
+B) Harrison Barnes
+C) Andre Drummond
+D) Austin Rivers
+Answer: A
+800. Which player was selected first overall in 2013?
+A) Anthony Bennett
+B) Victor Oladipo
+C) Otto Porter
+D) Nerlens Noel
+Answer: A
+801. Which player was selected second overall in 2013?
+A) Victor Oladipo
+B) Otto Porter
+C) C.J. McCollum
+D) Cody Zeller
+Answer: A
+802. Which player was selected fifth overall in 2013 and became a major Orlando wing?
+A) Alex Len
+B) Nerlens Noel
+C) Ben McLemore
+D) Otto Porter
+Answer: B
+803. Which player was selected 15th in 2013 and became a two-time MVP?
+A) Giannis Antetokounmpo
+B) Steven Adams
+C) Sergey Karasev
+D) Kelly Olynyk
+Answer: A
+804. Which player was selected first overall in 2016?
+A) Ben Simmons
+B) Brandon Ingram
+C) Jaylen Brown
+D) Dragan Bender
+Answer: A
+805. Which player was selected third overall in 2016 and became a Celtics All-Star?
+A) Jaylen Brown
+B) Jamal Murray
+C) Buddy Hield
+D) Kris Dunn
+Answer: A
+806. Which player was selected seventh overall in 2016 and became a Toronto All-Star?
+A) Jakob Poeltl
+B) Jamal Murray
+C) Buddy Hield
+D) Domantas Sabonis
+Answer: A
+807. Which player was selected 27th in 2016 and became an elite 3-and-D wing?
+A) Pascal Siakam
+B) Malcolm Brogdon
+C) Dejounte Murray
+D) Caris LeVert
+Answer: A
+808. Which player was selected first overall in 2017?
+A) Markelle Fultz
+B) Lonzo Ball
+C) Jayson Tatum
+D) De'Aaron Fox
+Answer: A
+809. Which player was selected third overall in 2017?
+A) Jayson Tatum
+B) Josh Jackson
+C) De'Aaron Fox
+D) Jonathan Isaac
+Answer: A
+810. Which player was selected fifth in 2017 and later led Sacramento?
+A) De'Aaron Fox
+B) Malik Monk
+C) Lauri Markkanen
+D) Dennis Smith Jr.
+Answer: A
+811. Which player was selected 13th in 2017 and later won Most Improved Player?
+A) Donovan Mitchell
+B) Bam Adebayo
+C) John Collins
+D) OG Anunoby
+Answer: A
+812. Which player was selected first overall in 2018?
+A) Deandre Ayton
+B) Luka Doncic
+C) Trae Young
+D) Jaren Jackson Jr.
+Answer: A
+813. Which player was selected third overall in 2018?
+A) Luka Doncic
+B) Jaren Jackson Jr.
+C) Trae Young
+D) Marvin Bagley III
+Answer: A
+814. Which player was selected 10th in 2018 and later became an All-Star guard?
+A) Mikal Bridges
+B) Shai Gilgeous-Alexander
+C) Miles Bridges
+D) Collin Sexton
+Answer: B
+815. Which player was selected first overall in 2019?
+A) Zion Williamson
+B) Ja Morant
+C) RJ Barrett
+D) De'Andre Hunter
+Answer: A
+816. Which player was selected second overall in 2019?
+A) Ja Morant
+B) RJ Barrett
+C) Darius Garland
+D) Coby White
+Answer: A
+817. Which player was selected fifth overall in 2019 and became a Pelicans guard?
+A) Darius Garland
+B) De'Andre Hunter
+C) Coby White
+D) Jarrett Culver
+Answer: A
+818. Which player was selected first overall in 2020?
+A) Anthony Edwards
+B) LaMelo Ball
+C) James Wiseman
+D) Tyrese Haliburton
+Answer: A
+819. Which player was selected third overall in 2020?
+A) LaMelo Ball
+B) James Wiseman
+C) Onyeka Okongwu
+D) Patrick Williams
+Answer: A
+820. Which player was selected 12th in 2020 and later became a Kings star?
+A) Tyrese Haliburton
+B) Devin Vassell
+C) Tyrese Maxey
+D) Jalen Smith
+Answer: A
+821. Which player was selected first overall in 2021?
+A) Cade Cunningham
+B) Jalen Green
+C) Evan Mobley
+D) Scottie Barnes
+Answer: A
+822. Which player was selected fourth overall in 2021 and won Rookie of the Year?
+A) Scottie Barnes
+B) Evan Mobley
+C) Jalen Suggs
+D) Franz Wagner
+Answer: A
+823. Which player was selected fifth overall in 2021 and became an All-Star center?
+A) Jalen Suggs
+B) Evan Mobley
+C) Jalen Green
+D) Franz Wagner
+Answer: B
+824. Which player was selected first overall in 2022?
+A) Paolo Banchero
+B) Chet Holmgren
+C) Jabari Smith Jr.
+D) Jaden Ivey
+Answer: A
+825. Which player was selected second overall in 2022?
+A) Chet Holmgren
+B) Jabari Smith Jr.
+C) Jaden Ivey
+D) Keegan Murray
+Answer: A
+826. Which player was selected fourth overall in 2022 and became an All-Star guard?
+A) Jaden Ivey
+B) Keegan Murray
+C) Bennedict Mathurin
+D) Shaedon Sharpe
+Answer: A
+827. Which player was selected first overall in 2023?
+A) Victor Wembanyama
+B) Scoot Henderson
+C) Brandon Miller
+D) Amen Thompson
+Answer: A
+828. Which player was selected second overall in 2023?
+A) Brandon Miller
+B) Scoot Henderson
+C) Cason Wallace
+D) Cam Whitmore
+Answer: A
+829. Which player was selected third overall in 2023?
+A) Scoot Henderson
+B) Brandon Miller
+C) Amen Thompson
+D) Ausar Thompson
+Answer: A
+830. Which player was selected first overall in 2024?
+A) Zaccharie Risacher
+B) Alexandre Sarr
+C) Reed Sheppard
+D) Donovan Clingan
+Answer: A
+831. Which player was selected second overall in 2024?
+A) Alexandre Sarr
+B) Zaccharie Risacher
+C) Reed Sheppard
+D) Stephon Castle
+Answer: A
+832. Which player was selected fourth overall in 2024?
+A) Reed Sheppard
+B) Stephon Castle
+C) Zaccharie Risacher
+D) Dalton Knecht
+Answer: A
+833. Which team did Shaquille O'Neal leave to join the Lakers in 1996?
+A) Magic
+B) Heat
+C) Bulls
+D) Suns
+Answer: A
+834. Which team did Shaquille O'Neal leave the Lakers for in 2004?
+A) Heat
+B) Suns
+C) Magic
+D) Cavaliers
+Answer: A
+835. Which team did Shaq later join after Miami?
+A) Suns
+B) Cavaliers
+C) Celtics
+D) Mavericks
+Answer: A
+836. Which team did Shaq join after Phoenix?
+A) Cavaliers
+B) Celtics
+C) Heat
+D) Lakers
+Answer: A
+837. Which team did Shaq finish his career with?
+A) Celtics
+B) Lakers
+C) Suns
+D) Cavaliers
+Answer: A
+838. Which player joined Miami in 2010 alongside LeBron James?
+A) Chris Bosh
+B) Amar'e Stoudemire
+C) Carlos Boozer
+D) David Lee
+Answer: A
+839. Which team did Chris Bosh leave to join Miami in 2010?
+A) Raptors
+B) Bulls
+C) Mavericks
+D) Rockets
+Answer: A
+840. Which team did Dwyane Wade play for throughout the Big Three era?
+A) Heat
+B) Bulls
+C) Cavaliers
+D) Raptors
+Answer: A
+841. Which team did LeBron leave Miami to rejoin in 2014?
+A) Cavaliers
+B) Heat
+C) Lakers
+D) Knicks
+Answer: A
+842. Which team did LeBron leave Cleveland for in 2018?
+A) Lakers
+B) Heat
+C) Clippers
+D) Suns
+Answer: A
+843. Which player did Cleveland trade to acquire Kevin Love in 2014?
+A) Andrew Wiggins
+B) Kyrie Irving
+C) Tristan Thompson
+D) Anthony Bennett
+Answer: A
+844. Which player did Minnesota select with the draft pick received from Cleveland for Kevin Love?
+A) Andrew Wiggins
+B) Zach LaVine
+C) Karl-Anthony Towns
+D) Ricky Rubio
+Answer: A
+845. Which team did Golden State trade D'Angelo Russell to in the Andrew Wiggins deal?
+A) Timberwolves
+B) Cavaliers
+C) Bulls
+D) Magic
+Answer: A
+846. Which player came to Golden State in the D'Angelo Russell trade?
+A) Andrew Wiggins
+B) Karl-Anthony Towns
+C) Jimmy Butler
+D) D'Angelo Russell
+Answer: A
+847. Which team did Oklahoma City trade Paul George to in 2019?
+A) Clippers
+B) Lakers
+C) Raptors
+D) Nets
+Answer: A
+848. Which star joined Paul George on the Clippers in 2019?
+A) Kawhi Leonard
+B) Jimmy Butler
+C) Kyrie Irving
+D) Russell Westbrook
+Answer: A
+849. Which team did Oklahoma City trade Russell Westbrook to in 2019?
+A) Rockets
+B) Wizards
+C) Heat
+D) Lakers
+Answer: A
+850. Who did Houston receive when it traded Chris Paul for Russell Westbrook?
+A) Russell Westbrook
+B) James Harden
+C) John Wall
+D) Eric Gordon
+Answer: A
+851. Which team did Houston send Russell Westbrook to in 2020?
+A) Wizards
+B) Lakers
+C) Clippers
+D) Nets
+Answer: A
+852. Which team did Brooklyn trade Kyrie Irving to in February 2023?
+A) Mavericks
+B) Lakers
+C) Suns
+D) Heat
+Answer: A
+853. Which player did Dallas send to Brooklyn for Kyrie Irving?
+A) Spencer Dinwiddie and draft assets
+B) Luka Doncic
+C) Jalen Brunson
+D) Tim Hardaway Jr. alone
+Answer: A
+854. Which team traded Kevin Durant to Phoenix in 2023?
+A) Nets
+B) Thunder
+C) Suns
+D) Warriors
+Answer: A
+855. Which player did Phoenix pair with Devin Booker by acquiring Kevin Durant?
+A) Kevin Durant
+B) James Harden
+C) Kyrie Irving
+D) Bradley Beal
+Answer: A
+856. Which team acquired Bradley Beal in 2023?
+A) Suns
+B) Heat
+C) Lakers
+D) Warriors
+Answer: A
+857. Which player signed with Golden State after leaving Brooklyn in 2019?
+A) Kevin Durant
+B) DeAndre Jordan
+C) Kyrie Irving
+D) D'Angelo Russell
+Answer: A
+858. Which team did Kevin Durant join after Golden State?
+A) Nets
+B) Warriors
+C) Suns
+D) Clippers
+Answer: A
+859. Which player joined the Nets with Durant in 2019?
+A) Kyrie Irving
+B) James Harden
+C) DeMar DeRozan
+D) Jimmy Butler
+Answer: A
+860. Which coach did Brooklyn hire in 2020 before firing in midseason?
+A) Steve Nash
+B) Kenny Atkinson
+C) Jason Kidd
+D) Jacque Vaughn
+Answer: A
+861. Which team did James Harden request a trade from in 2021 before joining Brooklyn?
+A) Rockets
+B) Thunder
+C) Nets
+D) 76ers
+Answer: A
+862. Which team did Brooklyn trade James Harden to in 2022?
+A) 76ers
+B) Nets
+C) Clippers
+D) Celtics
+Answer: A
+863. Which player did Philadelphia send to Brooklyn in the Harden trade?
+A) Ben Simmons
+B) Joel Embiid
+C) Tyrese Maxey
+D) Tobias Harris
+Answer: A
+864. Which team did Ben Simmons join after the 2022 Harden trade?
+A) Nets
+B) Rockets
+C) Celtics
+D) Knicks
+Answer: A
+865. Which player was traded from Toronto to San Antonio in 2018?
+A) Kawhi Leonard
+B) DeMar DeRozan
+C) Kyle Lowry
+D) Serge Ibaka
+Answer: A
+866. Which All-Star did Toronto receive from San Antonio in that deal?
+A) DeMar DeRozan
+B) LaMarcus Aldridge
+C) Tony Parker
+D) Patty Mills
+Answer: A
+867. Which coach led Toronto to its 2019 championship?
+A) Nick Nurse
+B) Dwane Casey
+C) Casey Jones
+D) Sam Mitchell
+Answer: A
+868. Which player did Toronto lose to Golden State after the 2019 title?
+A) Kawhi Leonard
+B) Marc Gasol
+C) Danny Green
+D) Kyle Lowry
+Answer: A
+869. Which coach led the 2011 Dallas Mavericks to the title?
+A) Rick Carlisle
+B) Rick Adelman
+C) Don Nelson
+D) Avery Johnson
+Answer: A
+870. Which coach led the 2015 Golden State Warriors to their first title in 40 years?
+A) Steve Kerr
+B) Mark Jackson
+C) Luke Walton
+D) Mike D'Antoni
+Answer: A
+871. Which coach led Cleveland to its first NBA title?
+A) Ty Lue
+B) David Blatt
+C) Mike Brown
+D) Byron Scott
+Answer: A
+872. Which coach led the Bucks to their 2021 title?
+A) Mike Budenholzer
+B) Doc Rivers
+C) Mike D'Antoni
+D) Monty Williams
+Answer: A
+873. Which coach led Denver to its first championship?
+A) Michael Malone
+B) George Karl
+C) Mike Malone
+D) Frank Vogel
+Answer: A
+874. Which coach led Boston to its 18th championship?
+A) Joe Mazzulla
+B) Brad Stevens
+C) Ime Udoka
+D) Doc Rivers
+Answer: A
+875. Which coach introduced the famous 7 Seconds or Less Suns offense?
+A) Mike D'Antoni
+B) Steve Nash
+C) Alvin Gentry
+D) Terry Porter
+Answer: A
+876. Which Suns team popularized 7 Seconds or Less in the 2000s?
+A) Phoenix Suns
+B) Sacramento Kings
+C) Dallas Mavericks
+D) Golden State Warriors
+Answer: A
+877. Which player was the engine of Phoenix's 7 Seconds or Less offense?
+A) Steve Nash
+B) Jason Kidd
+C) Joe Johnson
+D) Shawn Marion
+Answer: A
+878. Which player was Phoenix's high-scoring big man during the 7 Seconds era?
+A) Amar'e Stoudemire
+B) Boris Diaw
+C) Kurt Thomas
+D) Channing Frye
+Answer: A
+879. Which Kings team became famous for its passing-heavy offense in the early 2000s?
+A) Sacramento Kings
+B) Utah Jazz
+C) Indiana Pacers
+D) New Jersey Nets
+Answer: A
+880. Which coach led Sacramento during its early-2000s offensive peak?
+A) Rick Adelman
+B) George Karl
+C) Eric Musselman
+D) Doug Christie
+Answer: A
+881. Which Kings big man was central to that passing offense?
+A) Chris Webber
+B) Vlade Divac
+C) Both Webber and Divac
+D) Brad Miller
+Answer: C
+882. Which Kings guard was known for pushing the pace alongside Mike Bibby?
+A) Doug Christie
+B) Bobby Jackson
+C) Jason Williams
+D) All three at different points
+Answer: D
+883. Which player was famous for inventing the move later called the 'Shammgod'?
+A) God Shammgod
+B) Jamal Crawford
+C) Tim Hardaway
+D) Rafer Alston
+Answer: A
+884. Which player popularized the killer crossover in the 1990s?
+A) Tim Hardaway
+B) Allen Iverson
+C) Jason Kidd
+D) Chris Paul
+Answer: A
+885. Which move is associated with Tim Hardaway's signature dribble?
+A) UTEP Two-step
+B) Dream Shake
+C) Eurostep
+D) Shamgod
+Answer: A
+886. Which player was famous for the Dream Shake?
+A) Hakeem Olajuwon
+B) Kevin McHale
+C) Patrick Ewing
+D) Kareem Abdul-Jabbar
+Answer: A
+887. Which player popularized the Eurostep in the NBA before it became common?
+A) Manu Ginobili
+B) Kobe Bryant
+C) Dwyane Wade
+D) Steve Nash
+Answer: A
+888. Which player popularized the step-back three as a signature scoring weapon in Houston?
+A) James Harden
+B) Stephen Curry
+C) Damian Lillard
+D) Luka Doncic
+Answer: A
+889. Which player was famous for the one-legged fadeaway?
+A) Dirk Nowitzki
+B) Kevin Durant
+C) Kobe Bryant
+D) Hakeem Olajuwon
+Answer: A
+890. Which player was famous for the skyhook?
+A) Kareem Abdul-Jabbar
+B) Magic Johnson
+C) George Mikan
+D) Bob Lanier
+Answer: A
+891. Which player was famous for the finger-roll finish?
+A) George Gervin
+B) Julius Erving
+C) Connie Hawkins
+D) Elgin Baylor
+Answer: A
+892. Which player popularized the Dream Shake from the post?
+A) Hakeem Olajuwon
+B) Kevin McHale
+C) Tim Duncan
+D) David Robinson
+Answer: A
+893. Which player was known for the Shamgod-inspired crossover in the early 2000s?
+A) Jason Williams
+B) Gilbert Arenas
+C) Steve Francis
+D) Baron Davis
+Answer: A
+894. Which player became the first rookie to start an All-Star Game since Yao Ming?
+A) Luka Doncic
+B) LeBron James
+C) Zion Williamson
+D) Victor Wembanyama
+Answer: A
+895. Which rookie was the youngest All-Star starter in NBA history in 2004?
+A) LeBron James
+B) Kobe Bryant
+C) Carmelo Anthony
+D) Dwight Howard
+Answer: A
+896. Which player became the youngest All-Star Game MVP in 2020?
+A) Kawhi Leonard
+B) LeBron James
+C) Giannis Antetokounmpo
+D) Jayson Tatum
+Answer: A
+897. Who won the inaugural Kobe Bryant All-Star Game MVP award?
+A) Kawhi Leonard
+B) LeBron James
+C) Giannis Antetokounmpo
+D) Anthony Davis
+Answer: A
+898. Which team hosted the 1998 All-Star Game?
+A) Knicks
+B) Cavaliers
+C) Lakers
+D) Jazz
+Answer: A
+899. Which team hosted the 2003 All-Star Game?
+A) Hawks
+B) Lakers
+C) Mavericks
+D) Cavaliers
+Answer: A
+900. Which team hosted the 2004 All-Star Game?
+A) Lakers
+B) Rockets
+C) Warriors
+D) Pistons
+Answer: A
+901. Which city hosted the 2010 All-Star Game?
+A) Dallas
+B) Orlando
+C) Houston
+D) Miami
+Answer: A
+902. Which city hosted the 2015 All-Star Game?
+A) New York
+B) Chicago
+C) Toronto
+D) Los Angeles
+Answer: A
+903. Which city hosted the 2018 All-Star Game?
+A) Los Angeles
+B) Charlotte
+C) Chicago
+D) New Orleans
+Answer: A
+904. Which city hosted the 2020 All-Star Game?
+A) Chicago
+B) Los Angeles
+C) Atlanta
+D) Charlotte
+Answer: A
+905. Which city hosted the 2024 All-Star Game?
+A) Indianapolis
+B) Cleveland
+C) Denver
+D) Salt Lake City
+Answer: A
+906. Which player won the 1991 All-Star Game MVP?
+A) Charles Barkley
+B) Michael Jordan
+C) Magic Johnson
+D) Karl Malone
+Answer: A
+907. Which player won the 1992 All-Star Game MVP?
+A) Magic Johnson
+B) Michael Jordan
+C) Charles Barkley
+D) Clyde Drexler
+Answer: A
+908. Which player won the 1993 All-Star Game MVP?
+A) Karl Malone and John Stockton
+B) Michael Jordan
+C) Charles Barkley
+D) Dominique Wilkins
+Answer: A
+909. Which player won the 2004 All-Star Game MVP?
+A) Shaquille O'Neal
+B) Kobe Bryant
+C) Kevin Garnett
+D) Allen Iverson
+Answer: A
+910. Which player won the 2008 All-Star Game MVP?
+A) LeBron James
+B) Kobe Bryant
+C) Ray Allen
+D) Chris Paul
+Answer: B
+911. Which player was the first to win All-Star Game MVP four times?
+A) LeBron James
+B) Kobe Bryant
+C) Michael Jordan
+D) Bob Pettit
+Answer: D
+912. Which player shares the All-Star Game MVP record with five awards?
+A) LeBron James
+B) Kobe Bryant
+C) Michael Jordan
+D) Bob Pettit
+Answer: C
+913. Which player was the first NBA Finals MVP who had never been an NBA All-Star?
+A) Cedric Maxwell
+B) Chauncey Billups
+C) Andre Iguodala
+D) Kawhi Leonard
+Answer: A
+914. Which player won Finals MVP despite not starting the majority of the 2015 Finals?
+A) Andre Iguodala
+B) Stephen Curry
+C) Draymond Green
+D) Klay Thompson
+Answer: A
+915. Which player became the first Warriors player to win Finals MVP?
+A) Andre Iguodala
+B) Stephen Curry
+C) Rick Barry
+D) Kevin Durant
+Answer: C
+916. Which player won Finals MVP for Golden State in 2022?
+A) Stephen Curry
+B) Klay Thompson
+C) Draymond Green
+D) Andrew Wiggins
+Answer: A
+917. Which player was Finals MVP for the 2007 Spurs?
+A) Tony Parker
+B) Tim Duncan
+C) Manu Ginobili
+D) Bruce Bowen
+Answer: A
+918. Which player was Finals MVP for the 2003 Spurs?
+A) Tim Duncan
+B) David Robinson
+C) Tony Parker
+D) Manu Ginobili
+Answer: A
+919. Which player was Finals MVP for the 1999 Spurs?
+A) Tim Duncan
+B) David Robinson
+C) Sean Elliott
+D) Avery Johnson
+Answer: A
+920. Which player was Finals MVP for the 1994 Rockets?
+A) Hakeem Olajuwon
+B) Clyde Drexler
+C) Otis Thorpe
+D) Kenny Smith
+Answer: A
+921. Which player was Finals MVP for the 1995 Rockets?
+A) Hakeem Olajuwon
+B) Clyde Drexler
+C) Robert Horry
+D) Sam Cassell
+Answer: A
+922. Which player was named Finals MVP after averaging a triple-double in the 2024 Finals?
+A) Jayson Tatum
+B) Jaylen Brown
+C) Luka Doncic
+D) Jrue Holiday
+Answer: B
+923. Which player was named Eastern Conference Finals MVP in 2024?
+A) Jayson Tatum
+B) Jaylen Brown
+C) Derrick White
+D) Jrue Holiday
+Answer: B
+924. Which player was named Western Conference Finals MVP in 2024?
+A) Luka Doncic
+B) Kyrie Irving
+C) Anthony Edwards
+D) Karl-Anthony Towns
+Answer: A
+925. Which player won the 2023 Western Conference Finals MVP?
+A) Nikola Jokic
+B) Jamal Murray
+C) Aaron Gordon
+D) Michael Porter Jr.
+Answer: A
+926. Which player won the 2023 Eastern Conference Finals MVP?
+A) Jayson Tatum
+B) Jimmy Butler
+C) Jaylen Brown
+D) Caleb Martin
+Answer: B
+927. Which player won the 2022 Eastern Conference Finals MVP?
+A) Jayson Tatum
+B) Jimmy Butler
+C) Jaylen Brown
+D) Al Horford
+Answer: A
+928. Which player won the 2022 Western Conference Finals MVP?
+A) Stephen Curry
+B) Klay Thompson
+C) Andrew Wiggins
+D) Draymond Green
+Answer: A
+929. Which team did LeBron James score 61 points against in 2014?
+A) Charlotte Bobcats
+B) Miami Heat
+C) Knicks
+D) Nets
+Answer: A
+930. Which team did LeBron score 61 points against while playing for Miami?
+A) Bobcats
+B) Knicks
+C) Hornets
+D) Pacers
+Answer: A
+931. Which player scored 61 at MSG in 2014 for the Knicks?
+A) Carmelo Anthony
+B) Amar'e Stoudemire
+C) J.R. Smith
+D) Raymond Felton
+Answer: A
+932. Which player scored 61 points against the Charlotte Hornets in a 2014 Heat game?
+A) LeBron James
+B) Dwyane Wade
+C) Chris Bosh
+D) Ray Allen
+Answer: A
+933. Which player recorded 17 assists in an NBA Finals game in 2008?
+A) Rajon Rondo
+B) Paul Pierce
+C) Kobe Bryant
+D) Derek Fisher
+Answer: A
+934. Which player had 17 assists in Game 2 of the 2010 Finals?
+A) Rajon Rondo
+B) Steve Nash
+C) Kobe Bryant
+D) Paul Pierce
+Answer: A
+935. Which player was credited with a triple-double in Game 7 of the 2010 Finals?
+A) Rajon Rondo
+B) Paul Pierce
+C) Lamar Odom
+D) Kobe Bryant
+Answer: A
+936. Which team did the Celtics face in the 2010 Finals?
+A) Lakers
+B) Magic
+C) Cavaliers
+D) Suns
+Answer: A
+937. Which team did the Lakers face in the 2008 Finals?
+A) Celtics
+B) Magic
+C) Pistons
+D) Spurs
+Answer: A
+938. Which team did the Lakers face in the 2010 Finals?
+A) Celtics
+B) Suns
+C) Mavericks
+D) Jazz
+Answer: A
+939. Which player won the 2008 All-Star Game MVP while the game was in New Orleans?
+A) LeBron James
+B) Kobe Bryant
+C) Chris Paul
+D) Carmelo Anthony
+Answer: B
+940. Which player won the 2009 All-Star Game MVP?
+A) Kobe Bryant and Shaquille O'Neal
+B) LeBron James
+C) Dwyane Wade
+D) Kevin Garnett
+Answer: A
+941. Who shared the 2009 All-Star Game MVP with Kobe Bryant?
+A) Shaquille O'Neal
+B) LeBron James
+C) Dwyane Wade
+D) Dwight Howard
+Answer: A
+942. Which player scored the first basket in the NBA's first game in 1946?
+A) Ossie Schectman
+B) George Mikan
+C) Joe Fulks
+D) Max Zaslofsky
+Answer: A
+943. Which team played in the first BAA game in 1946?
+A) New York Knicks
+B) Boston Celtics
+C) Philadelphia Warriors
+D) Toronto Huskies
+Answer: A
+944. Which team did the Knicks play in the first BAA game?
+A) Toronto Huskies
+B) Warriors
+C) Celtics
+D) Pistons
+Answer: A
+945. Which team won the first BAA championship?
+A) Philadelphia Warriors
+B) Boston Celtics
+C) Minneapolis Lakers
+D) Chicago Stags
+Answer: A
+946. Which player was the first NBA player to wear No. 23 for Chicago?
+A) Michael Jordan
+B) Bob Love
+C) Chet Walker
+D) Artis Gilmore
+Answer: B
+947. Which Bulls player had No. 10 retired by Chicago?
+A) Bob Love
+B) Jerry Sloan
+C) Phil Jordan
+D) Norm Van Lier
+Answer: A
+948. Which Bulls player had No. 4 retired by Chicago?
+A) Jerry Sloan
+B) Bob Love
+C) Scottie Pippen
+D) Horace Grant
+Answer: A
+949. Which Bulls player had No. 5 retired by Chicago?
+A) Johnny Kerr
+B) Jerry Sloan
+C) Bob Love
+D) Artis Gilmore
+Answer: A
+950. Which team retired Bill Russell's No. 6 across the NBA in 2022?
+A) The NBA league-wide
+B) Celtics only
+C) All teams voluntarily
+D) No teams
+Answer: A
+951. Which player had his No. 6 retired league-wide in 2022?
+A) Bill Russell
+B) Julius Erving
+C) LeBron James
+D) Draymond Green
+Answer: A
+952. Which player's No. 32 was retired by six different NBA teams?
+A) Magic Johnson
+B) Shaquille O'Neal
+C) Bill Walton
+D) Julius Erving
+Answer: A
+953. Which player's No. 33 was retired by multiple franchises including Boston and Miami?
+A) Larry Bird
+B) Alonzo Mourning
+C) Kareem Abdul-Jabbar
+D) Patrick Ewing
+Answer: A
+954. Which player had his No. 24 retired by both Lakers and Hornets?
+A) Kobe Bryant
+B) Rick Robey
+C) Bobby Phills
+D) Dell Curry
+Answer: A
+955. Which player had No. 7 retired by both the Nuggets and a second franchise?
+A) Carmelo Anthony
+B) Pete Maravich
+C) None
+D) Chauncey Billups
+Answer: C
+956. Which player had No. 21 retired by both Utah and a second franchise?
+A) Tim Duncan
+B) Dominique Wilkins
+C) Robert Parish
+D) None
+Answer: D
+957. Which arena was known as The Palace of Auburn Hills?
+A) Pistons home
+B) Lakers home
+C) Bulls home
+D) Pacers home
+Answer: A
+958. Which team played at Market Square Arena before moving downtown?
+A) Pacers
+B) Pistons
+C) Bucks
+D) Cavaliers
+Answer: A
+959. Which team's famous home arena was The Forum before Staples Center?
+A) Lakers
+B) Knicks
+C) Celtics
+D) 76ers
+Answer: A
+960. Which team played at the Summit in Houston?
+A) Rockets
+B) Spurs
+C) Mavericks
+D) Suns
+Answer: A
+961. Which arena hosted the famous 2001-02 Lakers before the name changed from Staples Center?
+A) Staples Center
+B) Forum
+C) Crypto.com Arena
+D) Intuit Dome
+Answer: A
+962. What was the Lakers' home arena called before Crypto.com Arena?
+A) Staples Center
+B) Staples Forum
+C) The Forum
+D) Los Angeles Center
+Answer: A
+963. Which player became famous for wearing a headband with 'Fear the Deer' style during the Bucks' title run?
+A) Jrue Holiday
+B) Bobby Portis
+C) Giannis Antetokounmpo
+D) Pat Connaughton
+Answer: B
+964. Which Bucks player became known for his chaotic energy and goggles during the 2021 title run?
+A) Bobby Portis
+B) Brook Lopez
+C) Pat Connaughton
+D) George Hill
+Answer: A
+965. Which Suns player became known as 'Point God' during his career?
+A) Chris Paul
+B) Steve Nash
+C) Jason Kidd
+D) Rajon Rondo
+Answer: A
+966. Which player was nicknamed 'Uncle Drew' in a popular advertising persona?
+A) Kyrie Irving
+B) Chris Paul
+C) Damian Lillard
+D) Stephen Curry
+Answer: A
+967. Which player was the subject of the 'Harden Stepback' controversy over traveling?
+A) James Harden
+B) Joel Embiid
+C) Luka Doncic
+D) Trae Young
+Answer: A
+968. Which player was known for the 'Taco Bell' sponsorship jokes during his rookie years?
+A) Kristaps Porzingis
+B) Luka Doncic
+C) Jeremy Lin
+D) Jeremy Lamb
+Answer: A
+969. Which player became the face of the 'Linsanity' phenomenon in New York?
+A) Jeremy Lin
+B) Jeremy Lamb
+C) Lin Sanity
+D) Steve Novak
+Answer: A
+970. Against which team did Linsanity explode with a 38-point performance in 2012?
+A) Lakers
+B) Nets
+C) Heat
+D) Raptors
+Answer: A
+971. Which player hit the game-winning three in the 2012 Knicks-Lakers game during Linsanity?
+A) Jeremy Lin
+B) Steve Novak
+C) Carmelo Anthony
+D) J.R. Smith
+Answer: A
+972. Which Lakers player defended Jeremy Lin during the famous 2012 Linsanity game?
+A) Derek Fisher
+B) Kobe Bryant
+C) Steve Nash
+D) Metta World Peace
+Answer: B
+973. Which Knicks teammate missed part of the 2012 Linsanity stretch with an injury?
+A) Carmelo Anthony
+B) Amar'e Stoudemire
+C) Tyson Chandler
+D) J.R. Smith
+Answer: A
+974. Which player hit a game-winning jumper over LeBron James in the 2013 NBA Finals?
+A) Ray Allen
+B) Tony Parker
+C) Manu Ginobili
+D) Chris Bosh
+Answer: A
+975. Which Spurs player hit a crucial three after the Heat's comeback threat in 2013 Game 6?
+A) Gary Neal
+B) Danny Green
+C) Manu Ginobili
+D) Boris Diaw
+Answer: B
+976. Which Spurs player was left wide open repeatedly in the 2013 Finals and set a 3-point record?
+A) Danny Green
+B) Kawhi Leonard
+C) Matt Bonner
+D) Marco Belinelli
+Answer: A
+977. Which player hit seven threes in Game 3 of the 2014 Finals?
+A) Danny Green
+B) LeBron James
+C) Tony Parker
+D) Kawhi Leonard
+Answer: A
+978. Which Heat player scored 32 points in the 2013 Finals Game 7?
+A) LeBron James
+B) Dwyane Wade
+C) Chris Bosh
+D) Ray Allen
+Answer: A
+979. Which player scored 37 points in Game 5 of the 2015 Finals?
+A) LeBron James
+B) Stephen Curry
+C) Andre Iguodala
+D) Klay Thompson
+Answer: C
+980. Which player started at center for Golden State in Game 5 of the 2015 Finals after the lineup change?
+A) Draymond Green
+B) Andrew Bogut
+C) Andre Iguodala
+D) Marreese Speights
+Answer: A
+981. Which Warriors player became a starting center in small-ball lineups during the 2015 Finals?
+A) Draymond Green
+B) Harrison Barnes
+C) Shaun Livingston
+D) Klay Thompson
+Answer: A
+982. Which player scored 39 points for Golden State in the 2016 Finals Game 5?
+A) Stephen Curry
+B) Klay Thompson
+C) Kevin Durant
+D) Draymond Green
+Answer: A
+983. Which Warriors player was suspended for Game 5 of the 2016 Finals?
+A) Draymond Green
+B) Klay Thompson
+C) Stephen Curry
+D) Andrew Bogut
+Answer: A
+984. Which Cavaliers player returned for Game 7 after being suspended for the previous game?
+A) No Cav player was suspended
+B) J.R. Smith
+C) Kyrie Irving
+D) Tristan Thompson
+Answer: A
+985. Which player scored 43 points in Game 3 of the 2021 NBA Finals?
+A) Devin Booker
+B) Giannis Antetokounmpo
+C) Chris Paul
+D) Khris Middleton
+Answer: A
+986. Which player scored 42 points in Game 2 of the 2021 Finals?
+A) Giannis Antetokounmpo
+B) Khris Middleton
+C) Devin Booker
+D) Chris Paul
+Answer: A
+987. Which player had a 40-point triple-double in the 2021 Finals?
+A) Giannis Antetokounmpo
+B) Devin Booker
+C) Chris Paul
+D) Khris Middleton
+Answer: A
+988. Which player became the first player to win Finals MVP with the losing team?
+A) Jerry West
+B) Elgin Baylor
+C) Magic Johnson
+D) Bill Russell
+Answer: A
+989. Jerry West won Finals MVP for which team in 1969?
+A) Lakers
+B) Celtics
+C) Warriors
+D) Knicks
+Answer: A
+990. Which team beat Jerry West's Lakers in the 1969 Finals?
+A) Celtics
+B) Knicks
+C) Bucks
+D) 76ers
+Answer: A
+991. Which player was named Finals MVP three times before age 30?
+A) Shaquille O'Neal
+B) Michael Jordan
+C) Magic Johnson
+D) LeBron James
+Answer: B
+992. Which player won Finals MVP in his first three championship appearances?
+A) Michael Jordan
+B) Kobe Bryant
+C) Shaquille O'Neal
+D) Magic Johnson
+Answer: A
+993. Which player led the 2001 76ers to the Finals?
+A) Allen Iverson
+B) Dikembe Mutombo
+C) Eric Snow
+D) Aaron McKie
+Answer: A
+994. Which player won 2001 Defensive Player of the Year after joining Philadelphia midseason?
+A) Dikembe Mutombo
+B) Allen Iverson
+C) Theo Ratliff
+D) Matt Geiger
+Answer: A
+995. Which player won 2001 Sixth Man of the Year for Philadelphia?
+A) Aaron McKie
+B) Eric Snow
+C) Toni Kukoc
+D) George Lynch
+Answer: A
+996. Which team did Philadelphia beat in the 2001 Eastern Conference Finals?
+A) Bucks
+B) Raptors
+C) Pacers
+D) Magic
+Answer: A
+997. Which player hit a famous game-winner against Toronto in the 2019 playoffs for Philadelphia?
+A) Kawhi Leonard
+B) Jimmy Butler
+C) Joel Embiid
+D) Pascal Siakam
+Answer: A
+998. Which Philadelphia player had 16 points and 8 rebounds in the 2019 Game 7 against Toronto?
+A) Joel Embiid
+B) Jimmy Butler
+C) Ben Simmons
+D) Tobias Harris
+Answer: A
+999. Which player was traded from Oklahoma City to Houston in 2012 and later won MVP?
+A) James Harden
+B) Russell Westbrook
+C) Kevin Durant
+D) Serge Ibaka
+Answer: A
+1000. Which player was the reigning Sixth Man of the Year when Oklahoma City traded him to Houston?
+A) James Harden
+B) Kevin Martin
+C) Jeff Green
+D) Eric Maynor
+Answer: A

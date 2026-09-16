@@ -30,11 +30,13 @@ const DIFFICULTY_STYLE: Record<QuizDifficulty, string> = {
 export default function QuizHome({
   categories,
   quizzes,
+  initialSport = "nba",
 }: {
   categories: QuizCategory[]
   quizzes: QuizSummary[]
+  initialSport?: QuizSport
 }) {
-  const [sport, setSport] = useState<QuizSport>("nba")
+  const [sport, setSport] = useState<QuizSport>(initialSport)
 
   const sportCategories = useMemo(
     () => categories.filter((c) => c.sport === sport),

@@ -49,6 +49,17 @@ export interface Question {
   explanation?: string
 }
 
+/**
+ * A question in a generated bank, tagged with the coarse bucket it belongs to.
+ * The three buckets map onto the three quizzes shown per sport: player, team,
+ * and mixed (everything else). `data.ts` groups these into `Quiz` objects.
+ */
+export type QuizBucket = "player" | "team" | "mixed"
+
+export interface BankQuestion extends Question {
+  bucket: QuizBucket
+}
+
 /** A playable quiz: an ordered set of questions within a category. */
 export interface Quiz {
   /** Stable slug, globally unique across sports. */

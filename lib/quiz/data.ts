@@ -1,14 +1,11 @@
 /**
  * The quiz question bank (NBA + NFL).
  *
- * This is the ONLY file you edit to add questions. Each quiz lists its
- * questions inline; the correct answer is the 0-based index into `options`.
- *
- * The user is filling in the real questions/answers later — the entries below
- * are a small, correct starter set that establishes the shape and gives every
- * category at least one playable quiz. Add more questions to any `questions`
- * array, or add whole new `Quiz` objects, and the API + UI pick them up with no
- * further changes.
+ * Each sport exposes exactly THREE quizzes — Player, Team, and Mixed — so the
+ * landing page stays a clean three-card grid. The large NBA banks are generated
+ * (scripts/quiz/*) into flat, bucketed question lists; this file pools them into
+ * one quiz per bucket. To add questions, edit the raw files and regenerate, or
+ * push entries into the STARTER_* arrays below.
  *
  * Invariants (enforced by `assertBankValid` in dev/tests):
  *  - every quiz id is globally unique
@@ -16,179 +13,181 @@
  *  - every question has >= 2 options and a valid `answer` index
  */
 
-import type { Quiz, QuizCategory, QuizSport } from "./types"
+import { NBA_500_QUESTIONS } from "./nba-500"
+import { NBA_1000_QUESTIONS } from "./nba-501-1000"
+import type { BankQuestion, Question, Quiz, QuizBucket, QuizCategory, QuizSport } from "./types"
 
-// ─── Categories ──────────────────────────────────────────────────────────────
+// ─── Categories: exactly three per sport ─────────────────────────────────────
 
 export const QUIZ_CATEGORIES: QuizCategory[] = [
   // NBA
-  { id: "nba-general", sport: "nba", title: "General NBA", description: "Test your all-around basketball IQ.", icon: "Basketball" },
-  { id: "nba-players", sport: "nba", title: "Players", description: "Stars, legends, and role players.", icon: "User" },
-  { id: "nba-teams", sport: "nba", title: "Teams", description: "Franchises, dynasties, and rivalries.", icon: "Users" },
-  { id: "nba-history", sport: "nba", title: "History", description: "Championships and defining moments.", icon: "Trophy" },
+  { id: "nba-player", sport: "nba", title: "Player", description: "Stars, legends, scorers, and draft lore.", icon: "User" },
+  { id: "nba-team", sport: "nba", title: "Team", description: "Franchises, dynasties, arenas, and rivalries.", icon: "Users" },
+  { id: "nba-mixed", sport: "nba", title: "Mixed", description: "History, moments, rules, and everything else.", icon: "Trophy" },
   // NFL
-  { id: "nfl-general", sport: "nfl", title: "General NFL", description: "How well do you know football?", icon: "Shield" },
-  { id: "nfl-players", sport: "nfl", title: "Players", description: "QBs, skill players, and defenders.", icon: "User" },
-  { id: "nfl-teams", sport: "nfl", title: "Teams", description: "Franchises, divisions, and rivalries.", icon: "Users" },
-  { id: "nfl-history", sport: "nfl", title: "History", description: "Super Bowls and legendary games.", icon: "Trophy" },
+  { id: "nfl-player", sport: "nfl", title: "Player", description: "QBs, skill players, and defenders.", icon: "User" },
+  { id: "nfl-team", sport: "nfl", title: "Team", description: "Franchises, divisions, and rivalries.", icon: "Users" },
+  { id: "nfl-mixed", sport: "nfl", title: "Mixed", description: "Super Bowls, rules, and everything else.", icon: "Trophy" },
 ]
 
-// ─── Quizzes ───────────────────────────────────────────────────────────────
+// ─── Starter questions (small hand-written set), tagged by bucket ────────────
+
+const STARTER_NBA: BankQuestion[] = [
+  {
+    id: "nba-p-1",
+    bucket: "player",
+    prompt: "Which player is the NBA's all-time leading scorer?",
+    options: ["Kareem Abdul-Jabbar", "Karl Malone", "LeBron James", "Kobe Bryant"],
+    answer: 2,
+    explanation: "LeBron James passed Kareem Abdul-Jabbar for the all-time scoring record in 2023.",
+  },
+  {
+    id: "nba-t-1",
+    bucket: "team",
+    prompt: "Which team plays its home games at Madison Square Garden?",
+    options: ["Brooklyn Nets", "New York Knicks", "Boston Celtics", "Philadelphia 76ers"],
+    answer: 1,
+    explanation: "The New York Knicks call Madison Square Garden home.",
+  },
+  {
+    id: "nba-g-1",
+    bucket: "mixed",
+    prompt: "How many players from one team are on the court at a time?",
+    options: ["4", "5", "6", "7"],
+    answer: 1,
+    explanation: "Each team fields five players at a time.",
+  },
+  {
+    id: "nba-g-2",
+    bucket: "mixed",
+    prompt: "How many points is a shot made from beyond the arc worth?",
+    options: ["1", "2", "3", "4"],
+    answer: 2,
+    explanation: "A made shot beyond the three-point line is worth three points.",
+  },
+  {
+    id: "nba-h-1",
+    bucket: "mixed",
+    prompt: "Which franchise has won the most NBA championships (tied at the top)?",
+    options: ["Los Angeles Lakers", "Chicago Bulls", "Golden State Warriors", "Miami Heat"],
+    answer: 0,
+    explanation: "The Lakers and Celtics are tied atop the all-time championship list.",
+  },
+]
+
+const STARTER_NFL: BankQuestion[] = [
+  {
+    id: "nfl-p-1",
+    bucket: "player",
+    prompt: "Which quarterback has won the most Super Bowls?",
+    options: ["Joe Montana", "Tom Brady", "Peyton Manning", "Terry Bradshaw"],
+    answer: 1,
+    explanation: "Tom Brady won seven Super Bowls, the most by any player.",
+  },
+  {
+    id: "nfl-t-1",
+    bucket: "team",
+    prompt: "Which team plays its home games at Lambeau Field?",
+    options: ["Chicago Bears", "Green Bay Packers", "Minnesota Vikings", "Detroit Lions"],
+    answer: 1,
+    explanation: "Lambeau Field is the home of the Green Bay Packers.",
+  },
+  {
+    id: "nfl-g-1",
+    bucket: "mixed",
+    prompt: "How many points is a touchdown worth (before the extra point)?",
+    options: ["3", "6", "7", "2"],
+    answer: 1,
+    explanation: "A touchdown is worth six points; the try afterward can add one or two.",
+  },
+  {
+    id: "nfl-g-2",
+    bucket: "mixed",
+    prompt: "How many players from one team are on the field at a time?",
+    options: ["10", "11", "12", "9"],
+    answer: 1,
+    explanation: "Each team fields eleven players at a time.",
+  },
+  {
+    id: "nfl-h-1",
+    bucket: "mixed",
+    prompt: "What is the championship game of the NFL season called?",
+    options: ["The Finals", "The Super Bowl", "The Grey Cup", "The Pro Bowl"],
+    answer: 1,
+    explanation: "The Super Bowl decides the NFL champion each season.",
+  },
+]
+
+// ─── Quiz assembly ───────────────────────────────────────────────────────────
+
+const BUCKET_META: Record<QuizBucket, { title: string; description: string }> = {
+  player: { title: "Player", description: "Stars, legends, scorers, and draft lore." },
+  team: { title: "Team", description: "Franchises, dynasties, arenas, and rivalries." },
+  mixed: { title: "Mixed", description: "History, moments, rules, and everything else." },
+}
+
+const BUCKETS: QuizBucket[] = ["player", "team", "mixed"]
+
+/**
+ * How many questions each assembled quiz plays. The banks hold hundreds of
+ * questions per bucket, but a single sitting should be short and completable —
+ * the player answers every question before submitting, and grading counts the
+ * whole quiz. We take an evenly-spaced slice across the pool so the sample
+ * spans eras rather than just the first N.
+ */
+const QUESTIONS_PER_QUIZ = 20
+
+/** Strip the bucket tag to get a plain quiz Question. */
+function toQuestion(q: BankQuestion): Question {
+  return {
+    id: q.id,
+    prompt: q.prompt,
+    options: q.options,
+    answer: q.answer,
+    explanation: q.explanation,
+  }
+}
+
+/** Evenly sample up to `count` items across the whole array (stable order). */
+function sampleEvenly<T>(arr: T[], count: number): T[] {
+  if (arr.length <= count) return arr
+  const step = arr.length / count
+  const out: T[] = []
+  for (let i = 0; i < count; i++) out.push(arr[Math.floor(i * step)])
+  return out
+}
+
+/**
+ * Build the three quizzes for a sport by pooling bank questions into their
+ * bucket, then sampling a short, completable set. A bucket with no questions is
+ * skipped so we never ship an empty quiz.
+ */
+function buildSportQuizzes(sport: QuizSport, bank: BankQuestion[]): Quiz[] {
+  return BUCKETS.flatMap((bucket) => {
+    const pool = bank.filter((q) => q.bucket === bucket).map(toQuestion)
+    if (pool.length === 0) return []
+    const questions = sampleEvenly(pool, QUESTIONS_PER_QUIZ)
+    const meta = BUCKET_META[bucket]
+    return [
+      {
+        id: `${sport}-${bucket}`,
+        sport,
+        categoryId: `${sport}-${bucket}`,
+        title: meta.title,
+        description: meta.description,
+        difficulty: "medium" as const,
+        questions,
+      },
+    ]
+  })
+}
+
+const NBA_BANK: BankQuestion[] = [...STARTER_NBA, ...NBA_500_QUESTIONS, ...NBA_1000_QUESTIONS]
+const NFL_BANK: BankQuestion[] = [...STARTER_NFL]
 
 export const QUIZZES: Quiz[] = [
-  // ── NBA ──────────────────────────────────────────────────────────────────
-  {
-    id: "nba-general-warmup",
-    sport: "nba",
-    categoryId: "nba-general",
-    title: "NBA Warmup",
-    description: "A quick round to get your basketball IQ going.",
-    difficulty: "easy",
-    questions: [
-      {
-        id: "nba-g-1",
-        prompt: "How many players from one team are on the court at a time?",
-        options: ["4", "5", "6", "7"],
-        answer: 1,
-        explanation: "Each team fields five players at a time.",
-      },
-      {
-        id: "nba-g-2",
-        prompt: "How many points is a shot made from beyond the arc worth?",
-        options: ["1", "2", "3", "4"],
-        answer: 2,
-        explanation: "A made shot beyond the three-point line is worth three points.",
-      },
-    ],
-  },
-  {
-    id: "nba-players-legends",
-    sport: "nba",
-    categoryId: "nba-players",
-    title: "Legends",
-    description: "Icons who defined the game.",
-    difficulty: "medium",
-    questions: [
-      {
-        id: "nba-p-1",
-        prompt: "Which player is the NBA's all-time leading scorer?",
-        options: ["Kareem Abdul-Jabbar", "Karl Malone", "LeBron James", "Kobe Bryant"],
-        answer: 2,
-        explanation: "LeBron James passed Kareem Abdul-Jabbar for the all-time scoring record in 2023.",
-      },
-    ],
-  },
-  {
-    id: "nba-teams-franchises",
-    sport: "nba",
-    categoryId: "nba-teams",
-    title: "Franchises",
-    description: "Know your teams and cities.",
-    difficulty: "easy",
-    questions: [
-      {
-        id: "nba-t-1",
-        prompt: "Which team plays its home games at Madison Square Garden?",
-        options: ["Brooklyn Nets", "New York Knicks", "Boston Celtics", "Philadelphia 76ers"],
-        answer: 1,
-        explanation: "The New York Knicks call Madison Square Garden home.",
-      },
-    ],
-  },
-  {
-    id: "nba-history-titles",
-    sport: "nba",
-    categoryId: "nba-history",
-    title: "Title Town",
-    description: "Champions through the years.",
-    difficulty: "hard",
-    questions: [
-      {
-        id: "nba-h-1",
-        prompt: "Which franchise has won the most NBA championships (tied at the top)?",
-        options: ["Los Angeles Lakers", "Chicago Bulls", "Golden State Warriors", "Miami Heat"],
-        answer: 0,
-        explanation: "The Lakers and Celtics are tied atop the all-time championship list.",
-      },
-    ],
-  },
-
-  // ── NFL ──────────────────────────────────────────────────────────────────
-  {
-    id: "nfl-general-warmup",
-    sport: "nfl",
-    categoryId: "nfl-general",
-    title: "NFL Warmup",
-    description: "Kick off with the basics of football.",
-    difficulty: "easy",
-    questions: [
-      {
-        id: "nfl-g-1",
-        prompt: "How many points is a touchdown worth (before the extra point)?",
-        options: ["3", "6", "7", "2"],
-        answer: 1,
-        explanation: "A touchdown is worth six points; the try afterward can add one or two.",
-      },
-      {
-        id: "nfl-g-2",
-        prompt: "How many players from one team are on the field at a time?",
-        options: ["10", "11", "12", "9"],
-        answer: 1,
-        explanation: "Each team fields eleven players at a time.",
-      },
-    ],
-  },
-  {
-    id: "nfl-players-stars",
-    sport: "nfl",
-    categoryId: "nfl-players",
-    title: "Stars",
-    description: "The names that move the needle.",
-    difficulty: "medium",
-    questions: [
-      {
-        id: "nfl-p-1",
-        prompt: "Which quarterback has won the most Super Bowls?",
-        options: ["Joe Montana", "Tom Brady", "Peyton Manning", "Terry Bradshaw"],
-        answer: 1,
-        explanation: "Tom Brady won seven Super Bowls, the most by any player.",
-      },
-    ],
-  },
-  {
-    id: "nfl-teams-franchises",
-    sport: "nfl",
-    categoryId: "nfl-teams",
-    title: "Franchises",
-    description: "Cities, colors, and divisions.",
-    difficulty: "easy",
-    questions: [
-      {
-        id: "nfl-t-1",
-        prompt: "Which team plays its home games at Lambeau Field?",
-        options: ["Chicago Bears", "Green Bay Packers", "Minnesota Vikings", "Detroit Lions"],
-        answer: 1,
-        explanation: "Lambeau Field is the home of the Green Bay Packers.",
-      },
-    ],
-  },
-  {
-    id: "nfl-history-superbowls",
-    sport: "nfl",
-    categoryId: "nfl-history",
-    title: "Super Bowl History",
-    description: "The biggest games ever played.",
-    difficulty: "hard",
-    questions: [
-      {
-        id: "nfl-h-1",
-        prompt: "What is the championship game of the NFL season called?",
-        options: ["The Finals", "The Super Bowl", "The Grey Cup", "The Pro Bowl"],
-        answer: 1,
-        explanation: "The Super Bowl decides the NFL champion each season.",
-      },
-    ],
-  },
+  ...buildSportQuizzes("nba", NBA_BANK),
+  ...buildSportQuizzes("nfl", NFL_BANK),
 ]
 
 // ─── Lookups ──────────────────────────────────────────────────────────────
