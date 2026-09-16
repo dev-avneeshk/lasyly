@@ -4,8 +4,9 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
-import { getQuiz } from "@/lib/quiz/data"
+import { getQuiz, questionsByIds } from "@/lib/quiz/data"
 import { gradeQuiz, type SubmittedAnswer } from "@/lib/quiz/grade"
+import { verifyAttemptToken } from "@/lib/quiz/attemptToken"
 
 const submitSchema = z.object({
   answers: z
@@ -16,6 +17,9 @@ const submitSchema = z.object({
       })
     )
     .max(200),
+  // Signed token from GET /attempt binding this submission to the exact set of
+  // served question ids. Optional so a full-quiz submit still works.
+  token: z.string().max(4000).optional(),
 })
 
 /**
@@ -55,7 +59,24 @@ export const POST = withSecurity(async (
   const [data, err] = validateRequestBody(body, submitSchema)
   if (err) return err
 
-  const graded = gradeQuiz(quiz, data.answers as SubmittedAnswer[])
+  // If the client played a randomized attempt it returns the signed token that
+  // fixes the served question set. Verify it and grade ONLY those questions, so
+  // a client can't shrink its own graded set. Fall back to the full quiz when
+  // no token is present (e.g. a direct full-quiz submit).
+  let toGrade = quiz
+  if (data.token) {
+    const verified = verifyAttemptToken(data.token)
+    if (!verified || verified.quizId !== quiz.id) {
+      return NextResponse.json({ error: "Invalid or expired attempt." }, { status: 400 })
+    }
+    const servedQuestions = questionsByIds(quiz.id, verified.ids)
+    if (servedQuestions.length === 0) {
+      return NextResponse.json({ error: "Attempt has no gradable questions." }, { status: 400 })
+    }
+    toGrade = { ...quiz, questions: servedQuestions }
+  }
+
+  const graded = gradeQuiz(toGrade, data.answers as SubmittedAnswer[])
 
   // Best-effort persistence: a failed insert shouldn't deny the player their
   // result. Log-and-continue keeps grading available even if the DB is down.

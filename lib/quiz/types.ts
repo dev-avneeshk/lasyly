@@ -58,6 +58,11 @@ export type QuizBucket = "player" | "team" | "mixed"
 
 export interface BankQuestion extends Question {
   bucket: QuizBucket
+  /**
+   * Coarse difficulty used for the difficulty filter. For the generated banks
+   * this is a heuristic label (see the generators), not a hand-graded value.
+   */
+  difficulty: QuizDifficulty
 }
 
 /** A playable quiz: an ordered set of questions within a category. */

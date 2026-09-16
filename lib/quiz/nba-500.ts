@@ -8,6 +8,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q1",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "In the 2016 NBA Finals, Cleveland erased what series deficit against Golden State?",
     options: ["1-0", "2-0", "3-1", "3-2"],
     answer: 2,
@@ -15,6 +16,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q2",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who hit the famous Game 7 go-ahead three for Cleveland late in the 2016 Finals?",
     options: ["Kyrie Irving", "LeBron James", "Kevin Love", "J.R. Smith"],
     answer: 0,
@@ -22,6 +24,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q3",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "LeBron's chase-down block in the 2016 Finals came on which Warriors player?",
     options: ["Klay Thompson", "Stephen Curry", "Andre Iguodala", "Draymond Green"],
     answer: 2,
@@ -29,6 +32,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q4",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 2016 Finals ended Cleveland's major sports championship drought of roughly how many years?",
     options: ["26", "32", "41", "52"],
     answer: 2,
@@ -36,6 +40,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q5",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Ray Allen's iconic Game 6 three in the 2013 Finals came against which team?",
     options: ["Thunder", "Spurs", "Heat", "Pacers"],
     answer: 1,
@@ -43,6 +48,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q6",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Ray Allen's 2013 Game 6 shot was taken from which corner?",
     options: ["Left corner", "Right corner", "Top of the key", "Baseline extended"],
     answer: 1,
@@ -50,6 +56,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q7",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who missed two free throws late in Game 6 before Allen's 2013 save?",
     options: ["LeBron James", "Chris Bosh", "Kawhi Leonard", "Manu Ginobili"],
     answer: 3,
@@ -57,6 +64,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q8",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player grabbed the offensive rebound that set up Ray Allen's tying three in 2013?",
     options: ["Chris Bosh", "LeBron James", "Dwyane Wade", "Udonis Haslem"],
     answer: 0,
@@ -64,6 +72,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q9",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Kobe Bryant scored 81 points against which franchise?",
     options: ["Raptors", "Suns", "Warriors", "Nuggets"],
     answer: 0,
@@ -71,6 +80,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q10",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Kobe's 81-point game came in which season?",
     options: ["2004-05", "2005-06", "2006-07", "2007-08"],
     answer: 1,
@@ -78,6 +88,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q11",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Wilt Chamberlain's 100-point game was played in which city?",
     options: ["New York", "Philadelphia", "Hershey", "Boston"],
     answer: 2,
@@ -85,6 +96,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q12",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Wilt's 100-point game came against the Knicks in which season?",
     options: ["1959-60", "1960-61", "1961-62", "1962-63"],
     answer: 2,
@@ -92,6 +104,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q13",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Michael Jordan's famous 'Flu Game' was Game 5 of which Finals?",
     options: ["1996", "1997", "1998", "1999"],
     answer: 1,
@@ -99,6 +112,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q14",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who was Jordan's opponent in the 1998 Finals?",
     options: ["Lakers", "Jazz", "Pacers", "Sonics"],
     answer: 1,
@@ -106,6 +120,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q15",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Jordan's game-winning shot in the 1998 Finals came over which defender?",
     options: ["Bryon Russell", "Jeff Hornacek", "Karl Malone", "John Stockton"],
     answer: 0,
@@ -113,6 +128,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q16",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Jordan's final shot as a Bull gave Chicago its sixth championship against whom?",
     options: ["Jazz", "Pacers", "Lakers", "Suns"],
     answer: 0,
@@ -120,6 +136,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q17",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Magic Johnson won a Finals MVP while playing center in place of an injured Kareem in which year?",
     options: ["1979", "1980", "1981", "1982"],
     answer: 1,
@@ -127,6 +144,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q18",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Magic's 1980 Game 6 center performance was for which team?",
     options: ["76ers", "Celtics", "Lakers", "Bucks"],
     answer: 2,
@@ -134,6 +152,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q19",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Larry Bird's famous steal late in Game 6 of the 1987 East Finals helped Boston beat which team?",
     options: ["Bulls", "Pistons", "Bucks", "Hawks"],
     answer: 1,
@@ -141,6 +160,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q20",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Larry Bird's steal-and-assist in 1987 was famously against which opponent?",
     options: ["Isiah Thomas", "Bill Laimbeer", "Dennis Rodman", "Vinnie Johnson"],
     answer: 0,
@@ -148,6 +168,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q21",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Robert Horry hit a championship-clinching three for the Lakers in Game 4 of the 2002 West Finals against which team?",
     options: ["Spurs", "Kings", "Mavericks", "Blazers"],
     answer: 1,
@@ -155,6 +176,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q22",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 2002 Lakers-Kings Game 7 was decided in which team's arena?",
     options: ["Staples Center", "Arco Arena", "Oracle Arena", "Memorial Coliseum"],
     answer: 1,
@@ -162,6 +184,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q23",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who hit the buzzer-beating shot in Game 4 of the 2004 West first round for Houston?",
     options: ["Tracy McGrady", "Steve Francis", "Yao Ming", "Derek Fisher"],
     answer: 3,
@@ -169,6 +192,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q24",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Derek Fisher's 0.4-second shot in 2004 came against which team?",
     options: ["Spurs", "Kings", "Suns", "Rockets"],
     answer: 0,
@@ -176,6 +200,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q25",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Damian Lillard's 2014 playoff buzzer-beater eliminated which team?",
     options: ["Rockets", "Thunder", "Spurs", "Warriors"],
     answer: 0,
@@ -183,6 +208,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q26",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Lillard's 2014 series-winning three came with how much time left?",
     options: ["0.9 seconds", "0.6 seconds", "0.3 seconds", "0.1 seconds"],
     answer: 2,
@@ -190,6 +216,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q27",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Damian Lillard's famous 2019 series-winning three was against which team?",
     options: ["Thunder", "Nuggets", "Clippers", "Warriors"],
     answer: 0,
@@ -197,6 +224,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q28",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Lillard's 2019 shot came in which round?",
     options: ["First round", "Second round", "Conference Finals", "Finals"],
     answer: 0,
@@ -204,6 +232,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q29",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Kawhi Leonard's bouncing Game 7 buzzer-beater in 2019 eliminated which team?",
     options: ["76ers", "Bucks", "Celtics", "Nets"],
     answer: 0,
@@ -211,6 +240,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q30",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Kawhi's 2019 Game 7 winner was the first NBA playoff buzzer-beater to end a Game 7, correct?",
     options: ["Yes", "No, there had been one earlier", "Only in the Finals", "Only in the conference finals"],
     answer: 0,
@@ -218,6 +248,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q31",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The Raptors won their first championship in 2019 against which team?",
     options: ["Warriors", "Cavaliers", "Bucks", "76ers"],
     answer: 0,
@@ -225,6 +256,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q32",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Warriors player missed most of the 2019 Finals after an Achilles injury in Game 5?",
     options: ["Stephen Curry", "Klay Thompson", "Kevin Durant", "DeMarcus Cousins"],
     answer: 2,
@@ -232,6 +264,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q33",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Warriors player tore his ACL in Game 6 of the 2019 Finals?",
     options: ["Klay Thompson", "Kevin Durant", "Draymond Green", "Andre Iguodala"],
     answer: 0,
@@ -239,6 +272,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q34",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Dirk Nowitzki's 2011 Mavericks defeated which team in the Finals?",
     options: ["Heat", "Thunder", "Lakers", "Spurs"],
     answer: 0,
@@ -246,6 +280,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q35",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Dallas's 2011 championship was especially notable because it avenged a 2006 Finals loss to which team?",
     options: ["Spurs", "Heat", "Pistons", "Celtics"],
     answer: 1,
@@ -253,6 +288,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q36",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did the Pistons beat in the 2004 Finals?",
     options: ["Lakers", "Spurs", "Pacers", "Nets"],
     answer: 0,
@@ -260,6 +296,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q37",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who was the 2004 Finals MVP for Detroit?",
     options: ["Chauncey Billups", "Ben Wallace", "Rasheed Wallace", "Tayshaun Prince"],
     answer: 0,
@@ -267,6 +304,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q38",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The Spurs swept which team in the 2007 Finals?",
     options: ["Cavaliers", "Jazz", "Celtics", "Pistons"],
     answer: 0,
@@ -274,6 +312,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q39",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who won Finals MVP in the 2007 sweep?",
     options: ["Tim Duncan", "Tony Parker", "Manu Ginobili", "Bruce Bowen"],
     answer: 1,
@@ -281,6 +320,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q40",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 2008 Celtics Finals win came against which franchise?",
     options: ["Lakers", "Cavaliers", "Pistons", "Spurs"],
     answer: 0,
@@ -288,6 +328,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q41",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Who won the 2008 Finals MVP award?",
     options: ["Kevin Garnett", "Paul Pierce", "Ray Allen", "Rajon Rondo"],
     answer: 1,
@@ -295,6 +336,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q42",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Lakers player famously hit the Game 7 three against Phoenix in 2010?",
     options: ["Kobe Bryant", "Ron Artest", "Derek Fisher", "Pau Gasol"],
     answer: 1,
@@ -302,6 +344,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q43",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Ron Artest was known as what after changing his name?",
     options: ["Metta World Peace", "Metta Sandiford-Artest", "World B. Peace", "Peace Metta"],
     answer: 0,
@@ -309,6 +352,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q44",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 2010 Finals went the full how many games?",
     options: ["5", "6", "7", "8"],
     answer: 2,
@@ -316,6 +360,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q45",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Who won the 2010 Finals?",
     options: ["Celtics", "Lakers", "Magic", "Cavaliers"],
     answer: 1,
@@ -323,6 +368,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q46",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 2011 Finals were the first championship series for which Dallas star?",
     options: ["Jason Kidd", "Dirk Nowitzki", "Jason Terry", "Tyson Chandler"],
     answer: 1,
@@ -330,6 +376,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q47",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who scored 48 points in Game 1 of the 2001 NBA Finals?",
     options: ["Allen Iverson", "Kobe Bryant", "Shaquille O'Neal", "Vince Carter"],
     answer: 0,
@@ -337,6 +384,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q48",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Allen Iverson's famous 2001 Finals Game 1 win came against which team?",
     options: ["Lakers", "Spurs", "Kings", "Nets"],
     answer: 0,
@@ -344,6 +392,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q49",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Iverson stepped over which player after hitting a jumper in Game 1?",
     options: ["Derek Fisher", "Tyronn Lue", "Robert Horry", "Rick Fox"],
     answer: 1,
@@ -351,6 +400,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q50",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The Lakers' 2000 Finals opponent was which team?",
     options: ["Pacers", "Blazers", "Knicks", "Kings"],
     answer: 0,
@@ -358,6 +408,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q51",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Shaq was the 2000 Finals MVP for which team?",
     options: ["Magic", "Lakers", "Heat", "Suns"],
     answer: 1,
@@ -365,6 +416,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q52",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Kobe Bryant's 2008 Finals opponent was which team?",
     options: ["Celtics", "Pistons", "Magic", "Cavaliers"],
     answer: 0,
@@ -372,6 +424,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q53",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The Celtics' 2008 title was their first since which decade?",
     options: ["1970s", "1980s", "1990s", "2000s"],
     answer: 1,
@@ -379,6 +432,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q54",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did San Antonio defeat in the 1999 Finals?",
     options: ["Knicks", "Lakers", "Pacers", "Blazers"],
     answer: 0,
@@ -386,6 +440,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q55",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Spurs star was the 1999 Finals MVP?",
     options: ["Tim Duncan", "David Robinson", "Avery Johnson", "Sean Elliott"],
     answer: 0,
@@ -393,6 +448,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q56",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1994 Rockets won the title without Hakeem's team facing which famous Finals rival?",
     options: ["Knicks", "Magic", "Pacers", "Jazz"],
     answer: 0,
@@ -400,6 +456,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q57",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who blocked John Starks' late shot attempt in Game 7 of the 1994 Finals?",
     options: ["Hakeem Olajuwon", "Robert Horry", "Otis Thorpe", "Vernon Maxwell"],
     answer: 0,
@@ -407,6 +464,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q58",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1995 Rockets swept Orlando in the Finals; Orlando had beaten which team in the East Finals?",
     options: ["Pacers", "Bulls", "Celtics", "Knicks"],
     answer: 0,
@@ -414,6 +472,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q59",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Hakeem's 1995 Rockets entered the playoffs as what seed?",
     options: ["1st", "2nd", "5th", "6th"],
     answer: 3,
@@ -421,6 +480,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q60",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1995 Finals featured Hakeem Olajuwon against which young center?",
     options: ["David Robinson", "Shaquille O'Neal", "Patrick Ewing", "Alonzo Mourning"],
     answer: 1,
@@ -428,6 +488,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q61",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Jordan's Bulls beat in the 1991 Finals?",
     options: ["Lakers", "Blazers", "Jazz", "Suns"],
     answer: 0,
@@ -435,6 +496,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q62",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Jordan's famous switch-hand layup occurred in which Finals?",
     options: ["1991", "1992", "1993", "1996"],
     answer: 0,
@@ -442,6 +504,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q63",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 'Jordan shrug' after six three-pointers came in the 1992 Finals against which team?",
     options: ["Lakers", "Trail Blazers", "Suns", "Jazz"],
     answer: 1,
@@ -449,6 +512,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q64",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Jordan scored 55 points at Madison Square Garden in 1995 as a Bull against which team?",
     options: ["Knicks", "Nets", "Pacers", "Heat"],
     answer: 0,
@@ -456,6 +520,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q65",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1993 Finals featured Jordan's Bulls and which team?",
     options: ["Suns", "Jazz", "Sonics", "Blazers"],
     answer: 0,
@@ -463,6 +528,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q66",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "John Paxson's 1993 clutch three in the Finals came against which team?",
     options: ["Suns", "Jazz", "Knicks", "Lakers"],
     answer: 0,
@@ -470,6 +536,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q67",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Steve Kerr's 1997 Finals winner gave Chicago a Game 6 win over which team?",
     options: ["Jazz", "Pacers", "Heat", "Lakers"],
     answer: 0,
@@ -477,6 +544,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q68",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Kerr's clutch shot in 1997 was assisted by which teammate?",
     options: ["Scottie Pippen", "Michael Jordan", "Dennis Rodman", "Ron Harper"],
     answer: 1,
@@ -484,6 +552,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q69",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1988 Finals Game 6 included an ankle injury to which Pistons guard?",
     options: ["Joe Dumars", "Isiah Thomas", "Vinnie Johnson", "Dennis Rodman"],
     answer: 1,
@@ -491,6 +560,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q70",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Isiah Thomas scored 25 points in the third quarter of Game 6 in the 1988 Finals despite an injured ankle. Against whom?",
     options: ["Lakers", "Celtics", "Bulls", "Jazz"],
     answer: 0,
@@ -498,6 +568,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q71",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Pistons team lost the 1988 Finals to the Lakers, then won titles in 1989 and 1990?",
     options: ["Bad Boys", "Going to Work", "Motor City Machine", "Motor City Five"],
     answer: 0,
@@ -505,6 +576,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q72",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1984 Finals rivalry was Lakers vs which team?",
     options: ["Celtics", "76ers", "Pistons", "Bulls"],
     answer: 0,
@@ -512,6 +584,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q73",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Who won the 1984 Finals MVP?",
     options: ["Larry Bird", "Magic Johnson", "Cedric Maxwell", "Kevin McHale"],
     answer: 2,
@@ -519,6 +592,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q74",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Larry Bird's 1986 Celtics beat which team in the Finals?",
     options: ["Rockets", "Lakers", "Bucks", "Suns"],
     answer: 0,
@@ -526,6 +600,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q75",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1986 Celtics' Finals opponent featured Ralph Sampson and which star?",
     options: ["Hakeem Olajuwon", "Dominique Wilkins", "Moses Malone", "Isiah Thomas"],
     answer: 0,
@@ -533,6 +608,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q76",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Magic Johnson's baby hook in Game 4 of the 1987 Finals was against which team?",
     options: ["Celtics", "Pistons", "76ers", "Bulls"],
     answer: 0,
@@ -540,6 +616,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q77",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1987 Finals ended with which team winning the championship?",
     options: ["Celtics", "Lakers", "Pistons", "Rockets"],
     answer: 1,
@@ -547,6 +624,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q78",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Julius Erving's 1980 76ers reached the Finals against which team?",
     options: ["Lakers", "Celtics", "Sonics", "Rockets"],
     answer: 0,
@@ -554,6 +632,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q79",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Moses Malone's 76ers swept which team in the 1983 Finals?",
     options: ["Lakers", "Celtics", "Bucks", "Suns"],
     answer: 0,
@@ -561,6 +640,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q80",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "In the 1983 Finals, how many games did Philadelphia win against the Lakers?",
     options: ["3", "4", "5", "6"],
     answer: 1,
@@ -568,6 +648,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q81",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1979 Finals pitted Seattle against which team?",
     options: ["Bullets", "Suns", "76ers", "Lakers"],
     answer: 0,
@@ -575,6 +656,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q82",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Who won the 1979 Finals MVP?",
     options: ["Dennis Johnson", "Jack Sikma", "Gus Williams", "Elvin Hayes"],
     answer: 0,
@@ -582,6 +664,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q83",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1978 Finals went seven games between Washington and which team?",
     options: ["Seattle", "Phoenix", "Portland", "Denver"],
     answer: 0,
@@ -589,6 +672,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q84",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Bill Walton won Finals MVP when Portland won its first title in which year?",
     options: ["1976", "1977", "1978", "1979"],
     answer: 1,
@@ -596,6 +680,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q85",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Portland defeated which team in the 1977 Finals?",
     options: ["76ers", "Lakers", "Bucks", "Celtics"],
     answer: 0,
@@ -603,6 +688,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q86",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1976 Finals included a famous triple-overtime Game 5 between Boston and which team?",
     options: ["Suns", "Bucks", "Warriors", "Bullets"],
     answer: 0,
@@ -610,6 +696,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q87",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The Celtics-Suns 1976 triple-overtime Game 5 was won by which team?",
     options: ["Suns", "Celtics", "It ended tied", "Neither"],
     answer: 1,
@@ -617,6 +704,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q88",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The 1970 Finals' Game 7 featured Willis Reed returning from injury for which team?",
     options: ["Knicks", "Lakers", "Bucks", "Bullets"],
     answer: 0,
@@ -624,6 +712,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q89",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Willis Reed played Game 7 of the 1970 Finals against which team?",
     options: ["Lakers", "Celtics", "Bucks", "Warriors"],
     answer: 0,
@@ -631,6 +720,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q90",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who was the first unanimous NBA MVP?",
     options: ["LeBron James", "Stephen Curry", "Shaquille O'Neal", "Michael Jordan"],
     answer: 1,
@@ -638,6 +728,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q91",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Curry's unanimous MVP season was 2015-16, when Golden State went what in the regular season?",
     options: ["67-15", "68-14", "72-10", "73-9"],
     answer: 3,
@@ -645,6 +736,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q92",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who is the youngest player ever to win NBA MVP?",
     options: ["Derrick Rose", "LeBron James", "Kevin Durant", "Giannis Antetokounmpo"],
     answer: 0,
@@ -652,6 +744,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q93",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Derrick Rose won MVP for which team?",
     options: ["Knicks", "Bulls", "Cavaliers", "Pistons"],
     answer: 1,
@@ -659,6 +752,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q94",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Kevin Durant won his first MVP in 2014 while playing for which team?",
     options: ["Thunder", "Warriors", "Nets", "Sonics"],
     answer: 0,
@@ -666,6 +760,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q95",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Shaquille O'Neal won his only regular-season MVP in which year?",
     options: ["1999", "2000", "2001", "2002"],
     answer: 1,
@@ -673,6 +768,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q96",
     bucket: "player",
+    difficulty: "medium",
     prompt: "How many regular-season MVP awards did Steve Nash win?",
     options: ["1", "2", "3", "4"],
     answer: 1,
@@ -680,6 +776,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q97",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Larry Bird won MVP in three straight seasons. Which span?",
     options: ["1982-84", "1983-85", "1984-86", "1985-87"],
     answer: 2,
@@ -687,6 +784,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q98",
     bucket: "player",
+    difficulty: "medium",
     prompt: "How many DPOY awards has Ben Wallace won?",
     options: ["2", "3", "4", "5"],
     answer: 2,
@@ -694,6 +792,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q99",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who shares the record for most DPOY awards with four?",
     options: ["Rudy Gobert", "Ben Wallace", "Dikembe Mutombo", "Both Wallace and Mutombo"],
     answer: 3,
@@ -701,6 +800,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q100",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Dennis Rodman won how many consecutive rebounding titles from 1991-92 through 1997-98?",
     options: ["5", "6", "7", "8"],
     answer: 2,
@@ -708,6 +808,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q101",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who was the first player to average a triple-double for an entire NBA season?",
     options: ["Magic Johnson", "Oscar Robertson", "Russell Westbrook", "Jason Kidd"],
     answer: 1,
@@ -715,6 +816,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q102",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Russell Westbrook broke Oscar Robertson's career triple-double record in which season?",
     options: ["2019-20", "2020-21", "2021-22", "2022-23"],
     answer: 1,
@@ -722,6 +824,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q103",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who is the NBA's all-time leader in triple-doubles?",
     options: ["Oscar Robertson", "Russell Westbrook", "Nikola Jokic", "Jason Kidd"],
     answer: 1,
@@ -729,6 +832,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q104",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who recorded the most 40-point games in a single season for a rookie before the modern era?",
     options: ["Wilt Chamberlain", "Michael Jordan", "Elgin Baylor", "Kareem Abdul-Jabbar"],
     answer: 0,
@@ -736,6 +840,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q105",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who averaged a near triple-double in his rookie season and won Rookie of the Year in 1960?",
     options: ["Wilt Chamberlain", "Oscar Robertson", "Jerry Lucas", "Walt Bellamy"],
     answer: 0,
@@ -743,6 +848,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q106",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won Rookie of the Year and Finals MVP in the same season?",
     options: ["Larry Bird", "Magic Johnson", "Kareem Abdul-Jabbar", "Tim Duncan"],
     answer: 1,
@@ -750,6 +856,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q107",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Magic won Finals MVP as a rookie in what year?",
     options: ["1979", "1980", "1981", "1982"],
     answer: 1,
@@ -757,6 +864,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q108",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player has won Finals MVP with three different franchises?",
     options: ["LeBron James", "Kawhi Leonard", "Kareem Abdul-Jabbar", "Kevin Durant"],
     answer: 0,
@@ -764,6 +872,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q109",
     bucket: "player",
+    difficulty: "easy",
     prompt: "LeBron won Finals MVP with Miami, Cleveland, and which other team?",
     options: ["Boston", "Lakers", "Heat again", "Clippers"],
     answer: 1,
@@ -771,6 +880,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q110",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Kawhi Leonard won Finals MVP with San Antonio and which other team?",
     options: ["Clippers", "Raptors", "Heat", "Nets"],
     answer: 1,
@@ -778,6 +888,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q111",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won Finals MVP in both 2014 and 2019?",
     options: ["LeBron James", "Kevin Durant", "Kawhi Leonard", "Tim Duncan"],
     answer: 2,
@@ -785,6 +896,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q112",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player is the only one to win Finals MVP while playing for a losing team?",
     options: ["Jerry West", "Elgin Baylor", "LeBron James", "Magic Johnson"],
     answer: 0,
@@ -792,6 +904,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q113",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Jerry West won Finals MVP in which losing Finals?",
     options: ["1968", "1969", "1970", "1971"],
     answer: 1,
@@ -799,6 +912,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q114",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was nicknamed 'The Big Fundamental'?",
     options: ["Tim Duncan", "Kevin Garnett", "Karl Malone", "Hakeem Olajuwon"],
     answer: 0,
@@ -806,6 +920,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q115",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was known as 'The Dream'?",
     options: ["David Robinson", "Hakeem Olajuwon", "Patrick Ewing", "Moses Malone"],
     answer: 1,
@@ -813,6 +928,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q116",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which Hall of Famer was nicknamed 'The Mailman'?",
     options: ["Karl Malone", "Moses Malone", "David Robinson", "Charles Barkley"],
     answer: 0,
@@ -820,6 +936,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q117",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was nicknamed 'The Round Mound of Rebound'?",
     options: ["Charles Barkley", "Dennis Rodman", "Ben Wallace", "Moses Malone"],
     answer: 0,
@@ -827,6 +944,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q118",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was nicknamed 'The Answer'?",
     options: ["Allen Iverson", "Isiah Thomas", "Chris Paul", "Steve Nash"],
     answer: 0,
@@ -834,6 +952,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q119",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was nicknamed 'The Logo'?",
     options: ["Jerry West", "Bill Russell", "Oscar Robertson", "Elgin Baylor"],
     answer: 0,
@@ -841,6 +960,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q120",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was nicknamed 'The Admiral'?",
     options: ["Patrick Ewing", "David Robinson", "Hakeem Olajuwon", "Shaquille O'Neal"],
     answer: 1,
@@ -848,6 +968,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q121",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was nicknamed 'Pistol Pete'?",
     options: ["Pete Maravich", "Pete Rose", "Pete Myers", "Pete Chilcutt"],
     answer: 0,
@@ -855,6 +976,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q122",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player scored 70 points for Phoenix at age 20?",
     options: ["Devin Booker", "Luka Doncic", "Donovan Mitchell", "Trae Young"],
     answer: 0,
@@ -862,6 +984,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q123",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Luka Doncic became the youngest player to record a playoff 40-point triple-double in 2024?",
     options: ["Yes", "No", "He did it in 2019", "He did it in 2022"],
     answer: 0,
@@ -869,6 +992,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q124",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player scored 70 points in a 2017 game as a rookie?",
     options: ["Donovan Mitchell", "Devin Booker", "Jayson Tatum", "Trae Young"],
     answer: 1,
@@ -876,6 +1000,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q125",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Devin Booker scored 70 against which team?",
     options: ["Celtics", "Bulls", "Warriors", "Wizards"],
     answer: 0,
@@ -883,6 +1008,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q126",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Donovan Mitchell scored 71 points in 2023 against which team?",
     options: ["Bulls", "Cavaliers", "Bucks", "Knicks"],
     answer: 0,
@@ -890,6 +1016,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q127",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player scored 73 points for the Hawks in 1958?",
     options: ["Bob Pettit", "Elgin Baylor", "Wilt Chamberlain", "George Gervin"],
     answer: 0,
@@ -897,6 +1024,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q128",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who scored 78 points in an NBA game before Wilt's 100?",
     options: ["David Thompson", "Wilt Chamberlain", "Elgin Baylor", "Chet Walker"],
     answer: 1,
@@ -904,6 +1032,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q129",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who scored 81 points for the Lakers in 2006?",
     options: ["Kobe Bryant", "Shaquille O'Neal", "LeBron James", "Allen Iverson"],
     answer: 0,
@@ -911,6 +1040,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q130",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Kobe's 81 is the second-highest single-game scoring total in NBA history behind whose 100?",
     options: ["Michael Jordan", "Wilt Chamberlain", "Elgin Baylor", "David Thompson"],
     answer: 1,
@@ -918,6 +1048,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q131",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who became the first player in NBA history to make 3,000 threes?",
     options: ["Ray Allen", "James Harden", "Klay Thompson", "Stephen Curry"],
     answer: 3,
@@ -925,6 +1056,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q132",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player passed Ray Allen for the career three-point record?",
     options: ["James Harden", "Klay Thompson", "Stephen Curry", "Damian Lillard"],
     answer: 2,
@@ -932,6 +1064,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q133",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who is known for a 37-point quarter against Sacramento?",
     options: ["Stephen Curry", "Klay Thompson", "James Harden", "Kevin Durant"],
     answer: 1,
@@ -939,6 +1072,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q134",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Klay Thompson scored 60 points in a game in only how many quarters?",
     options: ["2", "3", "3.5", "4"],
     answer: 1,
@@ -946,6 +1080,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q135",
     bucket: "player",
+    difficulty: "medium",
     prompt: "James Harden once scored 60 points with a triple-double against which team?",
     options: ["Magic", "Hawks", "Thunder", "Clippers"],
     answer: 0,
@@ -953,6 +1088,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q136",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who posted a 60-point triple-double for Dallas against the Knicks in 2022?",
     options: ["Luka Doncic", "Jalen Brunson", "Kyrie Irving", "Jason Kidd"],
     answer: 0,
@@ -960,6 +1096,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q137",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Who had the NBA's first 20-20-20 game?",
     options: ["Wilt Chamberlain", "Nikola Jokic", "Russell Westbrook", "James Harden"],
     answer: 0,
@@ -967,6 +1104,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q138",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Wilt's 20-20-20 game came against which team?",
     options: ["Pistons", "Celtics", "Bulls", "Lakers"],
     answer: 0,
@@ -974,6 +1112,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q139",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Which player has the most quadruple-doubles in NBA history among officially recorded players?",
     options: ["Hakeem Olajuwon", "David Robinson", "Nate Thurmond", "Russell Westbrook"],
     answer: 0,
@@ -981,6 +1120,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q140",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Hakeem recorded his first quadruple-double against which team in 1990?",
     options: ["Bucks", "Warriors", "Jazz", "Lakers"],
     answer: 1,
@@ -988,6 +1128,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q141",
     bucket: "player",
+    difficulty: "hard",
     prompt: "David Robinson's quadruple-double came against which team?",
     options: ["Pistons", "Heat", "Knicks", "Bulls"],
     answer: 0,
@@ -995,6 +1136,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q142",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Nate Thurmond's quadruple-double was the first in NBA history, in what category was the fourth stat?",
     options: ["Steals", "Blocks", "Assists", "Turnovers"],
     answer: 2,
@@ -1002,6 +1144,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q143",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player led the NBA in scoring while also winning DPOY in 2001?",
     options: ["Kevin Garnett", "Michael Jordan", "Hakeem Olajuwon", "None"],
     answer: 3,
@@ -1009,6 +1152,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q144",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player was the first center to win the All-Star Game MVP three times?",
     options: ["Shaq", "Wilt", "Kareem", "Moses"],
     answer: 0,
@@ -1016,6 +1160,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q145",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won the 2003 All-Star Game MVP in his final All-Star appearance?",
     options: ["Michael Jordan", "Kobe Bryant", "LeBron James", "Allen Iverson"],
     answer: 0,
@@ -1023,6 +1168,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q146",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who famously beat Kobe Bryant in the 1997 Slam Dunk Contest?",
     options: ["Vince Carter", "Kobe won it", "Michael Jordan", "Brent Barry"],
     answer: 3,
@@ -1030,6 +1176,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q147",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Brent Barry won the 1996 dunk contest with a famous free-throw-line dunk. True or false?",
     options: ["True", "False", "Only in 1995", "Only in 1997"],
     answer: 0,
@@ -1037,6 +1184,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q148",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Vince Carter won the 2000 dunk contest with which iconic dunk?",
     options: ["Windmill from free throw line", "Between-the-legs 360", "Reverse 360", "Elbow hang"],
     answer: 1,
@@ -1044,6 +1192,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q149",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won six Sixth Man of the Year awards?",
     options: ["Lou Williams", "Jamal Crawford", "Kevin McHale", "All of them"],
     answer: 0,
@@ -1051,6 +1200,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q150",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player became the first three-time Sixth Man of the Year?",
     options: ["Lou Williams", "Jamal Crawford", "James Harden", "Clifford Robinson"],
     answer: 0,
@@ -1058,6 +1208,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q151",
     bucket: "player",
+    difficulty: "medium",
     prompt: "James Harden won Sixth Man of the Year with which team?",
     options: ["Thunder", "Rockets", "Warriors", "Nets"],
     answer: 0,
@@ -1065,6 +1216,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q152",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won MVP, DPOY, and All-Star MVP in the same season in 1988?",
     options: ["Michael Jordan", "Hakeem Olajuwon", "David Robinson", "Larry Bird"],
     answer: 0,
@@ -1072,6 +1224,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q153",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won both MVP and DPOY in 1994?",
     options: ["Hakeem Olajuwon", "David Robinson", "Charles Barkley", "Scottie Pippen"],
     answer: 0,
@@ -1079,6 +1232,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q154",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Giannis became the first player since which legend to win MVP and DPOY in the same season?",
     options: ["Michael Jordan", "Hakeem Olajuwon", "LeBron James", "David Robinson"],
     answer: 1,
@@ -1086,6 +1240,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q155",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won back-to-back MVPs in 2019 and 2020?",
     options: ["Giannis Antetokounmpo", "Nikola Jokic", "James Harden", "Stephen Curry"],
     answer: 0,
@@ -1093,6 +1248,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q156",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Nikola Jokic's first MVP came for which franchise?",
     options: ["Nuggets", "Bucks", "Serbia", "Celtics"],
     answer: 0,
@@ -1100,6 +1256,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q157",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Nikola Jokic won his first NBA championship and Finals MVP in what year?",
     options: ["2021", "2022", "2023", "2024"],
     answer: 2,
@@ -1107,6 +1264,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q158",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player won the 2023 Finals MVP?",
     options: ["Jamal Murray", "Nikola Jokic", "Jimmy Butler", "Aaron Gordon"],
     answer: 1,
@@ -1114,6 +1272,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q159",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won 2021 Finals MVP after Milwaukee beat Phoenix?",
     options: ["Jrue Holiday", "Khris Middleton", "Giannis Antetokounmpo", "Chris Paul"],
     answer: 2,
@@ -1121,6 +1280,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q160",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Giannis scored how many points in the clinching Game 6 of the 2021 Finals?",
     options: ["40", "45", "50", "55"],
     answer: 2,
@@ -1128,6 +1288,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q161",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who became the youngest player to win Finals MVP in 2021?",
     options: ["Giannis", "Luka", "Tatum", "Booker"],
     answer: 0,
@@ -1135,6 +1296,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q162",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player won the 2022 Finals MVP?",
     options: ["Stephen Curry", "Andrew Wiggins", "Draymond Green", "Klay Thompson"],
     answer: 0,
@@ -1142,6 +1304,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q163",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Curry's 2022 Finals MVP was his first. True or false?",
     options: ["True", "False", "He shared it", "He had won it in 2015"],
     answer: 0,
@@ -1149,6 +1312,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q164",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won 2015 Finals MVP for Golden State?",
     options: ["Stephen Curry", "Andre Iguodala", "Draymond Green", "Klay Thompson"],
     answer: 1,
@@ -1156,6 +1320,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q165",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Iguodala started how many games in the 2015 Finals?",
     options: ["0", "1", "3", "6"],
     answer: 2,
@@ -1163,6 +1328,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q166",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2016 Finals MVP for Cleveland?",
     options: ["Kyrie Irving", "Kevin Love", "LeBron James", "Tristan Thompson"],
     answer: 2,
@@ -1170,6 +1336,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q167",
     bucket: "player",
+    difficulty: "easy",
     prompt: "LeBron led the 2016 Finals in all five major statistical categories?",
     options: ["Yes", "No", "Only points and assists", "Only rebounds and blocks"],
     answer: 0,
@@ -1177,6 +1344,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q168",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player was the 2018 Finals MVP?",
     options: ["Stephen Curry", "Kevin Durant", "LeBron James", "Klay Thompson"],
     answer: 1,
@@ -1184,6 +1352,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q169",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Kevin Durant won Finals MVP in both 2017 and which year?",
     options: ["2018", "2019", "2020", "He only won once"],
     answer: 0,
@@ -1191,6 +1360,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q170",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won 2019 Finals MVP after Toronto's title?",
     options: ["Pascal Siakam", "Kawhi Leonard", "Kyle Lowry", "Marc Gasol"],
     answer: 1,
@@ -1198,6 +1368,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q171",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won 2020 Finals MVP in the Orlando bubble?",
     options: ["Anthony Davis", "LeBron James", "Jimmy Butler", "Rajon Rondo"],
     answer: 1,
@@ -1205,6 +1376,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q172",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise won the first NBA championship in 1947?",
     options: ["Boston Celtics", "Philadelphia Warriors", "Minneapolis Lakers", "New York Knicks"],
     answer: 1,
@@ -1212,6 +1384,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q173",
     bucket: "team",
+    difficulty: "easy",
     prompt: "The NBA was originally called what league?",
     options: ["BAA", "NBL", "ABA", "AHL"],
     answer: 0,
@@ -1219,6 +1392,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q174",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The BAA merged with which league in 1949 to form the NBA?",
     options: ["NBL", "ABA", "CBA", "USBL"],
     answer: 0,
@@ -1226,6 +1400,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q175",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise has won the most NBA championships?",
     options: ["Lakers", "Celtics", "Bulls", "Warriors"],
     answer: 1,
@@ -1233,6 +1408,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q176",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The Celtics tied the Lakers at how many titles in 2024?",
     options: ["17", "18", "19", "20"],
     answer: 1,
@@ -1240,6 +1416,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q177",
     bucket: "team",
+    difficulty: "hard",
     prompt: "The Celtics' 18th title came in which year?",
     options: ["2022", "2023", "2024", "2025"],
     answer: 2,
@@ -1247,6 +1424,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q178",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The 2024 Celtics title was their first championship since which year?",
     options: ["2008", "2010", "2012", "2014"],
     answer: 0,
@@ -1254,6 +1432,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q179",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise won the NBA title in 2011 after entering as the third seed?",
     options: ["Dallas Mavericks", "Miami Heat", "Chicago Bulls", "San Antonio Spurs"],
     answer: 0,
@@ -1261,6 +1440,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q180",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise won back-to-back titles in 2017 and 2018?",
     options: ["Cavaliers", "Warriors", "Rockets", "Spurs"],
     answer: 1,
@@ -1268,6 +1448,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q181",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Golden State's 2015 championship ended a title drought dating to what year?",
     options: ["1974", "1975", "1976", "1977"],
     answer: 1,
@@ -1275,6 +1456,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q182",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which team went 73-9 in 2015-16?",
     options: ["Warriors", "Bulls", "Celtics", "Spurs"],
     answer: 0,
@@ -1282,6 +1464,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q183",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who were the 73-9 Warriors' head coach?",
     options: ["Steve Kerr", "Mark Jackson", "Luke Walton", "Don Nelson"],
     answer: 0,
@@ -1289,6 +1472,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q184",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which team went 72-10 in 1995-96?",
     options: ["Jazz", "Bulls", "Sonics", "Magic"],
     answer: 1,
@@ -1296,6 +1480,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q185",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who coached the 72-10 Bulls?",
     options: ["Phil Jackson", "Doug Collins", "Jerry Sloan", "Pat Riley"],
     answer: 0,
@@ -1303,6 +1488,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q186",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which Bulls season was their 72-10 record set?",
     options: ["1994-95", "1995-96", "1996-97", "1997-98"],
     answer: 1,
@@ -1310,6 +1496,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q187",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The 1996 Bulls lost how many home games in the regular season?",
     options: ["0", "1", "2", "3"],
     answer: 1,
@@ -1317,6 +1504,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q188",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise won the 1978 title after finishing the regular season 44-38?",
     options: ["Bullets", "Sonics", "Blazers", "Jazz"],
     answer: 0,
@@ -1324,6 +1512,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q189",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which current franchise was formerly the Seattle SuperSonics?",
     options: ["Thunder", "Timberwolves", "Trail Blazers", "Grizzlies"],
     answer: 0,
@@ -1331,6 +1520,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q190",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which city hosts the franchise formerly known as the Seattle SuperSonics?",
     options: ["Oklahoma City", "Portland", "Sacramento", "Las Vegas"],
     answer: 0,
@@ -1338,6 +1528,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q191",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise moved from Vancouver to Memphis?",
     options: ["Grizzlies", "Raptors", "Nets", "Hornets"],
     answer: 0,
@@ -1345,6 +1536,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q192",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise moved from Charlotte to New Orleans and later reverted its name?",
     options: ["Hornets", "Bobcats", "Pelicans", "Wizards"],
     answer: 0,
@@ -1352,6 +1544,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q193",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The New Orleans franchise currently uses which name?",
     options: ["Hornets", "Pelicans", "Jazz", "Bobcats"],
     answer: 1,
@@ -1359,6 +1552,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q194",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise was originally based in Minneapolis before moving to Los Angeles?",
     options: ["Lakers", "Clippers", "Warriors", "Kings"],
     answer: 0,
@@ -1366,6 +1560,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q195",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise was originally based in Fort Wayne?",
     options: ["Pistons", "Pacers", "Bulls", "Bucks"],
     answer: 0,
@@ -1373,6 +1568,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q196",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise began as the Syracuse Nationals?",
     options: ["76ers", "Celtics", "Knicks", "Wizards"],
     answer: 0,
@@ -1380,6 +1576,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q197",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which current team began as the Rochester Royals?",
     options: ["Kings", "Hawks", "Pacers", "Nets"],
     answer: 0,
@@ -1387,6 +1584,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q198",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise was once the Tri-Cities Blackhawks?",
     options: ["Hawks", "Warriors", "Bucks", "Thunder"],
     answer: 0,
@@ -1394,6 +1592,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q199",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which team started as the Buffalo Braves?",
     options: ["Clippers", "Raptors", "Cavaliers", "Pacers"],
     answer: 0,
@@ -1401,6 +1600,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q200",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The Buffalo Braves eventually became which franchise?",
     options: ["Clippers", "Kings", "Nets", "Magic"],
     answer: 0,
@@ -1408,6 +1608,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q201",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise began in New Orleans as the Jazz before moving to Utah?",
     options: ["Jazz", "Pelicans", "Hornets", "Grizzlies"],
     answer: 0,
@@ -1415,6 +1616,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q202",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The Utah Jazz originally played in which city?",
     options: ["New Orleans", "Salt Lake City", "Memphis", "Seattle"],
     answer: 0,
@@ -1422,6 +1624,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q203",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise began as the New Jersey Americans in the ABA and later became an NBA team?",
     options: ["Nets", "Pacers", "Nuggets", "Spurs"],
     answer: 0,
@@ -1429,6 +1632,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q204",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which four ABA franchises joined the NBA in 1976?",
     options: ["Nets, Nuggets, Pacers, Spurs", "Stars, Colonels, Spirits, Squires", "Bucks, Nets, Pacers, Spurs", "Nets, Suns, Nuggets, Pacers"],
     answer: 0,
@@ -1436,6 +1640,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q205",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which NBA team has the nickname 'Bucks'?",
     options: ["Milwaukee", "Chicago", "Detroit", "Indiana"],
     answer: 0,
@@ -1443,6 +1648,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q206",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which franchise's 1971 championship was led by Kareem Abdul-Jabbar and Oscar Robertson?",
     options: ["Bucks", "Lakers", "Celtics", "Knicks"],
     answer: 0,
@@ -1450,6 +1656,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q207",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won its first championship in 1971?",
     options: ["Bucks", "Suns", "Jazz", "Blazers"],
     answer: 0,
@@ -1457,6 +1664,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q208",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise won the 1977 title after overcoming a 2-0 series deficit against Philadelphia?",
     options: ["Trail Blazers", "Lakers", "Celtics", "Bullets"],
     answer: 0,
@@ -1464,6 +1672,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q209",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won the first Finals played after the merger era in 1977?",
     options: ["Portland", "Boston", "Philadelphia", "Los Angeles"],
     answer: 0,
@@ -1471,6 +1680,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q210",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise won a record eight straight championships from 1959 through 1966?",
     options: ["Celtics", "Lakers", "Bulls", "Warriors"],
     answer: 0,
@@ -1478,6 +1688,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q211",
     bucket: "team",
+    difficulty: "medium",
     prompt: "How many consecutive NBA titles did Boston win from 1959 to 1966?",
     options: ["6", "7", "8", "9"],
     answer: 2,
@@ -1485,6 +1696,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q212",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which coach led the Celtics during most of their 1960s dynasty?",
     options: ["Red Auerbach", "Bill Fitch", "Tom Heinsohn", "K.C. Jones"],
     answer: 0,
@@ -1492,6 +1704,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q213",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who replaced Red Auerbach as Celtics coach and then player-coach?",
     options: ["Bill Russell", "John Havlicek", "Bob Cousy", "Sam Jones"],
     answer: 0,
@@ -1499,6 +1712,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q214",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who became the first Black head coach in NBA history?",
     options: ["Bill Russell", "Lenny Wilkens", "Doc Rivers", "Al Attles"],
     answer: 0,
@@ -1506,6 +1720,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q215",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise did Bill Russell coach while still playing?",
     options: ["Celtics", "Lakers", "Warriors", "Knicks"],
     answer: 0,
@@ -1513,6 +1728,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q216",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won 11 championships during Bill Russell's career?",
     options: ["Celtics", "Lakers", "Knicks", "Warriors"],
     answer: 0,
@@ -1520,6 +1736,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q217",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who has the most NBA championships as a player?",
     options: ["Bill Russell", "Sam Jones", "John Havlicek", "Robert Horry"],
     answer: 0,
@@ -1527,6 +1744,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q218",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which non-Celtics player has seven NBA championship rings?",
     options: ["Robert Horry", "Kareem Abdul-Jabbar", "Michael Jordan", "John Havlicek"],
     answer: 0,
@@ -1534,6 +1752,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q219",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which player won championships with three franchises: Rockets, Lakers, and Spurs?",
     options: ["Robert Horry", "Derek Fisher", "Ron Harper", "Steve Kerr"],
     answer: 0,
@@ -1541,6 +1760,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q220",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which player has the second-most NBA championship rings after Bill Russell?",
     options: ["Sam Jones", "Robert Horry", "John Havlicek", "Kareem Abdul-Jabbar"],
     answer: 0,
@@ -1548,6 +1768,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q221",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who won five titles with the Lakers and three with the Celtics?",
     options: ["Nobody", "Robert Horry", "Kareem", "Derek Fisher"],
     answer: 0,
@@ -1555,6 +1776,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q222",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which franchise has retired the number 23 for Michael Jordan?",
     options: ["Bulls and Heat", "All teams", "Bulls only", "Heat only"],
     answer: 2,
@@ -1562,6 +1784,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q223",
     bucket: "team",
+    difficulty: "easy",
     prompt: "The Miami Heat retired Michael Jordan's number 23 despite him never playing for Miami. True or false?",
     options: ["True", "False", "Only temporarily", "Only for one game"],
     answer: 0,
@@ -1569,6 +1792,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q224",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team retired Kobe Bryant's numbers 8 and 24?",
     options: ["Lakers", "Hornets", "Celtics", "Suns"],
     answer: 0,
@@ -1576,6 +1800,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q225",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which team is most associated with the 'Showtime' era?",
     options: ["Lakers", "Celtics", "Bulls", "Pistons"],
     answer: 0,
@@ -1583,6 +1808,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q226",
     bucket: "team",
+    difficulty: "easy",
     prompt: "The Showtime Lakers were led primarily by Magic Johnson and whom?",
     options: ["Kareem Abdul-Jabbar", "Larry Bird", "Hakeem Olajuwon", "Moses Malone"],
     answer: 0,
@@ -1590,6 +1816,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q227",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team was known as the 'Bad Boys' in the late 1980s?",
     options: ["Pistons", "Knicks", "Celtics", "Bulls"],
     answer: 0,
@@ -1597,6 +1824,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q228",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which 1990s Bulls era won three straight titles twice?",
     options: ["Jordan's Bulls", "Pippen's Bulls", "Rodman's Bulls", "Phil's Bulls"],
     answer: 0,
@@ -1604,6 +1832,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q229",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won the 1994-95 title without Michael Jordan?",
     options: ["Rockets", "Magic", "Spurs", "Knicks"],
     answer: 0,
@@ -1611,6 +1840,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q230",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won the 1999 title during the lockout-shortened season?",
     options: ["Spurs", "Lakers", "Knicks", "Pacers"],
     answer: 0,
@@ -1618,6 +1848,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q231",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise became the first Canadian NBA champion?",
     options: ["Raptors", "Grizzlies", "No Canadian team", "Vancouver"],
     answer: 0,
@@ -1625,6 +1856,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q232",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which Canadian city hosts the Raptors?",
     options: ["Toronto", "Vancouver", "Montreal", "Ottawa"],
     answer: 0,
@@ -1632,6 +1864,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q233",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays home games at Madison Square Garden?",
     options: ["Knicks", "Nets", "Celtics", "76ers"],
     answer: 0,
@@ -1639,6 +1872,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q234",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which NBA franchise shares Crypto.com Arena with the Lakers?",
     options: ["Clippers", "Kings", "Sparks only", "Warriors"],
     answer: 0,
@@ -1646,6 +1880,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q235",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The Clippers moved into Intuit Dome in which city?",
     options: ["Los Angeles", "Anaheim", "Inglewood", "Long Beach"],
     answer: 2,
@@ -1653,6 +1888,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q236",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at TD Garden?",
     options: ["Celtics", "Knicks", "Nets", "76ers"],
     answer: 0,
@@ -1660,6 +1896,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q237",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Chase Center?",
     options: ["Warriors", "Kings", "Lakers", "Clippers"],
     answer: 0,
@@ -1667,6 +1904,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q238",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at United Center?",
     options: ["Bulls", "Bucks", "Pacers", "Cavaliers"],
     answer: 0,
@@ -1674,6 +1912,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q239",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Ball Arena?",
     options: ["Nuggets", "Jazz", "Trail Blazers", "Timberwolves"],
     answer: 0,
@@ -1681,6 +1920,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q240",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Fiserv Forum?",
     options: ["Bucks", "Bulls", "Pacers", "Pistons"],
     answer: 0,
@@ -1688,6 +1928,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q241",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Rocket Mortgage FieldHouse?",
     options: ["Cavaliers", "Rockets", "Pistons", "Pacers"],
     answer: 0,
@@ -1695,6 +1936,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q242",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Moda Center?",
     options: ["Trail Blazers", "Sonics", "Kings", "Jazz"],
     answer: 0,
@@ -1702,6 +1944,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q243",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Kaseya Center?",
     options: ["Heat", "Magic", "Hornets", "Hawks"],
     answer: 0,
@@ -1709,6 +1952,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q244",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at Barclays Center?",
     options: ["Nets", "Knicks", "76ers", "Celtics"],
     answer: 0,
@@ -1716,6 +1960,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q245",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays at State Farm Arena in Atlanta?",
     options: ["Hawks", "Magic", "Hornets", "Wizards"],
     answer: 0,
@@ -1723,6 +1968,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q246",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise has the oldest continuously used nickname in the NBA?",
     options: ["Knicks", "Celtics", "Lakers", "Bulls"],
     answer: 0,
@@ -1730,6 +1976,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q247",
     bucket: "team",
+    difficulty: "medium",
     prompt: "The Knicks have used their current nickname since the NBA's first season. True or false?",
     options: ["True", "False", "Since 1950", "Since 1960"],
     answer: 0,
@@ -1737,6 +1984,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q248",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which original NBA team has played in New York since 1946?",
     options: ["Knicks", "Nets", "Warriors", "Celtics"],
     answer: 0,
@@ -1744,6 +1992,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q249",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which franchise was founded in 1946 and has been called the Celtics ever since?",
     options: ["Boston Celtics", "New York Knicks", "Philadelphia 76ers", "Chicago Bulls"],
     answer: 0,
@@ -1751,6 +2000,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q250",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won the inaugural NBA In-Season Tournament championship?",
     options: ["Lakers", "Pacers", "Bucks", "Celtics"],
     answer: 0,
@@ -1758,6 +2008,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q251",
     bucket: "team",
+    difficulty: "medium",
     prompt: "What is the current name of the NBA In-Season Tournament?",
     options: ["Emirates Cup", "NBA Cup", "Commissioner's Cup", "Midseason Classic"],
     answer: 1,
@@ -1765,6 +2016,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q252",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team won the inaugural NBA Cup in 2023?",
     options: ["Lakers", "Pacers", "Bucks", "Suns"],
     answer: 0,
@@ -1772,6 +2024,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q253",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Who was named the inaugural NBA Cup MVP?",
     options: ["LeBron James", "Anthony Davis", "Tyrese Haliburton", "Damian Lillard"],
     answer: 1,
@@ -1779,6 +2032,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q254",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which city hosted the 2024 NBA All-Star Game?",
     options: ["Indianapolis", "Las Vegas", "Chicago", "Phoenix"],
     answer: 0,
@@ -1786,6 +2040,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q255",
     bucket: "team",
+    difficulty: "medium",
     prompt: "Which franchise has hosted the All-Star Game at the Staples Center?",
     options: ["Lakers/Clippers", "Warriors", "Kings", "Celtics"],
     answer: 0,
@@ -1793,6 +2048,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q256",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in the 2003 NBA Draft?",
     options: ["Carmelo Anthony", "LeBron James", "Chris Bosh", "Dwyane Wade"],
     answer: 1,
@@ -1800,6 +2056,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q257",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player went first overall in the 2007 NBA Draft?",
     options: ["Kevin Durant", "Greg Oden", "Al Horford", "Mike Conley"],
     answer: 1,
@@ -1807,6 +2064,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q258",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was selected before Kevin Durant in 2007?",
     options: ["Greg Oden", "Joakim Noah", "Al Horford", "Mike Conley"],
     answer: 0,
@@ -1814,6 +2072,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q259",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Dirk Nowitzki in 1998?",
     options: ["Bucks", "Mavericks", "Suns", "Lakers"],
     answer: 0,
@@ -1821,6 +2080,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q260",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Dirk was immediately traded to which team?",
     options: ["Mavericks", "Spurs", "Heat", "Suns"],
     answer: 0,
@@ -1828,6 +2088,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q261",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team originally drafted Kobe Bryant in 1996?",
     options: ["Lakers", "Hornets", "76ers", "Nets"],
     answer: 1,
@@ -1835,6 +2096,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q262",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was drafted before Kobe Bryant in 1996?",
     options: ["Allen Iverson", "Steve Nash", "Ray Allen", "Kevin Garnett"],
     answer: 0,
@@ -1842,6 +2104,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q263",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the 1996 first overall pick?",
     options: ["Kobe Bryant", "Allen Iverson", "Marcus Camby", "Stephon Marbury"],
     answer: 1,
@@ -1849,6 +2112,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q264",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Which player was drafted 13th in 1996 and became an All-Star point guard for Phoenix?",
     options: ["Steve Nash", "Kobe Bryant", "Jermaine O'Neal", "Peja Stojakovic"],
     answer: 0,
@@ -1856,6 +2120,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q265",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in the 1997 NBA Draft?",
     options: ["Tim Duncan", "Keith Van Horn", "Chauncey Billups", "Tracy McGrady"],
     answer: 0,
@@ -1863,6 +2128,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q266",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team drafted Tim Duncan?",
     options: ["Spurs", "Celtics", "Rockets", "Magic"],
     answer: 0,
@@ -1870,6 +2136,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q267",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in 1992?",
     options: ["Alonzo Mourning", "Shaquille O'Neal", "Christian Laettner", "Derrick Coleman"],
     answer: 1,
@@ -1877,6 +2144,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q268",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Shaq was drafted by which franchise?",
     options: ["Magic", "Heat", "Lakers", "Nets"],
     answer: 0,
@@ -1884,6 +2152,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q269",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team drafted Hakeem Olajuwon first overall in 1984?",
     options: ["Rockets", "Blazers", "Bulls", "Jazz"],
     answer: 0,
@@ -1891,6 +2160,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q270",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who went second overall in 1984?",
     options: ["Michael Jordan", "Sam Bowie", "Charles Barkley", "John Stockton"],
     answer: 1,
@@ -1898,6 +2168,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q271",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who went third overall in 1984?",
     options: ["Charles Barkley", "Michael Jordan", "John Stockton", "Dominique Wilkins"],
     answer: 1,
@@ -1905,6 +2176,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q272",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Michael Jordan was selected with which overall pick in 1984?",
     options: ["1st", "2nd", "3rd", "4th"],
     answer: 2,
@@ -1912,6 +2184,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q273",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which franchise drafted Jordan?",
     options: ["Bulls", "Blazers", "Rockets", "Knicks"],
     answer: 0,
@@ -1919,6 +2192,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q274",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in 1985?",
     options: ["Patrick Ewing", "Karl Malone", "Chris Mullin", "Xavier McDaniel"],
     answer: 0,
@@ -1926,6 +2200,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q275",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Patrick Ewing?",
     options: ["Knicks", "Rockets", "Bulls", "Nets"],
     answer: 0,
@@ -1933,6 +2208,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q276",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Larry Bird was selected in the 1978 draft but joined Boston a year later. What pick was he?",
     options: ["1st", "3rd", "6th", "12th"],
     answer: 2,
@@ -1940,6 +2216,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q277",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in the 1987 draft?",
     options: ["David Robinson", "Scottie Pippen", "Reggie Miller", "Kevin Johnson"],
     answer: 0,
@@ -1947,6 +2224,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q278",
     bucket: "player",
+    difficulty: "medium",
     prompt: "David Robinson was drafted by which team?",
     options: ["Spurs", "Nets", "Bullets", "Bucks"],
     answer: 0,
@@ -1954,6 +2232,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q279",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player was selected 5th in 1996 and later became a multiple-time All-Star with the Lakers?",
     options: ["Kobe Bryant", "Steve Nash", "Ray Allen", "Peja Stojakovic"],
     answer: 0,
@@ -1961,6 +2240,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q280",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player was selected 7th in 2009 after Blake Griffin and Hasheem Thabeet?",
     options: ["Stephen Curry", "James Harden", "Tyreke Evans", "DeMar DeRozan"],
     answer: 0,
@@ -1968,6 +2248,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q281",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who went second overall in 2009?",
     options: ["Stephen Curry", "Hasheem Thabeet", "James Harden", "Ricky Rubio"],
     answer: 1,
@@ -1975,6 +2256,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q282",
     bucket: "player",
+    difficulty: "easy",
     prompt: "James Harden was drafted third overall in 2009 by which team?",
     options: ["Thunder", "Rockets", "Suns", "Kings"],
     answer: 0,
@@ -1982,6 +2264,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q283",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was selected third overall in 2018?",
     options: ["Luka Doncic", "Deandre Ayton", "Trae Young", "Jaren Jackson Jr."],
     answer: 0,
@@ -1989,6 +2272,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q284",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who went first overall in 2018?",
     options: ["Luka Doncic", "Deandre Ayton", "Marvin Bagley III", "Trae Young"],
     answer: 1,
@@ -1996,6 +2280,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q285",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player was traded on draft night in 2018 from Atlanta to Dallas?",
     options: ["Luka Doncic", "Trae Young", "Jaren Jackson Jr.", "Shai Gilgeous-Alexander"],
     answer: 0,
@@ -2003,6 +2288,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q286",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was acquired by Atlanta in the Luka-Trae draft-night swap?",
     options: ["Trae Young", "Collin Sexton", "Shai Gilgeous-Alexander", "Michael Porter Jr."],
     answer: 0,
@@ -2010,6 +2296,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q287",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in the 2019 NBA Draft?",
     options: ["Zion Williamson", "Ja Morant", "RJ Barrett", "Darius Garland"],
     answer: 0,
@@ -2017,6 +2304,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q288",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Ja Morant went second in 2019. Which team drafted him?",
     options: ["Grizzlies", "Knicks", "Pelicans", "Hawks"],
     answer: 0,
@@ -2024,6 +2312,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q289",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was selected first overall in 2020?",
     options: ["Anthony Edwards", "LaMelo Ball", "James Wiseman", "Tyrese Haliburton"],
     answer: 0,
@@ -2031,6 +2320,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q290",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Anthony Edwards?",
     options: ["Timberwolves", "Warriors", "Hornets", "Bulls"],
     answer: 0,
@@ -2038,6 +2328,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q291",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who went first overall in 2021?",
     options: ["Jalen Green", "Cade Cunningham", "Evan Mobley", "Paolo Banchero"],
     answer: 1,
@@ -2045,6 +2336,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q292",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Cade Cunningham?",
     options: ["Pistons", "Rockets", "Magic", "Thunder"],
     answer: 0,
@@ -2052,6 +2344,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q293",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first pick in the 2022 draft?",
     options: ["Chet Holmgren", "Paolo Banchero", "Jabari Smith Jr.", "Jaden Ivey"],
     answer: 1,
@@ -2059,6 +2352,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q294",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Paolo Banchero?",
     options: ["Magic", "Thunder", "Rockets", "Kings"],
     answer: 0,
@@ -2066,6 +2360,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q295",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in 2023?",
     options: ["Victor Wembanyama", "Scoot Henderson", "Brandon Miller", "Chet Holmgren"],
     answer: 0,
@@ -2073,6 +2368,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q296",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Victor Wembanyama?",
     options: ["Spurs", "Hornets", "Rockets", "Pistons"],
     answer: 0,
@@ -2080,6 +2376,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q297",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was the first overall pick in 2024?",
     options: ["Alex Sarr", "Zaccharie Risacher", "Reed Sheppard", "Stephon Castle"],
     answer: 1,
@@ -2087,6 +2384,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q298",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Zaccharie Risacher?",
     options: ["Hawks", "Wizards", "Rockets", "Spurs"],
     answer: 0,
@@ -2094,6 +2392,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q299",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which star was part of the 2010 Miami 'Big Three' with LeBron and Bosh?",
     options: ["Dwyane Wade", "Chris Paul", "Carmelo Anthony", "Amar'e Stoudemire"],
     answer: 0,
@@ -2101,6 +2400,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q300",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team acquired Kevin Durant in the 2016 offseason?",
     options: ["Warriors", "Spurs", "Celtics", "Rockets"],
     answer: 0,
@@ -2108,6 +2408,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q301",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Durant joined Golden State after playing with which franchise?",
     options: ["Thunder", "Nets", "Wizards", "Sonics"],
     answer: 0,
@@ -2115,6 +2416,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q302",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team acquired Kawhi Leonard from San Antonio in 2018?",
     options: ["Raptors", "Celtics", "Lakers", "Clippers"],
     answer: 0,
@@ -2122,6 +2424,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q303",
     bucket: "player",
+    difficulty: "medium",
     prompt: "The Spurs received which star in the Kawhi trade?",
     options: ["DeMar DeRozan", "Kyle Lowry", "Pascal Siakam", "Fred VanVleet"],
     answer: 0,
@@ -2129,6 +2432,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q304",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team acquired Anthony Davis in 2019?",
     options: ["Lakers", "Celtics", "Clippers", "Nets"],
     answer: 0,
@@ -2136,6 +2440,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q305",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Davis was traded from which team to the Lakers?",
     options: ["Pelicans", "Grizzlies", "Bulls", "Kings"],
     answer: 0,
@@ -2143,6 +2448,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q306",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team acquired Paul George in 2019 after a surprising trade request?",
     options: ["Clippers", "Lakers", "Raptors", "Heat"],
     answer: 0,
@@ -2150,6 +2456,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q307",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Paul George was traded to the Clippers by which team?",
     options: ["Thunder", "Pacers", "Celtics", "Nuggets"],
     answer: 0,
@@ -2157,6 +2464,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q308",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team acquired James Harden from Houston in 2020?",
     options: ["Nets", "76ers", "Warriors", "Bucks"],
     answer: 0,
@@ -2164,6 +2472,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q309",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Harden later moved from Brooklyn to which team in 2022?",
     options: ["76ers", "Clippers", "Suns", "Lakers"],
     answer: 0,
@@ -2171,6 +2480,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q310",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which franchise acquired Rudy Gobert from Utah in 2022?",
     options: ["Timberwolves", "Nets", "Grizzlies", "Cavaliers"],
     answer: 0,
@@ -2178,6 +2488,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q311",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which star did Utah trade to Cleveland in 2022?",
     options: ["Donovan Mitchell", "Mike Conley", "Rudy Gobert", "Jordan Clarkson"],
     answer: 0,
@@ -2185,6 +2496,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q312",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team acquired Damian Lillard in 2023?",
     options: ["Bucks", "Heat", "76ers", "Celtics"],
     answer: 0,
@@ -2192,6 +2504,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q313",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Lillard was traded by which franchise?",
     options: ["Trail Blazers", "Bucks", "Heat", "Jazz"],
     answer: 0,
@@ -2199,6 +2512,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q314",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which former MVP moved from Brooklyn to Dallas in 2023?",
     options: ["Kyrie Irving", "James Harden", "Kevin Durant", "Ben Simmons"],
     answer: 0,
@@ -2206,6 +2520,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q315",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which star did Phoenix acquire in the 2023 Durant trade?",
     options: ["Kevin Durant", "Kyrie Irving", "Bradley Beal", "Devin Booker"],
     answer: 0,
@@ -2213,6 +2528,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q316",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team did Kevin Durant join in 2023?",
     options: ["Suns", "Mavericks", "Warriors", "Heat"],
     answer: 0,
@@ -2220,6 +2536,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q317",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team acquired Bradley Beal from Washington in 2023?",
     options: ["Suns", "Heat", "Bucks", "Lakers"],
     answer: 0,
@@ -2227,6 +2544,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q318",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which franchise drafted Giannis Antetokounmpo in 2013?",
     options: ["Bucks", "Hawks", "Suns", "Lakers"],
     answer: 0,
@@ -2234,6 +2552,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q319",
     bucket: "player",
+    difficulty: "easy",
     prompt: "What overall pick was Giannis in 2013?",
     options: ["8th", "12th", "15th", "19th"],
     answer: 3,
@@ -2241,6 +2560,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q320",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team drafted Nikola Jokic?",
     options: ["Nuggets", "Bulls", "Spurs", "Celtics"],
     answer: 0,
@@ -2248,6 +2568,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q321",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Jokic was selected with which overall pick?",
     options: ["7th", "14th", "25th", "41st"],
     answer: 3,
@@ -2255,6 +2576,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q322",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Draymond Green in 2012?",
     options: ["Warriors", "Celtics", "Heat", "Thunder"],
     answer: 0,
@@ -2262,6 +2584,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q323",
     bucket: "player",
+    difficulty: "medium",
     prompt: "What pick was Draymond Green?",
     options: ["22nd", "35th", "39th", "46th"],
     answer: 2,
@@ -2269,6 +2592,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q324",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Manu Ginobili in 1999?",
     options: ["Spurs", "Rockets", "Lakers", "Pacers"],
     answer: 0,
@@ -2276,6 +2600,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q325",
     bucket: "player",
+    difficulty: "medium",
     prompt: "What pick was Ginobili?",
     options: ["35th", "42nd", "53rd", "57th"],
     answer: 3,
@@ -2283,6 +2608,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q326",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which team drafted Tony Parker?",
     options: ["Spurs", "Raptors", "Heat", "Jazz"],
     answer: 0,
@@ -2290,6 +2616,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q327",
     bucket: "player",
+    difficulty: "medium",
     prompt: "What was Tony Parker's draft position in 2001?",
     options: ["28th", "21st", "11th", "34th"],
     answer: 0,
@@ -2297,6 +2624,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q328",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team drafted Nikola Jokic during a Taco Bell commercial?",
     options: ["Nuggets", "Bulls", "Spurs", "Knicks"],
     answer: 0,
@@ -2304,6 +2632,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q329",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who selected Kobe Bryant in 1996 before he was traded to the Lakers?",
     options: ["Hornets", "76ers", "Bucks", "Nets"],
     answer: 0,
@@ -2311,6 +2640,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q330",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Which player was famously selected at No. 55 in the 2024 draft?",
     options: ["Bronny James", "Dylan Harper", "Ryan Dunn", "Isaiah Collier"],
     answer: 0,
@@ -2318,6 +2648,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q331",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How long is an NBA game in regulation?",
     options: ["40 minutes", "44 minutes", "48 minutes", "50 minutes"],
     answer: 2,
@@ -2325,6 +2656,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q332",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many quarters are in an NBA game?",
     options: ["2", "3", "4", "5"],
     answer: 2,
@@ -2332,6 +2664,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q333",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How long is each NBA quarter?",
     options: ["10 minutes", "12 minutes", "15 minutes", "20 minutes"],
     answer: 1,
@@ -2339,6 +2672,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q334",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many minutes is NBA overtime?",
     options: ["3", "4", "5", "6"],
     answer: 2,
@@ -2346,6 +2680,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q335",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How far is the NBA three-point line at the top of the arc?",
     options: ["21.5 feet", "22.0 feet", "23.75 feet", "25 feet"],
     answer: 2,
@@ -2353,6 +2688,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q336",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How far is the NBA three-point line in the corners?",
     options: ["21 feet", "22 feet", "23 feet", "24 feet"],
     answer: 1,
@@ -2360,6 +2696,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q337",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many fouls disqualify an NBA player?",
     options: ["5", "6", "7", "8"],
     answer: 1,
@@ -2367,6 +2704,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q338",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many seconds does an NBA team have to advance the ball over half court?",
     options: ["5", "7", "8", "10"],
     answer: 2,
@@ -2374,6 +2712,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q339",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many seconds does an NBA offense normally have to attempt a field goal?",
     options: ["20", "24", "25", "30"],
     answer: 1,
@@ -2381,6 +2720,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q340",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "After an offensive rebound, how much does the NBA shot clock reset to?",
     options: ["14 seconds", "16 seconds", "18 seconds", "24 seconds"],
     answer: 0,
@@ -2388,6 +2728,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q341",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many players from one team are on the floor at once?",
     options: ["4", "5", "6", "7"],
     answer: 1,
@@ -2395,6 +2736,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q342",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many players are normally active on an NBA game roster?",
     options: ["10", "12", "13", "15"],
     answer: 2,
@@ -2402,6 +2744,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q343",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a goaltending violation?",
     options: ["Illegal screen", "Touching a shot on its downward flight above the rim", "Traveling", "Double dribble"],
     answer: 1,
@@ -2409,6 +2752,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q344",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a backcourt violation?",
     options: ["Returning the ball illegally from frontcourt to backcourt", "Three seconds in the paint", "Illegal screen", "Traveling"],
     answer: 0,
@@ -2416,6 +2760,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q345",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many seconds can an offensive player stay in the lane under the three-second rule?",
     options: ["2", "3", "5", "8"],
     answer: 1,
@@ -2423,6 +2768,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q346",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What does a 'double-double' require?",
     options: ["Two 20-point quarters", "Double figures in two statistical categories", "Two technical fouls", "Two made threes"],
     answer: 1,
@@ -2430,6 +2776,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q347",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What does a 'triple-double' require?",
     options: ["Double figures in three statistical categories", "Three 10-point quarters", "Three straight double-doubles", "30 total points"],
     answer: 0,
@@ -2437,6 +2784,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q348",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What does 'and-one' mean?",
     options: ["A made shot plus a bonus free throw", "A turnover", "A steal and block on one play", "One extra timeout"],
     answer: 0,
@@ -2444,6 +2792,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q349",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'sixth man'?",
     options: ["Starting center", "Top bench player", "Team captain", "Assistant coach"],
     answer: 1,
@@ -2451,6 +2800,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q350",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a '3-and-D' player?",
     options: ["A player good at threes and defense", "A player with three MVPs", "A three-center lineup", "A three-point contest winner"],
     answer: 0,
@@ -2458,6 +2808,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q351",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'stretch five'?",
     options: ["A center who can shoot from outside", "A center who plays five games", "A power forward who only rebounds", "A small guard"],
     answer: 0,
@@ -2465,6 +2816,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q352",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'small-ball' basketball generally describing?",
     options: ["Using smaller, more versatile lineups", "Only playing rookies", "Taking fewer shots", "Playing without a point guard"],
     answer: 0,
@@ -2472,6 +2824,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q353",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'point forward'?",
     options: ["A forward handling major ball-handling duties", "A point guard who rebounds", "A center who shoots threes", "A forward who only passes"],
     answer: 0,
@@ -2479,6 +2832,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q354",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'switch everything' defensively?",
     options: ["Switching jerseys", "Switching assignments on most screens", "Switching coaches", "Changing defenses every possession"],
     answer: 1,
@@ -2486,6 +2840,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q355",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'drop' coverage?",
     options: ["A center retreats toward the rim in pick-and-roll defense", "A trap at half court", "A full-court press", "Switching all screens"],
     answer: 0,
@@ -2493,6 +2848,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q356",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'hedge' in pick-and-roll defense?",
     options: ["Ball-handler defender briefly steps out to slow the ball", "A full trap under the rim", "A box-and-one", "A zone press"],
     answer: 0,
@@ -2500,6 +2856,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q357",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'cut' in basketball?",
     options: ["A player moving without the ball into open space", "A timeout", "A hard foul", "A substitution"],
     answer: 0,
@@ -2507,6 +2864,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q358",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'closeout'?",
     options: ["Defender sprinting to contest a shooter", "Ending a game", "Calling timeout", "A post move"],
     answer: 0,
@@ -2514,6 +2872,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q359",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'ice' or 'blue' pick-and-roll coverage commonly designed to do?",
     options: ["Force the ball-handler away from the screen toward the sideline", "Blitz every screen", "Switch to zone", "Give up the corner"],
     answer: 0,
@@ -2521,6 +2880,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q360",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'horns' set?",
     options: ["A formation with two players near the elbows", "Two centers in the paint", "A full-court press", "A late-game timeout"],
     answer: 0,
@@ -2528,6 +2888,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q361",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'Spain pick-and-roll'?",
     options: ["Pick-and-roll with a backscreen on the screener's defender", "Two centers posting up", "A full-court press", "A corner three play"],
     answer: 0,
@@ -2535,6 +2896,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q362",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a '5-out' offense?",
     options: ["All five offensive players spaced outside the paint", "Five centers", "Five shooters on the bench", "Five straight possessions of threes"],
     answer: 0,
@@ -2542,6 +2904,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q363",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'pace' in NBA strategy?",
     options: ["How quickly a team plays and generates possessions", "A player's speed only", "Half-court defense", "Three-point range"],
     answer: 0,
@@ -2549,6 +2912,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q364",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'true shooting percentage' designed to measure?",
     options: ["Scoring efficiency accounting for threes and free throws", "Defensive rebounding", "Assist quality", "Turnovers per game"],
     answer: 0,
@@ -2556,6 +2920,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q365",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'usage rate' intended to estimate?",
     options: ["Share of team possessions a player ends while on court", "Number of minutes played", "Defensive possessions only", "Shooting distance"],
     answer: 0,
@@ -2563,6 +2928,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q366",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What does 'net rating' measure?",
     options: ["Point differential per 100 possessions", "Total points in a game", "Win percentage", "Three-point percentage"],
     answer: 0,
@@ -2570,6 +2936,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q367",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'plus-minus'?",
     options: ["Team point differential while a player is on court", "Player salary minus taxes", "Field goals minus misses", "Wins minus losses"],
     answer: 0,
@@ -2577,6 +2944,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q368",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'take foul'?",
     options: ["A non-basketball play intended to stop transition", "A technical foul", "An offensive foul", "A shooting foul"],
     answer: 0,
@@ -2584,6 +2952,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q369",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'flagrant 1'?",
     options: ["Unnecessary contact", "Automatic ejection", "Delay of game", "Defensive three seconds"],
     answer: 0,
@@ -2591,6 +2960,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q370",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'flagrant 2'?",
     options: ["Unnecessary and excessive contact that can lead to ejection", "A regular shooting foul", "A timeout violation", "A traveling call"],
     answer: 0,
@@ -2598,6 +2968,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q371",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is the NBA's replay 'challenge' used for?",
     options: ["Coach-requested review of certain rulings", "Adding a substitution", "Changing the score", "Calling an extra timeout only"],
     answer: 0,
@@ -2605,6 +2976,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q372",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many team timeouts does an NBA team get in regulation under modern rules?",
     options: ["5", "6", "7", "8"],
     answer: 2,
@@ -2612,6 +2984,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q373",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'two-for-one' strategy?",
     options: ["Using the clock to get two possessions near the end of a quarter", "Two players guarding one", "Two timeouts for one", "Making two threes"],
     answer: 0,
@@ -2619,6 +2992,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q374",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'heat check'?",
     options: ["A shot attempt taken after a player hits several in a row", "Checking player temperature", "A timeout", "A foul review"],
     answer: 0,
@@ -2626,6 +3000,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q375",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'ice in the veins' used to describe?",
     options: ["Clutch composure under pressure", "Cold shooting", "A defensive scheme", "A timeout"],
     answer: 0,
@@ -2633,6 +3008,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q376",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'poster dunk'?",
     options: ["A dunk over/through a defender that becomes an iconic highlight", "A dunk with a backboard pass", "A dunk from the free-throw line only", "A technical foul"],
     answer: 0,
@@ -2640,6 +3016,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q377",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'putback'?",
     options: ["Scoring immediately after an offensive rebound", "A pass backward", "A timeout play", "A blocked shot"],
     answer: 0,
@@ -2647,6 +3024,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q378",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'bank shot'?",
     options: ["A shot that uses the backboard", "A three from the corner", "A free throw", "A hook pass"],
     answer: 0,
@@ -2654,6 +3032,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q379",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'buzzer-beater'?",
     options: ["A shot made as the clock expires", "Any three-pointer", "A free throw", "A shot after a timeout"],
     answer: 0,
@@ -2661,6 +3040,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q380",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'game-winner'?",
     options: ["A basket that puts a team ahead for good before time expires", "Any winning shot", "A dunk in overtime", "A final free throw only"],
     answer: 0,
@@ -2668,6 +3048,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q381",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "What is 'Hack-a-Shaq' style strategy?",
     options: ["Intentionally fouling a poor free-throw shooter", "Full-court trapping", "Box-and-one", "Fouling a shooter before he catches"],
     answer: 0,
@@ -2675,6 +3056,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q382",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What does 'rim pressure' mean?",
     options: ["Ability to attack the basket and force defensive help", "Defending only the rim", "Shooting range", "Rebounding technique"],
     answer: 0,
@@ -2682,6 +3064,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q383",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is 'gravity' when describing a star shooter?",
     options: ["Defenders react to the threat of the shooter's scoring", "Physical weight", "Height", "Rebounding strength"],
     answer: 0,
@@ -2689,6 +3072,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q384",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'ghost screen'?",
     options: ["A fake screen where the screener slips out to space", "A moving screen", "A screen by a defender", "A zone defense"],
     answer: 0,
@@ -2696,6 +3080,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q385",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'flare screen'?",
     options: ["A screen that sends a cutter outward to the perimeter", "A baseline post-up", "A ball screen into the lane", "A backcourt trap"],
     answer: 0,
@@ -2703,6 +3088,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q386",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'backdoor cut'?",
     options: ["Cutting behind a defender toward the basket", "Cutting to half court", "A baseline three", "A defensive switch"],
     answer: 0,
@@ -2710,6 +3096,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q387",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'high-low' action?",
     options: ["Two bigs working from high and low post positions", "Two guards in pick-and-roll", "A full-court press", "Two corner shooters"],
     answer: 0,
@@ -2717,6 +3104,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q388",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'box-and-one'?",
     options: ["Four defenders in a zone plus one man defender", "A four-man press", "One player in a box set", "A two-center offense"],
     answer: 0,
@@ -2724,6 +3112,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q389",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is a 'triangle offense'?",
     options: ["A system emphasizing three-man triangle spacing", "Three point guards", "A three-second rule", "Three straight post-ups"],
     answer: 0,
@@ -2731,6 +3120,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q390",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which coach is most associated with the triangle offense in Chicago and Los Angeles?",
     options: ["Phil Jackson", "Gregg Popovich", "Pat Riley", "Red Auerbach"],
     answer: 0,
@@ -2738,6 +3128,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q391",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "What is '7 seconds or less' associated with which coach/system?",
     options: ["Mike D'Antoni's Suns", "Gregg Popovich's Spurs", "Phil Jackson's Bulls", "Pat Riley's Knicks"],
     answer: 0,
@@ -2745,6 +3136,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q392",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which team made 'pace and space' famous in the modern three-point era?",
     options: ["Warriors", "Pistons", "1990s Knicks", "1990s Jazz"],
     answer: 0,
@@ -2752,6 +3144,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q393",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which duo won three straight championships with the Lakers from 2000-2002?",
     options: ["Kobe Bryant and Shaq", "Kobe Bryant and Pau Gasol", "Magic and Kareem", "LeBron and Wade"],
     answer: 0,
@@ -2759,6 +3152,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q394",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which duo powered the Lakers' 2009 and 2010 titles?",
     options: ["Kobe Bryant and Pau Gasol", "Kobe and Shaq", "LeBron and AD", "Magic and Worthy"],
     answer: 0,
@@ -2766,6 +3160,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q395",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which duo led Cleveland to the 2016 title?",
     options: ["LeBron James and Kyrie Irving", "LeBron and Kevin Love only", "Kyrie and Tristan Thompson", "LeBron and JR Smith"],
     answer: 0,
@@ -2773,6 +3168,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q396",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which trio formed Boston's 2008 'Big Three'?",
     options: ["Garnett, Pierce, Allen", "Bird, McHale, Parish", "Tatum, Brown, Smart", "Walker, Pierce, Garnett"],
     answer: 0,
@@ -2780,6 +3176,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q397",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which trio formed Miami's 2012-13 core?",
     options: ["LeBron, Wade, Bosh", "Wade, Butler, Bosh", "LeBron, Allen, Bosh", "Wade, Haslem, Bosh"],
     answer: 0,
@@ -2787,6 +3184,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q398",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which trio formed Golden State's 2015-18 core?",
     options: ["Curry, Durant, Thompson", "Curry, Harden, Thompson", "Durant, Westbrook, Ibaka", "Curry, Iguodala, Bogut"],
     answer: 0,
@@ -2794,6 +3192,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q399",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Spurs trio won multiple titles together in the 2000s and 2010s?",
     options: ["Duncan, Parker, Ginobili", "Duncan, Robinson, Kerr", "Parker, Kawhi, Aldridge", "Ginobili, Kawhi, Bowen"],
     answer: 0,
@@ -2801,6 +3200,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q400",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which two stars made up the famous Stockton-to-Malone pick-and-roll?",
     options: ["John Stockton and Karl Malone", "Jason Kidd and Dirk", "Nash and Stoudemire", "Paul and Griffin"],
     answer: 0,
@@ -2808,6 +3208,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q401",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which franchise did Stockton and Malone spend their entire NBA careers with?",
     options: ["Jazz", "Nuggets", "Suns", "Spurs"],
     answer: 0,
@@ -2815,6 +3216,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q402",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which two players were the heart of the 1980s Lakers fast-break era?",
     options: ["Magic Johnson and James Worthy", "Magic and Kareem only", "Worthy and Byron Scott", "Kareem and Cooper"],
     answer: 0,
@@ -2822,6 +3224,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q403",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which rival duo represented Boston and Detroit in one of the East's biggest 1980s matchups?",
     options: ["Larry Bird and Isiah Thomas", "Magic and Bird", "Jordan and Bird", "Ewing and Thomas"],
     answer: 0,
@@ -2829,6 +3232,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q404",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Michael Jordan's biggest 1990s roadblock in the East was often which franchise?",
     options: ["Pistons", "Heat", "Pacers", "Knicks"],
     answer: 0,
@@ -2836,6 +3240,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q405",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "The Bulls finally defeated Detroit in the 1991 East Finals sweep. True or false?",
     options: ["True", "False", "They lost in five", "They lost in seven"],
     answer: 0,
@@ -2843,6 +3248,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q406",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Chicago beat in the 1992 East Finals?",
     options: ["Cavaliers", "Knicks", "Pistons", "Pacers"],
     answer: 1,
@@ -2850,6 +3256,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q407",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Chicago beat in the 1993 East Finals?",
     options: ["Knicks", "Pacers", "Pistons", "Cavaliers"],
     answer: 0,
@@ -2857,6 +3264,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q408",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Chicago beat in the 1997 East Finals?",
     options: ["Heat", "Pacers", "Pistons", "Hornets"],
     answer: 0,
@@ -2864,6 +3272,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q409",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Chicago beat in the 1998 East Finals?",
     options: ["Pacers", "Knicks", "Heat", "Magic"],
     answer: 0,
@@ -2871,6 +3280,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q410",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who hit the 'Kawhi shot' against Philadelphia in 2019?",
     options: ["Kawhi Leonard", "Kyle Lowry", "Pascal Siakam", "Jimmy Butler"],
     answer: 0,
@@ -2878,6 +3288,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q411",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who missed the potential game-winning shot for Philadelphia after Kawhi's 2019 winner?",
     options: ["Joel Embiid", "Jimmy Butler", "Ben Simmons", "Tobias Harris"],
     answer: 1,
@@ -2885,6 +3296,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q412",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player hit the famous 'The Shot' over Craig Ehlo in 1989?",
     options: ["Michael Jordan", "Larry Bird", "Magic Johnson", "Dominique Wilkins"],
     answer: 0,
@@ -2892,6 +3304,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q413",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Jordan beat with 'The Shot' in the 1989 playoffs?",
     options: ["Cavaliers", "Pistons", "Knicks", "Bucks"],
     answer: 0,
@@ -2899,6 +3312,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q414",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player hit 'The Shot' over Antoine Walker in a 2001 playoff game?",
     options: ["Allen Iverson", "Kobe Bryant", "Ray Allen", "Vince Carter"],
     answer: 0,
@@ -2906,6 +3320,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q415",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Allen Iverson's 2001 Sixers face in the East Finals?",
     options: ["Bucks", "Pacers", "Raptors", "Celtics"],
     answer: 0,
@@ -2913,6 +3328,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q416",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did LeBron's 2007 Cavaliers defeat in the East Finals?",
     options: ["Pistons", "Celtics", "Magic", "Nets"],
     answer: 0,
@@ -2920,6 +3336,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q417",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "LeBron's 48-point performance against Detroit in the 2007 East Finals came in Game 5. How many straight Cleveland points did he score late?",
     options: ["15", "20", "25", "29"],
     answer: 3,
@@ -2927,6 +3344,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q418",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did LeBron's 2012 Heat defeat in the East Finals?",
     options: ["Celtics", "Bulls", "Pacers", "Knicks"],
     answer: 0,
@@ -2934,6 +3352,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q419",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "LeBron's famous Game 6 in Boston in 2012 came in which arena?",
     options: ["TD Garden", "United Center", "Madison Square Garden", "Bankers Life Fieldhouse"],
     answer: 0,
@@ -2941,6 +3360,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q420",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Miami defeat in the 2013 East Finals?",
     options: ["Pacers", "Bulls", "Knicks", "Celtics"],
     answer: 0,
@@ -2948,6 +3368,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q421",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player led the Spurs in made three-pointers during the 2013 Finals and set a then-Finals series record with 27?",
     options: ["Danny Green", "Tony Parker", "Kawhi Leonard", "Manu Ginobili"],
     answer: 0,
@@ -2955,6 +3376,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q422",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "How many three-pointers did Danny Green make in the 2013 Finals?",
     options: ["24", "27", "29", "33"],
     answer: 1,
@@ -2962,6 +3384,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q423",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player led the 2015 Cavaliers in scoring during most of the Finals after Kyrie was injured?",
     options: ["LeBron James", "J.R. Smith", "Tristan Thompson", "Matthew Dellavedova"],
     answer: 0,
@@ -2969,6 +3392,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q424",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player stepped into a larger role for Cleveland in the 2015 Finals and became a beloved fan favorite?",
     options: ["Matthew Dellavedova", "Mo Williams", "Dion Waiters", "Deron Williams"],
     answer: 0,
@@ -2976,6 +3400,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q425",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Warriors player returned from a 2016 knee injury to play a major role in the 2017 championship?",
     options: ["Kevin Durant", "Andrew Bogut", "Shaun Livingston", "Leandro Barbosa"],
     answer: 0,
@@ -2983,6 +3408,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q426",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Warriors center left after the 2016 season and later returned in a diminished role?",
     options: ["Andrew Bogut", "JaVale McGee", "Zaza Pachulia", "Festus Ezeli"],
     answer: 0,
@@ -2990,6 +3416,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q427",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player was known for the phrase 'Game 6 Klay'?",
     options: ["Klay Thompson", "Stephen Curry", "Kevin Durant", "Andre Iguodala"],
     answer: 0,
@@ -2997,6 +3424,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q428",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Klay Thompson's 11 three-pointers in a playoff Game 6 came against which team in 2016?",
     options: ["Thunder", "Rockets", "Cavaliers", "Blazers"],
     answer: 0,
@@ -3004,6 +3432,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q429",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which team blew a 3-1 lead to Golden State in the 2016 West Finals?",
     options: ["Thunder", "Blazers", "Rockets", "Spurs"],
     answer: 0,
@@ -3011,6 +3440,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q430",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Kevin Durant hit the game-winning three in Game 3 of the 2017 Finals against which team?",
     options: ["Cavaliers", "Rockets", "Spurs", "Raptors"],
     answer: 0,
@@ -3018,6 +3448,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q431",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player famously scored 51 points in a 2018 playoff game for Cleveland?",
     options: ["LeBron James", "Kevin Love", "Kyle Korver", "JR Smith"],
     answer: 0,
@@ -3025,6 +3456,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q432",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did LeBron's 51-point Game 1 performance come against in the 2018 Finals?",
     options: ["Warriors", "Celtics", "Raptors", "Rockets"],
     answer: 0,
@@ -3032,6 +3464,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q433",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player was ejected early in Game 1 of the 2018 Finals after a confrontation that became a meme?",
     options: ["JR Smith", "Draymond Green", "Kevin Durant", "Tristan Thompson"],
     answer: 3,
@@ -3039,6 +3472,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q434",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did LeBron and the Cavaliers face in four straight Finals from 2015-2018?",
     options: ["Warriors", "Spurs", "Celtics", "Raptors"],
     answer: 0,
@@ -3046,6 +3480,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q435",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which team swept Portland in the 2019 West Finals?",
     options: ["Warriors", "Nuggets", "Raptors", "Thunder"],
     answer: 0,
@@ -3053,6 +3488,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q436",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which player famously defended LeBron in the 2018 Finals and was often switched onto him?",
     options: ["Kevin Durant", "Klay Thompson", "Andre Iguodala", "Draymond Green"],
     answer: 3,
@@ -3060,6 +3496,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q437",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player hit a game-winning three for Toronto against Philadelphia in 2019 before the series went to Game 7?",
     options: ["Kawhi Leonard", "Danny Green", "Kyle Lowry", "Pascal Siakam"],
     answer: 0,
@@ -3067,6 +3504,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q438",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Denver defeat to reach the 2020 West Finals after a 3-1 comeback?",
     options: ["Clippers", "Jazz", "Lakers", "Rockets"],
     answer: 0,
@@ -3074,6 +3512,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q439",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Denver's 2020 bubble team came back from 3-1 deficits against which two teams?",
     options: ["Jazz and Clippers", "Rockets and Lakers", "Jazz and Lakers", "Clippers and Lakers"],
     answer: 0,
@@ -3081,6 +3520,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q440",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player hit a 2020 Game 7 winner for Denver against the Clippers?",
     options: ["Jamal Murray", "Nikola Jokic", "None; Denver won by double digits", "Michael Porter Jr."],
     answer: 2,
@@ -3088,6 +3528,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q441",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Denver beat in the 2020 West Finals?",
     options: ["Lakers", "Clippers", "Rockets", "Jazz"],
     answer: 0,
@@ -3095,6 +3536,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q442",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which team defeated Denver in the 2020 Finals?",
     options: ["Lakers", "Heat", "Celtics", "Clippers"],
     answer: 0,
@@ -3102,6 +3544,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q443",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Jimmy Butler's 40-point triple-double in the 2023 Finals came against which team?",
     options: ["Nuggets", "Celtics", "Bucks", "Lakers"],
     answer: 0,
@@ -3109,6 +3552,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q444",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player recorded the first 40-point triple-double in the NBA Finals?",
     options: ["LeBron James", "Jimmy Butler", "Jerry West", "Nikola Jokic"],
     answer: 0,
@@ -3116,6 +3560,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q445",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Nikola Jokic's 2023 Finals opponent was which team?",
     options: ["Heat", "Celtics", "Suns", "Lakers"],
     answer: 0,
@@ -3123,6 +3568,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q446",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "Which team did Boston beat in the 2024 Finals?",
     options: ["Mavericks", "Pacers", "Heat", "Timberwolves"],
     answer: 0,
@@ -3130,6 +3576,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q447",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Who was the 2024 Finals MVP?",
     options: ["Jayson Tatum", "Jaylen Brown", "Jrue Holiday", "Kristaps Porzingis"],
     answer: 1,
@@ -3137,6 +3584,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q448",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Boston's 2024 title gave them sole possession of the NBA championship record. Before that, who were they tied with?",
     options: ["Warriors", "Lakers", "Bulls", "Spurs"],
     answer: 1,
@@ -3144,6 +3592,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q449",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player became an NBA champion with Boston in 2024 after previously winning with Milwaukee?",
     options: ["Jrue Holiday", "Damian Lillard", "Khris Middleton", "Brook Lopez"],
     answer: 0,
@@ -3151,6 +3600,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q450",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player joined Boston in 2023 and was part of the 2024 title team after a major trade from Washington?",
     options: ["Kristaps Porzingis", "Bradley Beal", "John Wall", "Rui Hachimura"],
     answer: 0,
@@ -3158,6 +3608,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q451",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which Dallas star carried a huge offensive load in the 2024 Finals?",
     options: ["Luka Doncic", "Kyrie Irving", "Dereck Lively II", "P.J. Washington"],
     answer: 0,
@@ -3165,6 +3616,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q452",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which player returned to the Finals in 2024 after winning a title with Cleveland in 2016?",
     options: ["Kyrie Irving", "Jrue Holiday", "Al Horford", "Derrick Rose"],
     answer: 0,
@@ -3172,6 +3624,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q453",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player scored 55 points in Game 1 of the 2001 Eastern Conference first round?",
     options: ["Allen Iverson", "Vince Carter", "Kobe Bryant", "Tracy McGrady"],
     answer: 1,
@@ -3179,6 +3632,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q454",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team did Vince Carter's 2001 50+ point playoff game come against?",
     options: ["76ers", "Bucks", "Knicks", "Heat"],
     answer: 0,
@@ -3186,6 +3640,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q455",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was nicknamed 'The Truth' in Boston?",
     options: ["Paul Pierce", "Kevin Garnett", "Ray Allen", "Rajon Rondo"],
     answer: 0,
@@ -3193,6 +3648,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q456",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was nicknamed 'The Big O'?",
     options: ["Oscar Robertson", "O.J. Mayo", "Otto Porter", "Oliver Miller"],
     answer: 0,
@@ -3200,6 +3656,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q457",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Who was known as 'The Worm'?",
     options: ["Dennis Rodman", "Charles Barkley", "Dikembe Mutombo", "Ben Wallace"],
     answer: 0,
@@ -3207,6 +3664,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q458",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was nicknamed 'Agent Zero'?",
     options: ["Gilbert Arenas", "Baron Davis", "Steve Nash", "Chauncey Billups"],
     answer: 0,
@@ -3214,6 +3672,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q459",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was nicknamed 'Starbury'?",
     options: ["Stephon Marbury", "Steve Francis", "Stevie Nash", "Star Jones"],
     answer: 0,
@@ -3221,6 +3680,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q460",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was known as 'White Chocolate'?",
     options: ["Jason Williams", "Jason Kidd", "Steve Nash", "Luke Ridnour"],
     answer: 0,
@@ -3228,6 +3688,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q461",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which team did Jason Williams' 'Elbow Pass' highlight most famously represent?",
     options: ["Kings", "Grizzlies", "Magic", "Heat"],
     answer: 0,
@@ -3235,6 +3696,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q462",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player was famous for wearing a protective mask after a broken nose and later winning a title in Miami?",
     options: ["Dwyane Wade", "LeBron James", "Chris Bosh", "Udonis Haslem"],
     answer: 0,
@@ -3242,6 +3704,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q463",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player wore a facemask during parts of the 2013 season after a broken nose?",
     options: ["LeBron James", "Dwyane Wade", "Kobe Bryant", "James Harden"],
     answer: 0,
@@ -3249,6 +3712,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q464",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player hit a famous 3-pointer after Kobe Bryant's 2000 alley-oop setup against Sacramento?",
     options: ["Robert Horry", "Rick Fox", "Derek Fisher", "Glen Rice"],
     answer: 1,
@@ -3256,6 +3720,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q465",
     bucket: "player",
+    difficulty: "hard",
     prompt: "Which Lakers role player was called 'Big Shot Rob'?",
     options: ["Robert Horry", "Derek Fisher", "Rick Fox", "Brian Shaw"],
     answer: 0,
@@ -3263,6 +3728,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q466",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player was known as 'Big Shot Bob' before the nickname 'Big Shot Rob' became common?",
     options: ["Robert Horry", "Robert Pack", "Bob McAdoo", "Robert Reid"],
     answer: 0,
@@ -3270,6 +3736,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q467",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won Finals MVP in 1978 for Washington?",
     options: ["Wes Unseld", "Elvin Hayes", "Bob Dandridge", "Kevin Grevey"],
     answer: 0,
@@ -3277,6 +3744,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q468",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Who won 1979 Finals MVP for Seattle?",
     options: ["Dennis Johnson", "Gus Williams", "Jack Sikma", "Fred Brown"],
     answer: 0,
@@ -3284,6 +3752,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q469",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1981 Finals MVP for Boston?",
     options: ["Cedric Maxwell", "Larry Bird", "Robert Parish", "Tiny Archibald"],
     answer: 0,
@@ -3291,6 +3760,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q470",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1982 Finals MVP for the Lakers?",
     options: ["Magic Johnson", "Kareem Abdul-Jabbar", "James Worthy", "Jamaal Wilkes"],
     answer: 0,
@@ -3298,6 +3768,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q471",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1983 Finals MVP for Philadelphia?",
     options: ["Moses Malone", "Julius Erving", "Maurice Cheeks", "Andrew Toney"],
     answer: 0,
@@ -3305,6 +3776,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q472",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1985 Finals MVP for the Lakers?",
     options: ["Kareem Abdul-Jabbar", "Magic Johnson", "James Worthy", "Byron Scott"],
     answer: 0,
@@ -3312,6 +3784,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q473",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1987 Finals MVP for the Lakers?",
     options: ["Magic Johnson", "James Worthy", "Kareem Abdul-Jabbar", "Byron Scott"],
     answer: 0,
@@ -3319,6 +3792,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q474",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1988 Finals MVP for the Lakers?",
     options: ["James Worthy", "Magic Johnson", "Kareem Abdul-Jabbar", "Byron Scott"],
     answer: 0,
@@ -3326,6 +3800,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q475",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1989 Finals MVP for Detroit?",
     options: ["Joe Dumars", "Isiah Thomas", "Bill Laimbeer", "Dennis Rodman"],
     answer: 0,
@@ -3333,6 +3808,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q476",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1990 Finals MVP for Detroit?",
     options: ["Isiah Thomas", "Joe Dumars", "Dennis Rodman", "Vinnie Johnson"],
     answer: 0,
@@ -3340,6 +3816,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q477",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1991 Finals MVP for Chicago?",
     options: ["Michael Jordan", "Scottie Pippen", "John Paxson", "Horace Grant"],
     answer: 0,
@@ -3347,6 +3824,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q478",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1992 Finals MVP for Chicago?",
     options: ["Michael Jordan", "Clyde Drexler", "Scottie Pippen", "John Paxson"],
     answer: 0,
@@ -3354,6 +3832,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q479",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1993 Finals MVP for Chicago?",
     options: ["Michael Jordan", "Charles Barkley", "Scottie Pippen", "John Paxson"],
     answer: 0,
@@ -3361,6 +3840,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q480",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1994 Finals MVP for Houston?",
     options: ["Hakeem Olajuwon", "Clyde Drexler", "Vernon Maxwell", "Robert Horry"],
     answer: 0,
@@ -3368,6 +3848,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q481",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1995 Finals MVP for Houston?",
     options: ["Hakeem Olajuwon", "Clyde Drexler", "Robert Horry", "Sam Cassell"],
     answer: 0,
@@ -3375,6 +3856,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q482",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1996 Finals MVP for Chicago?",
     options: ["Michael Jordan", "Scottie Pippen", "Dennis Rodman", "Steve Kerr"],
     answer: 0,
@@ -3382,6 +3864,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q483",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1997 Finals MVP for Chicago?",
     options: ["Michael Jordan", "Karl Malone", "Scottie Pippen", "Steve Kerr"],
     answer: 0,
@@ -3389,6 +3872,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q484",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 1998 Finals MVP for Chicago?",
     options: ["Michael Jordan", "Scottie Pippen", "Dennis Rodman", "Karl Malone"],
     answer: 0,
@@ -3396,6 +3880,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q485",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2002 Finals MVP for the Lakers?",
     options: ["Shaquille O'Neal", "Kobe Bryant", "Robert Horry", "Derek Fisher"],
     answer: 0,
@@ -3403,6 +3888,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q486",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2003 Finals MVP for San Antonio?",
     options: ["Tim Duncan", "David Robinson", "Tony Parker", "Manu Ginobili"],
     answer: 0,
@@ -3410,6 +3896,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q487",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2004 Finals MVP for Detroit?",
     options: ["Chauncey Billups", "Ben Wallace", "Rasheed Wallace", "Tayshaun Prince"],
     answer: 0,
@@ -3417,6 +3904,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q488",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2005 Finals MVP for San Antonio?",
     options: ["Tim Duncan", "Manu Ginobili", "Tony Parker", "Robert Horry"],
     answer: 0,
@@ -3424,6 +3912,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q489",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2006 Finals MVP after Miami won its first title?",
     options: ["Dwyane Wade", "Shaquille O'Neal", "Jason Williams", "Gary Payton"],
     answer: 0,
@@ -3431,6 +3920,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q490",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2009 Finals MVP for the Lakers?",
     options: ["Kobe Bryant", "Pau Gasol", "Derek Fisher", "Trevor Ariza"],
     answer: 0,
@@ -3438,6 +3928,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q491",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2010 Finals MVP for the Lakers?",
     options: ["Kobe Bryant", "Pau Gasol", "Ron Artest", "Derek Fisher"],
     answer: 0,
@@ -3445,6 +3936,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q492",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2011 Finals MVP for Dallas?",
     options: ["Dirk Nowitzki", "Jason Terry", "Tyson Chandler", "Jason Kidd"],
     answer: 0,
@@ -3452,6 +3944,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q493",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2012 Finals MVP for Miami?",
     options: ["LeBron James", "Dwyane Wade", "Chris Bosh", "Shane Battier"],
     answer: 0,
@@ -3459,6 +3952,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q494",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2013 Finals MVP for Miami?",
     options: ["LeBron James", "Dwyane Wade", "Chris Bosh", "Ray Allen"],
     answer: 0,
@@ -3466,6 +3960,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q495",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2014 Finals MVP for San Antonio?",
     options: ["Kawhi Leonard", "Tim Duncan", "Tony Parker", "Boris Diaw"],
     answer: 0,
@@ -3473,6 +3968,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q496",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2015 Finals MVP for Golden State?",
     options: ["Andre Iguodala", "Stephen Curry", "Klay Thompson", "Draymond Green"],
     answer: 0,
@@ -3480,6 +3976,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q497",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2016 Finals MVP for Cleveland?",
     options: ["LeBron James", "Kyrie Irving", "Kevin Love", "Tristan Thompson"],
     answer: 0,
@@ -3487,6 +3984,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q498",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2017 Finals MVP for Golden State?",
     options: ["Kevin Durant", "Stephen Curry", "Andre Iguodala", "Draymond Green"],
     answer: 0,
@@ -3494,6 +3992,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q499",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2018 Finals MVP for Golden State?",
     options: ["Kevin Durant", "Stephen Curry", "Klay Thompson", "Draymond Green"],
     answer: 0,
@@ -3501,6 +4000,7 @@ export const NBA_500_QUESTIONS: BankQuestion[] = [
   {
     id: "nba-500-q500",
     bucket: "player",
+    difficulty: "medium",
     prompt: "Which player won 2019 Finals MVP for Toronto?",
     options: ["Kawhi Leonard", "Kyle Lowry", "Pascal Siakam", "Fred VanVleet"],
     answer: 0,

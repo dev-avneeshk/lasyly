@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getQuiz } from "@/lib/quiz/data"
-import { toClientQuiz } from "@/lib/quiz/types"
+import { getQuiz, poolStats } from "@/lib/quiz/data"
 import QuizPlayer from "./QuizPlayer"
 
 export async function generateMetadata(
@@ -23,7 +22,15 @@ export default async function QuizPlayPage(
   const quiz = getQuiz(quizId)
   if (!quiz) notFound()
 
-  // Answers are stripped here on the server; the client never receives them
-  // until it submits and the API grades the attempt.
-  return <QuizPlayer quiz={toClientQuiz(quiz)} />
+  // No questions are sent up front. The player picks difficulty + count on a
+  // setup screen, then fetches a randomized, answer-stripped attempt from the
+  // API. Answers never reach the client until grading.
+  return (
+    <QuizPlayer
+      quizId={quiz.id}
+      title={quiz.title}
+      description={quiz.description}
+      pool={poolStats(quiz.id)}
+    />
+  )
 }

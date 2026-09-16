@@ -17,9 +17,9 @@ const primaryNav = [
 const moreNav = [
   { icon: Medal, href: "/rankings", label: "Rankings" },
   { icon: Gamepad2, href: "/arena", label: "Arena" },
-  { icon: BarChart2, href: "/bets", label: "My Bets" },
+  { icon: BarChart2, href: "/bets", label: "Predictions" },
   { icon: MessageSquare, href: "/rooms", label: "Rooms" },
-  { icon: Store, href: "/marketplace", label: "Tipsters" },
+  { icon: Store, href: "/marketplace", label: "Experts" },
   { icon: Wallet, href: "/wallet", label: "Wallet" },
   { icon: User, href: "/profile", label: "Profile" },
 ]

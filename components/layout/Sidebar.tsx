@@ -17,9 +17,9 @@ const navItems: NavLeaf[] = [
   { icon: Target, label: "Props", href: "/analysis", comingSoon: false },
   { icon: Medal, label: "Rankings", href: "/rankings", comingSoon: false },
   { icon: Gamepad2, label: "Arena", href: "/arena", comingSoon: false },
-  { icon: BarChart2, label: "My Bets", href: "/bets", comingSoon: false },
+  { icon: BarChart2, label: "Predictions", href: "/bets", comingSoon: false },
   { icon: MessageSquare, label: "Rooms", href: "/rooms", comingSoon: false },
-  { icon: Store, label: "Tipsters", href: "/marketplace", comingSoon: false },
+  { icon: Store, label: "Experts", href: "/marketplace", comingSoon: false },
   { icon: Wallet, label: "Wallet", href: "/wallet", comingSoon: false },
   { icon: User, label: "Profile", href: "/profile", comingSoon: false },
 ]

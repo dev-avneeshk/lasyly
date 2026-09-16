@@ -15,7 +15,7 @@
 
 import { NBA_500_QUESTIONS } from "./nba-500"
 import { NBA_1000_QUESTIONS } from "./nba-501-1000"
-import type { BankQuestion, Question, Quiz, QuizBucket, QuizCategory, QuizSport } from "./types"
+import type { BankQuestion, Question, Quiz, QuizBucket, QuizCategory, QuizDifficulty, QuizSport } from "./types"
 
 // ─── Categories: exactly three per sport ─────────────────────────────────────
 
@@ -36,6 +36,7 @@ const STARTER_NBA: BankQuestion[] = [
   {
     id: "nba-p-1",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which player is the NBA's all-time leading scorer?",
     options: ["Kareem Abdul-Jabbar", "Karl Malone", "LeBron James", "Kobe Bryant"],
     answer: 2,
@@ -44,6 +45,7 @@ const STARTER_NBA: BankQuestion[] = [
   {
     id: "nba-t-1",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays its home games at Madison Square Garden?",
     options: ["Brooklyn Nets", "New York Knicks", "Boston Celtics", "Philadelphia 76ers"],
     answer: 1,
@@ -52,6 +54,7 @@ const STARTER_NBA: BankQuestion[] = [
   {
     id: "nba-g-1",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "How many players from one team are on the court at a time?",
     options: ["4", "5", "6", "7"],
     answer: 1,
@@ -60,6 +63,7 @@ const STARTER_NBA: BankQuestion[] = [
   {
     id: "nba-g-2",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "How many points is a shot made from beyond the arc worth?",
     options: ["1", "2", "3", "4"],
     answer: 2,
@@ -68,6 +72,7 @@ const STARTER_NBA: BankQuestion[] = [
   {
     id: "nba-h-1",
     bucket: "mixed",
+    difficulty: "medium",
     prompt: "Which franchise has won the most NBA championships (tied at the top)?",
     options: ["Los Angeles Lakers", "Chicago Bulls", "Golden State Warriors", "Miami Heat"],
     answer: 0,
@@ -79,6 +84,7 @@ const STARTER_NFL: BankQuestion[] = [
   {
     id: "nfl-p-1",
     bucket: "player",
+    difficulty: "easy",
     prompt: "Which quarterback has won the most Super Bowls?",
     options: ["Joe Montana", "Tom Brady", "Peyton Manning", "Terry Bradshaw"],
     answer: 1,
@@ -87,6 +93,7 @@ const STARTER_NFL: BankQuestion[] = [
   {
     id: "nfl-t-1",
     bucket: "team",
+    difficulty: "easy",
     prompt: "Which team plays its home games at Lambeau Field?",
     options: ["Chicago Bears", "Green Bay Packers", "Minnesota Vikings", "Detroit Lions"],
     answer: 1,
@@ -95,6 +102,7 @@ const STARTER_NFL: BankQuestion[] = [
   {
     id: "nfl-g-1",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "How many points is a touchdown worth (before the extra point)?",
     options: ["3", "6", "7", "2"],
     answer: 1,
@@ -103,6 +111,7 @@ const STARTER_NFL: BankQuestion[] = [
   {
     id: "nfl-g-2",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "How many players from one team are on the field at a time?",
     options: ["10", "11", "12", "9"],
     answer: 1,
@@ -111,6 +120,7 @@ const STARTER_NFL: BankQuestion[] = [
   {
     id: "nfl-h-1",
     bucket: "mixed",
+    difficulty: "easy",
     prompt: "What is the championship game of the NFL season called?",
     options: ["The Finals", "The Super Bowl", "The Grey Cup", "The Pro Bowl"],
     answer: 1,
@@ -128,16 +138,7 @@ const BUCKET_META: Record<QuizBucket, { title: string; description: string }> = 
 
 const BUCKETS: QuizBucket[] = ["player", "team", "mixed"]
 
-/**
- * How many questions each assembled quiz plays. The banks hold hundreds of
- * questions per bucket, but a single sitting should be short and completable —
- * the player answers every question before submitting, and grading counts the
- * whole quiz. We take an evenly-spaced slice across the pool so the sample
- * spans eras rather than just the first N.
- */
-const QUESTIONS_PER_QUIZ = 20
-
-/** Strip the bucket tag to get a plain quiz Question. */
+/** Strip the bank-only tags to get a plain quiz Question. */
 function toQuestion(q: BankQuestion): Question {
   return {
     id: q.id,
@@ -148,47 +149,103 @@ function toQuestion(q: BankQuestion): Question {
   }
 }
 
-/** Evenly sample up to `count` items across the whole array (stable order). */
-function sampleEvenly<T>(arr: T[], count: number): T[] {
-  if (arr.length <= count) return arr
-  const step = arr.length / count
-  const out: T[] = []
-  for (let i = 0; i < count; i++) out.push(arr[Math.floor(i * step)])
-  return out
-}
+const NBA_BANK: BankQuestion[] = [...STARTER_NBA, ...NBA_500_QUESTIONS, ...NBA_1000_QUESTIONS]
+const NFL_BANK: BankQuestion[] = [...STARTER_NFL]
+
+// Every quiz id maps to its full question pool. Attempts sample from this; the
+// `Quiz` object below just wraps the same pool so `getQuiz` + metadata work.
+const POOLS = new Map<string, BankQuestion[]>()
 
 /**
- * Build the three quizzes for a sport by pooling bank questions into their
- * bucket, then sampling a short, completable set. A bucket with no questions is
- * skipped so we never ship an empty quiz.
+ * One quiz per category. `questions` holds the WHOLE pool — the play flow
+ * samples a subset per attempt (see `sampleAttempt`), but keeping the full set
+ * here means grading, metadata, and direct `/quiz/[id]` loads all resolve.
  */
 function buildSportQuizzes(sport: QuizSport, bank: BankQuestion[]): Quiz[] {
   return BUCKETS.flatMap((bucket) => {
-    const pool = bank.filter((q) => q.bucket === bucket).map(toQuestion)
+    const pool = bank.filter((q) => q.bucket === bucket)
     if (pool.length === 0) return []
-    const questions = sampleEvenly(pool, QUESTIONS_PER_QUIZ)
+    const id = `${sport}-${bucket}`
+    POOLS.set(id, pool)
     const meta = BUCKET_META[bucket]
     return [
       {
-        id: `${sport}-${bucket}`,
+        id,
         sport,
-        categoryId: `${sport}-${bucket}`,
+        categoryId: id,
         title: meta.title,
         description: meta.description,
         difficulty: "medium" as const,
-        questions,
+        questions: pool.map(toQuestion),
       },
     ]
   })
 }
 
-const NBA_BANK: BankQuestion[] = [...STARTER_NBA, ...NBA_500_QUESTIONS, ...NBA_1000_QUESTIONS]
-const NFL_BANK: BankQuestion[] = [...STARTER_NFL]
-
 export const QUIZZES: Quiz[] = [
   ...buildSportQuizzes("nba", NBA_BANK),
   ...buildSportQuizzes("nfl", NFL_BANK),
 ]
+
+// ─── Attempt sampling ────────────────────────────────────────────────────────
+
+/** Allowed question counts a player may request per attempt. */
+export const QUIZ_ATTEMPT_COUNTS = [10, 15, 20] as const
+export type QuizAttemptCount = (typeof QUIZ_ATTEMPT_COUNTS)[number]
+
+/** Difficulty filter: a specific level, or "any" to draw from the whole pool. */
+export type QuizDifficultyFilter = QuizDifficulty | "any"
+
+/** Fisher-Yates shuffle (returns a new array). */
+function shuffle<T>(arr: T[]): T[] {
+  const out = arr.slice()
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/** Per-difficulty counts for a quiz's pool, plus the total. Powers the UI. */
+export function poolStats(quizId: string): {
+  total: number
+  easy: number
+  medium: number
+  hard: number
+} | null {
+  const pool = POOLS.get(quizId)
+  if (!pool) return null
+  const stats = { total: pool.length, easy: 0, medium: 0, hard: 0 }
+  for (const q of pool) stats[q.difficulty]++
+  return stats
+}
+
+/**
+ * Randomly sample up to `count` questions from a quiz's pool, optionally
+ * filtered to one difficulty. Returns null for an unknown quiz. When the
+ * filtered pool is smaller than `count`, returns the whole (shuffled) subset.
+ */
+export function sampleAttempt(
+  quizId: string,
+  difficulty: QuizDifficultyFilter,
+  count: number
+): Question[] | null {
+  const pool = POOLS.get(quizId)
+  if (!pool) return null
+  const filtered = difficulty === "any" ? pool : pool.filter((q) => q.difficulty === difficulty)
+  return shuffle(filtered).slice(0, Math.max(1, count)).map(toQuestion)
+}
+
+/** Look up specific pool questions by id (for grading a served subset). */
+export function questionsByIds(quizId: string, ids: string[]): Question[] {
+  const pool = POOLS.get(quizId)
+  if (!pool) return []
+  const byId = new Map(pool.map((q) => [q.id, q]))
+  return ids.flatMap((id) => {
+    const q = byId.get(id)
+    return q ? [toQuestion(q)] : []
+  })
+}
 
 // ─── Lookups ──────────────────────────────────────────────────────────────
 

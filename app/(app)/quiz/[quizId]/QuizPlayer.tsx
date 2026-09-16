@@ -3,23 +3,93 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
-import { Check, X, ChevronLeft, RotateCcw, Trophy } from "lucide-react"
+import { Check, X, ChevronLeft, RotateCcw, Trophy, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { ClientQuiz } from "@/lib/quiz/types"
+import type { ClientQuestion, QuizDifficulty } from "@/lib/quiz/types"
 import type { GradedResult } from "@/lib/quiz/grade"
 import { cn } from "@/lib/utils"
 
-type Phase = "playing" | "submitting" | "done"
+type Phase = "setup" | "loading" | "playing" | "submitting" | "done"
 
-export default function QuizPlayer({ quiz }: { quiz: ClientQuiz }) {
+type PoolStats = { total: number; easy: number; medium: number; hard: number } | null
+type DifficultyChoice = QuizDifficulty | "any"
+
+const DIFFICULTY_OPTIONS: { id: DifficultyChoice; label: string }[] = [
+  { id: "any", label: "Any" },
+  { id: "easy", label: "Easy" },
+  { id: "medium", label: "Medium" },
+  { id: "hard", label: "Hard" },
+]
+
+const COUNT_OPTIONS = [10, 15, 20] as const
+
+interface AttemptResponse {
+  quizId: string
+  title: string
+  difficulty: DifficultyChoice
+  questionCount: number
+  questions: ClientQuestion[]
+  token: string
+}
+
+export default function QuizPlayer({
+  quizId,
+  title,
+  description,
+  pool,
+}: {
+  quizId: string
+  title: string
+  description: string
+  pool: PoolStats
+}) {
+  const [phase, setPhase] = useState<Phase>("setup")
+  const [difficulty, setDifficulty] = useState<DifficultyChoice>("any")
+  const [count, setCount] = useState<(typeof COUNT_OPTIONS)[number]>(10)
+
+  const [questions, setQuestions] = useState<ClientQuestion[]>([])
+  const [token, setToken] = useState<string | null>(null)
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, number>>({})
-  const [phase, setPhase] = useState<Phase>("playing")
   const [result, setResult] = useState<GradedResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const total = quiz.questions.length
-  const current = quiz.questions[index]
+  // How many questions actually exist for the chosen difficulty. Used to warn
+  // when a level has fewer than the requested count.
+  const available = useMemo(() => {
+    if (!pool) return null
+    if (difficulty === "any") return pool.total
+    return pool[difficulty]
+  }, [pool, difficulty])
+
+  async function startAttempt() {
+    setPhase("loading")
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/quiz/${quizId}/attempt?difficulty=${difficulty}&count=${count}`
+      )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error ?? "Couldn't start the quiz. Try again.")
+        setPhase("setup")
+        return
+      }
+      const data = (await res.json()) as AttemptResponse
+      setQuestions(data.questions)
+      setToken(data.token)
+      setIndex(0)
+      setAnswers({})
+      setResult(null)
+      setPhase("playing")
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.")
+      setPhase("setup")
+    }
+  }
+
+  const total = questions.length
+  const current = questions[index]
   const selected = current ? answers[current.id] : undefined
   const answeredCount = Object.keys(answers).length
   const progress = total > 0 ? (answeredCount / total) * 100 : 0
@@ -35,12 +105,10 @@ export default function QuizPlayer({ quiz }: { quiz: ClientQuiz }) {
     setError(null)
     try {
       const payload = {
-        answers: Object.entries(answers).map(([questionId, choice]) => ({
-          questionId,
-          choice,
-        })),
+        answers: Object.entries(answers).map(([questionId, choice]) => ({ questionId, choice })),
+        token,
       }
-      const res = await fetch(`/api/quiz/${quiz.id}/submit`, {
+      const res = await fetch(`/api/quiz/${quizId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -65,16 +133,36 @@ export default function QuizPlayer({ quiz }: { quiz: ClientQuiz }) {
     }
   }
 
-  function retry() {
+  function backToSetup() {
+    setQuestions([])
+    setToken(null)
     setAnswers({})
     setIndex(0)
     setResult(null)
     setError(null)
-    setPhase("playing")
+    setPhase("setup")
   }
 
   if (phase === "done" && result) {
-    return <Results quiz={quiz} result={result} onRetry={retry} />
+    return <Results title={title} result={result} onRetry={backToSetup} />
+  }
+
+  if (phase === "setup" || phase === "loading") {
+    return (
+      <Setup
+        title={title}
+        description={description}
+        pool={pool}
+        difficulty={difficulty}
+        count={count}
+        available={available}
+        loading={phase === "loading"}
+        error={error}
+        onDifficulty={setDifficulty}
+        onCount={setCount}
+        onStart={startAttempt}
+      />
+    )
   }
 
   return (
@@ -86,12 +174,13 @@ export default function QuizPlayer({ quiz }: { quiz: ClientQuiz }) {
 
       {/* Top bar */}
       <div className="relative mb-6 flex items-center justify-between gap-4">
-        <Link
-          href="/quiz"
+        <button
+          type="button"
+          onClick={backToSetup}
           className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft className="h-4 w-4" /> Quizzes
-        </Link>
+          <ChevronLeft className="h-4 w-4" /> Setup
+        </button>
         <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
           {index + 1} / {total}
         </span>
@@ -99,7 +188,7 @@ export default function QuizPlayer({ quiz }: { quiz: ClientQuiz }) {
 
       <div className="relative">
         <h1 className="text-sm font-bold uppercase tracking-[0.3em] text-[var(--color-lime)]">
-          {quiz.title}
+          {title}
         </h1>
 
         {/* Progress bar */}
@@ -188,12 +277,151 @@ export default function QuizPlayer({ quiz }: { quiz: ClientQuiz }) {
   )
 }
 
+function Setup({
+  title,
+  description,
+  pool,
+  difficulty,
+  count,
+  available,
+  loading,
+  error,
+  onDifficulty,
+  onCount,
+  onStart,
+}: {
+  title: string
+  description: string
+  pool: PoolStats
+  difficulty: DifficultyChoice
+  count: (typeof COUNT_OPTIONS)[number]
+  available: number | null
+  loading: boolean
+  error: string | null
+  onDifficulty: (d: DifficultyChoice) => void
+  onCount: (c: (typeof COUNT_OPTIONS)[number]) => void
+  onStart: () => void
+}) {
+  const shortfall = available != null && available < count
+  return (
+    <div className="relative mx-auto max-w-lg px-4 py-10 pb-40 md:pb-12">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-0 h-56 w-[120%] -translate-x-1/2 rounded-full bg-[var(--color-lime)]/10 blur-[120px]"
+      />
+
+      <div className="relative mb-6">
+        <Link
+          href="/quiz"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Quizzes
+        </Link>
+      </div>
+
+      <header className="relative text-center">
+        <span className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--color-lime)]">
+          {title} Quiz
+        </span>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-[var(--color-text-primary)]">
+          Set up your round
+        </h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-[var(--color-text-muted)]">{description}</p>
+      </header>
+
+      {/* Difficulty */}
+      <section className="mt-8">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+          Difficulty
+        </h2>
+        <div className="grid grid-cols-4 gap-2">
+          {DIFFICULTY_OPTIONS.map((opt) => {
+            const n = pool ? (opt.id === "any" ? pool.total : pool[opt.id]) : null
+            const disabled = n === 0
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                disabled={disabled}
+                aria-pressed={difficulty === opt.id}
+                onClick={() => onDifficulty(opt.id)}
+                className={cn(
+                  "rounded-xl border px-2 py-3 text-center transition-all",
+                  disabled && "cursor-not-allowed opacity-40",
+                  difficulty === opt.id
+                    ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
+                    : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-white/20 hover:bg-white/[0.03]"
+                )}
+              >
+                <span className="block text-sm font-black">{opt.label}</span>
+                {n != null && (
+                  <span className="mt-0.5 block text-[10px] tabular-nums opacity-70">{n}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Count */}
+      <section className="mt-6">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+          Questions
+        </h2>
+        <div className="grid grid-cols-3 gap-2">
+          {COUNT_OPTIONS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-pressed={count === c}
+              onClick={() => onCount(c)}
+              className={cn(
+                "rounded-xl border py-3 text-center text-lg font-black transition-all",
+                count === c
+                  ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
+                  : "border-[var(--color-border)] text-[var(--color-text-primary)] hover:border-white/20 hover:bg-white/[0.03]"
+              )}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        {shortfall && (
+          <p className="mt-2 text-center text-xs text-amber-300">
+            Only {available} question{available === 1 ? "" : "s"} at this level — you&apos;ll get all
+            of them.
+          </p>
+        )}
+      </section>
+
+      {error && <p className="mt-5 text-center text-sm text-[var(--color-danger)]">{error}</p>}
+
+      <div className="mt-8">
+        <Button
+          size="lg"
+          className="w-full rounded-2xl py-6 text-lg font-black"
+          disabled={loading || available === 0}
+          onClick={onStart}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
+            </>
+          ) : (
+            "Start Quiz"
+          )}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function Results({
-  quiz,
+  title,
   result,
   onRetry,
 }: {
-  quiz: ClientQuiz
+  title: string
   result: GradedResult
   onRetry: () => void
 }) {
@@ -217,7 +445,7 @@ function Results({
           <Trophy className="h-8 w-8" />
         </span>
         <h1 className="mt-4 text-3xl font-black text-[var(--color-text-primary)]">{headline}</h1>
-        <p className="mt-1 text-sm text-[var(--color-text-muted)]">{quiz.title}</p>
+        <p className="mt-1 text-sm text-[var(--color-text-muted)]">{title}</p>
 
         <div className="mt-6 flex items-center justify-center gap-6">
           <Stat label="Score" value={`${result.score}/${result.total}`} />
@@ -249,9 +477,7 @@ function Results({
                 </p>
                 <div className="mt-2 space-y-1 text-sm">
                   {q.choice !== null && q.choice !== q.answer && (
-                    <p className="text-[var(--color-danger)]">
-                      Your answer: {q.options[q.choice]}
-                    </p>
+                    <p className="text-[var(--color-danger)]">Your answer: {q.options[q.choice]}</p>
                   )}
                   {q.choice === null && (
                     <p className="text-[var(--color-text-muted)]">You skipped this one.</p>
@@ -269,7 +495,7 @@ function Results({
 
       <div className="mt-10 flex items-center justify-center gap-3">
         <Button variant="outline" onClick={onRetry} className="gap-2">
-          <RotateCcw className="h-4 w-4" /> Try again
+          <RotateCcw className="h-4 w-4" /> New round
         </Button>
         <Button asChild className="font-black">
           <Link href="/quiz">More quizzes</Link>

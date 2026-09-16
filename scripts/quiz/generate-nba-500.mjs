@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
+import { deriveDifficulty } from "./difficulty.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const raw = readFileSync(join(__dirname, "nba-500.raw.txt"), "utf8")
@@ -84,6 +85,7 @@ for (const q of questions) {
   out += "  {\n"
   out += `    id: "nba-500-q${q.num}",\n`
   out += `    bucket: "${bucketFor(q.num)}",\n`
+  out += `    difficulty: "${deriveDifficulty(q.prompt)}",\n`
   out += `    prompt: "${esc(q.prompt)}",\n`
   out += `    options: [${q.options.map((o) => `"${esc(o)}"`).join(", ")}],\n`
   out += `    answer: ${q.answer},\n`
