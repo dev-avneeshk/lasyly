@@ -23,7 +23,7 @@ import {
 import { getSeasonPlayers } from "./data"
 import { emptyRoster, isRosterComplete, canAddPlayer, ownsPlayer, placePlayer, bestSlotFor } from "./roster"
 import { maxAffordable, remaining, validateBidAmount, MIN_BID } from "./budget"
-import { scaledOpeningBid } from "./value"
+import { scaledOpeningBid, isEliteReserve } from "./value"
 import { mulberry32, hashSeed, shuffle, type RNG } from "./rng"
 
 // ─── Serializable game state ─────────────────────────────────────────────────
@@ -113,13 +113,22 @@ export function buildAuctionOrder(rng: RNG, pool: NflPlayer[], budget = 25): str
   const cap = Math.min(MAX_LOTS, pool.length)
 
   if (budget <= 25) {
-    const starCount = Math.min(6, byTier[1].length)
-    const stars = byTier[1].slice(0, starCount)
+    // "Stars" for the finale = everyone protected by the fire-sale guard, not
+    // just tier 1. Coarse tier bands miss overall-79/80 name starters; pinning
+    // them to the back keeps them from being drafted cheap early AND keeps the
+    // "can you still afford a stud?" drama at the finale.
+    const shuffledElite = shuffle(rng, pool.filter((p) => isEliteReserve(p)))
+    const starCount = Math.min(6, shuffledElite.length)
+    const stars = shuffledElite.slice(0, starCount)
     const restQuota = cap - stars.length
-    // Random sample of the non-star tiers, then guarantee coverage on that block
-    // so the "stars last" finale is preserved (stars stay pinned to the back).
-    const nonStars = shuffle(rng, [...byTier[4], ...byTier[3], ...byTier[2]])
-    const front = ensurePositionalCoverage(nonStars.slice(0, restQuota), nonStars)
+    // Random sample of the remaining players (non-elite plus the elite we didn't
+    // pin), then guarantee coverage on that block so the "stars last" finale is
+    // preserved (stars stay pinned to the back).
+    const restPool = shuffle(rng, [
+      ...pool.filter((p) => !isEliteReserve(p)),
+      ...shuffledElite.slice(starCount),
+    ])
+    const front = ensurePositionalCoverage(restPool.slice(0, restQuota), restPool)
     return [...front, ...stars].map((p) => p.id)
   }
 
@@ -197,17 +206,28 @@ export function openNextLot(state: NflAuctionState): boolean {
   }
   const id = state.queue[0]
   const player = playerById(state, id)
-  let open = scaledOpeningBid(player, state.config.budgetPerPlayer, state.config.rosterSize)
+  const reserve = scaledOpeningBid(player, state.config.budgetPerPlayer, state.config.rosterSize)
+  let open = reserve
 
   // Clamp the opening bid to what an active, eligible team can actually afford,
   // so a lot can never be un-sellable and stall the auction.
-  let affordableFloor = 0
-  for (const t of ["P1", "P2"] as TeamId[]) {
-    if (isRosterComplete(state.rosters[t])) continue
-    if (!canAddPlayer(state.rosters[t], player)) continue
-    affordableFloor = Math.max(affordableFloor, maxAffordable(state.config.budgetPerPlayer, state.rosters[t]))
+  //
+  // ELITE players are exempt from this relaxation: a star must never be
+  // fire-sold below his reserve just because the only team that can take him
+  // has spent down — that's exactly how a patient bidder used to snipe a stud
+  // for pocket change. If nobody can afford the elite reserve the lot simply
+  // passes out and is re-offered (or the roster auto-fills with a scrub), which
+  // is the correct outcome. Non-elite role players still relax so a spent-down
+  // team can complete its roster with a real bid instead of an auto-fill.
+  if (!isEliteReserve(player)) {
+    let affordableFloor = 0
+    for (const t of ["P1", "P2"] as TeamId[]) {
+      if (isRosterComplete(state.rosters[t])) continue
+      if (!canAddPlayer(state.rosters[t], player)) continue
+      affordableFloor = Math.max(affordableFloor, maxAffordable(state.config.budgetPerPlayer, state.rosters[t]))
+    }
+    if (affordableFloor > 0) open = Math.min(open, affordableFloor)
   }
-  if (affordableFloor > 0) open = Math.min(open, affordableFloor)
   open = Math.max(1, open)
 
   state.lot = { player, currentBid: open, highBidder: null, openingBid: open }
@@ -388,7 +408,12 @@ function autoFillIfNeeded(state: NflAuctionState, team: TeamId): void {
       if (s) owned.add(s.player.id)
     }
   }
-  const available = pool.filter((p) => !owned.has(p.id)).sort((a, b) => b.overall - a.overall)
+  // Fill with the LOWEST-rated legal free agents, not the highest. This path is
+  // only reached when the board is exhausted and no normal lot could complete
+  // the roster — handing over the best remaining player for the $1 auto-fill
+  // price is exactly the "won a star for $1" bug. A team that spent its board
+  // budget down finishes with scrubs, as it should.
+  const available = pool.filter((p) => !owned.has(p.id)).sort((a, b) => a.overall - b.overall)
 
   let guard = 0
   while (!isRosterComplete(state.rosters[team]) && guard++ < 60) {

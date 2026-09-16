@@ -121,10 +121,16 @@ describe("NFL — auction flow", () => {
     const pool = getSeasonPlayers(SEASON)
     const order = buildAuctionOrder(mulberry32(1), pool, 25)
     const ids = order.map((id) => pool.find((p) => p.id === id)!)
+    // "Elite" = protected by the fire-sale guard: tier 1/2 OR overall >= 80.
+    // This captures name starters at overall 79-80 that fall into tier 3 but
+    // must NOT be sold cheap early.
+    const isElite = (p: (typeof ids)[number]) => p.tier <= 2 || p.overall >= 80
+    // The final lots should all be elite players.
     const lastSix = ids.slice(-6)
-    // At least most of the final lots are tier-1 studs.
-    const tier1Last = lastSix.filter((p) => p.tier === 1).length
-    expect(tier1Last).toBeGreaterThanOrEqual(3)
+    expect(lastSix.every(isElite)).toBe(true)
+    // And no elite player should appear in the first third of the draft.
+    const firstThird = ids.slice(0, Math.floor(ids.length / 3))
+    expect(firstThird.some(isElite)).toBe(false)
   })
 
   it("highest bidder wins the lot and budget updates; never negative", () => {

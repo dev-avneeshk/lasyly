@@ -18,7 +18,7 @@ import type { ArenaState } from "./auction"
 import { canAddPlayer, openStarterSlots, eligiblePositions, isRosterComplete, openSlots } from "./roster"
 import { maxAffordable, remaining, MIN_BID } from "./budget"
 import { loadPolicy, strategy as strategyParam } from "./policy"
-import { offenseScore, defenseScore, spacingScore, scarcityByPosition, scaledOpeningBid } from "./value"
+import { offenseScore, defenseScore, spacingScore, scarcityByPosition, scaledOpeningBid, isEliteReserve } from "./value"
 import { getSeasonPlayers } from "./data"
 
 interface Personality {
@@ -94,10 +94,13 @@ function desirability(state: ArenaState, team: TeamId, player: SeasonPlayer): nu
     if (avgPerimD < 66 && player.attributes.perimeterDefense >= 82) d += 7 * W.team_fit_weight // needs a stopper
   }
 
-  // Star premium.
+  // Star premium. Gated on isEliteReserve (tier OR overall) so overall-80/81
+  // name stars that fall into tier 3 still get the "grab the stud" tilt — the
+  // reason a CPU used to sit out a late Booker lot and let a human snag him for
+  // pennies.
   if (player.tier === 1) d += 10
-  else if (player.tier === 2) d += 5
-  d *= player.tier <= 2 ? persona.superstarBias : 1
+  else if (player.tier === 2 || player.overall >= 80) d += 5
+  d *= isEliteReserve(player) ? persona.superstarBias : 1
 
   // Difficulty distorts VALUATION ACCURACY. Easy mis-prices players (deterministic
   // per player+game so it's stable within a game): it flattens the gap between
@@ -361,7 +364,7 @@ export function walkAwayPrice(state: ArenaState, team: TeamId): number {
   // never breaks the budget reserve.
   target *= diff.aggression
   const personaAggression =
-    player.tier <= 2 ? persona.aggression * persona.superstarBias : persona.aggression
+    isEliteReserve(player) ? persona.aggression * persona.superstarBias : persona.aggression
   target *= personaAggression
   target *= 1 - persona.valueDiscipline * 0.15
   // risk_tolerance: learned global willingness-to-pay multiplier.

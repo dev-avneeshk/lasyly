@@ -12,6 +12,24 @@ import { POSITIONS } from "./types"
 
 const A = (p: NflPlayer) => p.attributes
 
+/**
+ * Overall-rating floor for "star" treatment. NFL tier bands are coarse (tier 2
+ * = overall>=81), so recognizable starters at overall 79-80 land in tier 3 and
+ * would escape the star fire-sale guard. Anyone at or above this rating is
+ * protected regardless of tier.
+ */
+export const ELITE_OVERALL = 80
+
+/**
+ * Is this player valuable enough that his opening reserve must NEVER be relaxed
+ * / fire-sold to a patient bidder, and that the CPU should lean in on him?
+ * Gated on tier OR overall so name stars the coarse tier bands miss are still
+ * protected.
+ */
+export function isEliteReserve(player: NflPlayer): boolean {
+  return player.tier <= 2 || player.overall >= ELITE_OVERALL
+}
+
 /** Offensive impact (0-99-ish) for offensive players; 0 for defenders. */
 export function offenseScore(p: NflPlayer): number {
   const a = A(p)
@@ -98,9 +116,15 @@ export function scaledOpeningBid(
   maxShare?: number
 ): number {
   const slice = budget / rosterSize // e.g. 25/9 ≈ 2.78
-  // Map overall (~80..99) → multiplier ~0.4 .. ~2.8 on the slice.
+  // Map overall (~78..99) → multiplier on the slice. The old curve used
+  // exponent 1.6, which made the mid-star band far too cheap: an 80-overall
+  // starter opened at ~$2 in a $25 league — a rounding artifact that let a
+  // patient bidder snipe a genuine star for pocket change once the CPUs'
+  // rosters filled. A gentler (near-linear) curve lifts the mid-star band so
+  // those players carry a real price, while the maxShare cap keeps true
+  // superstars affordable.
   const t = Math.max(0, Math.min(1, (p.overall - 78) / 21))
-  const mult = 0.4 + Math.pow(t, 1.6) * 2.4
+  const mult = 0.55 + Math.pow(t, 1.05) * 2.15
   let price = slice * mult
   const share = maxShare ?? (budget <= 25 ? 0.3 : budget <= 50 ? 0.36 : 0.42)
   const cap = Math.max(2, Math.floor(budget * share))

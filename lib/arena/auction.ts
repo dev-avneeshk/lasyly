@@ -34,7 +34,7 @@ import {
   openStarterSlots,
 } from "./roster"
 import { maxAffordable, remaining, validateBidAmount, MIN_BID } from "./budget"
-import { scaledOpeningBid } from "./value"
+import { scaledOpeningBid, isEliteReserve } from "./value"
 import { mulberry32, hashSeed, shuffle, type RNG } from "./rng"
 
 // ─── Serializable game state ─────────────────────────────────────────────────
@@ -163,26 +163,25 @@ export function buildAuctionOrder(rng: RNG, pool: SeasonPlayer[], budget = 25): 
   // elite tier-1/2 studs as the finale. We reserve the last ~5 lots for stars
   // so the "can you still afford a stud?" drama survives the cap.
   if (budget <= 25) {
-    // Pick a RANDOM subset of the tier-1 stars for the finale (byTier[1] is
-    // already shuffled above), rather than always the same slice, so the star
-    // lineup genuinely varies between games.
-    const starCount = Math.min(5, byTier[1].length)
-    const stars = byTier[1].slice(0, starCount)
+    // "Stars" for the finale = everyone protected by the fire-sale guard, not
+    // just tier 1. Coarse tier bands miss overall-80/81 name stars (Booker,
+    // Brunson); pinning them to the back keeps them from being drafted cheap
+    // early AND keeps the "can you still afford a stud?" drama at the finale.
+    const shuffledElite = shuffle(rng, pool.filter((p) => isEliteReserve(p)))
+    const nonElite = pool.filter((p) => !isEliteReserve(p))
+    // Pick a RANDOM subset of the stars for the finale so the star lineup
+    // genuinely varies between games.
+    const starCount = Math.min(5, shuffledElite.length)
+    const stars = shuffledElite.slice(0, starCount)
     const restQuota = cap - stars.length
-    // Fill the front from a SHUFFLED mix of the lower tiers so the non-star
-    // board is a random sample of the pool each game, not a fixed cheapest-first
-    // list. This maximizes variety given the pool size.
-    const front = shuffle(rng, [...byTier[4], ...byTier[3], ...byTier[2]]).slice(
-      0,
-      restQuota
-    )
+    // Fill the front from a SHUFFLED mix of the remaining players (non-elite
+    // plus the elite we didn't pin) so the non-star board is a random sample
+    // each game, not a fixed cheapest-first list.
+    const restPool = [...nonElite, ...shuffledElite.slice(starCount)]
+    const front = shuffle(rng, restPool).slice(0, restQuota)
     // Coverage is enforced on the non-star block so the "stars last" finale is
     // preserved; stars stay pinned to the back.
-    const covered = ensurePositionalCoverage(front, [
-      ...byTier[4],
-      ...byTier[3],
-      ...byTier[2],
-    ])
+    const covered = ensurePositionalCoverage(front, restPool)
     return [...covered, ...stars].map((p) => p.id)
   }
 
@@ -268,11 +267,17 @@ function activeTeams(state: ArenaState): TeamId[] {
  * legitimately spent down still buy a real role player for its final slot
  * instead of silently getting an emergency auto-fill.
  *
- * Elite players (tier 1/2) are explicitly excluded, so a superstar can never be
- * fire-sold to a team's last dollar — that guard is the whole point of pricing.
+ * Elite players are explicitly excluded, so a star can never be fire-sold to a
+ * team's last dollar — that guard is the whole point of pricing.
+ *
+ * "Elite" is gated on BOTH tier AND overall rating. Tier bands are coarse
+ * (tier 1 = overall>=88, tier 2 = overall>=82), which drops recognizable
+ * scoring stars sitting at overall 80-81 (e.g. Devin Booker, Jalen Brunson)
+ * into tier 3 — where the old `tier <= 2` check would happily fire-sale them to
+ * a patient bidder for the opening $2. The overall floor closes that hole.
  */
 function relaxedOpeningFloor(state: ArenaState, player: SeasonPlayer, team: TeamId): number | null {
-  if (player.tier <= 2) return null // never relax an elite player's reserve
+  if (isEliteReserve(player)) return null // never relax an elite player's reserve
   const roster = state.rosters[team]
   if (isRosterComplete(roster)) return null
   if (!canAddPlayer(roster, player)) return null

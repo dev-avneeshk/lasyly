@@ -18,6 +18,24 @@ import { eligiblePositions } from "./roster"
 
 const A = (p: SeasonPlayer) => p.attributes
 
+/**
+ * Overall-rating floor for "star" treatment. Tier bands are coarse (tier 2 =
+ * overall>=82), so recognizable scoring stars at overall 80-81 (Devin Booker,
+ * Jalen Brunson, etc.) land in tier 3 and used to escape the star fire-sale
+ * guard. Anyone at or above this rating is protected regardless of tier.
+ */
+export const ELITE_OVERALL = 80
+
+/**
+ * Is this player valuable enough that his opening reserve must NEVER be relaxed
+ * / fire-sold to a patient bidder, and that the CPU should lean in on him?
+ * Gated on tier OR overall so name stars the coarse tier bands miss are still
+ * protected.
+ */
+export function isEliteReserve(player: SeasonPlayer): boolean {
+  return player.tier <= 2 || player.overall >= ELITE_OVERALL
+}
+
 /** Offensive impact score (0-99-ish). */
 export function offenseScore(p: SeasonPlayer): number {
   const a = A(p)
@@ -101,9 +119,15 @@ export function scaledOpeningBid(
   maxShare?: number
 ): number {
   const slice = budget / rosterSize // e.g. 25/6 ≈ 4.17
-  // Map overall (roughly 78..99) → multiplier ~0.35 .. ~2.6 on the slice.
+  // Map overall (roughly 76..98) → multiplier on the slice. The old curve used
+  // exponent 1.6, which made the 80-84 "name star" band far too cheap: an
+  // overall-81 Devin Booker opened at just $2 in a $25 league — a rounding
+  // artifact that let a patient bidder snipe a genuine star for pocket change
+  // once the CPUs' rosters filled. A gentler (near-linear) curve lifts the
+  // mid-star band so those players carry a real price, while the maxShare cap
+  // below still keeps true superstars affordable.
   const t = Math.max(0, Math.min(1, (p.overall - 76) / 22))
-  const mult = 0.35 + Math.pow(t, 1.6) * 2.25
+  const mult = 0.5 + Math.pow(t, 1.05) * 1.9
   let price = slice * mult
   // Cap so nobody eats too much of the budget. Smaller leagues cap TIGHTER so a
   // superstar can't cost half your money: ~30% in a $25 league (≈ $7-8 max),

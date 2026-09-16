@@ -74,13 +74,17 @@ describe("Arena — auction order", () => {
       seed: 3,
     })
     const byId = new Map(getSeasonPlayers(SEASON).map((p) => [p.id, p]))
-    const tiers = s.queue.map((id) => byId.get(id)!.tier)
-    // The last handful of lots should be tier-1 superstars.
-    const lastFive = tiers.slice(-5)
-    expect(lastFive.every((t) => t === 1)).toBe(true)
-    // And no tier-1 should appear in the first third of the draft.
-    const firstThird = tiers.slice(0, Math.floor(tiers.length / 3))
-    expect(firstThird.includes(1)).toBe(false)
+    const players = s.queue.map((id) => byId.get(id)!)
+    // "Elite" = protected by the fire-sale guard: tier 1/2 OR overall >= 80.
+    // This captures overall-80/81 name stars (Booker, Brunson) that fall into
+    // tier 3 but must NOT be sold cheap early.
+    const isElite = (p: (typeof players)[number]) => p.tier <= 2 || p.overall >= 80
+    // The last handful of lots should be elite players.
+    const lastFive = players.slice(-5)
+    expect(lastFive.every(isElite)).toBe(true)
+    // And no elite player should appear in the first third of the draft.
+    const firstThird = players.slice(0, Math.floor(players.length / 3))
+    expect(firstThird.some(isElite)).toBe(false)
   })
 
   it("stars open below ~30% of a $25 budget (no half-budget superstars)", () => {

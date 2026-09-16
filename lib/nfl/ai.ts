@@ -20,7 +20,7 @@ import { SLOT_POSITION } from "./types"
 import type { NflAuctionState } from "./auction"
 import { canAddPlayer, openSlots, eligibleSlots, isRosterComplete, ownedPlayers } from "./roster"
 import { maxAffordable, remaining, MIN_BID } from "./budget"
-import { offenseScore, defenseScore, unitImpact, scarcityByPosition, scaledOpeningBid } from "./value"
+import { offenseScore, defenseScore, unitImpact, scarcityByPosition, scaledOpeningBid, isEliteReserve } from "./value"
 import { getSeasonPlayers } from "./data"
 
 interface Personality {
@@ -85,10 +85,12 @@ function desirability(state: NflAuctionState, team: TeamId, player: NflPlayer): 
     d -= 20
   }
 
-  // Star premium.
+  // Star premium. Gated on isEliteReserve (tier OR overall) so overall-79/80
+  // name starters that fall into tier 3 still get the "grab the stud" tilt —
+  // the reason a CPU used to sit out a late star lot and let a human snipe him.
   if (player.tier === 1) d += 10
-  else if (player.tier === 2) d += 5
-  d *= player.tier <= 2 ? persona.superstarBias : 1
+  else if (player.tier === 2 || player.overall >= 80) d += 5
+  d *= isEliteReserve(player) ? persona.superstarBias : 1
 
   // Difficulty distorts VALUATION ACCURACY (stable per player+game).
   const diff = difficultyProfile(state.config.difficulty)
