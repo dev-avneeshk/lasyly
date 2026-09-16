@@ -60,6 +60,12 @@ function slugify(name: string): string {
 const norm = (s: string) =>
   (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "")
 
+// Some seasons include synthetic aggregate rows in nba_player_season_stats
+// (e.g. a "League Average" baseline) that are NOT real players and must never
+// enter the auction pool. Filter them by normalized name.
+const NON_PLAYER_NAMES = new Set(["leagueaverage"])
+const isNonPlayerRow = (name: string) => NON_PLAYER_NAMES.has(norm(name))
+
 async function fetchAllPaged<T>(
   run: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
 ): Promise<T[]> {
@@ -103,6 +109,7 @@ async function main() {
   // row). Prefer the row with the most minutes (mp_per_g) as the representative.
   const perGameByName = new Map<string, any>()
   for (const r of perGameRows) {
+    if (isNonPlayerRow(r.player_name)) continue
     const mp = Number(r.stats?.mp_per_g) || 0
     const prev = perGameByName.get(norm(r.player_name))
     if (!prev || mp > (Number(prev.stats?.mp_per_g) || 0)) perGameByName.set(norm(r.player_name), r)
