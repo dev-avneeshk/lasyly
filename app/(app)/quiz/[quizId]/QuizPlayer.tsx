@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { Check, X, ChevronLeft, RotateCcw, Trophy, Loader2 } from "lucide-react"
@@ -22,6 +22,9 @@ const DIFFICULTY_OPTIONS: { id: DifficultyChoice; label: string }[] = [
 ]
 
 const COUNT_OPTIONS = [10, 15, 20] as const
+
+/** Seconds allowed per question before it auto-advances. */
+const PER_QUESTION_SECONDS = 10
 
 interface AttemptResponse {
   quizId: string
@@ -53,6 +56,15 @@ export default function QuizPlayer({
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [result, setResult] = useState<GradedResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Per-question countdown. Resets on each new question; at 0 we auto-advance
+  // (or auto-submit on the last question).
+  const [timeLeft, setTimeLeft] = useState(PER_QUESTION_SECONDS)
+  // Latest answers/token for use inside the timer's auto-submit (which fires
+  // from a stable callback and must not close over stale state).
+  const answersRef = useRef(answers)
+  const tokenRef = useRef(token)
+  useEffect(() => { answersRef.current = answers }, [answers])
+  useEffect(() => { tokenRef.current = token }, [token])
 
   // How many questions actually exist for the chosen difficulty. Used to warn
   // when a level has fewer than the requested count.
@@ -100,13 +112,13 @@ export default function QuizPlayer({
     setAnswers((prev) => ({ ...prev, [current.id]: choice }))
   }
 
-  async function submit() {
+  const submit = useCallback(async () => {
     setPhase("submitting")
     setError(null)
     try {
       const payload = {
-        answers: Object.entries(answers).map(([questionId, choice]) => ({ questionId, choice })),
-        token,
+        answers: Object.entries(answersRef.current).map(([questionId, choice]) => ({ questionId, choice })),
+        token: tokenRef.current,
       }
       const res = await fetch(`/api/quiz/${quizId}/submit`, {
         method: "POST",
@@ -131,7 +143,37 @@ export default function QuizPlayer({
       setError("Couldn't reach the server. Check your connection and try again.")
       setPhase("playing")
     }
-  }
+  }, [quizId])
+
+  // Advance to the next question, or submit if we're on the last one. Shared by
+  // the countdown and the manual "Next" button.
+  const goNext = useCallback(() => {
+    setIndex((i) => {
+      if (i >= total - 1) {
+        void submit()
+        return i
+      }
+      return i + 1
+    })
+  }, [total, submit])
+
+  // ── Per-question 10s countdown ─────────────────────────────────────────────
+  // Reset to full whenever the question changes (or play begins). A 1s tick
+  // decrements; hitting 0 auto-advances. Only runs during the playing phase.
+  useEffect(() => {
+    if (phase !== "playing") return
+    setTimeLeft(PER_QUESTION_SECONDS)
+    const id = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          setTimeout(() => goNext(), 0) // defer transition out of the updater
+          return PER_QUESTION_SECONDS
+        }
+        return t - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [phase, index, goNext])
 
   function backToSetup() {
     setQuestions([])
@@ -181,9 +223,23 @@ export default function QuizPlayer({
         >
           <ChevronLeft className="h-4 w-4" /> Setup
         </button>
-        <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
-          {index + 1} / {total}
-        </span>
+        <div className="flex items-center gap-3">
+          {/* Per-question countdown */}
+          <span
+            className={cn(
+              "grid h-8 min-w-8 place-items-center rounded-full px-2 text-sm font-black tabular-nums transition-colors",
+              timeLeft <= 3
+                ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
+                : "bg-[var(--color-lime)]/15 text-[var(--color-lime)]"
+            )}
+            aria-label={`${timeLeft} seconds left`}
+          >
+            {timeLeft}
+          </span>
+          <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+            {index + 1} / {total}
+          </span>
+        </div>
       </div>
 
       <div className="relative">
@@ -267,7 +323,7 @@ export default function QuizPlayer({
               {phase === "submitting" ? "Scoring…" : "Submit"}
             </Button>
           ) : (
-            <Button className="font-black" onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}>
+            <Button className="font-black" onClick={goNext}>
               Next
             </Button>
           )}

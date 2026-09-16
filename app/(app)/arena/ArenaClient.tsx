@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Users, ChevronRight, Bot, Link2, Globe } from "lucide-react"
+import { Users, ChevronRight, Bot, Link2, Globe, Loader2 } from "lucide-react"
 import { bidIncrementForBudget } from "@/lib/arena/types"
 import { Button } from "@/components/ui/button"
 import { PlayerCard } from "@/components/arena/PlayerCard"
@@ -47,6 +47,19 @@ export default function ArenaClient() {
   const { state, result } = game
   const serverLabelFor = (seat: TeamId) => (seat === server.viewer ? "You" : "Opponent")
 
+  // Auto-run the simulation the moment both rosters are locked — no "Start
+  // simulation" click. A short beat lets the "Rosters set" screen register
+  // before the sim takes over. Guarded so it fires once per lineup phase.
+  const autoSimFired = useRef(false)
+  useEffect(() => {
+    if (state?.status === "lineup" && !autoSimFired.current) {
+      autoSimFired.current = true
+      const t = setTimeout(() => game.simulate(), 1400)
+      return () => clearTimeout(t)
+    }
+    if (state?.status !== "lineup") autoSimFired.current = false
+  }, [state?.status, game])
+
   if (server.view) return <ServerArena server={server} labelFor={serverLabelFor} />
 
   if (!state) {
@@ -83,7 +96,7 @@ export default function ArenaClient() {
   if (state.status === "complete" && result) return <GameSummary result={result} humanSeat={game.humanSeat} p1Label={P1_LABEL} p2Label={P2_LABEL} onRematch={() => game.start({ season, budget, difficulty })} onNewAuction={game.reset} onExit={game.reset} />
 
   if (state.status === "lineup") {
-    return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Lineups are locked. Ready to run the game?</p><div className="grid w-full gap-4 md:grid-cols-2">{game.budgets && <><BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} /><BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} isAI /></>}</div><Button size="lg" className="font-black" onClick={game.simulate}>Start simulation</Button></div>
+    return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Lineups are locked. Tipping off…</p><div className="grid w-full gap-4 md:grid-cols-2">{game.budgets && <><BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} /><BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} isAI /></>}</div><div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]"><Loader2 className="h-4 w-4 animate-spin" />Starting simulation…</div></div>
   }
 
   const lot = state.lot

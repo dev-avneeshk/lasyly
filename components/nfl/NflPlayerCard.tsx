@@ -135,9 +135,12 @@ function StatBar({ label, value }: { label: string; value: number }) {
   const color =
     value >= 88 ? "var(--color-lime)" : value >= 75 ? "var(--color-secondary)" : value >= 60 ? "var(--color-primary)" : "var(--color-text-muted)"
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-[4.5rem] shrink-0 text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">{label}</span>
+        <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--color-text-primary)]">{value}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
         <motion.div
           className="h-full rounded-full"
           style={{ background: color }}
@@ -146,7 +149,6 @@ function StatBar({ label, value }: { label: string; value: number }) {
           transition={{ duration: 0.5, ease: "easeOut" }}
         />
       </div>
-      <span className="w-6 text-right text-[11px] font-semibold tabular-nums text-[var(--color-text-primary)]">{value}</span>
     </div>
   )
 }

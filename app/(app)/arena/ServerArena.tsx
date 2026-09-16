@@ -48,6 +48,19 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
   useEffect(() => { deadlineRef.current = view?.lotDeadline ?? null }, [view?.lotDeadline])
   useEffect(() => { const id = setInterval(() => { const deadline = deadlineRef.current; setTimeLeft(deadline ? Math.max(0, deadline - Date.now()) : 0) }, 100); return () => clearInterval(id) }, [])
 
+  // Auto-run the simulation once both rosters lock — no manual "Start" click.
+  // Only the owner (P1) fires it to avoid both clients racing; startSimulation
+  // is idempotent server-side anyway, so a double call is harmless.
+  const autoSimFired = useRef(false)
+  useEffect(() => {
+    if (view?.status === "lineup" && viewer === "P1" && !autoSimFired.current) {
+      autoSimFired.current = true
+      const t = setTimeout(() => server.simulate(), 1400)
+      return () => clearTimeout(t)
+    }
+    if (view?.status !== "lineup") autoSimFired.current = false
+  }, [view?.status, viewer, server])
+
   const opponent: TeamId = viewer === "P1" ? "P2" : "P1"
   const state = useMemo(() => (view ? asState(view) : null), [view])
   const timeSec = Math.ceil(timeLeft / 1000)
@@ -55,7 +68,7 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
   if (!view || !state) return <div className="flex items-center justify-center py-20 text-[var(--color-text-muted)]"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Connecting…</div>
   if (view.status === "lobby") return <WaitingRoom gameId={view.gameId} error={error} isPublic={server.isPublicLobby} />
   if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={() => setRevealed(true)} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} />
-  if (view.status === "lineup") return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Both lineups are locked. Run the game?</p><div className="grid w-full gap-4 md:grid-cols-2"><BudgetPanel team="P1" label={labelFor("P1")} budget={view.budgets.P1} roster={view.rosters.P1} isAI={view.isAI.P1} /><BudgetPanel team="P2" label={labelFor("P2")} budget={view.budgets.P2} roster={view.rosters.P2} isAI={view.isAI.P2} /></div><Button size="lg" className="font-black" onClick={() => server.simulate()}>Start simulation</Button></div>
+  if (view.status === "lineup") return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Both lineups are locked. Tipping off…</p><div className="grid w-full gap-4 md:grid-cols-2"><BudgetPanel team="P1" label={labelFor("P1")} budget={view.budgets.P1} roster={view.rosters.P1} isAI={view.isAI.P1} /><BudgetPanel team="P2" label={labelFor("P2")} budget={view.budgets.P2} roster={view.rosters.P2} isAI={view.isAI.P2} /></div><div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]"><Loader2 className="h-4 w-4 animate-spin" />Starting simulation…</div></div>
 
   const lot = view.lot
   const lastResult = view.results[view.results.length - 1]

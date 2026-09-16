@@ -42,10 +42,16 @@ function Headshot({ player }: { player: SeasonPlayer }) {
 const TIER_LABEL: Record<number, string> = { 1: "SUPERSTAR", 2: "ALL-STAR", 3: "STARTER", 4: "ROLE PLAYER" }
 
 function StatBar({ label, value, tone }: { label: string; value: number; tone: string }) {
+  // Label + value sit on their own row ABOVE the bar. A previous fixed-width
+  // label column (3.6rem) was too narrow for "Playmaking" / "Per. defense" and
+  // the text ran into the bar. Stacking removes any dependence on label length.
   return (
-    <div className="grid grid-cols-[3.6rem_1fr_1.55rem] items-center gap-2">
-      <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-[#9da6be]">{label}</span>
-      <span className="h-1.5 overflow-hidden rounded-full bg-white/[0.09]">
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-[9px] font-medium uppercase tracking-[0.08em] text-[#9da6be]">{label}</span>
+        <span className="shrink-0 text-[10px] font-bold tabular-nums text-[#e1e5f1]">{value}</span>
+      </div>
+      <span className="block h-1.5 overflow-hidden rounded-full bg-white/[0.09]">
         <motion.span
           className="block h-full rounded-full"
           style={{ backgroundColor: tone, transformOrigin: "left" }}
@@ -54,7 +60,6 @@ function StatBar({ label, value, tone }: { label: string; value: number; tone: s
           transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
         />
       </span>
-      <span className="text-right text-[10px] font-bold tabular-nums text-[#e1e5f1]">{value}</span>
     </div>
   )
 }

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronRight, Bot, Gauge, Trophy, ClipboardList } from "lucide-react"
+import { ChevronRight, Bot, Trophy, ClipboardList, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NflPlayerCard } from "@/components/nfl/NflPlayerCard"
 import { NflBudgetPanel } from "@/components/nfl/NflBudgetPanel"
@@ -47,6 +47,17 @@ export default function NflClient() {
   const { state, result } = game
   const cpu = CPU_IDENTITY[difficulty]
   const p2Label = cpu.name
+
+  // Auto-run the simulation once both rosters lock — no "Kick Off" click needed.
+  const autoSimFired = useRef(false)
+  useEffect(() => {
+    if (state?.status === "lineup" && !autoSimFired.current) {
+      autoSimFired.current = true
+      const t = setTimeout(() => game.simulate(), 1400)
+      return () => clearTimeout(t)
+    }
+    if (state?.status !== "lineup") autoSimFired.current = false
+  }, [state?.status, game])
 
   // ── LANDING / LOBBY ────────────────────────────────────────────────────
   if (!state) {
@@ -186,7 +197,7 @@ export default function NflClient() {
     return (
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10">
         <h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters Set</h2>
-        <p className="text-sm text-[var(--color-text-muted)]">Both squads are locked. Ready for kickoff?</p>
+        <p className="text-sm text-[var(--color-text-muted)]">Both squads are locked. Kicking off…</p>
         <div className="grid w-full gap-4 md:grid-cols-2">
           {game.budgets && (
             <>
@@ -195,9 +206,9 @@ export default function NflClient() {
             </>
           )}
         </div>
-        <Button size="lg" className="font-black" onClick={game.simulate}>
-          <Gauge className="mr-2 h-5 w-5" /> Kick Off
-        </Button>
+        <div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]">
+          <Loader2 className="h-4 w-4 animate-spin" /> Starting simulation…
+        </div>
       </div>
     )
   }
