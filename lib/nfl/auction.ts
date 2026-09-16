@@ -228,7 +228,11 @@ export function openNextLot(state: NflAuctionState): boolean {
     }
     if (affordableFloor > 0) open = Math.min(open, affordableFloor)
   }
-  open = Math.max(1, open)
+  // Whole dollars only. scaledOpeningBid already rounds, but the affordability
+  // clamp above mixes in maxAffordable — round here as the single guarantee that
+  // a lot never opens on a fractional price (which would then flow into every
+  // rendered bid figure and into minRaise).
+  open = Math.max(1, Math.round(open))
 
   state.lot = { player, currentBid: open, highBidder: null, openingBid: open }
   state.passed = []

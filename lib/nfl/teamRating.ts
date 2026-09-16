@@ -33,8 +33,18 @@ export interface NflTeamProfile {
   overall: number
 }
 
+/**
+ * Clamp a rating into the 1-99 band AND round it to a whole number.
+ *
+ * Every field on NflTeamProfile is a 0-99-style rating built from weighted
+ * sums of attributes (e.g. qbPass * 0.6 + receiverQuality * 0.4), so the raw
+ * value is almost always fractional. These ratings are shown verbatim on the
+ * post-game team-comparison rows, which is where the "73.40101020" style tails
+ * were coming from. Rounding here keeps every rating a clean integer at the
+ * source, so both the UI and the (deterministic) sim read whole numbers.
+ */
 function clamp(v: number, lo = 1, hi = 99): number {
-  return Math.max(lo, Math.min(hi, v))
+  return Math.round(Math.max(lo, Math.min(hi, v)))
 }
 
 export function buildTeamProfile(team: TeamId, roster: RosterState): NflTeamProfile {

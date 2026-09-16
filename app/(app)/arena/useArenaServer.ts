@@ -32,16 +32,26 @@
  * polls. Steady-state request rate per player drops from 66.7/min to 24/min.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ArenaServerView } from "@/lib/arena/server"
 import type { AIDifficulty, Season, TeamId } from "@/lib/arena/types"
+import { createClient } from "@/lib/supabase/client"
+import { arenaChannelName, ARENA_UPDATE_EVENT } from "@/lib/realtime/arena"
 
 type View = ArenaServerView
 
-/** Poll cadence while a lot is live. Fast enough to feel real-time. */
-const POLL_ACTIVE_MS = 2_500
-/** Poll cadence while waiting in the lobby / between phases. */
-const POLL_IDLE_MS = 4_000
+/**
+ * Fallback poll cadence while a lot is live.
+ *
+ * Real-time responsiveness now comes from the Supabase broadcast subscription
+ * below — the server pushes a nudge the instant state changes and we re-fetch
+ * on it. This timed poll only exists to self-heal a dropped nudge or a brief
+ * disconnect, so it can be much slower than the old 2.5s (which was carrying the
+ * whole real-time illusion and dominating request volume). 5s is a safe net.
+ */
+const POLL_ACTIVE_MS = 5_000
+/** Fallback poll cadence while waiting in the lobby / between phases. */
+const POLL_IDLE_MS = 6_000
 /** Ceiling for backoff after repeated failures. */
 const POLL_MAX_BACKOFF_MS = 30_000
 /**
@@ -89,7 +99,12 @@ export function useArenaServer() {
   const [gameId, setGameId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  // True while we're sitting in a PUBLIC (matchmade) lobby. Drives the "Finding
+  // an opponent" state instead of the private "share this link" one. A private
+  // (invite-link) lobby leaves this false.
+  const [publicLobby, setPublicLobby] = useState(false)
 
+  const supabase = useMemo(() => createClient(), [])
   const viewRef = useRef<View | null>(null)
   const gameIdRef = useRef<string | null>(null)
   // Guards against overlapping polls. A poll that is still in flight must not be
@@ -130,6 +145,31 @@ export function useArenaServer() {
         return (res.body as View).gameId
       } catch {
         setError("Failed to create game.")
+        return null
+      } finally {
+        setConnecting(false)
+      }
+    },
+    [apply]
+  )
+
+  const matchmake = useCallback(
+    async (opts: { season: Season; budget: number; difficulty: AIDifficulty }) => {
+      setConnecting(true)
+      setError(null)
+      try {
+        const res = await api("/api/arena/matchmake", opts)
+        if (!res.ok) {
+          setError((res.body as { error?: string })?.error ?? "Failed to find a match.")
+          return null
+        }
+        // If the server sat us as P1, we're the one waiting → public lobby.
+        // If it seated us as P2, we joined a stranger and the auction is live.
+        setPublicLobby((res.body as View).viewer === "P1")
+        apply(res.body as View)
+        return (res.body as View).gameId
+      } catch {
+        setError("Failed to find a match.")
         return null
       } finally {
         setConnecting(false)
@@ -305,6 +345,41 @@ export function useArenaServer() {
     }
   }, [gameId, status, pollOnce])
 
+  // ── Realtime push ──────────────────────────────────────────────────────────
+  // The poll chain above is now only a FALLBACK. The primary path is a Supabase
+  // broadcast the server sends after every real state change (bid, pass, lot
+  // resolution, join, simulate). On each nudge we re-fetch the authoritative
+  // view immediately, so the opponent sees a bid in ~100-300ms instead of on
+  // their next 2.5s poll. pollOnce dedupes in-flight requests, so a nudge that
+  // races the fallback timer is harmless.
+  useEffect(() => {
+    if (!gameId) return
+    if (status === "complete") return
+
+    const channel = supabase
+      .channel(arenaChannelName(gameId))
+      .on("broadcast", { event: ARENA_UPDATE_EVENT }, () => {
+        backoffRef.current = 0
+        idleLobbyPolls.current = 0
+        void pollOnce()
+      })
+      .subscribe((subStatus) => {
+        // Fires on the initial connect AND on every reconnect. A client that
+        // briefly dropped its socket would have missed any nudges sent while it
+        // was gone; re-fetch on (re)subscribe so it re-syncs to the current
+        // authoritative view the moment the channel is live again.
+        if (subStatus === "SUBSCRIBED") {
+          backoffRef.current = 0
+          idleLobbyPolls.current = 0
+          void pollOnce()
+        }
+      })
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [gameId, status, supabase, pollOnce])
+
   const reset = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
@@ -313,6 +388,7 @@ export function useArenaServer() {
     setView(null)
     setGameId(null)
     setError(null)
+    setPublicLobby(false)
   }, [])
 
   return {
@@ -321,7 +397,9 @@ export function useArenaServer() {
     error,
     connecting,
     viewer: (view?.viewer ?? "P1") as TeamId,
+    isPublicLobby: publicLobby,
     create,
+    matchmake,
     join,
     refresh,
     bid,

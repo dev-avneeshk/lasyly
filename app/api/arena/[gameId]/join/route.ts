@@ -5,6 +5,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
+import { broadcastArenaUpdate } from "@/lib/realtime/arena"
 import type { TeamId } from "@/lib/arena/types"
 
 /**
@@ -54,7 +55,7 @@ export const POST = withSecurity(async (
     return NextResponse.json({ error: "This game is already full." }, { status: 409 })
   }
 
-  const { game } = await mutateGame(gameId, (g) => {
+  const { game, changed } = await mutateGame(gameId, (g) => {
     // Authoritative re-check under the lock: the pre-flight read above is only a
     // fast path for friendly error messages.
     if (g.guestUserId && g.guestUserId !== user.id) {
@@ -68,6 +69,10 @@ export const POST = withSecurity(async (
       openNextLot(g.state)
     }
   })
+
+  // Flip the waiting creator (P1) straight into the auction instead of making
+  // them wait for their lobby poll to notice the join.
+  if (changed) void broadcastArenaUpdate(gameId)
 
   const seat: TeamId = "P2"
   return NextResponse.json(serverView(game.state, seat, game.rev))

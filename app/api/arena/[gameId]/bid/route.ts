@@ -6,6 +6,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { placeBid } from "@/lib/arena/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/arena/server"
+import { broadcastArenaUpdate } from "@/lib/realtime/arena"
 
 const bidSchema = z.object({
   amount: z.number().int().min(1).max(200),
@@ -79,7 +80,7 @@ export const POST = withSecurity(async (
   let bidError: string | null = null
   let lotChanged = false
 
-  const { game } = await mutateGame(gameId, (g) => {
+  const { game, changed } = await mutateGame(gameId, (g) => {
     // Apply the clock first so we're bidding on the live lot.
     serverTick(g.state)
 
@@ -115,6 +116,11 @@ export const POST = withSecurity(async (
     // Return the fresh view alongside the error so the client re-syncs.
     return NextResponse.json({ error: bidError, ...serverView(game.state, seat, game.rev) }, { status: 400 })
   }
+
+  // Push the new state to the opponent immediately instead of waiting for their
+  // next poll. Only when something actually moved — a no-op mutate broadcasts
+  // nothing. Best-effort: the bid already succeeded, so we don't await failures.
+  if (changed) void broadcastArenaUpdate(gameId)
 
   return NextResponse.json(serverView(game.state, seat, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

@@ -113,7 +113,12 @@ export function NflGameSummary({
         <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-[var(--color-text-primary)]">Team Comparison</h3>
         <div className="space-y-2">
           {COMP_ROWS.map((row) => {
-            const { p1, p2 } = result.teamComparison[row.key]
+            const raw = result.teamComparison[row.key]
+            // Ratings are rounded at the source (lib/nfl/teamRating.ts), but
+            // round again at the render boundary so a stray float can never show
+            // a repeating-decimal tail here.
+            const p1 = Math.round(raw.p1)
+            const p2 = Math.round(raw.p2)
             const total = p1 + p2 || 1
             return (
               <div key={row.key} className="flex items-center gap-3 text-xs">

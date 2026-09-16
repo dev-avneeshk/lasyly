@@ -5,6 +5,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { pass } from "@/lib/arena/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/arena/server"
+import { broadcastArenaUpdate } from "@/lib/realtime/arena"
 
 /**
  * POST /api/arena/[gameId]/pass — the human passes on the current lot. If the
@@ -40,12 +41,15 @@ export const POST = withSecurity(async (
     return NextResponse.json({ error: "You don't control a seat in this game." }, { status: 403 })
   }
 
-  const { game } = await mutateGame(gameId, (g) => {
+  const { game, changed } = await mutateGame(gameId, (g) => {
     serverTick(g.state)
     pass(g.state, seat)
     driveAI(g.state)
     serverTick(g.state)
   })
+
+  // Push the new lot / resolution to the opponent right away.
+  if (changed) void broadcastArenaUpdate(gameId)
 
   return NextResponse.json(serverView(game.state, seat, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

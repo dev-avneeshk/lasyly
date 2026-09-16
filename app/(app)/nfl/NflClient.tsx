@@ -14,7 +14,7 @@ import { useNflGame } from "./useNflGame"
 import type { AIDifficulty, BudgetPreset, Season } from "@/lib/nfl/types"
 import { BUDGET_PRESETS, bidIncrementForBudget } from "@/lib/nfl/types"
 import { AVAILABLE_SEASONS } from "@/lib/nfl/data"
-import { cn } from "@/lib/utils"
+import { cn, formatMoney } from "@/lib/utils"
 
 const DIFFICULTIES: { id: AIDifficulty; label: string; blurb: string }[] = [
   { id: "easy", label: "Easy", blurb: "Loose bids, makes mistakes" },
@@ -202,10 +202,38 @@ export default function NflClient() {
   const lot = state.lot
   const timeSec = Math.ceil(game.timeLeft / 1000)
   return (
-    <div className="relative mx-auto max-w-6xl px-4 py-6 pb-40 md:pb-6">
+    <div className="relative mx-auto max-w-6xl px-4 py-6 pb-40 lg:pb-6">
+      {/* MOBILE — the two roster panels sit side by side up top in compact form
+          so the player card and bid buttons stay above the fold. On lg+ this row
+          is hidden and the panels render in the 3-column grid below instead. */}
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:hidden">
+        {game.budgets && (
+          <NflBudgetPanel
+            team="P1"
+            label={P1_LABEL}
+            budget={game.budgets.P1}
+            roster={state.rosters.P1}
+            currentBid={lot?.currentBid}
+            isHighBidder={lot?.highBidder === "P1"}
+          />
+        )}
+        {game.budgets && (
+          <NflBudgetPanel
+            team="P2"
+            label={p2Label}
+            budget={game.budgets.P2}
+            roster={state.rosters.P2}
+            currentBid={lot?.currentBid}
+            isHighBidder={lot?.highBidder === "P2"}
+            isAI
+            personaLabel={cpu.persona}
+          />
+        )}
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1fr]">
-        {/* LEFT — You */}
-        <div className="order-2 lg:order-1">
+        {/* LEFT — You (lg+ only; mobile uses the compact row above) */}
+        <div className="hidden lg:order-1 lg:block">
           {game.budgets && (
             <NflBudgetPanel
               team="P1"
@@ -254,22 +282,26 @@ export default function NflClient() {
             </AnimatePresence>
           </div>
 
+          {/* Bid controls: pinned to the bottom on mobile so you never have to
+              scroll to bid mid-auction; inline within the center column on lg+. */}
           {lot && (
-            <div className="w-full max-w-md">
-              <NflBidControls
-                state={state}
-                humanSeat={game.humanSeat}
-                minRaise={game.humanMinRaise}
-                onBid={game.bid}
-                onMax={game.bidMax}
-                onPass={game.passLot}
-              />
+            <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-background)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:static lg:z-auto lg:w-full lg:max-w-md lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+              <div className="mx-auto w-full max-w-md">
+                <NflBidControls
+                  state={state}
+                  humanSeat={game.humanSeat}
+                  minRaise={game.humanMinRaise}
+                  onBid={game.bid}
+                  onMax={game.bidMax}
+                  onPass={game.passLot}
+                />
+              </div>
             </div>
           )}
         </div>
 
-        {/* RIGHT — Opponent */}
-        <div className="order-3">
+        {/* RIGHT — Opponent (lg+ only; mobile uses the compact row up top) */}
+        <div className="hidden lg:order-3 lg:block">
           {game.budgets && (
             <NflBudgetPanel
               team="P2"
@@ -333,7 +365,7 @@ function AuctionHeader({
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-semibold" style={{ color: toneColor }}>{status.text}</span>
           <motion.span key={currentBid} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="text-2xl font-black tabular-nums text-[var(--color-lime)]">
-            ${currentBid}
+            ${formatMoney(currentBid)}
           </motion.span>
         </div>
       </div>

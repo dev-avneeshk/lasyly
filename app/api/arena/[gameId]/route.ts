@@ -4,6 +4,7 @@ import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame, needsServerTick } from "@/lib/arena/store"
 import { serverTick, serverView, seatForUser } from "@/lib/arena/server"
+import { broadcastArenaUpdate } from "@/lib/realtime/arena"
 
 /**
  * GET /api/arena/[gameId] — the current authoritative view.
@@ -60,9 +61,14 @@ export const GET = withSecurity(async (
   // The clock genuinely needs to advance (lot expired / none open). Serialize so
   // concurrent polls can't double-resolve the same lot. GameBusyError and
   // GameConflictError propagate to withSecurity → 503 (+Retry-After) / 409.
-  const { game } = await mutateGame(gameId, (g) => {
+  const { game, changed } = await mutateGame(gameId, (g) => {
     serverTick(g.state)
   })
+
+  // Whichever client's poll advanced the clock (e.g. a lot's timer expired and
+  // it resolved) pushes that transition to the other so they don't wait for
+  // their own poll to notice it.
+  if (changed) void broadcastArenaUpdate(gameId)
 
   return NextResponse.json(serverView(game.state, viewer, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

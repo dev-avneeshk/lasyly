@@ -6,7 +6,7 @@ import type { BudgetSnapshot } from "@/lib/arena/budget"
 import type { RosterState, RosterSlot, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { ROSTER_SLOTS } from "@/lib/arena/types"
 import { headshotUrl } from "@/lib/arena/data"
-import { cn } from "@/lib/utils"
+import { cn, formatMoney } from "@/lib/utils"
 
 const SLOT_LABEL: Record<RosterSlot, string> = { PG: "PG", SG: "SG", SF: "SF", PF: "PF", C: "C", BENCH: "6TH" }
 
@@ -50,14 +50,22 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
           {isHighBidder ? <span className="rounded bg-[#d4ff00] px-1.5 py-0.5 text-[8px] font-black uppercase text-[#151a0a]">Leading</span> : isYou ? <span className="text-[9px] font-semibold text-[#8b7fff]">View budget →</span> : null}
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
+        {/* Compact money line — MOBILE ONLY. Keeps balance visible without the
+            tall wallet grid + roster list pushing the bid buttons off-screen. */}
+        <div className="mt-2 flex items-center justify-between gap-2 text-[10px] lg:hidden">
+          <span className="text-[#9ba6ba]">Left <span className="font-black tabular-nums text-[#d4ff00]">${formatMoney(budget.remaining)}</span></span>
+          <span className="text-[#9ba6ba]">Max <span className="font-bold tabular-nums text-[#f1f4fb]">${formatMoney(budget.maxAffordable)}</span></span>
+          <span className="text-[#9ba6ba]">Roster <span className="font-bold tabular-nums text-[#f1f4fb]">{budget.slotsFilled}/{budget.slotsFilled + budget.slotsRemaining}</span></span>
+        </div>
+
+        <div className="mt-3 hidden grid-cols-3 gap-1.5 lg:grid">
           <Counter label="Total" value={budget.total} />
           <Counter label="Spent" value={budget.spent} tone="muted" />
           <Counter label="Remaining" value={budget.remaining} tone="lime" />
         </div>
-        <div className="mt-3 flex items-center justify-between gap-2 text-[9px] text-[#9ba6ba]">
+        <div className="mt-3 hidden items-center justify-between gap-2 text-[9px] text-[#9ba6ba] lg:flex">
           <span>Roster {budget.slotsFilled}/{budget.slotsFilled + budget.slotsRemaining}</span>
-          <span>Max bid ${budget.maxAffordable}</span>
+          <span>Max bid ${formatMoney(budget.maxAffordable)}</span>
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.08]">
           <motion.span className="block h-full rounded-full bg-[#d4ff00]" initial={{ scaleX: 0 }} animate={{ scaleX: budget.remaining / budget.total }} transition={{ duration: 0.35 }} style={{ transformOrigin: "left" }} />
@@ -65,12 +73,12 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
         {currentBid != null && isHighBidder && (
           <div className="mt-3 rounded-lg bg-[#253014] px-3 py-2 text-center">
             <span className="block text-[8px] font-semibold uppercase tracking-[0.15em] text-[#b9c3a7]">Current bid</span>
-            <span className="mt-0.5 block text-lg font-black leading-none tabular-nums text-white">${currentBid}</span>
+            <span className="mt-0.5 block text-lg font-black leading-none tabular-nums text-white">${formatMoney(currentBid)}</span>
           </div>
         )}
       </section>
 
-      <section className="rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 p-3.5 shadow-[0_18px_34px_rgba(0,0,0,0.16)]">
+      <section className="hidden rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 p-3.5 shadow-[0_18px_34px_rgba(0,0,0,0.16)] lg:block">
         <h2 className="text-[11px] font-black uppercase tracking-[0.04em] text-[#f1f4fb]">{isYou ? "Your roster" : `${label} roster`}</h2>
         <div className="mt-3 space-y-1.5">
           {ROSTER_SLOTS.map((slot) => {
@@ -82,7 +90,7 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
               )}>
                 <span className={cn("w-5 shrink-0 font-black", slot === "BENCH" ? "text-[#26d8c4]" : "text-[#d4ff00]")}>{SLOT_LABEL[slot]}</span>
                 {owned ? <span className="flex min-w-0 flex-1 items-center gap-1.5"><MiniHeadshot player={owned.player} /><span className="truncate text-[#e7ebf5]">{owned.player.name}</span></span> : <span className="flex-1 italic text-[#7c8495]">Empty</span>}
-                {owned && <span className="tabular-nums text-[#9ca6b8]">${owned.price}</span>}
+                {owned && <span className="tabular-nums text-[#9ca6b8]">${formatMoney(owned.price)}</span>}
                 {!owned && <span aria-hidden className="text-sm leading-none text-[#97a2b6]">+</span>}
               </div>
             )
@@ -98,7 +106,7 @@ function Counter({ label, value, tone }: { label: string; value: number; tone?: 
   return (
     <div className={cn("rounded-lg px-1 py-2 text-center", tone === "lime" ? "bg-[#203016]" : "bg-[#191d29]")}>
       <span className="block text-[7px] font-semibold uppercase tracking-[0.14em] text-[#a1aaba]">{label}</span>
-      <motion.span key={value} initial={{ scale: 1.18 }} animate={{ scale: 1 }} className="mt-1 block text-[0.95rem] font-black leading-none tabular-nums" style={{ color }}>${value}</motion.span>
+      <motion.span key={value} initial={{ scale: 1.18 }} animate={{ scale: 1 }} className="mt-1 block text-[0.95rem] font-black leading-none tabular-nums" style={{ color }}>${formatMoney(value)}</motion.span>
     </div>
   )
 }

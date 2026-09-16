@@ -8,7 +8,7 @@ import { bidIncrementForBudget } from "@/lib/arena/types"
 import { maxAffordable } from "@/lib/arena/budget"
 import { canAddPlayer, openStarterSlots, eligiblePositions } from "@/lib/arena/roster"
 import { getSeasonPlayers } from "@/lib/arena/data"
-import { cn } from "@/lib/utils"
+import { cn, formatMoney } from "@/lib/utils"
 
 export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass }: {
   state: ArenaState
@@ -70,20 +70,20 @@ export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass }
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="block text-[9px] font-medium text-[#a5afc0]">Current bid</span>
-          <strong className="mt-0.5 block text-3xl font-black leading-none tabular-nums text-[#d4ff00]">${current}</strong>
+          <strong className="mt-0.5 block text-3xl font-black leading-none tabular-nums text-[#d4ff00]">${formatMoney(current)}</strong>
         </div>
-        <span className="pb-1 text-right text-[9px] text-[#a5afc0]">Max you can bid: <strong className="text-[#f0f3fa]">${max}</strong></span>
+        <span className="pb-1 text-right text-[9px] text-[#a5afc0]">Max you can bid: <strong className="text-[#f0f3fa]">${formatMoney(max)}</strong></span>
       </div>
 
       {scarcityWarning && <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#3a2912]/65 px-2.5 py-2 text-[10px] leading-4 text-[#f3c66e]"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{scarcityWarning}</p>}
 
       {isLeading ? (
-        <div className="mt-3 rounded-xl border border-[#bbec0b]/20 bg-[#253014] px-3 py-3 text-center text-sm font-bold text-[#d4ff00]">You lead at ${current}. Waiting for opponent.</div>
+        <div className="mt-3 rounded-xl border border-[#bbec0b]/20 bg-[#253014] px-3 py-3 text-center text-sm font-bold text-[#d4ff00]">You lead at ${formatMoney(current)}. Waiting for opponent.</div>
       ) : (
         <div className="mt-3 grid grid-cols-[1.8fr_1fr] gap-2">
           <button type="button" onClick={() => next !== null && doBid(next)} disabled={!canBid} className={cn("flex h-11 items-center justify-center gap-2 rounded-xl bg-[#635bff] text-sm font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition hover:bg-[#736cff] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45", !canBid && "bg-[#30334a]")}>
             <Gavel className="h-4 w-4" strokeWidth={2.25} />
-            {canBid ? `Bid $${next}` : "Cannot outbid"}
+            {canBid ? `Bid $${formatMoney(next)}` : "Cannot outbid"}
           </button>
           <button type="button" onClick={onPass} className="h-11 rounded-xl border border-white/[0.1] bg-[#1a1e2a] text-sm font-bold text-[#f2f4fa] transition hover:bg-[#242a38] active:scale-[0.98]">Pass</button>
         </div>
@@ -91,7 +91,7 @@ export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass }
 
       {!isLeading && suggestedBids.length > 1 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {suggestedBids.map((amount) => <button type="button" key={amount} onClick={() => amount === max ? onMax() : doBid(amount)} className="min-w-11 rounded-lg border border-white/[0.1] bg-[#181c27] px-2 py-1 text-[9px] font-semibold tabular-nums text-[#d7ddea] transition hover:border-[#8c82ff] hover:text-white active:scale-[0.98]">${amount}</button>)}
+          {suggestedBids.map((amount) => <button type="button" key={amount} onClick={() => amount === max ? onMax() : doBid(amount)} className="min-w-11 rounded-lg border border-white/[0.1] bg-[#181c27] px-2 py-1 text-[9px] font-semibold tabular-nums text-[#d7ddea] transition hover:border-[#8c82ff] hover:text-white active:scale-[0.98]">${formatMoney(amount)}</button>)}
           <button type="button" onClick={onMax} className="ml-auto px-1 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#a6aebe] transition hover:text-[#d4ff00]">Jump to amount</button>
         </div>
       )}

@@ -93,8 +93,14 @@ function computeChemistry(players: SeasonPlayer[], usageOverlap: number): number
   return clamp(score)
 }
 
+/**
+ * Clamp a rating into 1-99 AND round it. Team ratings are weighted sums of
+ * attributes and thus fractional; they're shown verbatim on the post-game team
+ * comparison, so rounding here keeps that display a clean integer (mirrors the
+ * NFL fix in lib/nfl/teamRating.ts).
+ */
 function clamp(v: number, lo = 1, hi = 99): number {
-  return Math.max(lo, Math.min(hi, v))
+  return Math.round(Math.max(lo, Math.min(hi, v)))
 }
 
 export function buildTeamProfile(team: TeamId, roster: RosterState): TeamProfile {

@@ -9,7 +9,7 @@ import { maxAffordable } from "@/lib/nfl/budget"
 import { canAddPlayer, openSlots } from "@/lib/nfl/roster"
 import { getSeasonPlayers } from "@/lib/nfl/data"
 import { estimatedPrice } from "@/lib/nfl/grades"
-import { cn } from "@/lib/utils"
+import { cn, formatMoney } from "@/lib/utils"
 
 export function NflBidControls({
   state,
@@ -85,8 +85,8 @@ export function NflBidControls({
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-4 backdrop-blur-xl">
       <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)]">
-        <span>Current bid: <span className="font-semibold text-[var(--color-lime)]">${current}</span></span>
-        <span>Max you can bid: <span className="font-semibold text-[var(--color-text-primary)]">${max}</span></span>
+        <span>Current bid: <span className="font-semibold text-[var(--color-lime)]">${formatMoney(current)}</span></span>
+        <span>Max you can bid: <span className="font-semibold text-[var(--color-text-primary)]">${formatMoney(max)}</span></span>
       </div>
 
       {/* Value insight — bargain / fair / overpay vs the market estimate */}
@@ -102,7 +102,7 @@ export function NflBidControls({
           {valueTone === "good" ? <TrendingUp className="h-3.5 w-3.5" /> : valueTone === "bad" ? <TrendingDown className="h-3.5 w-3.5" /> : null}
           {valueTone === "good" ? "Bargain territory" : valueTone === "bad" ? "Overpaying" : "Fair value"}
         </span>
-        <span>Est. ${estimate}{valueDelta !== 0 && <span className="ml-1 opacity-80">({valueDelta > 0 ? "+" : ""}{valueDelta})</span>}</span>
+        <span>Est. ${formatMoney(estimate)}{valueDelta !== 0 && <span className="ml-1 opacity-80">({valueDelta > 0 ? "+" : ""}{formatMoney(valueDelta)})</span>}</span>
       </div>
 
       {scarcityWarning && (
@@ -114,7 +114,7 @@ export function NflBidControls({
 
       {isLeading ? (
         <div className="rounded-xl bg-[var(--color-lime)]/10 px-3 py-3 text-center text-sm font-bold text-[var(--color-lime)]">
-          You lead at ${current} — waiting on the CPU…
+          You lead at ${formatMoney(current)} — waiting on the CPU…
         </div>
       ) : (
         <div className="grid grid-cols-[2fr_1fr] gap-2">
@@ -123,7 +123,7 @@ export function NflBidControls({
             disabled={!canBid}
             className={cn("h-14 rounded-xl text-base font-black", !canBid && "opacity-40")}
           >
-            {canBid ? <>Bid ${next}</> : "Can't outbid"}
+            {canBid ? <>Bid ${formatMoney(next)}</> : "Can't outbid"}
           </Button>
           <Button variant="danger" onClick={onPass} className="h-14 rounded-xl font-black">
             Pass
@@ -136,7 +136,7 @@ export function NflBidControls({
           onClick={onMax}
           className="text-center text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] hover:text-[var(--color-lime)]"
         >
-          Jump to max (${max})
+          Jump to max (${formatMoney(max)})
         </button>
       )}
 

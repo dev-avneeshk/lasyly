@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { formatMoney } from "@/lib/utils"
 
 /**
  * SOLD stamp — an overlay scoped to the PLAYER CARD (its positioned parent).
@@ -54,7 +55,7 @@ export function NflSoldStamp({
           </div>
           <div className="mt-1.5 text-base font-black text-white">{name}</div>
           <div className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            {winnerLabel} · <span className="text-[var(--color-lime)]">${price}</span>
+            {winnerLabel} · <span className="text-[var(--color-lime)]">${formatMoney(price)}</span>
           </div>
         </div>
       </motion.div>

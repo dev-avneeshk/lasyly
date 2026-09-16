@@ -4,6 +4,7 @@ import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { startSimulation, serverView, seatForUser } from "@/lib/arena/server"
+import { broadcastArenaUpdate } from "@/lib/realtime/arena"
 
 /**
  * POST /api/arena/[gameId]/simulate — once both rosters are complete (status
@@ -37,12 +38,15 @@ export const POST = withSecurity(async (
   // change, so the store writes nothing and `rev` stays put. Spamming this
   // endpoint therefore cannot churn state — which is what makes it safe to also
   // re-run the simulation cheaply for a client that lost its response.
-  const { game } = await mutateGame(gameId, (g) => {
+  const { game, changed } = await mutateGame(gameId, (g) => {
     if (g.state.status !== "lineup" && g.state.status !== "complete") {
       throw new Error("Rosters are not complete yet.")
     }
     startSimulation(g.state)
   })
+
+  // Push the final result to the opponent so both flip to the summary together.
+  if (changed) void broadcastArenaUpdate(gameId)
 
   return NextResponse.json(serverView(game.state, seat, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

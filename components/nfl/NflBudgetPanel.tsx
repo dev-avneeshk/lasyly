@@ -6,7 +6,7 @@ import type { BudgetSnapshot } from "@/lib/nfl/budget"
 import type { NflPlayer, RosterSlot, RosterState, TeamId } from "@/lib/nfl/types"
 import { OFFENSE_SLOTS, DEFENSE_SLOTS } from "@/lib/nfl/types"
 import { headshotUrl } from "@/lib/nfl/data"
-import { cn } from "@/lib/utils"
+import { cn, formatMoney } from "@/lib/utils"
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
   QB: "QB", RB: "RB", WR1: "WR", WR2: "WR", TE: "TE",
@@ -49,7 +49,7 @@ function SlotRow({ slot, owned }: { slot: RosterSlot; owned: RosterState["slots"
       ) : (
         <span className="flex-1 italic opacity-60">empty</span>
       )}
-      {owned && <span className="tabular-nums text-[var(--color-text-muted)]">${owned.price}</span>}
+      {owned && <span className="tabular-nums text-[var(--color-text-muted)]">${formatMoney(owned.price)}</span>}
     </div>
   )
 }
@@ -104,29 +104,45 @@ export function NflBudgetPanel({
         ) : null}
       </div>
 
-      {/* Budget counters */}
-      <div className="grid grid-cols-3 gap-2 text-center">
+      {/* Compact summary — MOBILE ONLY. During a 10s auction on a phone the two
+          full roster panels (9 slots each) buried the card and bid buttons under
+          a long scroll. On small screens we show just the money line here and
+          hide the slot detail; the full panel returns from lg up. */}
+      <div className="flex items-center justify-between gap-2 text-[11px] lg:hidden">
+        <span className="text-[var(--color-text-muted)]">
+          Left <span className="font-black tabular-nums text-[var(--color-lime)]">${formatMoney(budget.remaining)}</span>
+        </span>
+        <span className="text-[var(--color-text-muted)]">
+          Max <span className="font-bold tabular-nums text-[var(--color-text-primary)]">${formatMoney(budget.maxAffordable)}</span>
+        </span>
+        <span className="text-[var(--color-text-muted)]">
+          Roster <span className="font-bold tabular-nums text-[var(--color-text-primary)]">{budget.slotsFilled}/{budget.slotsFilled + budget.slotsRemaining}</span>
+        </span>
+      </div>
+
+      {/* Budget counters — hidden on mobile (the compact line above replaces it) */}
+      <div className="hidden grid-cols-3 gap-2 text-center lg:grid">
         <Counter label="Budget" value={budget.total} />
         <Counter label="Spent" value={budget.spent} tone="muted" />
         <Counter label="Left" value={budget.remaining} tone="lime" />
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)]">
+      <div className="hidden items-center justify-between text-[11px] text-[var(--color-text-muted)] lg:flex">
         <span>Roster {budget.slotsFilled}/{budget.slotsFilled + budget.slotsRemaining}</span>
-        <span>Max bid ${budget.maxAffordable}</span>
+        <span>Max bid ${formatMoney(budget.maxAffordable)}</span>
       </div>
 
       {currentBid != null && (
-        <div className={cn("rounded-lg px-3 py-2 text-center", isHighBidder ? "bg-[var(--color-lime)]/10" : "bg-white/5")}>
+        <div className={cn("hidden rounded-lg px-3 py-2 text-center lg:block", isHighBidder ? "bg-[var(--color-lime)]/10" : "bg-white/5")}>
           <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]">Current Bid</span>
           <div className="text-xl font-black tabular-nums text-[var(--color-text-primary)]">
-            {isHighBidder ? `$${currentBid}` : "—"}
+            {isHighBidder ? `$${formatMoney(currentBid)}` : "—"}
           </div>
         </div>
       )}
 
-      {/* Roster slots grouped by side of the ball */}
-      <div className="space-y-2">
+      {/* Roster slots grouped by side of the ball — full detail on lg+ only */}
+      <div className="hidden space-y-2 lg:block">
         <div>
           <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--color-lime)]/70">Offense</p>
           <div className="space-y-1">
@@ -158,7 +174,7 @@ function Counter({ label, value, tone }: { label: string; value: number; tone?: 
         animate={{ scale: 1, color: tone === "lime" ? "#D4FF00" : tone === "muted" ? "#9CA3AF" : "#F0F2FF" }}
         className="text-lg font-black tabular-nums"
       >
-        ${value}
+        ${formatMoney(value)}
       </motion.div>
     </div>
   )
