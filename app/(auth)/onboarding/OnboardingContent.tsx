@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Camera, Check, AlertCircle, TrendingUp, Users, Zap } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+// Lazy: both uses below run after mount, and the username check can't fire until
+// the user has reached step 2. A static import made 177 KB of supabase-js part of
+// the blocking payload for a screen whose only job is to show three cards.
+import { getSupabaseClient } from "@/lib/supabase/lazy-client"
 
 const SPORTS = ["Football", "Basketball", "Tennis", "Cricket", "NFL", "Formula 1", "Esports", "MMA", "Boxing", "Golf"]
 
@@ -35,7 +38,6 @@ const INTENTS = [
 
 export function OnboardingContent() {
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
 
   // Read ?pending=email lazily on mount — avoids useSearchParams and the
   // production Suspense-freeze it causes on statically prerendered pages.
@@ -59,36 +61,52 @@ export function OnboardingContent() {
 
   // Load user data from Google on mount
   useEffect(() => {
+    let cancelled = false
     const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      try {
+        const supabase = await getSupabaseClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (cancelled || !user) return
         const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || ""
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name || ""
         setAvatarUrl(googleAvatar)
         setDisplayName(googleName)
+      } catch {
+        // Prefill is a convenience; the user can type their own name.
       }
     }
     loadUser()
-  }, [supabase])
+    return () => { cancelled = true }
+  }, [])
 
   // Debounced username availability check
   useEffect(() => {
     if (username.length < 3) { setUsernameAvailable(null); return }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUsernameAvailable(null); return }
 
+    let cancelled = false
     const timer = setTimeout(async () => {
       setCheckingUsername(true)
-      const { data } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", username.toLowerCase())
-        .maybeSingle()
-      setUsernameAvailable(!data)
-      setCheckingUsername(false)
+      try {
+        const supabase = await getSupabaseClient()
+        const { data } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", username.toLowerCase())
+          .maybeSingle()
+        if (cancelled) return
+        setUsernameAvailable(!data)
+      } catch {
+        // Leave availability unknown rather than claiming a name is free — the
+        // PATCH in handleFinish is the authority and will reject a duplicate.
+        if (!cancelled) setUsernameAvailable(null)
+      } finally {
+        if (!cancelled) setCheckingUsername(false)
+      }
     }, 400)
 
-    return () => clearTimeout(timer)
-  }, [username, supabase])
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [username])
 
   const toggleSport = (sport: string) => {
     setSelectedSports((prev) =>

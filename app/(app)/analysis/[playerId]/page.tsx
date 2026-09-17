@@ -1,17 +1,28 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronUp, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { cachedFetch } from "@/lib/clientCache"
-import { NHL_TEAM_SLUG_MAP, NFL_TEAM_SLUG_MAP, NBA_ESPN_TEAM_MAP, getTeamLogoUrl } from "@/lib/constants/teams"
+import {
+  NHL_TEAM_SLUG_MAP,
+  NFL_TEAM_SLUG_MAP,
+  NBA_ESPN_TEAM_MAP,
+  getNflTeamFullName,
+  getNbaTeamFullName,
+  getTeamLogoUrl,
+} from "@/lib/constants/teams"
 import { PlayerDashboardSkeleton } from "@/components/analysis/PlayerDashboardSkeleton"
 import { NFLMatchupPanels } from "@/components/analysis/NFLMatchupPanels"
-import {
-  ComposedChart, Bar, Line, XAxis, YAxis, ReferenceLine,
-  ResponsiveContainer, Tooltip, Cell,
-} from "recharts"
+import { PlayerHero } from "@/components/analysis/PlayerHero"
+import { MatchupBanner } from "@/components/analysis/MatchupBanner"
+import { PropControls } from "@/components/analysis/PropControls"
+import { PerformanceCard } from "@/components/analysis/PerformanceCard"
+import { OpponentSummaryRow } from "@/components/analysis/OpponentSummaryRow"
+import { pricesFromProbability } from "@/lib/props/odds"
+import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
+import { ComposedChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts"
 
 interface PropData {
   id: string
@@ -113,6 +124,9 @@ export default function PlayerDashboardPage() {
   const [nflSeason, setNflSeason] = useState<"all" | "2025" | "2024">("all")
   const [teamAnalytics, setTeamAnalytics] = useState<any>(null)
   const [seriesRecord, setSeriesRecord] = useState<{ team: number; opponent: number; type: string } | null>(null)
+  // Bio / team identity / next fixture — see /api/props/player-profile.
+  const [profile, setProfile] = useState<PlayerProfile | null>(null)
+  const matchupPanelsRef = useRef<HTMLDivElement | null>(null)
   const [isMobile, setIsMobile] = useState(false)
 
   // Track mobile breakpoint for chart display
@@ -288,6 +302,48 @@ export default function PlayerDashboardPage() {
       .catch(() => {})
   }, [prop?.team])
 
+  // ─── Opponent abbreviation, derived from the prop's matchup key ────────────
+  // NFL returns "TEAM-OPP"; NBA returns just the opponent.
+  const opponentAbbr = useMemo(() => {
+    const raw = (prop?.matchup ?? "").toUpperCase().trim()
+    if (!raw) return ""
+    const parts = raw.split("-")
+    if (parts.length === 2) {
+      const team = (prop?.team ?? "").toUpperCase()
+      return parts[0] === team ? parts[1] : parts[0]
+    }
+    return prop?.defensiveMatchup?.opponentTeam?.toUpperCase() ?? raw
+  }, [prop?.matchup, prop?.team, prop?.defensiveMatchup?.opponentTeam])
+
+  // Fetch bio / team identity / next fixture. Enrichment only — a failure here
+  // leaves the hero rendering from prop data alone.
+  useEffect(() => {
+    if (!prop?.player || !prop?.team) return
+    if (!/^[A-Za-z]{2,4}$/.test(prop.team)) return
+
+    let cancelled = false
+    const params = new URLSearchParams({
+      player: prop.player,
+      team: prop.team,
+      sport: sportParam,
+    })
+    if (/^[A-Za-z]{2,4}$/.test(opponentAbbr)) params.set("opponent", opponentAbbr)
+
+    cachedFetch<PlayerProfile & { error?: string }>(
+      `/api/props/player-profile?${params.toString()}`,
+      600_000
+    )
+      .then((data) => {
+        if (!cancelled && !data.error) setProfile(data)
+      })
+      .catch(() => {
+        if (!cancelled) setProfile(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [prop?.player, prop?.team, sportParam, opponentAbbr])
+
   // Fetch player headshot and set team logo
   useEffect(() => {
     if (!prop?.player) return
@@ -376,7 +432,14 @@ export default function PlayerDashboardPage() {
   }
 
   // Build chart data from real game history (already in chronological order from API)
-  let gameHistory = prop.lastGames
+  // Normalise to chronological order (oldest → newest). The engines disagree:
+  // `lastGames` comes back newest-first from the NFL engine, so taking the tail
+  // of it without sorting selected the OLDEST games for "L5" and plotted the
+  // chart backwards in time. Sorting by date makes the window correct for every
+  // sport regardless of the source ordering.
+  let gameHistory = [...prop.lastGames].sort((a, b) =>
+    (a.date ?? "").localeCompare(b.date ?? "")
+  )
   // NFL season filter: a season spans two calendar years (e.g. 2025 → Sep 2025..Feb 2026).
   if (sportParam === "NFL" && nflSeason !== "all") {
     const y = parseInt(nflSeason, 10)
@@ -385,17 +448,9 @@ export default function PlayerDashboardPage() {
       return gy === y || gy === y + 1
     })
   }
-  // Apply time range filter - take the most recent N games
+  // Time range filter — the most recent N games, still chronological.
   const timeRangeNum = parseInt(timeRange.replace("L", ""))
   const filteredHistory = gameHistory.slice(-timeRangeNum)
-  const chartData = filteredHistory.map(g => ({
-    name: g.opponent,
-    value: g.value,
-    minutes: g.minutes ?? 0,
-    opponent: g.opponent,
-    date: g.date,
-  }))
-
   const overCount = filteredHistory.filter(g => g.value >= threshold).length
   const totalGames = filteredHistory.length
 
@@ -451,143 +506,84 @@ export default function PlayerDashboardPage() {
         { key: "STL", label: "STL", propLine: null },
       ]
 
+  // ─── Hero / banner inputs ──────────────────────────────────────────────────
+
+  const statLabel =
+    statCategories.find((c) => c.key === activeStat)?.label ?? prop.statCategory
+
+  /** Team identity from the profile endpoint, with constants as the fallback. */
+  const fallbackTeamName = (abbr: string): string | null =>
+    sportParam === "NFL" ? getNflTeamFullName(abbr)
+      : sportParam === "NBA" ? getNbaTeamFullName(abbr)
+      : null
+
+  const teamMeta: TeamMeta = profile?.team ?? {
+    abbr: prop.team,
+    name: fallbackTeamName(prop.team),
+    logoUrl: teamLogo ?? getTeamLogoUrl(prop.team, sportParam),
+    color: null,
+    altColor: null,
+    record: null,
+  }
+
+  const opponentMeta: TeamMeta | null =
+    profile?.opponent ??
+    (opponentAbbr
+      ? {
+          abbr: opponentAbbr,
+          name: fallbackTeamName(opponentAbbr),
+          logoUrl: getTeamLogoUrl(opponentAbbr, sportParam),
+          color: null,
+          altColor: null,
+          record: null,
+        }
+      : null)
+
+  // Priced off the window on screen so the hero, chart strip and hit-rate
+  // summary can't disagree with each other.
+  const windowPrices = totalGames > 0 ? pricesFromProbability(overCount / totalGames) : null
+
+  const projectionValue =
+    prop.projection?.projection ?? (prop as { projectedValue?: number | null }).projectedValue ?? null
+
+  const heroPosition = profile?.bio?.position ?? prop.position ?? playerAnalytics?.position ?? null
+
   return (
     <div className={cn(
       "min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] px-4 pb-4 overflow-x-hidden font-sans flex flex-col",
       sportParam === "NFL" ? "pt-3 gap-3" : "p-4 gap-4"
     )}>
-      {/* Back Button — standalone for non-NFL (NFL folds it into the header row) */}
-      {sportParam !== "NFL" && (
-      <button
-        onClick={() => router.push("/analysis")}
-        className="flex items-center gap-1 text-[var(--color-text-muted)] hover:text-white transition-colors w-fit"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        <span className="text-xs font-semibold tracking-wider uppercase">Back</span>
-      </button>
-      )}
+      {/* Hero: identity, bio and the headline numbers for the active stat */}
+      <PlayerHero
+        playerName={prop.player}
+        headshotUrl={headshot}
+        teamLogoUrl={teamMeta.logoUrl}
+        teamAbbr={teamMeta.abbr}
+        teamName={teamMeta.name}
+        teamColor={teamMeta.color}
+        bio={profile?.bio ? { ...profile.bio, position: heroPosition } : (heroPosition ? { position: heroPosition, jerseyNumber: null, height: null, weight: null, age: null } : null)}
+        statLabel={statLabel}
+        line={prop.propLine}
+        projection={projectionValue}
+        prices={windowPrices}
+        recommended={(prop as { direction?: "over" | "under" }).direction ?? "over"}
+        onBack={() => router.push("/analysis")}
+      />
 
-      {/* Row 1 (NFL): compact horizontal profile header with back + season filter */}
-      {sportParam === "NFL" && (
-        <div className="flex items-center gap-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-3 py-2.5">
-          {/* Back */}
-          <button
-            onClick={() => router.push("/analysis")}
-            aria-label="Back to props"
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-white hover:bg-white/[0.04] transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          {/* Headshot */}
-          <div className="relative shrink-0">
-            <div className="w-12 h-12 rounded-full bg-[var(--color-surface-elevated)] border border-[var(--color-border)] overflow-hidden flex items-center justify-center">
-              {headshot ? (
-                <img src={headshot} alt={prop.player} className="w-full h-full object-cover object-top" />
-              ) : (
-                <span className="text-sm font-black text-[var(--color-text-muted)]">
-                  {prop.player.split(" ").map(n => n[0]).join("")}
-                </span>
-              )}
-            </div>
-            {teamLogo && (
-              <img src={teamLogo} alt={prop.team} className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-surface)] p-0.5 border border-[var(--color-border)] object-contain" />
-            )}
-          </div>
-          {/* Name + position */}
-          <div className="min-w-0">
-            <h1 className="text-lg font-black tracking-tight text-white truncate leading-none">{prop.player}</h1>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[var(--color-text-muted)]">
-              <span className="px-1.5 py-0.5 rounded bg-[var(--color-surface-elevated)] font-semibold text-white">{prop.position ?? "—"}</span>
-              <span>{prop.team}</span>
-            </div>
-          </div>
-          {/* Season filter */}
-          <div className="ml-auto flex items-center gap-2">
-            <div className="hidden sm:flex bg-[var(--color-surface-elevated)] rounded-lg border border-[var(--color-border)] p-0.5">
-              {([["all", "All"], ["2025", "2025-26"], ["2024", "2024-25"]] as const).map(([v, l]) => (
-                <button
-                  key={v}
-                  onClick={() => setNflSeason(v)}
-                  className={cn(
-                    "px-2.5 py-1 text-[11px] rounded-md font-semibold transition-colors whitespace-nowrap",
-                    nflSeason === v ? "bg-[var(--color-lime)] text-black" : "text-[var(--color-text-muted)] hover:text-white"
-                  )}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-            {/* Quick stats */}
-            {[
-              { label: "L5", value: prop.l5Avg, accent: true },
-              { label: "L10", value: prop.l10Avg },
-              { label: "Line", value: prop.propLine },
-            ].map((s) => (
-              <div key={s.label} className="text-center px-2.5 py-1 rounded-lg bg-white/[0.02] border border-[var(--color-border)] min-w-[52px]">
-                <div className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)]">{s.label}</div>
-                <div className={cn("text-sm font-bold tabular-nums leading-tight", s.accent ? "text-[var(--color-lime)]" : "text-white")}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Upcoming fixture. Self-hides when we can't identify the opponent. */}
+      <MatchupBanner
+        team={teamMeta}
+        opponent={opponentMeta}
+        nextGame={profile?.nextGame ?? null}
+      />
 
-      {/* Row 1: Player Profile | Injury Report | Matchup */}
-      {sportParam !== "NFL" && (
-      <div className={cn("grid grid-cols-1 gap-4 lg:h-[280px]", isESPNSport ? "lg:grid-cols-4" : isTennis ? "lg:grid-cols-2" : "lg:grid-cols-12")}>
-        {/* Player Profile Card — REAL DATA */}
-        <div className={cn("flex flex-col relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md", isESPNSport ? "lg:col-span-4" : isTennis ? "lg:col-span-1" : "lg:col-span-3")}>
-          <div className="absolute top-0 left-0 w-full h-[60%] bg-[var(--color-lime)]/20 transform -skew-y-6 origin-top-left z-0" />
-          <div className="relative z-10 p-4 flex-grow flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-1.5 rounded flex items-center gap-2 shadow-sm backdrop-blur-sm">
-                <span className="font-semibold text-sm tracking-wide">
-                  {prop.player.split(" ")[0]}<br />{prop.player.split(" ").slice(1).join(" ")}
-                </span>
-              </div>
-              <div className="w-14 h-14 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center overflow-hidden">
-                {teamLogo ? (
-                  <img src={teamLogo} alt={prop.team} className="w-10 h-10 object-contain" />
-                ) : (
-                  <span className="text-xs font-bold text-[var(--color-lime)]">{prop.team}</span>
-                )}
-              </div>
-            </div>
-            <div className="flex-grow flex items-end justify-center -mb-4 relative z-20">
-              {isESPNSport && isTeamProp && teamLogo ? (
-                <img src={teamLogo} alt={prop.player} className="h-[120px] w-[120px] object-contain" />
-              ) : headshot ? (
-                <img src={headshot} alt={prop.player} className="h-[140px] w-[110px] object-cover object-top" />
-              ) : teamLogo ? (
-                <img src={teamLogo} alt={prop.player} className="h-[120px] w-[120px] object-contain" />
-              ) : (
-                <div className="h-[140px] w-[100px] bg-[var(--color-surface-elevated)] rounded-lg flex items-center justify-center">
-                  <span className="text-4xl font-black text-[var(--color-border)] opacity-50">
-                    {prop.player.split(" ").map(n => n[0]).join("")}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-2 mt-4 text-center border-t border-[var(--color-border)] pt-3 relative z-30 bg-[var(--color-surface)]/80 backdrop-blur-md -mx-4 -mb-4 px-4 pb-4">
-              <div>
-                <div className="text-[var(--color-text-muted)] text-[10px] uppercase tracking-wider font-medium mb-1">L5 AVG</div>
-                <div className="text-[var(--color-lime)] font-bold text-lg">{prop.l5Avg}</div>
-              </div>
-              <div>
-                <div className="text-[var(--color-text-muted)] text-[10px] uppercase tracking-wider font-medium mb-1">{isTennis ? "Surface" : "Position"}</div>
-                <div className="text-white font-bold text-lg">{isTennis ? (teamParam || prop.team || "—") : (prop.position ?? "nil")}</div>
-              </div>
-              <div>
-                <div className="text-[var(--color-text-muted)] text-[10px] uppercase tracking-wider font-medium mb-1">L10 AVG</div>
-                <div className="text-white font-bold text-lg">{prop.l10Avg}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      {/* Row 1: Injury Report | Season series + matchup grade.
+          The old profile card here was replaced by <PlayerHero /> above. */}
+      {!isESPNSport && (
+      <div className={cn("grid grid-cols-1 gap-4 lg:h-[280px]", isTennis ? "lg:grid-cols-1" : "lg:grid-cols-12")}>
         {/* Injury Report — REAL DATA from ESPN (NBA only) */}
         {!isESPNSport && !isTennis && (
-        <div className="lg:col-span-6 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
+        <div className="lg:col-span-8 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
           <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[var(--color-danger)]" />
@@ -638,7 +634,7 @@ export default function PlayerDashboardPage() {
 
         {/* Matchup Header — NBA and Tennis */}
         {!isESPNSport && (
-        <div className={cn("bg-gradient-to-b from-[var(--color-primary)]/20 to-[var(--color-surface)] relative overflow-hidden flex flex-col justify-between p-4 border border-[var(--color-border)] rounded-md", isTennis ? "lg:col-span-1" : "lg:col-span-3")}>
+        <div className={cn("bg-gradient-to-b from-[var(--color-primary)]/20 to-[var(--color-surface)] relative overflow-hidden flex flex-col justify-between p-4 border border-[var(--color-border)] rounded-md", isTennis ? "lg:col-span-1" : "lg:col-span-4")}>
           <div className="relative z-10 text-center border-b border-white/10 pb-3 mb-3">
             <h3 className="font-bold text-lg tracking-wide">Upcoming</h3>
             <p className="text-[var(--color-lime)] text-sm font-medium">
@@ -755,205 +751,87 @@ export default function PlayerDashboardPage() {
       </div>
       )}
 
-      {/* NFL Matchup Header: Team VS Opponent · grade · pace · series */}
-      {sportParam === "NFL" && prop?.defensiveMatchup && (() => {
-        const dm = prop.defensiveMatchup as any
-        const opp = dm.opponentTeam
+      {/* Matchup grade strip. The teams themselves are in <MatchupBanner />, so
+          this keeps only what the banner can't show: the engine's defensive
+          grade, pace read and head-to-head record. */}
+      {prop?.defensiveMatchup && (() => {
+        const dm = prop.defensiveMatchup
         const gradeColor = dm.grade === "A" || dm.grade === "B" ? "bg-emerald-500/20 text-emerald-400"
           : dm.grade === "C" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
-        const teamLogoUrl = (t: string) => `https://a.espncdn.com/i/teamlogos/nfl/500/${t.toLowerCase()}.png`
-        const sr = prop.seriesRecord
+        const sr = prop.seriesRecord ?? seriesRecord
         const gradeLabel: Record<string, string> = { A: "Elite matchup", B: "Good matchup", C: "Neutral matchup", D: "Tough matchup", F: "Avoid" }
         return (
-          <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3">
-            <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary)]/10 to-transparent pointer-events-none" />
-            <div className="relative z-10 flex items-center gap-4">
-              {/* Player's team */}
-              <div className="flex items-center gap-2 shrink-0">
-                <img src={teamLogoUrl(prop.team)} alt={prop.team} className="w-9 h-9 object-contain" />
-                <span className="text-sm font-bold text-white">{prop.team}</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+            <span className={cn("text-base font-black px-2.5 py-1 rounded-lg shrink-0", gradeColor)}>{dm.grade}</span>
+            <div className="leading-tight min-w-0">
+              <div className="text-sm font-bold text-white">{gradeLabel[dm.grade] ?? "Matchup"}</div>
+              <div className="text-[10px] text-[var(--color-text-muted)]">
+                {dm.opponentTeam} allows <span className="text-white font-semibold tabular-nums">{dm.statAllowedPerGame}</span> {prop.statCategory}/g · league avg {dm.leagueAverage}
               </div>
-
-              <span className="text-[var(--color-text-muted)] text-xs">vs</span>
-
-              {/* Opponent */}
-              <div className="flex items-center gap-2 shrink-0">
-                <img src={teamLogoUrl(opp)} alt={opp} className="w-9 h-9 object-contain" />
-                <span className="text-sm font-bold text-white">{opp}</span>
-              </div>
-
-              {/* Grade + detail, centered in remaining space */}
-              <div className="flex items-center gap-3 mx-auto">
-                <span className={cn("text-base font-black px-2.5 py-1 rounded-lg", gradeColor)}>{dm.grade}</span>
-                <div className="leading-tight">
-                  <div className="text-sm font-bold text-white">{gradeLabel[dm.grade] ?? "Matchup"}</div>
-                  <div className="text-[10px] text-[var(--color-text-muted)]">
-                    {opp} allows <span className="text-white font-semibold tabular-nums">{dm.statAllowedPerGame}</span> {prop.statCategory}/g · avg {dm.leagueAverage}
-                  </div>
-                </div>
-              </div>
-
-              {/* Chips */}
-              <div className="hidden md:flex items-center gap-1.5 text-[10px] shrink-0">
-                <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+            </div>
+            <div className="ml-auto flex items-center gap-1.5 text-[10px] shrink-0">
+              {dm.rank != null && dm.rankOf != null && (
+                <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]" title="Rank 1 = allows the most">
                   Rank <span className="text-white font-semibold tabular-nums">#{dm.rank}/{dm.rankOf}</span>
                 </span>
+              )}
+              <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+                Pace <span className="text-white font-semibold capitalize">{dm.paceRating}</span>
+              </span>
+              {sr && (sr.team + sr.opponent) > 0 && (
                 <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
-                  Pace <span className="text-white font-semibold capitalize">{dm.paceRating}</span>
+                  H2H <span className="text-white font-semibold tabular-nums">{sr.team}-{sr.opponent}</span>
                 </span>
-                {sr && (sr.team + sr.opponent) > 0 && (
-                  <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
-                    H2H <span className="text-white font-semibold tabular-nums">{sr.team}-{sr.opponent}</span>
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
         )
       })()}
 
-      {/* Row 2: Stat Selector */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {statCategories.map(cat => (
-          <button
-            key={cat.key}
-            onClick={() => setActiveStat(cat.key)}
-            className={cn(
-              "flex-shrink-0 px-5 py-2 rounded-md border transition-all flex flex-col items-center justify-center min-w-[80px]",
-              activeStat === cat.key
-                ? "bg-[var(--color-lime)] text-black border-[var(--color-lime)] shadow-[0_0_15px_rgba(212,255,0,0.3)]"
-                : "bg-[var(--color-surface)] border-[var(--color-border)] hover:bg-[var(--color-surface-elevated)]"
-            )}
-          >
-            <span className={cn("text-[10px] uppercase tracking-wider font-medium", activeStat === cat.key ? "opacity-90" : "text-[var(--color-text-muted)]")}>{cat.label}</span>
-            {cat.propLine && <span className={cn("font-bold text-sm", activeStat !== cat.key && "text-[var(--color-text-muted)]")}>{cat.propLine}</span>}
-          </button>
-        ))}
-      </div>
+      {/* Row 2: stat tabs + sample window + season */}
+      <PropControls
+        stats={statCategories.map((c) => ({ key: c.key, label: c.label }))}
+        activeStat={activeStat}
+        onStatChange={setActiveStat}
+        windows={["L5", "L10", "L15", "L30"]}
+        activeWindow={timeRange}
+        onWindowChange={setTimeRange}
+        seasons={sportParam === "NFL"
+          ? [
+              { value: "all", label: "All seasons" },
+              { value: "2025", label: "2025-26" },
+              { value: "2024", label: "2024-25" },
+            ]
+          : undefined}
+        activeSeason={sportParam === "NFL" ? nflSeason : undefined}
+        onSeasonChange={sportParam === "NFL"
+          ? (value) => setNflSeason(value as "all" | "2025" | "2024")
+          : undefined}
+      />
 
       {/* Row 3: Performance Chart | Filtered Averages — AT TOP */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Performance Chart — REAL DATA */}
-        <div className={cn("flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md relative", (isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
-          {/* Header */}
-          <div className="flex justify-between items-center mb-4 z-10">
-            <h2 className="font-semibold text-lg tracking-wide">Performance</h2>
-            <div className="flex items-center gap-4">
-              <div className="flex bg-[var(--color-surface-elevated)] rounded border border-[var(--color-border)] p-0.5">
-                {["L5", "L10", "L15", "L30"].map(range => (
-                  <button
-                    key={range}
-                    onClick={() => setTimeRange(range)}
-                    className={cn(
-                      "px-2.5 py-1 text-xs rounded",
-                      timeRange === range
-                        ? "bg-[var(--color-lime)] text-black font-medium shadow-sm"
-                        : "text-[var(--color-text-muted)] hover:text-white"
-                    )}
-                  >
-                    {range}
+        {/* Performance chart + window metrics */}
+        <div className={cn((isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
+          <PerformanceCard
+            statLabel={statLabel}
+            games={filteredHistory}
+            threshold={threshold}
+            onThresholdChange={setThreshold}
+            sampleLabel={`Last ${totalGames || timeRange.replace("L", "")} Games`}
+            emptyState={
+              <div className="flex flex-col items-center gap-1 text-center">
+                <span className="text-sm text-[var(--color-text-muted)]">
+                  No games in {nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}
+                </span>
+                {sportParam === "NFL" && nflSeason !== "all" && (
+                  <button onClick={() => setNflSeason("all")} className="text-xs text-[var(--color-lime)] hover:underline">
+                    Show all seasons
                   </button>
-                ))}
+                )}
               </div>
-              <div className="font-bold text-sm tracking-wide text-[var(--color-lime)]">{overCount}/{totalGames}</div>
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-6 mb-3 text-xs z-10">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-1 bg-[var(--color-lime)]" />
-              <span className="text-[var(--color-text-muted)] font-medium">{prop.statCategory}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 border-t border-dashed border-white/50" />
-              <span className="text-[var(--color-text-muted)] font-medium">Threshold ({threshold})</span>
-            </div>
-          </div>
-
-          {/* Threshold Control */}
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 bg-[var(--color-surface-elevated)] p-1 rounded border border-[var(--color-border)] z-20 shadow-sm">
-            <button onClick={() => setThreshold(t => t + 0.5)} className="text-[var(--color-text-muted)] hover:text-white">
-              <ChevronUp className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-xs font-bold">{threshold}</span>
-            <button onClick={() => setThreshold(t => Math.max(0, t - 0.5))} className="text-[var(--color-text-muted)] hover:text-white">
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Chart */}
-          <div className="w-full h-[320px]">
-            {chartData.length === 0 ? (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center gap-1">
-                <span className="text-sm text-[var(--color-text-muted)]">No games in {nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}</span>
-                <button onClick={() => setNflSeason("all")} className="text-xs text-[var(--color-lime)] hover:underline">Show all seasons</button>
-              </div>
-            ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-                <XAxis
-                  dataKey="name"
-                  tick={{ fill: "var(--color-text-muted)", fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "var(--color-text-muted)", fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={[0, "auto"]}
-                />
-                <ReferenceLine
-                  y={threshold}
-                  stroke="rgba(255,255,255,0.3)"
-                  strokeDasharray="4 4"
-                  label={{ value: String(threshold), position: "left", fill: "var(--color-lime)", fontSize: 10 }}
-                />
-                <Tooltip
-                  cursor={false}
-                  content={({ active, payload }) => {
-                    if (!active || !payload || !payload.length) return null
-                    const data = payload[0].payload
-                    return (
-                      <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-lg p-3 shadow-xl">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-bold text-white">vs {data.opponent}</span>
-                          <span className="text-[10px] text-[var(--color-text-muted)]">{data.date}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <span className="text-[9px] text-[var(--color-text-muted)] uppercase">{prop.statCategory}</span>
-                            <span className={cn("ml-1 text-sm font-black", data.value >= threshold ? "text-[var(--color-lime)]" : "text-white")}>{data.value}</span>
-                          </div>
-                          {data.minutes > 0 && (
-                            <div>
-                              <span className="text-[9px] text-[var(--color-text-muted)] uppercase">MIN</span>
-                              <span className="ml-1 text-sm font-bold text-white">{data.minutes}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  }}
-                />
-                <Bar dataKey="value" radius={[3, 3, 0, 0]} maxBarSize={28} label={({ x, y, width, value }: any) => (
-                  <text x={x + width / 2} y={y - 6} textAnchor="middle" fill={value >= threshold ? "var(--color-lime)" : "var(--color-text-muted)"} fontSize={9} fontWeight="bold">
-                    {value}
-                  </text>
-                )}>
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.value >= threshold ? "var(--color-lime)" : "var(--color-text-muted)"}
-                      opacity={entry.value >= threshold ? 1 : 0.4}
-                    />
-                  ))}
-                </Bar>
-              </ComposedChart>
-            </ResponsiveContainer>
-            )}
-          </div>
+            }
+          />
         </div>
 
         {/* Filtered Averages — REAL DATA from stats-reference (NBA only) */}
@@ -1496,26 +1374,34 @@ export default function PlayerDashboardPage() {
       </div>
       )}
 
-      {/* NFL Matchup Panels: Opponent (Defense Allowed) · H2H · Splits */}
-      {sportParam === "NFL" && prop && (() => {
-        // prop.matchup is "TEAM-OPP"; derive the opponent abbreviation.
-        const parts = (prop.matchup ?? "").toUpperCase().split("-")
-        const opp = parts.length === 2
-          ? (parts[0] === (prop.team ?? "").toUpperCase() ? parts[1] : parts[0])
-          : ""
-        if (!opp) return null
-        // Map the active stat / position to a defense position + H2H stat key.
-        const pos = (prop.position ?? playerAnalytics?.position ?? "RB").toUpperCase()
+      {/* Opponent defence: a summary strip, then the full Opponent / H2H /
+          Splits breakdown the strip's "View Matchup" button scrolls to. */}
+      {sportParam === "NFL" && opponentAbbr && (() => {
+        const pos = (heroPosition ?? "RB").toUpperCase()
         const h2hStat = ["YDS", "TD", "REC", "CAR", "INT"].includes(activeStat) ? activeStat : "YDS"
         return (
-          <NFLMatchupPanels
-            player={prop.player}
-            team={prop.team}
-            opponent={opp}
-            position={pos}
-            stat={h2hStat}
-            line={prop.propLine}
-          />
+          <>
+            <OpponentSummaryRow
+              opponentAbbr={opponentAbbr}
+              opponentName={opponentMeta?.name ?? null}
+              opponentLogoUrl={opponentMeta?.logoUrl ?? null}
+              position={pos}
+              season={nflSeason === "all" ? "all" : nflSeason}
+              onViewMatchup={() =>
+                matchupPanelsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            />
+            <div ref={matchupPanelsRef} className="scroll-mt-24">
+              <NFLMatchupPanels
+                player={prop.player}
+                team={prop.team}
+                opponent={opponentAbbr}
+                position={pos}
+                stat={h2hStat}
+                line={prop.propLine}
+              />
+            </div>
+          </>
         )
       })()}
 

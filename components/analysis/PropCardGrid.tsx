@@ -3,12 +3,19 @@
 import { BarChart2 } from "lucide-react"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { PropCard } from "./PropCard"
+import { PropCardCompact } from "./PropCardCompact"
+import { PropViewMode } from "./PropsToolbar"
 
 interface PropCardGridProps {
   props: EnhancedPropCardData[]
   loading: boolean
-  onAddToParlay?: (prop: EnhancedPropCardData) => void
+  /** `grid` renders the compact card, `list` the full analytics card. */
+  viewMode?: PropViewMode
+  /** Team abbreviation → ISO game time, used for the kickoff line on cards. */
+  gameTimeByTeam?: Record<string, string>
+  onAddToParlay?: (prop: EnhancedPropCardData, direction?: "over" | "under") => void
   onLogPick?: (prop: EnhancedPropCardData) => void
+  onShare?: (prop: EnhancedPropCardData) => void
   onVote?: (propId: string, direction: "over" | "under") => void
   onAIExpand?: (propId: string) => void
   onCorrelationTap?: (propId: string) => void
@@ -24,8 +31,11 @@ interface PropCardGridProps {
 export function PropCardGrid({
   props,
   loading,
+  viewMode = "grid",
+  gameTimeByTeam,
   onAddToParlay,
   onLogPick,
+  onShare,
   onVote,
   onAIExpand,
   onCorrelationTap,
@@ -37,13 +47,18 @@ export function PropCardGrid({
   aiWriteups,
   emptyMessage,
 }: PropCardGridProps) {
+  const gridClass =
+    viewMode === "grid"
+      ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+      : "grid grid-cols-1 lg:grid-cols-2 gap-4"
+
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={gridClass}>
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-64 animate-pulse rounded-2xl bg-white/5"
+            className={`${viewMode === "grid" ? "h-[214px]" : "h-64"} animate-pulse rounded-2xl bg-white/5`}
           />
         ))}
       </div>
@@ -65,10 +80,24 @@ export function PropCardGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className={gridClass}>
       {props.map((prop) => {
         const isInParlay = parlayPropIds?.has(prop.id) ?? false
         const parlayDisabled = isInParlay || (parlayFull ?? false)
+
+        if (viewMode === "grid") {
+          return (
+            <PropCardCompact
+              key={prop.id}
+              prop={prop}
+              gameTime={gameTimeByTeam?.[prop.team?.toUpperCase() ?? ""] ?? null}
+              onAddToParlay={onAddToParlay}
+              onLogPick={onLogPick}
+              onShare={onShare}
+              parlayDisabled={parlayDisabled}
+            />
+          )
+        }
 
         return (
           <PropCard
@@ -76,6 +105,7 @@ export function PropCardGrid({
             prop={prop}
             onAddToParlay={onAddToParlay}
             onLogPick={onLogPick}
+            onShare={onShare}
             onVote={onVote}
             onAIExpand={onAIExpand}
             onCorrelationTap={onCorrelationTap}

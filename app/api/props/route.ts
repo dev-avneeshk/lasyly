@@ -6,16 +6,52 @@ import { computeESPNProps, ESPNSport } from "@/lib/analytics/engine-espn"
 import { computeNFLProps } from "@/lib/analytics/engine-nfl"
 import { computeTeamProps, TeamPropStat } from "@/lib/analytics/engine-team-props"
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
+import { resolveNBAHeadshots } from "@/lib/analytics/nba-headshots"
 import { AdvancedFilterState } from "@/lib/analytics/types"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { getClientIp } from "@/lib/security/clientIp"
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  VALID_SPORTS,
+  VALID_NBA_STATS,
+  VALID_TENNIS_STATS,
+  VALID_SOCCER_STATS,
+  VALID_NFL_STATS,
+  VALID_NHL_STATS,
+} from "@/lib/props/statCatalog"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Cache TTL for matchup-scoped props: 60 seconds */
 const MATCHUP_PROPS_CACHE_TTL = 60_000
+
+/**
+ * Per-sport response TTLs.
+ *
+ * These were 30-60 seconds, which was badly mismatched to the cost of a miss:
+ * computing a full NBA or NFL slate is dozens of Supabase queries over tens of
+ * thousands of rows, so a one-minute TTL meant an ordinary browsing session kept
+ * landing on cold recomputes. Nothing upstream justified being that eager —
+ * props are derived from *completed* games plus the scheduled slate, and both
+ * only change when a scraper runs.
+ *
+ * `cached()` additionally serves stale entries instantly up to 2x these values
+ * while one instance refreshes in the background, so the effective worst case a
+ * user sees is a cache hit.
+ */
+const PROPS_TTL = {
+  /** NBA: nightly slate; injury/rotation news moves lines within the day. */
+  nba: 3 * 60_000,
+  /** NFL: games are weekly, so the inputs are static for days at a time. */
+  nfl: 10 * 60_000,
+  /** Soccer team props: multi-day fixture window. */
+  soccer: 5 * 60_000,
+  /** NHL / other ESPN-sourced sports. */
+  espn: 5 * 60_000,
+  /** Soccer fixture gate — a small query, but it ran outside the cache. */
+  soccerSlate: 5 * 60_000,
+} as const
 
 /**
  * Hard cap on free-text query params (`search`, `withoutPlayer`).
@@ -37,43 +73,9 @@ const TEAM_ABBREVIATIONS = new Set([
   "OKC", "ORL", "PHI", "PHX", "POR", "SAC", "SAS", "TOR", "UTA", "WAS",
 ])
 
-/** Valid NBA stat categories */
-const VALID_NBA_STATS = new Set([
-  "pts", "reb", "ast", "stl", "blk", "3pm", "tov", "fg", "fga", "ft", "fta",
-  "trb", "tp", "pra",
-])
-
-/** Valid Tennis stat categories */
-const VALID_TENNIS_STATS = new Set([
-  "all",
-  "aces", "double_faults", "first_serve_pct", "first_serve_win_pct",
-  "second_serve_win_pct", "hold_pct", "win_pct",
-  "sets_won", "sets_lost", "games_won", "games_lost",
-])
-
-/** Valid Soccer stat categories */
-const VALID_SOCCER_STATS = new Set([
-  "totalGoals", "goalAssists", "totalShots", "shotsOnTarget",
-  "foulsCommitted", "foulsSuffered", "yellowCards", "redCards",
-  "saves", "appearances",
-  // Team props
-  "team_totalGoals", "team_corners", "team_cards", "team_matchGoals",
-])
-
-/** Valid NFL stat categories */
-const VALID_NFL_STATS = new Set([
-  "YDS", "TD", "REC", "CAR", "INT", "SACKS", "C/ATT", "QBR", "RTG",
-  "AVG", "LONG", "FUM", "TGTS",
-])
-
-/** Valid NHL stat categories */
-const VALID_NHL_STATS = new Set([
-  "G", "A", "SOG", "+/-", "HT", "BS", "TK", "PIM", "TOI", "FO%",
-  "S", "SM", "SHFT", "GV", "PN", "FW", "FL",
-])
-
-/** Valid sport values */
-const VALID_SPORTS = new Set(["NBA", "Tennis", "Soccer", "NFL", "NHL"])
+// Sport and stat allowlists live in lib/props/statCatalog so that /api/bets
+// validates against exactly the same definitions. They previously diverged,
+// which made some props impossible to log.
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -230,7 +232,6 @@ export const GET = withSecurity(async (request: Request) => {
       ? ["pts", "trb", "ast", "tp", "stl", "blk"]
       : [stat]
 
-    // Cache NBA props for 30 seconds to avoid recomputing on every request
     const filterKey = `${minMinutes}-${vsOpponent ? "1" : "0"}-${withoutPlayer.toLowerCase().replace(/\s+/g, "_")}`
     const nbaCacheKey = `nba-props:${stat}:${direction}:${matchup ?? "all"}:${todayDate}:${filterKey}`
     const results = await cached(nbaCacheKey, () =>
@@ -246,7 +247,7 @@ export const GET = withSecurity(async (request: Request) => {
           })
         )
       ),
-      30_000 // 30 second cache
+      PROPS_TTL.nba
     )
 
     // Merge all props, deduplicate by id, take todayGames from first result
@@ -331,97 +332,20 @@ export const GET = withSecurity(async (request: Request) => {
     // Apply limit
     const limited = filtered.slice(0, Math.min(limit, 100))
 
-    // ─── Bulk fetch headshot URLs for NBA players ───────────────────────────
+    // ─── Attach headshot URLs ───────────────────────────────────────────────
+    // Resolution is cached as a unit inside resolveNBAHeadshots; this call is a
+    // single Redis GET once warm. It used to be an inline Supabase query plus up
+    // to six 4-second ESPN roster fetches, run on every request — including the
+    // cache hits above that had otherwise done no work at all.
     if (limited.length > 0) {
-      try {
-        const supabase = createAdminClient()
-        const playerNames = [...new Set(limited.map((p: any) => p.player as string))]
-
-        // First try espn_players table
-        const { data: playerRows } = await supabase
-          .from("espn_players")
-          .select("name, espn_id, headshot_url")
-          .in("name", playerNames)
-
-        const headshotMap = new Map<string, string>()
-        if (playerRows && playerRows.length > 0) {
-          for (const row of playerRows as any[]) {
-            const url = row.headshot_url
-              || `https://a.espncdn.com/i/headshots/nba/players/full/${row.espn_id}.png`
-            headshotMap.set(row.name, url)
-          }
+      const headshots = await resolveNBAHeadshots(
+        limited.map((p: any) => ({ player: p.player as string, team: p.team as string | null }))
+      )
+      for (const prop of limited) {
+        const p = prop as any
+        if (!p.headshotUrl) {
+          p.headshotUrl = headshots[p.player] ?? null
         }
-
-        // For players not found in DB, fetch from ESPN roster API by team
-        const missingPlayers = playerNames.filter((n) => !headshotMap.has(n))
-        if (missingPlayers.length > 0) {
-          // Group missing players by team
-          const teamPlayers = new Map<string, string[]>()
-          for (const prop of limited) {
-            const p = prop as any
-            if (missingPlayers.includes(p.player)) {
-              const team = (p.team ?? "").toLowerCase()
-              if (!teamPlayers.has(team)) teamPlayers.set(team, [])
-              teamPlayers.get(team)!.push(p.player)
-            }
-          }
-
-          // NBA team abbreviation to ESPN slug
-          const NBA_SLUG: Record<string, string> = {
-            atl: "atl", bos: "bos", bkn: "bkn", cha: "cha", chi: "chi",
-            cle: "cle", dal: "dal", den: "den", det: "det", gsw: "gs",
-            hou: "hou", ind: "ind", lac: "lac", lal: "lal", mem: "mem",
-            mia: "mia", mil: "mil", min: "min", nop: "no", nyk: "ny",
-            okc: "okc", orl: "orl", phi: "phi", phx: "phx", por: "por",
-            sac: "sac", sas: "sa", tor: "tor", uta: "utah", was: "wsh",
-          }
-
-          // Fetch rosters in parallel (max 6 teams at a time), cached for 24h
-          const teamEntries = [...teamPlayers.entries()].slice(0, 6)
-          await Promise.allSettled(
-            teamEntries.map(async ([teamAbbr, players]) => {
-              const slug = NBA_SLUG[teamAbbr] ?? teamAbbr
-              const rosterCacheKey = `nba-roster:${slug}`
-              const athletes: any[] = await cached(rosterCacheKey, async () => {
-                const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${slug}/roster`
-                const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
-                if (!res.ok) return []
-                const data = await res.json()
-                const result: any[] = []
-                for (const group of data.athletes ?? []) {
-                  if (group.items) result.push(...group.items)
-                  else if (group.id) result.push(group)
-                }
-                return result
-              }, 86_400_000) // 24h cache
-
-              for (const athlete of athletes) {
-                const displayName = athlete.displayName ?? athlete.fullName ?? ""
-                const displayLower = displayName.toLowerCase()
-                const lastNameESPN = displayLower.split(" ").pop() ?? ""
-                for (const p of players) {
-                  if (headshotMap.has(p)) continue
-                  const pLower = p.toLowerCase()
-                  const lastNameP = pLower.split(" ").pop() ?? ""
-                  if (pLower === displayLower || lastNameP === lastNameESPN) {
-                    const espnId = String(athlete.id)
-                    headshotMap.set(p, `https://a.espncdn.com/i/headshots/nba/players/full/${espnId}.png`)
-                  }
-                }
-              }
-            })
-          )
-        }
-
-        // Apply headshots to props
-        for (const prop of limited) {
-          const p = prop as any
-          if (!p.headshotUrl) {
-            p.headshotUrl = headshotMap.get(p.player) ?? null
-          }
-        }
-      } catch {
-        // Non-critical — props still work without headshots
       }
     }
 
@@ -462,7 +386,7 @@ export const GET = withSecurity(async (request: Request) => {
             })
           )
         ),
-      60_000
+      PROPS_TTL.nfl
     )
 
     const todayGames = nflResults[0]?.todayGames ?? []
@@ -532,26 +456,36 @@ export const GET = withSecurity(async (request: Request) => {
       // (games cluster on weekends), so a strict "today only" gate leaves the
       // page empty on days where the slate just finished but more are coming.
       const todayET = getTodayET()
-      const windowEnd = new Date(`${todayET}T00:00:00Z`)
-      windowEnd.setUTCDate(windowEnd.getUTCDate() + 3)
-      const windowEndStr = windowEnd.toISOString().split("T")[0]
-      const adminClient = createAdminClient()
-      const { data: todayGamesCheck } = await adminClient
-        .from("espn_games")
-        .select("home_team, away_team")
-        .in("league", ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "usa.1"])
-        .gte("match_date", todayET)
-        .lte("match_date", windowEndStr)
-        .in("status", ["scheduled", "in_progress"])
-        .limit(80)
 
-      const todaySoccerTeams = new Set<string>()
-      if (todayGamesCheck && todayGamesCheck.length > 0) {
-        for (const g of todayGamesCheck) {
-          todaySoccerTeams.add(g.home_team)
-          todaySoccerTeams.add(g.away_team)
-        }
-      }
+      // Cached: this gate is a small query, but it sat outside the cache below,
+      // so every soccer props request paid for it even on a cache hit.
+      const soccerTeamNames = await cached(
+        `soccer-slate:${todayET}`,
+        async () => {
+          const windowEnd = new Date(`${todayET}T00:00:00Z`)
+          windowEnd.setUTCDate(windowEnd.getUTCDate() + 3)
+          const windowEndStr = windowEnd.toISOString().split("T")[0]
+          const adminClient = createAdminClient()
+          const { data } = await adminClient
+            .from("espn_games")
+            .select("home_team, away_team")
+            .in("league", ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "usa.1"])
+            .gte("match_date", todayET)
+            .lte("match_date", windowEndStr)
+            .in("status", ["scheduled", "in_progress"])
+            .limit(80)
+
+          const names: string[] = []
+          for (const g of data ?? []) {
+            if (g.home_team) names.push(g.home_team)
+            if (g.away_team) names.push(g.away_team)
+          }
+          return [...new Set(names)]
+        },
+        PROPS_TTL.soccerSlate
+      )
+
+      const todaySoccerTeams = new Set<string>(soccerTeamNames)
 
       // If no soccer games in the upcoming window, return empty props
       if (todaySoccerTeams.size === 0) {
@@ -593,7 +527,7 @@ export const GET = withSecurity(async (request: Request) => {
             computeTeamProps(ts as TeamPropStat, { search, limit: Math.min(limit, 100) })
           )
         ),
-        60_000
+        PROPS_TTL.soccer
       )
 
       let teamFiltered = teamResults.flatMap((r) => r.props) as any[]
@@ -640,7 +574,6 @@ export const GET = withSecurity(async (request: Request) => {
     }
     const statsToFetch = stat === "all" ? espnStatsMap[sport] : [stat]
 
-    // Cache ESPN props for 60 seconds
     const espnCacheKey = `espn-props:${sport}:${stat}:${search}`
     const espnResults = await cached(espnCacheKey, () =>
       Promise.all(
@@ -651,7 +584,7 @@ export const GET = withSecurity(async (request: Request) => {
           })
         )
       ),
-      60_000
+      PROPS_TTL.espn
     )
 
     // Merge all props
@@ -685,9 +618,12 @@ export const GET = withSecurity(async (request: Request) => {
   }
 
   // ─── Tennis Path: Use existing engine (V1) ─────────────────────────────────
-  const cacheKey = `enhanced-props-api:${sport}:${stat}`
-
   const tennisDirection = direction === "all" ? undefined : direction
+
+  // `direction` belongs in the key: it is passed into computeEnhancedProps and
+  // changes the result, so omitting it meant an "over" request could be served
+  // the cached "under" set (and vice versa) for the life of the entry.
+  const cacheKey = `enhanced-props-api:${sport}:${stat}:${direction}`
 
   // When stat=all, fetch aces + double_faults + win_pct + sets_won + games_won and merge
   const tennisStatsToFetch = stat === "all"
@@ -701,7 +637,7 @@ export const GET = withSecurity(async (request: Request) => {
       )
     )
     return results.flat()
-  }, MATCHUP_PROPS_CACHE_TTL)
+  }, PROPS_TTL.espn)
 
   // Apply advanced filters
   let filtered = applyAdvancedFilters(allProps, filters)

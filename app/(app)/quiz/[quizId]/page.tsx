@@ -28,6 +28,7 @@ export default async function QuizPlayPage(
   return (
     <QuizPlayer
       quizId={quiz.id}
+      sport={quiz.sport}
       title={quiz.title}
       description={quiz.description}
       pool={poolStats(quiz.id)}

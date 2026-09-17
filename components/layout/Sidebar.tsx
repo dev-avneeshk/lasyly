@@ -6,7 +6,10 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
+// Lazy: the only Supabase call in this file is inside handleLogout. A static
+// import put 177 KB of supabase-js on the critical path of every route under
+// app/(app) to serve one click that most sessions never make.
+import { getSupabaseClient } from "@/lib/supabase/lazy-client"
 
 type NavLeaf = { icon: typeof Compass; label: string; href: string; comingSoon: boolean }
 
@@ -36,8 +39,14 @@ export default function Sidebar() {
     } catch {
       // Even if the API call fails, proceed with client-side cleanup
     }
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = await getSupabaseClient()
+      await supabase.auth.signOut()
+    } catch {
+      // The server-side cookies are already cleared by /api/auth/logout above,
+      // so a failure here must not strand the user on a logged-out-but-still-here
+      // screen. Fall through to the redirect.
+    }
     router.push("/login")
     router.refresh()
   }

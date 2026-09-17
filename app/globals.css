@@ -28,6 +28,10 @@
   --color-bw-red: #ef4444;
   
   --font-sans: ui-sans-serif, system-ui, sans-serif;
+  /* Condensed display face for editorial headlines. Only loaded on routes that
+     define --font-anton (see app/(app)/quiz/layout.tsx); elsewhere it falls
+     back to the impact-style system stack. */
+  --font-display: var(--font-anton), 'Haettenschweiler', 'Arial Narrow Bold', ui-sans-serif, sans-serif;
   --font-serif: var(--font-playfair), 'Georgia', ui-serif, serif;
   --font-body-serif: var(--font-libre-baskerville), 'Georgia', serif;
   --font-ui: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
@@ -395,4 +399,63 @@
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+/* ── Mobile bottom-nav "More" sheet ───────────────────────────────────────────
+   These replace framer-motion in components/layout/BottomNav.tsx. That
+   component is `md:hidden` — a mobile-only nav — yet importing framer-motion
+   there pulled a 118 KB (uncompressed) chunk into the eager graph of every
+   route under app/(app), on exactly the device class where the JS budget is
+   tightest. The three animations it used (overlay fade, sheet slide-up, active
+   pill glow) are all pure CSS.
+
+   The exit variants are driven by a `closing` state in the component that
+   unmounts after the animation duration, mirroring what <AnimatePresence> did.
+   Keep these durations and the JS timeout in sync. */
+@keyframes bottom-sheet-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes bottom-sheet-scrim-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes bottom-sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes bottom-sheet-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+
+.bottom-sheet-scrim {
+  animation: bottom-sheet-scrim-in 180ms ease-out both;
+}
+
+.bottom-sheet-scrim[data-closing="true"] {
+  animation: bottom-sheet-scrim-out 180ms ease-in both;
+}
+
+/* cubic-bezier approximates the spring (stiffness 300 / damping 30) the sheet
+   used to animate with: a quick rise with a slight overshoot-free settle. */
+.bottom-sheet-panel {
+  animation: bottom-sheet-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform;
+}
+
+.bottom-sheet-panel[data-closing="true"] {
+  animation: bottom-sheet-out 200ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-sheet-scrim,
+  .bottom-sheet-scrim[data-closing="true"],
+  .bottom-sheet-panel,
+  .bottom-sheet-panel[data-closing="true"] {
+    animation-duration: 1ms;
+  }
 }

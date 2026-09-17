@@ -1,39 +1,71 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { Trophy, AlertTriangle, CheckCircle, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle, XCircle, Info } from "lucide-react"
 import { Game } from "@/lib/props/types"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
-import { NBA_STAT_FILTERS, TENNIS_STAT_FILTERS, SOCCER_STAT_FILTERS, NFL_STAT_FILTERS, NHL_STAT_FILTERS, DEFAULT_STATS } from "@/lib/props/constants"
-import { SportTabs } from "@/components/analysis/SportTabs"
+import { NBA_STAT_FILTERS, TENNIS_STAT_FILTERS, SOCCER_STAT_FILTERS, NFL_STAT_FILTERS, NHL_STAT_FILTERS, DEFAULT_STATS, STAT_LABELS } from "@/lib/props/constants"
+import { todayIso as resolveTodayIso } from "@/lib/props/dates"
+import { shareProp } from "@/lib/props/share"
+import { PropsHeader } from "@/components/analysis/PropsHeader"
 import { GameStrip } from "@/components/analysis/GameStrip"
 import { StatFilters } from "@/components/analysis/StatFilters"
 import { PropCardGrid } from "@/components/analysis/PropCardGrid"
 import { PlayerSearch } from "@/components/analysis/PlayerSearch"
-import { MatchupStrip } from "@/components/props/MatchupStrip"
+import { PropsToolbar, PropSortKey, PropViewMode } from "@/components/analysis/PropsToolbar"
 import { NBAFilters, NBAFilterValues } from "@/components/analysis/NBAFilters"
 import { ParlayBuilder, ParlayLeg, ParlayState, canAddToParlay } from "@/components/props/ParlayBuilder"
 import { AuthRequiredDialog } from "@/components/auth/AuthGate"
 import { StatsPanel } from "@/components/props/StatsPanel"
 import { TodayGame } from "@/lib/analytics/engine-v2"
-import { createClient } from "@/lib/supabase/client"
 import { cachedFetch, readCache } from "@/lib/clientCache"
+
+const SPORTS = ["NBA", "Tennis", "Soccer", "NFL", "NHL"] as const
+type Sport = (typeof SPORTS)[number]
+
+const VIEW_MODE_STORAGE_KEY = "lasyly:props-view-mode"
+
+function normalizeSport(value?: string): Sport {
+  const match = SPORTS.find((s) => s.toLowerCase() === (value ?? "").toLowerCase())
+  return match ?? "NBA"
+}
+
+/** L10 hit rate as a 0–100 number, falling back to the base hit rate. */
+function l10HitRateOf(prop: EnhancedPropCardData): number {
+  const window = prop.hitRateWindows?.find((w) => w.window === "L10")
+  if (window?.available) return window.hitRate
+  if (prop.hitRate && prop.hitRate.total > 0) {
+    return Math.round((prop.hitRate.over / prop.hitRate.total) * 100)
+  }
+  return 0
+}
 
 type AnalysisClientProps = {
   isAuthenticated: boolean
   initialSearch?: string
+  /** Sport from the `?sport=` param — the top-bar tabs drive this. */
+  initialSport?: string
 }
 
-export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: AnalysisClientProps) {
-  const supabase = useMemo(() => createClient(), [])
+export default function AnalysisClient({
+  isAuthenticated,
+  initialSearch = "",
+  initialSport,
+}: AnalysisClientProps) {
+  // ─── Core state ─────────────────────────────────────────────────────────────
+  // Sport is derived from the URL rather than held in state, so the top-bar
+  // tabs stay the single source of truth and the selection is shareable.
+  const sport = normalizeSport(initialSport)
+  const [stat, setStat] = useState(DEFAULT_STATS[sport])
 
-  // ─── Core state (initialize from cache to avoid skeleton flash) ─────────────
-  const [sport, setSport] = useState<"NBA" | "Tennis" | "Soccer" | "NFL" | "NHL">("NBA")
-  const [stat, setStat] = useState(DEFAULT_STATS.NBA)
+  // Resolved once so the header and game strip agree on "today".
+  const [todayIso] = useState(() => resolveTodayIso())
+  const [selectedDate, setSelectedDate] = useState(todayIso)
+  const isToday = selectedDate === todayIso
 
   // Try to read cached props/games on mount to skip skeleton
-  const cachedProps = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[] }>(`/api/props?sport=NBA&stat=all&direction=all`)
-  const cachedGames = readCache<{ games?: Game[] }>(`/api/props/games?sport=NBA`)
+  const cachedProps = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[] }>(`/api/props?sport=${normalizeSport(initialSport)}&stat=all&direction=all`)
+  const cachedGames = readCache<{ games?: Game[] }>(`/api/props/games?sport=${normalizeSport(initialSport)}`)
 
   const [props, setProps] = useState<EnhancedPropCardData[]>(cachedProps?.props ?? [])
   const [games, setGames] = useState<Game[]>(cachedGames?.games ?? [])
@@ -41,10 +73,32 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
   const [gamesLoading, setGamesLoading] = useState(!cachedGames?.games?.length)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
 
-  // ─── Matchup state (NBA only) ──────────────────────────────────────────────
+  // ─── Matchup state (NBA + NFL) ─────────────────────────────────────────────
   const [selectedMatchup, setSelectedMatchup] = useState<string | null>(null)
   const [todayGames, setTodayGames] = useState<TodayGame[]>(cachedProps?.todayGames ?? [])
-  const [matchupStripLoading, setMatchupStripLoading] = useState(!cachedProps?.todayGames?.length)
+
+  // ─── Presentation state ─────────────────────────────────────────────────────
+  const [sortBy, setSortBy] = useState<PropSortKey>("popularity")
+  const [viewMode, setViewMode] = useState<PropViewMode>("grid")
+
+  // Restore the last used layout after mount (avoids a hydration mismatch).
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
+      if (saved === "grid" || saved === "list") setViewMode(saved)
+    } catch {
+      // localStorage unavailable (private mode) — keep the default.
+    }
+  }, [])
+
+  const handleViewModeChange = useCallback((mode: PropViewMode) => {
+    setViewMode(mode)
+    try {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode)
+    } catch {
+      // Non-fatal — the choice just won't persist.
+    }
+  }, [])
 
   // ─── Parlay state ───────────────────────────────────────────────────────────
   const [parlayState, setParlayState] = useState<ParlayState>({
@@ -99,6 +153,40 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
   const parlayPropIds = useMemo(() => new Set(parlayState.legs.map((l) => l.propId)), [parlayState.legs])
   const parlayFull = parlayState.legs.length >= 10
 
+  /** Kickoff time per team abbreviation, for the card's game line. */
+  const gameTimeByTeam = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const game of todayGames) {
+      if (!game.gameTime) continue
+      map[game.homeTeam.toUpperCase()] = game.gameTime
+      map[game.awayTeam.toUpperCase()] = game.gameTime
+    }
+    return map
+  }, [todayGames])
+
+  const sortedProps = useMemo(() => {
+    const list = [...props]
+    switch (sortBy) {
+      case "hitRate":
+        return list.sort((a, b) => l10HitRateOf(b) - l10HitRateOf(a))
+      case "confidence":
+        return list.sort((a, b) => (b.confidence?.stars ?? 0) - (a.confidence?.stars ?? 0))
+      case "line":
+        return list.sort((a, b) => b.propLine - a.propLine)
+      case "name":
+        return list.sort((a, b) => a.player.localeCompare(b.player))
+      case "popularity":
+      default:
+        return list.sort((a, b) => {
+          const byVotes = (b.sentiment?.totalVotes ?? 0) - (a.sentiment?.totalVotes ?? 0)
+          if (byVotes !== 0) return byVotes
+          const byConfidence = (b.confidence?.stars ?? 0) - (a.confidence?.stars ?? 0)
+          if (byConfidence !== 0) return byConfidence
+          return l10HitRateOf(b) - l10HitRateOf(a)
+        })
+    }
+  }, [props, sortBy])
+
   // ─── Reset stat when sport changes ──────────────────────────────────────────
   useEffect(() => {
     setStat(DEFAULT_STATS[sport])
@@ -121,7 +209,6 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
           gameTime: g.gameTime ?? g.gameDate ?? "",
           status: g.status,
         })) as TodayGame[])
-        setMatchupStripLoading(false)
       }
     } else {
       setTodayGames([])
@@ -135,31 +222,50 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
     }
   }, [sport])
 
-  // ─── Fetch games ────────────────────────────────────────────────────────────
+  // ─── Fetch games for the selected date ──────────────────────────────────────
   const fetchGames = useCallback(async () => {
-    const url = `/api/props/games?sport=${sport}`
-    // Only show loading if we don't already have games displayed
-    if (games.length === 0) setGamesLoading(true)
+    const url = isToday
+      ? `/api/props/games?sport=${sport}`
+      : `/api/props/games?sport=${sport}&date=${selectedDate}`
+    setGamesLoading(true)
     try {
       const data = await cachedFetch<{ games?: Game[] }>(url, 120_000)
       setGames(data.games ?? [])
     } catch {
-      // silently fail
+      // Leave the previously loaded strip in place. Blanking it on a transient
+      // error made a rate-limited request look like "no games scheduled".
     } finally {
       setGamesLoading(false)
     }
-  }, [sport, games.length])
+  }, [sport, selectedDate, isToday])
 
   useEffect(() => {
     fetchGames()
   }, [fetchGames])
 
   // ─── Fetch props ─────────────────────────────────────────────────────────────
+
+  // Whether anything is on screen, tracked in a ref so the fetch callback can
+  // read it without depending on it. `props.length` used to be a dependency of
+  // fetchProps, which meant every completed fetch changed the callback identity
+  // and re-triggered the effect that calls it — a refetch on every load, and a
+  // real request the moment the client cache lapsed.
+  const hasPropsRef = useRef(props.length > 0)
+  useEffect(() => {
+    hasPropsRef.current = props.length > 0
+  }, [props.length])
+
+  // Monotonic request id. Filter changes fire overlapping requests, and they do
+  // not necessarily resolve in order — without this guard a slow response for a
+  // previously selected stat could land after, and overwrite, the current one.
+  const propsRequestIdRef = useRef(0)
+
   const fetchProps = useCallback(async () => {
+    const requestId = ++propsRequestIdRef.current
+
     // Only show skeleton if we don't already have props displayed
-    if (props.length === 0) {
+    if (!hasPropsRef.current) {
       setLoading(true)
-      if (sport === "NBA" || sport === "NFL") setMatchupStripLoading(true)
     }
     const params = new URLSearchParams()
     params.set("sport", sport)
@@ -186,13 +292,18 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
 
     try {
       const url = `/api/props?${params.toString()}`
-      // Cache props for 60 seconds
-      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; todayGames?: (TodayGame & { gameDate?: string })[] }>(url, 60_000)
+      // 2 minutes, matching the server-side props TTL. A shorter client TTL just
+      // sends requests the server answers from its own cache anyway.
+      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; todayGames?: (TodayGame & { gameDate?: string })[] }>(url, 120_000)
+
+      // A newer request has started — discard this result rather than clobbering it.
+      if (requestId !== propsRequestIdRef.current) return
+
       setProps(data.props ?? [])
-      // Extract todayGames for NBA + NFL (both drive the MatchupStrip).
+      // Extract todayGames for NBA + NFL (both drive the matchup filter).
       if ((sport === "NBA" || sport === "NFL") && data.todayGames) {
         // NFL engine returns { homeTeam, awayTeam, gameDate, status };
-        // normalize gameDate → gameTime so MatchupStrip renders consistently.
+        // normalize gameDate → gameTime so the strip renders consistently.
         const normalized = data.todayGames.map((g) => ({
           homeTeam: g.homeTeam,
           awayTeam: g.awayTeam,
@@ -202,12 +313,14 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
         setTodayGames(normalized)
       }
     } catch {
-      // silently fail
+      // Keep whatever is already on screen; cachedFetch now throws on non-2xx
+      // rather than caching the error body.
     } finally {
-      setLoading(false)
-      if (sport === "NBA" || sport === "NFL") setMatchupStripLoading(false)
+      if (requestId === propsRequestIdRef.current) {
+        setLoading(false)
+      }
     }
-  }, [sport, stat, selectedMatchup, directionToggle, debouncedNbaFilters, props.length])
+  }, [sport, stat, selectedMatchup, directionToggle, debouncedNbaFilters])
 
   useEffect(() => {
     fetchProps()
@@ -233,7 +346,10 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
     return () => clearTimeout(timer)
   }, [logPickToast])
 
-  const handleAddToParlay = useCallback(async (prop: EnhancedPropCardData) => {
+  const handleAddToParlay = useCallback(async (
+    prop: EnhancedPropCardData,
+    directionOverride?: "over" | "under",
+  ) => {
     // Auth gate — show popup for guests
     if (!isAuthenticated) {
       setShowAuthDialog(true)
@@ -247,24 +363,18 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
       return
     }
 
+    const direction = directionOverride ?? prop.direction ?? "over"
+
     // Find L10 hit rate: prefer hitRateWindows if available, fallback to hitRate field
-    const l10Window = prop.hitRateWindows?.find((w) => w.window === "L10")
-    let l10HitRate: number
-    if (l10Window?.available) {
-      l10HitRate = l10Window.hitRate
-    } else if (prop.hitRate && prop.hitRate.total > 0) {
-      // Fallback: use the base hitRate (which is L10 from engine-v2)
-      l10HitRate = Math.round((prop.hitRate.over / prop.hitRate.total) * 100)
-    } else {
-      l10HitRate = 0
-    }
+    const overRate = l10HitRateOf(prop)
+    const l10HitRate = direction === "over" ? overRate : Math.max(0, 100 - overRate)
 
     const newLeg: ParlayLeg = {
       propId: prop.id,
       player: prop.player,
       statCategory: prop.statCategory,
       propLine: prop.propLine,
-      direction: prop.direction ?? "over",
+      direction,
       l10HitRate,
       isWeakLink: false,
       sport: prop.sport ?? sport,
@@ -313,7 +423,7 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
         // Keep optimistic state
       }
     }
-  }, [parlayState.legs])
+  }, [parlayState.legs, isAuthenticated, sport])
 
   // ─── Parlay leg direction toggle handler (Task 8.3, Requirement 7.5, 7.6, 7.7) ────────
 
@@ -562,20 +672,20 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
       return
     }
 
-    // Only NBA and Tennis are supported in bet_tracker currently
-    const supportedSports = ["NBA", "Tennis"] as const
-    if (!supportedSports.includes(prop.sport as typeof supportedSports[number])) {
-      setLogPickToast({ message: `Log pick not yet supported for ${prop.sport}`, type: "error" })
-      return
-    }
-
+    // Every sport the props page can render is loggable — the sport allowlist
+    // lives in lib/props/statCatalog and is enforced by /api/bets. There used to
+    // be a hardcoded ["NBA","Tennis"] check here that short-circuited before the
+    // request, so Log silently did nothing on NFL, NHL and Soccer cards.
     try {
       const res = await fetch("/api/bets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           playerName: prop.player,
-          sport: prop.sport,
+          // Team props and some engines leave `sport` unset; fall back to the
+          // page's active sport rather than sending undefined and failing
+          // validation.
+          sport: prop.sport ?? sport,
           statCategory: prop.statCategory,
           propLine: prop.propLine,
           direction: prop.direction ?? "over",
@@ -590,17 +700,36 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
         throw new Error(body.error || "Failed to log pick")
       }
 
-      setLogPickToast({ message: `Logged: ${prop.player} ${prop.direction ?? "over"} ${prop.propLine} ${prop.statCategory}`, type: "success" })
+      const statLabel = STAT_LABELS[prop.statCategory] ?? prop.statCategory
+      const direction = prop.direction ?? "over"
+      setLogPickToast({
+        message: `Logged: ${prop.player} ${direction} ${prop.propLine} ${statLabel}`,
+        type: "success",
+      })
     } catch (err) {
       setLogPickToast({ message: err instanceof Error ? err.message : "Failed to log pick", type: "error" })
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, sport])
+
+  // ─── Share handler ──────────────────────────────────────────────────────────
+
+  const handleShare = useCallback(async (prop: EnhancedPropCardData) => {
+    const outcome = await shareProp(prop)
+
+    // A dismissed share sheet is not a failure — stay quiet.
+    if (outcome === "cancelled" || outcome === "shared") return
+
+    setLogPickToast(
+      outcome === "copied"
+        ? { message: "Link copied to clipboard", type: "success" }
+        : { message: "Couldn't share this prop", type: "error" }
+    )
+  }, [])
 
   // ─── Correlation tap handler ────────────────────────────────────────────────
 
-  const handleCorrelationTap = useCallback((propId: string) => {
-    // The CorrelationsSection component handles scroll + highlight internally
-    // This callback is available for additional logic if needed
+  const handleCorrelationTap = useCallback(() => {
+    // The CorrelationsSection component handles scroll + highlight internally.
   }, [])
 
   // ─── Stats Panel handler ──────────────────────────────────────────────────────
@@ -626,92 +755,108 @@ export default function AnalysisClient({ isAuthenticated, initialSearch = "" }: 
 
   const emptyMessage = "Try a different stat filter or search term. Props are generated from recent game data."
 
-  // ─── Direction toggle handler ───────────────────────────────────────────────
   const handleDirectionToggle = useCallback((dir: "all" | "over" | "under") => {
     setDirectionToggle(dir)
   }, [])
 
   return (
     <div className="min-h-screen max-w-[1400px] mx-auto text-white font-sans flex flex-col">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 md:px-6 lg:px-8 pt-6 pb-4">
-        <Trophy className="w-5 h-5 text-[var(--color-lime)]" />
-        <h1 className="text-xl font-black italic tracking-tighter text-[var(--color-lime)] uppercase">
-          LASYLY PRO
-        </h1>
-      </header>
+      <div className="px-4 md:px-6 lg:px-8 pt-6 pb-8 flex-1 flex flex-col gap-6">
+        <PropsHeader
+          sport={sport}
+          selectedDate={selectedDate}
+          todayIso={todayIso}
+          onDateChange={setSelectedDate}
+        />
 
-      {/* Main Content */}
-      <div className="px-4 md:px-6 lg:px-8 pb-8 flex-1 flex flex-col gap-5">
-        {/* Sport Tabs */}
-        <SportTabs activeSport={sport} onSportChange={setSport} />
+        {/* Games for the selected date — also the per-game props filter on NBA/NFL */}
+        <GameStrip
+          games={games}
+          todayGames={sport === "NBA" || sport === "NFL" ? todayGames : []}
+          loading={gamesLoading}
+          selectedDate={selectedDate}
+          todayIso={todayIso}
+          selectedMatchup={selectedMatchup}
+          onSelectMatchup={sport === "NBA" || sport === "NFL" ? setSelectedMatchup : undefined}
+        />
 
-        {/* Game Strip with Date Navigation (all sports) */}
-        <GameStrip games={games} loading={gamesLoading} sport={sport} />
-
-        {/* Matchup Filter (NBA + NFL): select a specific game to filter props */}
-        {(sport === "NBA" || sport === "NFL") && !matchupStripLoading && todayGames.length > 0 && (
-          <MatchupStrip
-            games={todayGames}
-            selectedMatchup={selectedMatchup}
-            onSelectMatchup={setSelectedMatchup}
-          />
+        {!isToday && (
+          <p className="flex items-start gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-3.5 py-2.5 text-xs text-[var(--color-text-muted)]">
+            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--color-lime)]" />
+            You&apos;re viewing another day&apos;s schedule. Prop lines below are always generated for
+            today&apos;s slate.
+          </p>
         )}
 
-        {/* Stat Filters */}
-        <StatFilters filters={statFilters} activeStat={stat} onStatChange={setStat} />
+        {/* Stat filters + over/under direction */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <StatFilters filters={statFilters} activeStat={stat} onStatChange={setStat} />
+          </div>
 
-        {/* Over / Under / All Direction Toggle */}
-        <div className="flex items-center gap-1 bg-[var(--color-surface)] rounded-xl p-1 border border-white/5 w-fit">
-          <button
-            onClick={() => handleDirectionToggle("all")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              directionToggle === "all"
-                ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white/70"
-            }`}
+          <div
+            className="flex items-center gap-1 shrink-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-1 w-fit"
+            role="group"
+            aria-label="Direction filter"
           >
-            All
-          </button>
-          <button
-            onClick={() => handleDirectionToggle("over")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              directionToggle === "over"
-                ? "bg-[var(--color-lime)]/20 text-[var(--color-lime)]"
-                : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            Over
-          </button>
-          <button
-            onClick={() => handleDirectionToggle("under")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              directionToggle === "under"
-                ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
-                : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            Under
-          </button>
+            {(["all", "over", "under"] as const).map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                onClick={() => handleDirectionToggle(dir)}
+                aria-pressed={directionToggle === dir}
+                className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold capitalize transition-colors ${
+                  directionToggle === dir
+                    ? dir === "over"
+                      ? "bg-[var(--color-lime)]/20 text-[var(--color-lime)]"
+                      : dir === "under"
+                        ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
+                        : "bg-white/10 text-white"
+                    : "text-[var(--color-text-muted)] hover:text-white"
+                }`}
+              >
+                {dir}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Search */}
-        <PlayerSearch sport={sport} initialQuery={initialSearch} />
+        {/* Search + sort + layout */}
+        <PropsToolbar
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+        >
+          <PlayerSearch sport={sport} initialQuery={initialSearch} />
+        </PropsToolbar>
 
         {/* NBA Advanced Filters */}
         {sport === "NBA" && (
-          <NBAFilters
-            values={nbaFilters}
-            onChange={setNbaFilters}
-          />
+          <NBAFilters values={nbaFilters} onChange={setNbaFilters} />
         )}
+
+        {/* Section heading + count */}
+        <div className="flex items-baseline justify-between gap-3 -mb-1">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+            {selectedMatchup ? "Selected Game" : "All Players"}
+          </h2>
+          {!loading && (
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] tabular-nums">
+              {sortedProps.length.toLocaleString()} {sortedProps.length === 1 ? "Prop" : "Props"}
+            </p>
+          )}
+        </div>
 
         {/* Props Grid */}
         <PropCardGrid
-          props={props}
+          props={sortedProps}
           loading={loading}
+          viewMode={viewMode}
+          gameTimeByTeam={gameTimeByTeam}
           onAddToParlay={handleAddToParlay}
           onLogPick={handleLogPick}
+          onShare={handleShare}
           onVote={handleVote}
           onAIExpand={handleAIExpand}
           onCorrelationTap={handleCorrelationTap}

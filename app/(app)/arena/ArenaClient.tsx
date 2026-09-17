@@ -1,144 +1,48 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
-import { Users, ChevronRight, Bot, Link2, Globe, Loader2 } from "lucide-react"
-import { bidIncrementForBudget } from "@/lib/arena/types"
-import { Button } from "@/components/ui/button"
-import { PlayerCard } from "@/components/arena/PlayerCard"
-import { BudgetPanel } from "@/components/arena/BudgetPanel"
-import { BidControls } from "@/components/arena/BidControls"
-import { SimulationScreen } from "@/components/arena/SimulationScreen"
-import { GameSummary } from "@/components/arena/GameSummary"
-import { SoldStamp } from "@/components/arena/SoldStamp"
-import { useArenaGame } from "./useArenaGame"
-import { useArenaServer } from "./useArenaServer"
-import { ServerArena } from "./ServerArena"
-import type { AIDifficulty, BudgetPreset, Season, TeamId } from "@/lib/arena/types"
-import { BUDGET_PRESETS } from "@/lib/arena/types"
-import { AVAILABLE_SEASONS } from "@/lib/arena/data"
-import { cn } from "@/lib/utils"
+import { useState } from "react"
+import dynamic from "next/dynamic"
+import { Loader2 } from "lucide-react"
+import ArenaSetup, { type ArenaLaunch } from "./ArenaSetup"
 
-const DIFFICULTIES: { id: AIDifficulty; label: string; blurb: string }[] = [
-  { id: "easy", label: "Easy", blurb: "Makes mistakes, bids soft" },
-  { id: "medium", label: "Medium", blurb: "Solid, balanced drafter" },
-  { id: "hard", label: "Hard", blurb: "Sharp value, plays tough" },
-]
-
-const BUDGET_META: Record<BudgetPreset, { label: string; sub: string }> = {
-  25: { label: "$25", sub: "Rookie League" },
-  50: { label: "$50", sub: "Pro League" },
-  100: { label: "$100", sub: "All-Star League" },
-}
-
-const P1_LABEL = "You"
-const P2_LABEL = "CPU"
+/**
+ * Route shell for /arena/nba.
+ *
+ * This used to be one component holding both the options screen and the whole
+ * game. Because the game's imports (auction engine, AI, simulation, the season
+ * player pool, framer-motion) were static, /arena/nba shipped ~1.78 MB of
+ * uncompressed JS — 383 KB of which was every NBA player's ratings — before the
+ * five option cards on the first screen could be clicked.
+ *
+ * Now the options screen stands alone and the game arrives on demand. The
+ * download starts on the same click that starts the game, so there's no extra
+ * round trip in the user's way that wasn't already there for a server match.
+ */
+const ArenaGame = dynamic(() => import("./ArenaGame"), {
+  ssr: false,
+  loading: () => (
+    <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center gap-4 px-4 py-24 text-center">
+      <Loader2 className="h-6 w-6 animate-spin text-[var(--color-lime)]" />
+      <p className="text-sm font-semibold text-[var(--color-text-muted)]">Loading the auction floor…</p>
+    </div>
+  ),
+})
 
 export default function ArenaClient() {
-  const game = useArenaGame()
-  const server = useArenaServer()
-  const [budget, setBudget] = useState<BudgetPreset>(25)
-  const [season, setSeason] = useState<Season>(AVAILABLE_SEASONS[0])
-  const [difficulty, setDifficulty] = useState<AIDifficulty>("medium")
-  const [mode, setMode] = useState<"ai" | "human">("ai")
-  // Only relevant when mode === "human": "private" opens an invite link for a
-  // specific friend; "global" drops you into public matchmaking with anyone.
-  const [matchType, setMatchType] = useState<"private" | "global">("private")
-  const { state, result } = game
-  const serverLabelFor = (seat: TeamId) => (seat === server.viewer ? "You" : "Opponent")
+  const [launch, setLaunch] = useState<ArenaLaunch | null>(null)
+  // Carried back from a failed server game so the setup screen can explain what
+  // happened, which is where that message used to live.
+  const [error, setError] = useState<string | null>(null)
 
-  // Auto-run the simulation the moment both rosters are locked — no "Start
-  // simulation" click. A short beat lets the "Rosters set" screen register
-  // before the sim takes over. Guarded so it fires once per lineup phase.
-  const autoSimFired = useRef(false)
-  useEffect(() => {
-    if (state?.status === "lineup" && !autoSimFired.current) {
-      autoSimFired.current = true
-      const t = setTimeout(() => game.simulate(), 1400)
-      return () => clearTimeout(t)
-    }
-    if (state?.status !== "lineup") autoSimFired.current = false
-  }, [state?.status, game])
+  if (!launch) return <ArenaSetup onLaunch={(next) => { setError(null); setLaunch(next) }} initialError={error} />
 
-  if (server.view) return <ServerArena server={server} labelFor={serverLabelFor} />
-
-  if (!state) {
-    return (
-      <div className="relative mx-auto flex min-h-full max-w-3xl flex-col gap-8 px-4 py-10 pb-40 md:pb-10">
-        <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-64 w-[120%] -translate-x-1/2 rounded-full bg-[var(--color-lime)]/10 blur-[120px]" />
-        <div className="relative text-center">
-          <span className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--color-lime)]">Lasyly Arena</span>
-          <h1 className="mt-3 text-4xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-5xl">NBA <span className="text-[var(--color-lime)]">Auction</span></h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-text-muted)]">Win a live bidding war for 6 players, then watch your squad battle it out.</p>
-        </div>
-        <Section step={1} title="Choose your opponent"><div className="grid grid-cols-2 gap-3"><ModeCard active={mode === "ai"} onClick={() => setMode("ai")} icon={<Bot className="h-6 w-6" />} title="vs CPU" sub="Play solo against the AI" /><ModeCard active={mode === "human"} onClick={() => setMode("human")} icon={<Users className="h-6 w-6" />} title="vs Player" sub="Face a real person in a live 1v1" /></div></Section>
-        {mode === "ai" && <Section step={2} title="Difficulty"><div className="grid grid-cols-3 gap-3">{DIFFICULTIES.map((item) => <SelectCard key={item.id} active={difficulty === item.id} onClick={() => setDifficulty(item.id)} title={item.label} sub={item.blurb} />)}</div></Section>}
-        {mode === "human" && <Section step={2} title="How do you want to match?"><div className="grid grid-cols-2 gap-3"><ModeCard active={matchType === "private"} onClick={() => setMatchType("private")} icon={<Link2 className="h-6 w-6" />} title="Private room" sub="Invite a friend with a link" /><ModeCard active={matchType === "global"} onClick={() => setMatchType("global")} icon={<Globe className="h-6 w-6" />} title="Global match" sub="Get paired with anyone online" /></div></Section>}
-        <Section step={3} title="Pick your league">
-          <div className="grid grid-cols-3 gap-3">{BUDGET_PRESETS.map((item) => <button key={item} type="button" aria-pressed={budget === item} onClick={() => setBudget(item)} className={cn("group relative overflow-hidden rounded-2xl border p-5 text-center transition-all", budget === item ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 shadow-[0_0_40px_-14px_rgba(212,255,0,0.6)]" : "border-[var(--color-border)] hover:border-white/20 hover:bg-white/[0.03]")}><span className={cn("text-3xl font-black", budget === item ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]")}>{BUDGET_META[item].label}</span><span className="mt-1 block text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">{BUDGET_META[item].sub}</span></button>)}</div>
-          <p className="mt-2 text-center text-[11px] text-[var(--color-text-muted)]">Player prices scale to your league. Bids go up in ${bidStep(budget)} steps.</p>
-        </Section>
-        {AVAILABLE_SEASONS.length > 1 && <Section step={4} title="Season"><div className="flex gap-2">{AVAILABLE_SEASONS.map((item) => <Chip key={item} active={season === item} onClick={() => setSeason(item)}>{item}</Chip>)}</div></Section>}
-        {server.error && <p className="text-center text-sm text-[var(--color-danger)]">{server.error}</p>}
-        {/* CTA: pinned to the bottom on mobile (fixed, clear of the bottom nav)
-            so it never floats on top of the option cards; a normal in-flow
-            button on md+ where there's room. */}
-        <div className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 border-t border-[var(--color-border)] bg-[var(--color-background)]/95 px-4 py-3 backdrop-blur-xl md:static md:z-auto md:mt-2 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
-          <div className="mx-auto w-full max-w-3xl">
-            <Button size="lg" className="w-full rounded-2xl py-6 text-lg font-black shadow-[0_10px_40px_-10px_rgba(212,255,0,0.5)]" disabled={server.connecting} onClick={() => { if (mode === "ai") game.start({ season, budget, difficulty }); else if (matchType === "global") server.matchmake({ season, budget, difficulty }); else server.create({ season, budget, difficulty, mode: "human" }) }}>{ctaLabel(mode, matchType, server.connecting)} <ChevronRight className="ml-1 h-5 w-5" /></Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (state.status === "simulating" && result) return <SimulationScreen result={result} p1Label={P1_LABEL} p2Label={P2_LABEL} onDone={game.finishSimulation} />
-  if (state.status === "complete" && result) return <GameSummary result={result} humanSeat={game.humanSeat} p1Label={P1_LABEL} p2Label={P2_LABEL} onRematch={() => game.start({ season, budget, difficulty })} onNewAuction={game.reset} onExit={game.reset} />
-
-  if (state.status === "lineup") {
-    return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Lineups are locked. Tipping off…</p><div className="grid w-full gap-4 md:grid-cols-2">{game.budgets && <><BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} /><BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} isAI /></>}</div><div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]"><Loader2 className="h-4 w-4 animate-spin" />Starting simulation…</div></div>
-  }
-
-  const lot = state.lot
-  const timeSec = Math.ceil(game.timeLeft / 1000)
   return (
-    <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-40 md:px-6 lg:pb-8">
-      {/* MOBILE — compact wallets side by side up top so balance stays visible
-          while the card + bid buttons stay above the fold. Hidden on lg+. */}
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:hidden">
-        {game.budgets && <BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P1"} />}
-        {game.budgets && <BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P2"} isAI />}
-      </div>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.83fr)_minmax(24rem,1.32fr)_minmax(0,0.83fr)] lg:gap-5">
-        <div className="hidden lg:order-1 lg:block lg:pt-1">{game.budgets && <BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P1"} />}</div>
-        <main className="order-1 flex min-w-0 flex-col items-center gap-3 lg:order-2">
-          {lot && <AuctionHeader lotNumber={state.results.length + 1} totalLots={state.results.length + state.queue.length} timeSec={timeSec} maxSec={state.config.auctionTimerSeconds} currentBid={lot.currentBid} status={lot.highBidder === "P1" ? { text: "You lead. CPU is deciding.", tone: "good" } : lot.highBidder === "P2" ? { text: "CPU leads. Your move.", tone: "warn" } : { text: "Opening bid. Make an offer.", tone: "neutral" }} />}
-          <div className="relative w-full"><div className={cn("transition-[filter] duration-200", game.lastAward && "blur-[2px]")}><AnimatePresence mode="wait">{lot && <PlayerCard key={lot.player.id} player={lot.player} />}</AnimatePresence></div><AnimatePresence>{game.lastAward && <SoldStamp name={game.lastAward.name} winnerLabel={game.lastAward.winner === "P1" ? P1_LABEL : P2_LABEL} price={game.lastAward.price} />}</AnimatePresence></div>
-          {lot && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[var(--color-background)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:static lg:z-auto lg:w-full lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"><div className="mx-auto w-full max-w-md lg:max-w-none"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div></div>}
-        </main>
-        <div className="hidden lg:order-3 lg:block lg:pt-1">{game.budgets && <BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P2"} isAI />}</div>
-      </div>
-    </div>
+    <ArenaGame
+      launch={launch}
+      onExit={(nextError) => {
+        setError(nextError ?? null)
+        setLaunch(null)
+      }}
+    />
   )
 }
-
-function AuctionHeader({ lotNumber, totalLots, timeSec, maxSec, currentBid, status }: { lotNumber: number; totalLots: number; timeSec: number; maxSec: number; currentBid: number; status: { text: string; tone: "good" | "warn" | "neutral" } }) {
-  const pct = Math.max(0, Math.min(1, timeSec / maxSec))
-  const radius = 22
-  const circumference = 2 * Math.PI * radius
-  const urgent = timeSec <= 3
-  const ringColor = urgent ? "var(--color-danger)" : "#d4ff00"
-  const toneColor = status.tone === "good" ? "#d4ff00" : status.tone === "warn" ? "#f3c66e" : "#aab4c6"
-  return <section className="flex w-full items-center gap-3 rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 px-3.5 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.16)]"><div className="relative h-12 w-12 shrink-0"><svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90"><circle cx="28" cy="28" r={radius} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="4" /><motion.circle cx="28" cy="28" r={radius} fill="none" stroke={ringColor} strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} animate={{ strokeDashoffset: circumference * (1 - pct) }} transition={{ ease: "linear", duration: 0.1 }} /></svg><span className={cn("absolute inset-0 grid place-items-center text-base font-black tabular-nums", urgent ? "text-[var(--color-danger)]" : "text-[#f4f6fb]")}>{timeSec}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8f9ab0]"><span>Lot {lotNumber} / {totalLots}</span><span>Current bid</span></div><div className="mt-1 flex items-end justify-between gap-3"><strong className="truncate text-xs font-bold" style={{ color: toneColor }}>{status.text}</strong><motion.span key={currentBid} initial={{ scale: 1.18 }} animate={{ scale: 1 }} className="text-xl font-black leading-none tabular-nums text-[#d4ff00]">${currentBid}</motion.span></div></div></section>
-}
-
-function bidStep(budget: number): number { return bidIncrementForBudget(budget) }
-function ctaLabel(mode: "ai" | "human", matchType: "private" | "global", connecting: boolean): string {
-  if (mode === "ai") return "Start Draft"
-  if (matchType === "global") return connecting ? "Finding a match…" : "Find a Match"
-  return "Create 1v1 Game"
-}
-function Section({ step, title, children }: { step: number; title: string; children: React.ReactNode }) { return <section className="relative flex flex-col gap-3"><div className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-lime)] text-xs font-black text-black">{step}</span><h2 className="text-sm font-bold uppercase tracking-wide text-[var(--color-text-primary)]">{title}</h2></div>{children}</section> }
-function ModeCard({ active, onClick, icon, title, sub }: { active: boolean; onClick: () => void; icon: React.ReactNode; title: string; sub: string }) { return <button type="button" onClick={onClick} className={cn("flex items-center gap-3 rounded-2xl border p-4 text-left transition-all", active ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 shadow-[0_0_30px_-14px_rgba(212,255,0,0.6)]" : "border-[var(--color-border)] hover:border-white/20 hover:bg-white/[0.03]")}><span className={cn(active ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)]")}>{icon}</span><span><span className="block text-base font-black text-[var(--color-text-primary)]">{title}</span><span className="block text-[11px] text-[var(--color-text-muted)]">{sub}</span></span></button> }
-function SelectCard({ active, onClick, title, sub }: { active: boolean; onClick: () => void; title: string; sub: string }) { return <button type="button" onClick={onClick} className={cn("rounded-2xl border p-4 text-center transition-all", active ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10" : "border-[var(--color-border)] hover:border-white/20 hover:bg-white/[0.03]")}><span className={cn("block text-base font-black", active ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]")}>{title}</span><span className="mt-0.5 block text-[10px] text-[var(--color-text-muted)]">{sub}</span></button> }
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return <button type="button" onClick={onClick} className={cn("rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors", active ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 text-[var(--color-lime)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]")}>{children}</button> }

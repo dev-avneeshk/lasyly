@@ -27,6 +27,16 @@ const PUBLIC_ROUTES = [
   "/explore",
   "/scores",
   "/news",
+  // Marketing player pages. These exist specifically to be indexed and shared:
+  // they set canonical URLs and OpenGraph tags, appear in sitemap.xml, and are
+  // the target of the props "Share" button. Being absent from this list meant
+  // the auth guard bounced every crawler and every share recipient to
+  // /login?redirect=/players/..., so no shared link ever opened the page.
+  "/players",
+  // Public props landing page, also in the sitemap.
+  "/props",
+  // Public player comparison pages, also in the sitemap.
+  "/compare",
 ]
 
 // Routes that need a REAL account — a signed guest cookie is not enough.

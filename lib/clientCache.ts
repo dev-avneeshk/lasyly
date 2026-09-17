@@ -63,8 +63,9 @@ export async function cachedFetch<T>(
   if (existing && now - existing.timestamp < existing.ttl * 3) {
     // Background refresh
     fetch(url, options)
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = await res.json()
         clientCache.set(cacheKey, { data, timestamp: Date.now(), ttl: ttlMs })
       })
       .catch(() => {})
@@ -73,6 +74,16 @@ export async function cachedFetch<T>(
 
   // No cache or expired — fetch fresh
   const res = await fetch(url, options)
+
+  // Only successes are cacheable. Without this check an error body — a 429 from
+  // the props rate limiter, or a 500 — was stored like a valid response and
+  // replayed for the whole TTL, so a single transient failure left the page
+  // stuck on an empty state long after the API recovered. Throwing instead lets
+  // callers keep whatever data they already have and retry.
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`)
+  }
+
   const data = await res.json()
   clientCache.set(cacheKey, { data, timestamp: now, ttl: ttlMs })
   return data

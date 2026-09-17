@@ -1,205 +1,304 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Game } from "@/lib/props/types"
+import { TodayGame } from "@/lib/analytics/engine-v2"
+import { buildDayWindow, formatGameTime } from "@/lib/props/dates"
 
 interface GameStripProps {
+  /** Scheduled games for the selected date (source of logos and scores). */
   games: Game[]
+  /**
+   * Abbreviation-keyed games from the props engine. When present the strip
+   * becomes a matchup filter, because these carry the exact abbreviations the
+   * `matchup` API param expects.
+   */
+  todayGames?: TodayGame[]
   loading: boolean
-  sport?: string
+  selectedDate: string
+  todayIso: string
+  selectedMatchup?: string | null
+  onSelectMatchup?: (matchup: string | null) => void
 }
 
-// ─── Date helpers ────────────────────────────────────────────────────────────
+interface StripItem {
+  id: string
+  /** Matchup key for the API (`HOME-AWAY`), or null when not filterable. */
+  matchupKey: string | null
+  awayAbbr: string
+  homeAbbr: string
+  awayLogo: string | null
+  homeLogo: string | null
+  time: string
+  status: "scheduled" | "live" | "final"
+  awayScore?: number
+  homeScore?: number
+}
 
-function getDateRange(): { label: string; date: string; isToday: boolean; dayName: string }[] {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  const today = new Date()
-  const result = []
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  for (let i = -1; i <= 1; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() + i)
-    // Use local date string (YYYY-MM-DD) to match user's actual day
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-    result.push({
-      label: i === 0 ? "Today" : i === -1 ? "Yesterday" : "Tomorrow",
-      date: dateStr,
-      isToday: i === 0,
-      dayName: days[d.getDay()],
-    })
-  }
-
-  return result
+function abbreviate(name: string): string {
+  if (!name) return "—"
+  if (name.length <= 4) return name.toUpperCase()
+  const words = name.split(" ")
+  return words[words.length - 1].slice(0, 3).toUpperCase()
 }
 
 /**
- * Formats a game time string to the user's local timezone.
+ * ESPN team logo URLs end in the team's slug (`.../nfl/500/buf.png`), which
+ * matches the abbreviations the props engine returns. That gives us a reliable
+ * join key between the two feeds without maintaining a name→abbr table.
  */
-function formatLocalTime(gameTime: string): string {
-  try {
-    const date = new Date(gameTime)
-    if (isNaN(date.getTime())) return gameTime
-    return date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    })
-  } catch {
-    return gameTime
-  }
+function slugFromLogo(url?: string | null): string | null {
+  if (!url) return null
+  const match = url.match(/\/([a-z0-9]+)\.png(?:$|\?)/i)
+  return match ? match[1].toLowerCase() : null
 }
 
-function abbreviate(name: string): string {
-  if (name.length <= 4) return name.toUpperCase()
-  const words = name.split(" ")
-  const lastWord = words[words.length - 1]
-  return lastWord.slice(0, 3).toUpperCase()
+function normalizeStatus(status: Game["status"]): StripItem["status"] {
+  return status === "completed" ? "final" : status
 }
 
-export function GameStrip({ games: initialGames, loading: initialLoading, sport = "NBA" }: GameStripProps) {
-  const dates = useMemo(() => getDateRange(), [])
-  const todayDate = useMemo(() => dates.find(d => d.isToday)?.date ?? "", [dates])
-  const [selectedDate, setSelectedDate] = useState(todayDate)
-  const [games, setGames] = useState<Game[]>(initialGames)
-  const [loading, setLoading] = useState(initialLoading)
+function buildItems(games: Game[], todayGames: TodayGame[]): StripItem[] {
+  const logoBySlug = new Map<string, string>()
+  const scoreByPair = new Map<string, { away?: number; home?: number; status: StripItem["status"] }>()
 
-  // Sync initial games when they arrive from parent
-  useEffect(() => {
-    if (selectedDate === todayDate) {
-      setGames(initialGames)
-      setLoading(initialLoading)
+  for (const game of games) {
+    const awaySlug = slugFromLogo(game.awayLogo)
+    const homeSlug = slugFromLogo(game.homeLogo)
+    if (awaySlug && game.awayLogo) logoBySlug.set(awaySlug, game.awayLogo)
+    if (homeSlug && game.homeLogo) logoBySlug.set(homeSlug, game.homeLogo)
+    if (awaySlug && homeSlug) {
+      scoreByPair.set(`${awaySlug}-${homeSlug}`, {
+        away: game.awayScore,
+        home: game.homeScore,
+        status: normalizeStatus(game.status),
+      })
     }
-  }, [initialGames, initialLoading, selectedDate, todayDate])
+  }
 
-  // Fetch games when date changes (non-today)
+  // Preferred path: abbreviation-accurate games, so cards can filter props.
+  if (todayGames.length > 0) {
+    return todayGames.map((game) => {
+      const awaySlug = game.awayTeam.toLowerCase()
+      const homeSlug = game.homeTeam.toLowerCase()
+      const pair = scoreByPair.get(`${awaySlug}-${homeSlug}`)
+      return {
+        id: `${game.homeTeam}-${game.awayTeam}`,
+        matchupKey: `${game.homeTeam}-${game.awayTeam}`,
+        awayAbbr: game.awayTeam.toUpperCase(),
+        homeAbbr: game.homeTeam.toUpperCase(),
+        awayLogo: logoBySlug.get(awaySlug) ?? null,
+        homeLogo: logoBySlug.get(homeSlug) ?? null,
+        time: formatGameTime(game.gameTime) ?? "TBD",
+        status: game.status,
+        awayScore: pair?.away,
+        homeScore: pair?.home,
+      }
+    })
+  }
+
+  // Fallback: schedule feed only. Displays fine, but isn't safe to filter on.
+  return games.map((game) => ({
+    id: game.id,
+    matchupKey: null,
+    awayAbbr: abbreviate(game.awayTeam),
+    homeAbbr: abbreviate(game.homeTeam),
+    awayLogo: game.awayLogo ?? null,
+    homeLogo: game.homeLogo ?? null,
+    time: formatGameTime(game.gameTime) ?? "TBD",
+    status: normalizeStatus(game.status),
+    awayScore: game.awayScore,
+    homeScore: game.homeScore,
+  }))
+}
+
+function TeamMark({ logo, abbr }: { logo: string | null; abbr: string }) {
+  if (logo) {
+    // Logos come from several ESPN CDN hosts and are tiny; a plain img keeps
+    // the strip cheap to render while scrolling.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logo} alt="" className="w-6 h-6 object-contain shrink-0" />
+  }
+  return (
+    <span className="w-6 h-6 shrink-0 rounded-md bg-white/10 text-[8px] font-bold text-white/60 flex items-center justify-center">
+      {abbr.slice(0, 3)}
+    </span>
+  )
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export function GameStrip({
+  games,
+  todayGames = [],
+  loading,
+  selectedDate,
+  todayIso,
+  selectedMatchup = null,
+  onSelectMatchup,
+}: GameStripProps) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const items = useMemo(() => buildItems(games, todayGames), [games, todayGames])
+
+  const dayLabel = useMemo(() => {
+    const day = buildDayWindow(selectedDate, todayIso, 0)[0]
+    return (day.relativeLabel ?? `${day.dayName}, ${day.monthDay}`).toUpperCase()
+  }, [selectedDate, todayIso])
+
+  const updateScrollAffordances = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 4)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }, [])
+
   useEffect(() => {
-    if (selectedDate === todayDate) return // Today's games come from parent
+    updateScrollAffordances()
+    const el = scrollerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(updateScrollAffordances)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [items.length, updateScrollAffordances])
 
-    let cancelled = false
-    setLoading(true)
-
-    fetch(`/api/props/games?sport=${sport}&date=${selectedDate}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!cancelled) {
-          setGames(data.games ?? [])
-          setLoading(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setGames([])
-          setLoading(false)
-        }
-      })
-
-    return () => { cancelled = true }
-  }, [selectedDate, sport, todayDate])
+  const scrollBy = (direction: -1 | 1) => {
+    const el = scrollerRef.current
+    if (!el) return
+    el.scrollBy({ left: direction * Math.max(240, el.clientWidth * 0.8), behavior: "smooth" })
+  }
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Date Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
-        {dates.map((d) => (
+    <section className="flex flex-col gap-2.5" aria-label="Games">
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]"
+          suppressHydrationWarning
+        >
+          {dayLabel}
+        </h2>
+        {selectedMatchup && onSelectMatchup && (
           <button
-            key={d.date}
-            onClick={() => setSelectedDate(d.date)}
-            className={cn(
-              "shrink-0 flex flex-col items-center px-3 py-1.5 rounded-lg transition-all",
-              selectedDate === d.date
-                ? "bg-[var(--color-lime)] text-black"
-                : "bg-[var(--color-surface)]/60 text-[var(--color-text-muted)] hover:bg-white/5 hover:text-white border border-[var(--color-border)]"
-            )}
+            type="button"
+            onClick={() => onSelectMatchup(null)}
+            className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-lime)] hover:underline"
           >
-            <span className={cn(
-              "text-[9px] font-bold uppercase tracking-wider",
-              selectedDate === d.date ? "text-black/60" : ""
-            )}>
-              {d.dayName}
-            </span>
-            <span className={cn(
-              "text-[11px] font-bold",
-              selectedDate === d.date ? "text-black" : "text-white"
-            )}>
-              {d.label}
-            </span>
+            Clear game filter
           </button>
-        ))}
+        )}
       </div>
 
-      {/* Games Strip */}
-      {loading ? (
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-16 w-40 shrink-0 animate-pulse rounded-xl bg-white/5"
-            />
-          ))}
-        </div>
-      ) : games.length === 0 ? (
-        <div className="flex items-center justify-center h-14 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/40">
-          <p className="text-sm text-[var(--color-text-muted)]">
-            No games {selectedDate === todayDate ? "today" : `on ${dates.find(d => d.date === selectedDate)?.label ?? selectedDate}`}
-          </p>
-        </div>
-      ) : (
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {games.map((game) => (
-            <div
-              key={game.id}
-              className={cn(
-                "shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors",
-                "border-[var(--color-border)] bg-[var(--color-surface)]/60",
-                game.status === "live" && "border-[var(--color-lime)]/40"
-              )}
-            >
-              {/* Away team */}
-              <div className="flex items-center gap-1.5">
-                {game.awayLogo ? (
-                  <img src={game.awayLogo} alt="" className="w-5 h-5 object-contain" />
-                ) : (
-                  <div className="w-5 h-5 rounded bg-white/10 flex items-center justify-center text-[7px] font-bold text-white/50">
-                    {abbreviate(game.awayTeam).slice(0, 3)}
-                  </div>
-                )}
-                <span className="text-xs font-semibold text-white">{abbreviate(game.awayTeam)}</span>
-              </div>
-
-              {/* Score / Status */}
-              <div className="flex flex-col items-center">
-                {game.status === "completed" ? (
-                  <span className="text-[11px] font-mono font-bold text-white/80">
-                    {game.awayScore} - {game.homeScore}
-                  </span>
-                ) : game.status === "live" ? (
-                  <span className="text-[10px] font-bold text-[var(--color-lime)]">LIVE</span>
-                ) : (
-                  <span className="text-[10px] text-[var(--color-text-muted)]">@</span>
-                )}
-                {game.status === "scheduled" && (
-                  <span className="text-[9px] text-[var(--color-text-muted)]" suppressHydrationWarning>
-                    {formatLocalTime(game.gameTime)}
-                  </span>
-                )}
-              </div>
-
-              {/* Home team */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-white">{abbreviate(game.homeTeam)}</span>
-                {game.homeLogo ? (
-                  <img src={game.homeLogo} alt="" className="w-5 h-5 object-contain" />
-                ) : (
-                  <div className="w-5 h-5 rounded bg-white/10 flex items-center justify-center text-[7px] font-bold text-white/50">
-                    {abbreviate(game.homeTeam).slice(0, 3)}
-                  </div>
-                )}
-              </div>
+      <div className="relative">
+        <div
+          ref={scrollerRef}
+          onScroll={updateScrollAffordances}
+          className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
+        >
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-[72px] w-[190px] shrink-0 animate-pulse rounded-xl bg-white/5" />
+            ))
+          ) : items.length === 0 ? (
+            <div className="flex items-center justify-center h-[72px] w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/40">
+              <p className="text-sm text-[var(--color-text-muted)]">No games scheduled</p>
             </div>
-          ))}
+          ) : (
+            items.map((item) => {
+              const isSelected = !!item.matchupKey && item.matchupKey === selectedMatchup
+              const selectable = !!item.matchupKey && !!onSelectMatchup
+
+              const content = (
+                <>
+                  <div className="flex items-center justify-center gap-2 w-full">
+                    <TeamMark logo={item.awayLogo} abbr={item.awayAbbr} />
+                    <span className="text-[11px] font-bold text-[var(--color-text-primary)]">
+                      {item.awayAbbr}
+                    </span>
+                    <span className="text-[10px] text-[var(--color-text-muted)]">@</span>
+                    <span className="text-[11px] font-bold text-[var(--color-text-primary)]">
+                      {item.homeAbbr}
+                    </span>
+                    <TeamMark logo={item.homeLogo} abbr={item.homeAbbr} />
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] font-semibold",
+                      item.status === "live"
+                        ? "text-[var(--color-lime)]"
+                        : "text-[var(--color-text-muted)]"
+                    )}
+                    suppressHydrationWarning
+                  >
+                    {item.status === "live"
+                      ? "LIVE"
+                      : item.status === "final"
+                        ? item.awayScore != null && item.homeScore != null
+                          ? `FINAL ${item.awayScore}-${item.homeScore}`
+                          : "FINAL"
+                        : item.time}
+                  </span>
+                </>
+              )
+
+              const baseClass = cn(
+                "shrink-0 flex flex-col items-center justify-center gap-1.5 min-w-[190px] h-[72px] px-4 rounded-xl border transition-colors",
+                isSelected
+                  ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10"
+                  : "border-[var(--color-border)] bg-[var(--color-surface)]/70",
+                selectable && !isSelected && "hover:border-[var(--color-lime)]/40"
+              )
+
+              if (!selectable) {
+                return (
+                  <div key={item.id} className={baseClass}>
+                    {content}
+                  </div>
+                )
+              }
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectMatchup?.(isSelected ? null : item.matchupKey)}
+                  aria-pressed={isSelected}
+                  aria-label={`${item.awayAbbr} at ${item.homeAbbr}${isSelected ? ", filtering props" : ", filter props to this game"}`}
+                  className={baseClass}
+                >
+                  {content}
+                </button>
+              )
+            })
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Edge scroll affordances */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="Scroll games left"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-8 h-8 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="Scroll games right"
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 w-8 h-8 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </section>
   )
 }

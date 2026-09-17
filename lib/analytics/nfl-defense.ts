@@ -16,6 +16,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -158,62 +159,93 @@ async function fetchDefenseRows(season: number | "all"): Promise<RawRow[]> {
     }
   }
 
+  // This scan is the cold-start cost of the whole NFL props page. Paged
+  // serially it was up to 40 sequential round trips before any aggregation
+  // began; fetchPagedParallel turns that into a count query plus a handful of
+  // concurrent waves. The `id` tiebreaker is required for correctness once the
+  // pages are independent queries — ordering by game_date alone is not a total
+  // order, so equal-dated rows could land in two pages or neither.
+  const raw = await fetchPagedParallel<any>(
+    async () => {
+      let cq = supabase
+        .from("nfl_player_stats")
+        .select("id", { count: "exact", head: true })
+      if (startDate) cq = cq.gte("game_date", startDate)
+      if (endDate) cq = cq.lte("game_date", endDate)
+      const { count } = await cq
+      return count ?? null
+    },
+    async (from, to) => {
+      let q = supabase
+        .from("nfl_player_stats")
+        .select(cols)
+        .order("game_date", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+      if (startDate) q = q.gte("game_date", startDate)
+      if (endDate) q = q.lte("game_date", endDate)
+
+      const { data, error } = await q
+      if (error) {
+        console.error("[nfl-defense] player stats page failed:", error.message)
+        return []
+      }
+      return (data ?? []) as any[]
+    },
+    { maxRows: 40_000 }
+  )
+
   const rows: RawRow[] = []
-  const pageSize = 1000
-  const maxRows = 40000
-  for (let offset = 0; offset < maxRows; offset += pageSize) {
-    let q = supabase
-      .from("nfl_player_stats")
-      .select(cols)
-      .order("game_date", { ascending: false })
-      .range(offset, offset + pageSize - 1)
-    if (startDate) q = q.gte("game_date", startDate)
-    if (endDate) q = q.lte("game_date", endDate)
-
-    const { data, error } = await q
-    if (error || !data || data.length === 0) break
-
-    for (const r of data as any[]) {
-      if (!r.opponent || !r.position) continue
-      const homeAbbr = homeByGame.get(r.game_id)
-      const home_away: "home" | "away" | null = homeAbbr
-        ? homeAbbr === r.team ? "home" : "away"
-        : null
-      rows.push({
-        opponent: r.opponent,
-        team: r.team,
-        position: (r.position || "").toUpperCase(),
-        game_id: r.game_id,
-        home_away,
-        vals: {
-          rush_att: Number(r.rush_att) || 0,
-          rush_yds: Number(r.rush_yds) || 0,
-          rush_td: Number(r.rush_td) || 0,
-          rush_long: Number(r.rush_long) || 0,
-          targets: Number(r.targets) || 0,
-          rec: Number(r.rec) || 0,
-          rec_yds: Number(r.rec_yds) || 0,
-          rec_td: Number(r.rec_td) || 0,
-          rec_long: Number(r.rec_long) || 0,
-          pass_yds: Number(r.pass_yds) || 0,
-          pass_td: Number(r.pass_td) || 0,
-          pass_int: Number(r.pass_int) || 0,
-          pass_c: Number(r.pass_c) || 0,
-          pass_att: Number(r.pass_att) || 0,
-        },
-      })
-    }
-    if (data.length < pageSize) break
+  for (const r of raw) {
+    if (!r.opponent || !r.position) continue
+    const homeAbbr = homeByGame.get(r.game_id)
+    const home_away: "home" | "away" | null = homeAbbr
+      ? homeAbbr === r.team ? "home" : "away"
+      : null
+    rows.push({
+      opponent: r.opponent,
+      team: r.team,
+      position: (r.position || "").toUpperCase(),
+      game_id: r.game_id,
+      home_away,
+      vals: {
+        rush_att: Number(r.rush_att) || 0,
+        rush_yds: Number(r.rush_yds) || 0,
+        rush_td: Number(r.rush_td) || 0,
+        rush_long: Number(r.rush_long) || 0,
+        targets: Number(r.targets) || 0,
+        rec: Number(r.rec) || 0,
+        rec_yds: Number(r.rec_yds) || 0,
+        rec_td: Number(r.rec_td) || 0,
+        rec_long: Number(r.rec_long) || 0,
+        pass_yds: Number(r.pass_yds) || 0,
+        pass_td: Number(r.pass_td) || 0,
+        pass_int: Number(r.pass_int) || 0,
+        pass_c: Number(r.pass_c) || 0,
+        pass_att: Number(r.pass_att) || 0,
+      },
+    })
   }
   return rows
 }
 
 // ─── League-wide computation (all teams, all positions) ─────────────────────────
 
+/**
+ * The computed league table, in a JSON-safe shape.
+ *
+ * These are plain nested records rather than Maps on purpose: this value is
+ * stored in Redis, and `JSON.stringify(new Map())` is `"{}"`. When this used
+ * Maps, the first request computed the table correctly and every subsequent
+ * request read back an empty object whose `.get()` threw — which the props
+ * engine swallowed in a `catch`, so matchup grades silently disappeared and the
+ * /api/props/nfl-defense panels returned empty groups until the TTL lapsed.
+ */
 interface LeagueTable {
-  // team -> position -> statKey -> per-game value
-  perGame: Map<string, Map<string, Map<string, number>>>
-  gamesFaced: Map<string, number> // team -> distinct games its defense faced
+  /** team → position → statKey → per-game value allowed. */
+  perGame: Record<string, Record<string, Record<string, number>>>
+  /** team → distinct games its defense faced. */
+  gamesFaced: Record<string, number>
 }
 
 function computeLeagueTable(rows: RawRow[], split: DefenseSplit): LeagueTable {
@@ -253,26 +285,25 @@ function computeLeagueTable(rows: RawRow[], split: DefenseSplit): LeagueTable {
   }
 
   // Reduce per-game maps to a per-game AVERAGE across games faced.
-  const perGame = new Map<string, Map<string, Map<string, number>>>()
+  const perGame: LeagueTable["perGame"] = {}
   for (const [team, posMap] of gameAgg) {
     const games = gamesByTeam.get(team)?.size ?? 0
-    const outPos = new Map<string, Map<string, number>>()
+    const outPos: Record<string, Record<string, number>> = {}
     for (const [pos, statMap] of posMap) {
-      const outStat = new Map<string, number>()
+      const outStat: Record<string, number> = {}
       for (const [statKey, byGame] of statMap) {
         const total = [...byGame.values()].reduce((s, v) => s + v, 0)
-        const sd = STAT_DEFS.find((d) => d.key === statKey)!
         // For "max" stats, average the per-game maxima; for "sum", average totals.
         const val = games > 0 ? total / games : 0
-        outStat.set(statKey, Math.round(val * 10) / 10)
+        outStat[statKey] = Math.round(val * 10) / 10
       }
-      outPos.set(pos, outStat)
+      outPos[pos] = outStat
     }
-    perGame.set(team, outPos)
+    perGame[team] = outPos
   }
 
-  const gamesFaced = new Map<string, number>()
-  for (const [team, set] of gamesByTeam) gamesFaced.set(team, set.size)
+  const gamesFaced: LeagueTable["gamesFaced"] = {}
+  for (const [team, set] of gamesByTeam) gamesFaced[team] = set.size
 
   return { perGame, gamesFaced }
 }
@@ -290,12 +321,18 @@ export async function getNFLDefenseAllowed(
 ): Promise<DefenseAllowedResult> {
   const season = opts?.season ?? "all"
   const split = opts?.split ?? "all"
-  const key = `nfl-def:${season}:${split}`
+  // v2 in the key retires entries written in the old Map-based shape, which
+  // deserialize from Redis as `{}` and would otherwise read as a valid-but-empty
+  // table for the life of the TTL.
+  const key = `nfl-def:v2:${season}:${split}`
 
+  // 1 hour: this is a full-table aggregate over every player-game of the season,
+  // and NFL box scores only change once a week. A 10-minute TTL meant a browsing
+  // session kept paying for the cold recompute.
   const league = await cached(key, async () => {
     const rows = await fetchDefenseRows(season)
     return computeLeagueTable(rows, split)
-  }, 10 * 60_000) // 10 min
+  }, 60 * 60_000)
 
   const teamU = team.toUpperCase()
   const posU = position.toUpperCase() as NFLDefensePosition
@@ -309,7 +346,7 @@ export async function getNFLDefenseAllowed(
   for (const sd of applicable) {
     const values: { team: string; v: number }[] = []
     for (const t of NFL_TEAMS) {
-      const v = league.perGame.get(t)?.get(posU)?.get(sd.key)
+      const v = league.perGame?.[t]?.[posU]?.[sd.key]
       if (v != null) values.push({ team: t, v })
     }
     if (values.length === 0) continue
@@ -325,7 +362,7 @@ export async function getNFLDefenseAllowed(
     )
     const rankOf = sorted.length
     const idx = sorted.findIndex((x) => x.team === teamU)
-    const teamVal = league.perGame.get(teamU)?.get(posU)?.get(sd.key) ?? 0
+    const teamVal = league.perGame?.[teamU]?.[posU]?.[sd.key] ?? 0
     const rank = idx >= 0 ? idx + 1 : rankOf
     // percentile: 1 = softest (rank 1), 0 = toughest (rank N)
     const percentile = rankOf > 1 ? 1 - (rank - 1) / (rankOf - 1) : 0.5
@@ -350,7 +387,7 @@ export async function getNFLDefenseAllowed(
     position: posU,
     split,
     season,
-    gamesFaced: league.gamesFaced.get(teamU) ?? 0,
+    gamesFaced: league.gamesFaced?.[teamU] ?? 0,
     groups,
     byStat,
   }

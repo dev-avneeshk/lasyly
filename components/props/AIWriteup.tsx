@@ -46,7 +46,8 @@ export function AIWriteup({
       >
         <Sparkles className="w-3.5 h-3.5 text-[var(--color-lime)]" />
         <span className="text-xs font-medium text-[var(--color-text-muted)]">
-          AI Analysis
+          AI Analysis{" "}
+          <span className="text-[var(--color-text-muted)]/70">(coming soon)</span>
         </span>
       </button>
 

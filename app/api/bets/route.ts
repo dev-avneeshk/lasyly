@@ -3,13 +3,23 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { SupabaseClient } from "@supabase/supabase-js"
+import {
+  LOGGABLE_SPORTS,
+  STATS_BY_SPORT,
+  isValidStatForSport,
+} from "@/lib/props/statCatalog"
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const createBetSchema = z.object({
   playerName: z.string().min(1).max(200),
-  sport: z.enum(["NBA", "Tennis"]),
+  // Every sport the props page can show is loggable. This was ["NBA","Tennis"],
+  // which meant the Log button on an NFL, NHL or Soccer card could only ever
+  // fail.
+  sport: z.enum(LOGGABLE_SPORTS),
   statCategory: z.string().min(1).max(100),
+  // Rare-event NFL props (TD, INT, SACKS) legitimately price at 0.5, and team
+  // props can too, so the lower bound stays exclusive-zero rather than >= 1.
   propLine: z.number().gt(0).lte(999.5),
   direction: z.enum(["over", "under"]),
   confidenceScore: z.number().int().min(1).max(5),
@@ -18,12 +28,6 @@ const createBetSchema = z.object({
   stake: z.number().min(0.01).max(99999.99).optional(),
   isMonitored: z.boolean().optional().default(false),
 })
-
-// Valid stat categories per sport for bet_tracker
-const VALID_BET_STATS: Record<string, string[]> = {
-  NBA: ["pts", "trb", "ast", "tp", "fg", "fga", "ft", "fta", "stl", "blk", "tov", "pra"],
-  Tennis: ["aces", "double_faults", "win_pct", "first_serve_pct", "sets_won", "games_won"],
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -133,11 +137,13 @@ export const POST = withSecurity(async (request: Request) => {
   const [data, validationError] = validateRequestBody(body, createBetSchema)
   if (validationError) return validationError
 
-  // Validate stat category against the sport
-  const allowedStats = VALID_BET_STATS[data.sport]
-  if (allowedStats && !allowedStats.includes(data.statCategory)) {
+  // Validate the stat category against the shared catalogue — the same one
+  // /api/props validates against, so anything the props page can render can be
+  // logged.
+  if (!isValidStatForSport(data.sport, data.statCategory)) {
+    const allowed = [...(STATS_BY_SPORT[data.sport] ?? [])].join(", ")
     return NextResponse.json(
-      { error: `Invalid stat category "${data.statCategory}" for ${data.sport}. Allowed: ${allowedStats.join(", ")}.` },
+      { error: `Invalid stat category "${data.statCategory}" for ${data.sport}. Allowed: ${allowed}.` },
       { status: 400 }
     )
   }
@@ -178,7 +184,21 @@ export const POST = withSecurity(async (request: Request) => {
     .single()
 
   if (insertError) {
-    return NextResponse.json({ error: "Failed to create bet." }, { status: 500 })
+    // Log server-side with detail. A CHECK-constraint rejection (e.g. a sport
+    // the DB has not been migrated to accept yet) is a client-fixable 400, not
+    // an opaque 500 — distinguishing them is what made the Log button's failures
+    // impossible to diagnose from the UI.
+    console.error("[api/bets] insert failed:", insertError.code, insertError.message)
+
+    const isConstraintViolation = insertError.code === "23514"
+    return NextResponse.json(
+      {
+        error: isConstraintViolation
+          ? `Logging ${data.sport} picks isn't enabled on this database yet.`
+          : "Failed to create bet.",
+      },
+      { status: isConstraintViolation ? 400 : 500 }
+    )
   }
 
   return NextResponse.json(bet, { status: 201 })

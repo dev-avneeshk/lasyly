@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
+// See the note in app/error.tsx: a static Sentry import in an error boundary
+// re-adds the SDK to every route's blocking script set.
+import { reportError } from '@/lib/observability/sentry-lazy'
 
 export default function AppError({
   error,
@@ -11,7 +13,7 @@ export default function AppError({
   reset: () => void
 }) {
   useEffect(() => {
-    Sentry.captureException(error)
+    reportError(error)
   }, [error])
 
   return (

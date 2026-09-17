@@ -18,6 +18,8 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { cached } from "@/lib/cache"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { PropCardData, GameResult } from "@/lib/props/types"
 import {
   getNFLDefenseAllowed,
@@ -74,14 +76,18 @@ export interface NFLPropsResult {
   computeTimeMs: number
 }
 
-interface NFLGameRow {
-  playerName: string
-  team: string
-  opponent: string | null
-  position: string | null
-  gameDate: string
-  value: number
-}
+/**
+ * A raw `nfl_player_stats` row, as selected by SELECT_COLUMNS.
+ *
+ * We keep these as flat records rather than mapping to a typed shape because
+ * `resolveStatValues` picks its source column at runtime (a QB's "YDS" is
+ * pass_yds, a RB's is rush_yds), and because a plain record survives the
+ * JSON round trip through Redis unchanged.
+ */
+type NFLRawRow = Record<string, unknown>
+
+/** Player name → their game rows, most recent first. JSON-safe for caching. */
+type NFLPlayerRows = Record<string, NFLRawRow[]>
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -99,6 +105,27 @@ const RARE_EVENT_STATS = new Set(["TD", "INT", "SACKS"])
 
 /** Hit-rate threshold to surface a prop (NFL has small samples — 50%). */
 const HIT_RATE_THRESHOLD = 0.5
+
+// ─── Cache TTLs ──────────────────────────────────────────────────────────────
+//
+// `stat=all` fans out to four parallel computeNFLProps calls (YDS/TD/REC/CAR),
+// and every one of them needs the same slate, the same player-history rows, the
+// same head-to-head records and the same headshots. Without a shared cache each
+// stat re-ran all of it, so the request paid for that work four times over.
+// These TTLs are generous because the underlying data is weekly: NFL box scores
+// do not change between Monday and Thursday.
+
+/** Upcoming slate: re-check a few times an hour for status flips. */
+const SLATE_TTL_MS = 5 * 60_000
+
+/** Player game history: only changes when a game finishes. */
+const PLAYER_HISTORY_TTL_MS = 15 * 60_000
+
+/** Head-to-head records and scoring environment: effectively static in-week. */
+const TEAM_CONTEXT_TTL_MS = 60 * 60_000
+
+/** Headshot URLs: roster-stable, safe to hold for a day. */
+const HEADSHOT_TTL_MS = 24 * 60 * 60_000
 
 // ─── Stat resolution ──────────────────────────────────────────────────────────
 //
@@ -280,6 +307,45 @@ function statToDefenseKey(
   }
 }
 
+// ─── Completed-game history (shared by series records + pace) ────────────────
+
+interface CompletedGame {
+  home_abbr: string | null
+  away_abbr: string | null
+  home_score: number | null
+  away_score: number | null
+}
+
+/**
+ * Every completed NFL game, fetched once and shared.
+ *
+ * Head-to-head records and the scoring-environment ("pace") table were both
+ * querying `nfl_games` for completed games independently — and each of the four
+ * parallel stat computations ran both. That was eight nearly identical scans of
+ * the same table per request. They are now one cached read that both consumers
+ * reduce in memory.
+ */
+async function fetchCompletedGames(): Promise<CompletedGame[]> {
+  return cached(
+    "nfl-completed-games",
+    async () => {
+      const supabase = createAdminClient()
+      const { data, error } = await supabase
+        .from("nfl_games")
+        .select("home_abbr, away_abbr, home_score, away_score")
+        .eq("status", "completed")
+        .limit(4000)
+
+      if (error) {
+        console.error("[engine-nfl] completed games query failed:", error.message)
+        return []
+      }
+      return (data ?? []) as CompletedGame[]
+    },
+    TEAM_CONTEXT_TTL_MS
+  )
+}
+
 /**
  * Fetch head-to-head records for a set of (team, opponent) pairs from
  * nfl_games. Returns a map keyed "TEAM-OPP" → { team, opponent } win counts.
@@ -287,17 +353,8 @@ function statToDefenseKey(
 async function fetchSeriesRecords(pairs: [string, string][]): Promise<Map<string, NFLSeriesRecord>> {
   const out = new Map<string, NFLSeriesRecord>()
   if (pairs.length === 0) return out
-  const supabase = createAdminClient()
 
-  const teamsInvolved = [...new Set(pairs.flatMap((p) => p))]
-  const { data } = await supabase
-    .from("nfl_games")
-    .select("home_abbr, away_abbr, home_score, away_score, status")
-    .in("home_abbr", teamsInvolved)
-    .eq("status", "completed")
-    .limit(4000)
-
-  const games = (data ?? []) as any[]
+  const games = await fetchCompletedGames()
   for (const [team, opp] of pairs) {
     const key = `${team}-${opp}`
     if (out.has(key)) continue
@@ -326,13 +383,8 @@ async function fetchSeriesRecords(pairs: [string, string][]): Promise<Map<string
 async function fetchPaceMap(opps: string[]): Promise<Map<string, "fast" | "average" | "slow">> {
   const out = new Map<string, "fast" | "average" | "slow">()
   if (opps.length === 0) return out
-  const supabase = createAdminClient()
-  const { data } = await supabase
-    .from("nfl_games")
-    .select("home_abbr, away_abbr, home_score, away_score, status")
-    .eq("status", "completed")
-    .limit(4000)
-  const games = (data ?? []) as any[]
+
+  const games = await fetchCompletedGames()
 
   // League total-points-per-game baseline.
   let leagueTotal = 0, leagueN = 0
@@ -441,94 +493,161 @@ async function enrichWithMatchup(props: NFLPropCard[], stat: string): Promise<vo
  * Returns team abbreviations, which match nfl_player_stats.team directly.
  */
 async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
-  const supabase = createAdminClient()
+  return cached(
+    `nfl-slate:${today}`,
+    async () => {
+      const supabase = createAdminClient()
 
-  const end = new Date(`${today}T00:00:00Z`)
-  end.setUTCDate(end.getUTCDate() + UPCOMING_WINDOW_DAYS)
-  const endStr = end.toISOString().split("T")[0]
+      const end = new Date(`${today}T00:00:00Z`)
+      end.setUTCDate(end.getUTCDate() + UPCOMING_WINDOW_DAYS)
+      const endStr = end.toISOString().split("T")[0]
 
-  // Upcoming scheduled/in-progress games across the week window, PLUS every game
-  // dated today (any status). A single query with an OR keeps this one round
-  // trip: (status in scheduled/in_progress AND date in window) OR (date = today).
-  const { data, error } = await supabase
-    .from("nfl_games")
-    .select("home_abbr, away_abbr, game_date, status")
-    .gte("game_date", today)
-    .lte("game_date", endStr)
-    .or(`status.in.(scheduled,in_progress),game_date.eq.${today}`)
-    .order("game_date", { ascending: true })
-    .limit(40)
+      // Upcoming scheduled/in-progress games across the week window, PLUS every
+      // game dated today (any status). A single query with an OR keeps this one
+      // round trip: (status in scheduled/in_progress AND date in window) OR
+      // (date = today).
+      const { data, error } = await supabase
+        .from("nfl_games")
+        .select("home_abbr, away_abbr, game_date, status")
+        .gte("game_date", today)
+        .lte("game_date", endStr)
+        .or(`status.in.(scheduled,in_progress),game_date.eq.${today}`)
+        .order("game_date", { ascending: true })
+        .limit(40)
 
-  if (error || !data) {
-    console.error("[engine-nfl] Failed to fetch upcoming games:", error?.message)
-    return []
-  }
+      if (error || !data) {
+        console.error("[engine-nfl] Failed to fetch upcoming games:", error?.message)
+        return []
+      }
 
-  return data
-    .filter((row: any) => row.home_abbr && row.away_abbr && row.home_abbr !== "TBD")
-    .map((row: any) => ({
-      homeTeam: row.home_abbr,
-      awayTeam: row.away_abbr,
-      gameDate: row.game_date,
-      // A completed game today is surfaced as "live" so the UI treats it as
-      // part of today's slate rather than a future fixture.
-      status: row.status === "scheduled" ? "scheduled" : "live",
-    }))
+      return data
+        .filter((row: any) => row.home_abbr && row.away_abbr && row.home_abbr !== "TBD")
+        .map((row: any) => ({
+          homeTeam: row.home_abbr,
+          awayTeam: row.away_abbr,
+          gameDate: row.game_date,
+          // A completed game today is surfaced as "live" so the UI treats it as
+          // part of today's slate rather than a future fixture.
+          status: row.status === "scheduled" ? "scheduled" : "live",
+        })) as NFLTodayGame[]
+    },
+    SLATE_TTL_MS
+  )
+}
+
+// ─── Headshots ───────────────────────────────────────────────────────────────
+
+/**
+ * NFL headshot URLs for every player we know about, keyed by name.
+ *
+ * Previously each stat computation issued its own `.in("name", names)` lookup
+ * with a different name list, so the four parallel calls could not share a cache
+ * entry. Fetching the whole NFL roster once is a smaller query in aggregate and
+ * gives every caller a hit.
+ */
+async function fetchHeadshotMap(): Promise<Record<string, string>> {
+  return cached(
+    "nfl-headshots",
+    async () => {
+      const supabase = createAdminClient()
+      // Filter on `league`, not `sport`: the ESPN scraper writes sport="football"
+      // and league="nfl" (see scripts/scrape_espn.py LEAGUES), so an
+      // .eq("sport","NFL") filter matches nothing. `league` is also indexed.
+      const { data, error } = await supabase
+        .from("espn_players")
+        .select("name, espn_id, headshot_url")
+        .eq("league", "nfl")
+        .limit(4000)
+
+      if (error || !data) return {}
+
+      const map: Record<string, string> = {}
+      for (const row of data as any[]) {
+        if (!row.name) continue
+        const url =
+          row.headshot_url ||
+          (row.espn_id
+            ? `https://a.espncdn.com/i/headshots/nfl/players/full/${row.espn_id}.png`
+            : null)
+        if (url) map[row.name] = url
+      }
+      return map
+    },
+    HEADSHOT_TTL_MS
+  )
 }
 
 // ─── Player Stats ─────────────────────────────────────────────────────────────
 
-async function fetchPlayerStats(teams: string[]): Promise<Map<string, NFLGameRow[]>> {
-  const supabase = createAdminClient()
-
+/**
+ * Game history for every player on the given teams, grouped by player name and
+ * ordered most-recent-first.
+ *
+ * This is the single most expensive query in the NFL path — up to 8000 rows
+ * spanning a full season — and it does not depend on the stat being computed.
+ * Caching it by team set means `stat=all` pays for it once instead of four
+ * times, and the pages are now fetched in parallel instead of one at a time.
+ */
+async function fetchPlayerStats(teams: string[]): Promise<NFLPlayerRows> {
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - HISTORY_DAYS)
   const cutoff = cutoffDate.toISOString().split("T")[0]
 
-  const playerRows = new Map<string, Record<string, unknown>[]>()
+  // Sorted so that the same slate produces the same key regardless of the order
+  // the teams came out of the games query.
+  const teamsKey = [...teams].sort().join(",")
 
-  const pageSize = 1000
-  const maxRows = 8000
-  for (let offset = 0; offset < maxRows; offset += pageSize) {
-    const { data, error } = await supabase
-      .from("nfl_player_stats")
-      .select(SELECT_COLUMNS)
-      .in("team", teams)
-      .gte("game_date", cutoff)
-      .order("game_date", { ascending: false })
-      .range(offset, offset + pageSize - 1)
+  return cached(
+    `nfl-player-rows:${cutoff}:${teamsKey}`,
+    async () => {
+      const supabase = createAdminClient()
 
-    if (error || !data || data.length === 0) {
-      if (offset === 0 && error) console.error("[engine-nfl] player stats query failed:", error.message)
-      break
-    }
-    for (const row of data as any[]) {
-      const name = row.player_name as string
-      if (!name) continue
-      if (!playerRows.has(name)) playerRows.set(name, [])
-      playerRows.get(name)!.push(row)
-    }
-    if (data.length < pageSize) break
-  }
+      const rows = await fetchPagedParallel<NFLRawRow>(
+        async () => {
+          const { count } = await supabase
+            .from("nfl_player_stats")
+            .select("player_name", { count: "exact", head: true })
+            .in("team", teams)
+            .gte("game_date", cutoff)
+          return count ?? null
+        },
+        async (from, to) => {
+          // `id` is the tiebreaker, not decoration: paging in parallel means
+          // each page is its own query, and ordering only by the non-unique
+          // game_date lets Postgres return equal-dated rows in a different
+          // order per page — which silently duplicates some rows and drops
+          // others. Ordering by the primary key makes the sort total.
+          const { data, error } = await supabase
+            .from("nfl_player_stats")
+            .select(SELECT_COLUMNS)
+            .in("team", teams)
+            .gte("game_date", cutoff)
+            .order("game_date", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to)
 
-  // Rebuild into typed rows (raw records are kept for stat resolution).
-  const out = new Map<string, NFLGameRow[]>()
-  for (const [name, rows] of playerRows) {
-    out.set(
-      name,
-      rows.map((r) => ({
-        playerName: name,
-        team: (r.team as string) ?? "",
-        opponent: (r.opponent as string) ?? null,
-        position: (r.position as string) ?? null,
-        gameDate: (r.game_date as string) ?? "",
-        value: 0, // resolved per-stat later
-      }))
-    )
-    // Attach raw records for resolveStatValues
-    ;(out.get(name) as any).__raw = rows
-  }
-  return out
+          if (error) {
+            console.error("[engine-nfl] player stats query failed:", error.message)
+            return []
+          }
+          // SELECT_COLUMNS is a runtime-built string, so Supabase cannot infer a
+          // row type for it and falls back to GenericStringError.
+          return (data ?? []) as unknown as NFLRawRow[]
+        },
+        { maxRows: 8000 }
+      )
+
+      const out: NFLPlayerRows = {}
+      for (const row of rows) {
+        const name = row.player_name as string
+        if (!name) continue
+        if (!out[name]) out[name] = []
+        out[name].push(row)
+      }
+      return out
+    },
+    PLAYER_HISTORY_TTL_MS
+  )
 }
 
 // ─── Main Engine ────────────────────────────────────────────────────────────
@@ -561,9 +680,14 @@ export async function computeNFLProps(
     return { props: [], todayGames, fallbackMode: true, computeTimeMs: Date.now() - startTime }
   }
 
-  // Step 3: player stats for those teams
-  const playerMap = await fetchPlayerStats(teams)
-  if (playerMap.size === 0) {
+  // Step 3: player stats for those teams, plus headshots (independent, so
+  // fetch them together rather than serially).
+  const [playerRows, headshotMap] = await Promise.all([
+    fetchPlayerStats(teams),
+    fetchHeadshotMap(),
+  ])
+  const playerEntries = Object.entries(playerRows)
+  if (playerEntries.length === 0) {
     return { props: [], todayGames, fallbackMode: false, computeTimeMs: Date.now() - startTime }
   }
 
@@ -577,12 +701,11 @@ export async function computeNFLProps(
   const isRareEvent = RARE_EVENT_STATS.has(stat)
   const props: NFLPropCard[] = []
 
-  for (const [playerName, games] of playerMap) {
-    const rawRows = (games as any).__raw as Record<string, unknown>[]
+  for (const [playerName, rawRows] of playerEntries) {
     if (!rawRows || rawRows.length === 0) continue
 
     // Search filter (early)
-    const team = games[0]?.team ?? ""
+    const team = (rawRows[0]?.team as string) ?? ""
     if (search.length >= 2) {
       const q = search.toLowerCase()
       if (!playerName.toLowerCase().includes(q) && !team.toLowerCase().includes(q)) continue
@@ -697,11 +820,11 @@ export async function computeNFLProps(
       trendPct: Math.abs(trendPct),
       matchup,
       sport: "NFL",
-      position: games[0]?.position ?? "",
+      position: (rawRows[0]?.position as string) ?? "",
       probability,
       direction: bestDirection,
       league: "NFL",
-      headshotUrl: null,
+      headshotUrl: headshotMap[playerName] ?? null,
       projectedValue,
       graphData,
       defensiveMatchup: null,
@@ -729,30 +852,8 @@ export async function computeNFLProps(
   const limited = filtered.slice(0, limit)
 
   // ─── Enrich with defensive matchup + series record (only the returned set) ──
+  // Headshots are already attached from the shared cached map above.
   await enrichWithMatchup(limited, stat)
-
-  // Attach headshots (best-effort, from espn_players)
-  if (limited.length > 0) {
-    try {
-      const supabase = createAdminClient()
-      const names = limited.map((p) => p.player)
-      const { data: playerRows } = await supabase
-        .from("espn_players")
-        .select("name, espn_id, headshot_url, sport")
-        .in("name", names)
-      if (playerRows && playerRows.length > 0) {
-        const map = new Map<string, string>()
-        for (const row of playerRows as any[]) {
-          const url = row.headshot_url
-            || `https://a.espncdn.com/i/headshots/nfl/players/full/${row.espn_id}.png`
-          map.set(row.name, url)
-        }
-        for (const p of limited) p.headshotUrl = map.get(p.player) ?? null
-      }
-    } catch {
-      // non-critical
-    }
-  }
 
   return {
     props: limited,

@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
+// NOT `import * as Sentry from '@sentry/nextjs'`. Error boundaries are part of a
+// route's eager client graph, so a static import here would pull the 473 KB
+// browser SDK back into the critical path of every page — the exact cost
+// lib/observability/sentry-lazy.ts exists to avoid. The bridge loads the SDK on
+// demand, which is precisely when this component renders anyway.
+import { reportError } from '@/lib/observability/sentry-lazy'
 
 export default function Error({
   error,
@@ -11,7 +16,7 @@ export default function Error({
   unstable_retry: () => void
 }) {
   useEffect(() => {
-    Sentry.captureException(error)
+    reportError(error)
   }, [error])
 
   return (

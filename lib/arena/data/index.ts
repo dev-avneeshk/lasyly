@@ -7,15 +7,28 @@
  */
 
 import type { Season, SeasonPlayer } from "../types"
+import { AVAILABLE_SEASONS, DEFAULT_SEASON } from "../seasons"
 import { PLAYERS_2025_26 } from "./players-2025-26"
 
 const REGISTRY: Record<string, SeasonPlayer[]> = {
   "2025-26": PLAYERS_2025_26,
 }
 
-export const AVAILABLE_SEASONS = Object.keys(REGISTRY) as Season[]
+// The season *names* live in ../seasons.ts so that UI which only needs to label
+// a season doesn't have to import the ~383 KB player pool below (see the header
+// comment there). This assertion is what stops the two lists drifting: register a
+// pool without naming it — or name one without registering it — and the arena
+// fails loudly at module load instead of silently offering a season with no
+// players.
+const registered = Object.keys(REGISTRY).sort().join(",")
+const named = [...AVAILABLE_SEASONS].sort().join(",")
+if (registered !== named) {
+  throw new Error(
+    `Arena season registry mismatch: lib/arena/data has [${registered}] but lib/arena/seasons.ts names [${named}]. Update both.`
+  )
+}
 
-export const DEFAULT_SEASON: Season = "2025-26"
+export { AVAILABLE_SEASONS, DEFAULT_SEASON }
 
 /** Returns the player pool for a season, falling back to the default season. */
 export function getSeasonPlayers(season: Season): SeasonPlayer[] {
