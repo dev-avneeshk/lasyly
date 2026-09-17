@@ -86,16 +86,16 @@ export function SiteStructuredData() {
             {
               "@type": "ListItem",
               position: 3,
-              name: "Betting Rooms",
+              name: "Prediction Rooms",
               url: `${SITE_URL}/rooms`,
-              description: "Join live betting rooms and share picks with the community.",
+              description: "Join live prediction rooms and share picks with the community.",
             },
             {
               "@type": "ListItem",
               position: 4,
               name: "Sports News",
               url: `${SITE_URL}/news`,
-              description: "Curated sports news and injury updates that matter for bettors.",
+              description: "Curated sports news and injury updates that matter for sports fans.",
             },
             {
               "@type": "ListItem",

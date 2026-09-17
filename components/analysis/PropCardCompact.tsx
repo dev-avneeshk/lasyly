@@ -161,10 +161,10 @@ export function PropCardCompact({
                 onClick={() => onAddToParlay?.(prop, direction)}
                 title={
                   price
-                    ? `Add ${direction} to parlay — ${price} model-implied price (not a sportsbook line)`
-                    : `Add ${direction} to parlay`
+                    ? `Add ${direction} to prediction — ${price} model-implied price (not a sportsbook line)`
+                    : `Add ${direction} to prediction`
                 }
-                aria-label={`Add ${prop.player} ${direction} ${prop.propLine} ${statLabel} to parlay${price ? `, model-implied price ${price}` : ""}`}
+                aria-label={`Add ${prop.player} ${direction} ${prop.propLine} ${statLabel} to prediction${price ? `, model-implied price ${price}` : ""}`}
                 className={cn(
                   "flex flex-col items-center justify-center gap-0.5 min-w-[62px] px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors",
                   parlayDisabled && "opacity-50 cursor-not-allowed",

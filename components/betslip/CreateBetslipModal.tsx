@@ -11,7 +11,12 @@ type CreateBetslipModalProps = {
   roomId?: string
 }
 
-const BET_TYPES = ["Single", "Accumulator", "System", "Lucky"] as const
+const BET_TYPES = [
+  { value: "Single", label: "Single" },
+  { value: "Accumulator", label: "Combo" },
+  { value: "System", label: "Mix" },
+  { value: "Lucky", label: "Bonus" },
+] as const
 
 export default function CreateBetslipModal({ onClose, onCreated, roomId }: CreateBetslipModalProps) {
   const [sportsbook, setSportsbook] = useState("")
@@ -79,7 +84,7 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || "Failed to create betslip.")
+        setError(data.error || "Failed to create prediction.")
         setIsLoading(false)
         return
       }
@@ -130,19 +135,19 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
           {/* Bet Type + Odds */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white/90">Bet Type</label>
+              <label className="text-sm font-medium text-white/90">Type</label>
               <select
                 value={betType}
                 onChange={(e) => setBetType(e.target.value)}
                 className="w-full h-11 bg-black/20 border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all appearance-none"
               >
                 {BET_TYPES.map((bt) => (
-                  <option key={bt} value={bt}>{bt}</option>
+                  <option key={bt.value} value={bt.value}>{bt.label}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white/90">Total Odds</label>
+              <label className="text-sm font-medium text-white/90">Total Multiplier</label>
               <Input
                 type="number"
                 step="0.01"
@@ -197,7 +202,7 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
 
           {/* Stake (optional) */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-white/90">Stake <span className="text-[var(--color-text-muted)] font-normal">(optional, in Coins)</span></label>
+            <label className="text-sm font-medium text-white/90">Entry <span className="text-[var(--color-text-muted)] font-normal">(optional, in Coins)</span></label>
             <Input
               type="number"
               step="1"

@@ -9,12 +9,12 @@ import { SiteStructuredData } from "@/components/seo/SiteStructuredData"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Explore Betting Rooms & Live Scores — Lasyly",
+  title: "Explore Prediction Rooms & Live Scores — Lasyly",
   description:
-    "Discover public and tipster betting rooms by sport, browse live match cards, and find trending picks. The social hub for sports bettors.",
+    "Discover public and expert prediction rooms by sport, browse live match cards, and find trending picks. The social hub for sports fans.",
   openGraph: {
-    title: "Explore Betting Rooms & Live Scores — Lasyly",
-    description: "Discover public and tipster betting rooms, live match cards, and trending picks.",
+    title: "Explore Prediction Rooms & Live Scores — Lasyly",
+    description: "Discover public and expert prediction rooms, live match cards, and trending picks.",
   },
   alternates: {
     canonical: "https://www.lasyly.me/explore",

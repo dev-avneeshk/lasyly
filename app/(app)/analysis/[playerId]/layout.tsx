@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: `${displayName} Prop Analytics`,
-    description: `Hit rates, matchup grade, confidence score, trend, and streak data for ${displayName} player props. Research smarter before you bet.`,
+    description: `Hit rates, matchup grade, confidence score, trend, and streak data for ${displayName} player props. Research smarter before you predict.`,
     openGraph: {
       title: `${displayName} Prop Analytics — Lasyly`,
       description: `Hit rates, matchup grade, confidence score, and historical trend data for ${displayName}.`,

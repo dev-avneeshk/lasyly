@@ -176,7 +176,7 @@ export function PropCard({
         />
       </div>
 
-      {/* Action Buttons: Add to Parlay + Log Pick + Share */}
+      {/* Action Buttons: Add to prediction + Log Pick + Share */}
       <div className="mt-auto pt-4 flex items-center gap-2">
         <button
           type="button"
@@ -188,10 +188,10 @@ export function PropCard({
               ? "bg-white/5 text-[var(--color-text-muted)] cursor-not-allowed"
               : "bg-[var(--color-lime)]/10 text-[var(--color-lime)] hover:bg-[var(--color-lime)]/20 border border-[var(--color-lime)]/30"
           )}
-          aria-label="Add to Parlay"
+          aria-label="Add to prediction"
         >
           <Plus className="w-3.5 h-3.5" />
-          Parlay
+          Add
         </button>
         <button
           type="button"

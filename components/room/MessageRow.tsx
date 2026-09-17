@@ -56,7 +56,7 @@ function BetslipCardView({ bet }: { bet: BetslipCard }) {
   return (
     <div className="mt-1 max-w-[320px] rounded-xl border border-white/[0.08] bg-[#141414] overflow-hidden">
       <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.06]">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Betslip</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Prediction</span>
         <span
           className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
           style={{ background: `${statusColor}20`, color: statusColor }}
@@ -66,7 +66,7 @@ function BetslipCardView({ bet }: { bet: BetslipCard }) {
       </div>
       <div className="px-3.5 py-3 flex items-center gap-4">
         <div>
-          <p className="text-[10px] text-white/30">Odds</p>
+          <p className="text-[10px] text-white/30">Multiplier</p>
           <p className="text-[15px] font-bold text-white/90">{bet.odds != null ? `${bet.odds}x` : "—"}</p>
         </div>
         {bet.combined_hit_rate != null && (
@@ -77,7 +77,7 @@ function BetslipCardView({ bet }: { bet: BetslipCard }) {
         )}
         {bet.stake != null && (
           <div>
-            <p className="text-[10px] text-white/30">Stake</p>
+            <p className="text-[10px] text-white/30">Entry</p>
             <p className="text-[15px] font-bold text-white/90">{bet.stake} Coins</p>
           </div>
         )}

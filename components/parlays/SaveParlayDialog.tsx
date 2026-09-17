@@ -38,18 +38,18 @@ function validateFields(
   if (odds.trim() !== "") {
     const oddsNum = Number(odds)
     if (isNaN(oddsNum)) {
-      errors.odds = "Odds must be a valid number"
+      errors.odds = "Multiplier must be a valid number"
     } else if (oddsNum < ODDS_MIN || oddsNum > ODDS_MAX) {
-      errors.odds = `Odds must be between ${ODDS_MIN} and ${ODDS_MAX}`
+      errors.odds = `Multiplier must be between ${ODDS_MIN} and ${ODDS_MAX}`
     }
   }
 
   if (stake.trim() !== "") {
     const stakeNum = Number(stake)
     if (isNaN(stakeNum)) {
-      errors.stake = "Stake must be a valid number"
+      errors.stake = "Entry must be a valid number"
     } else if (stakeNum < STAKE_MIN || stakeNum > STAKE_MAX) {
-      errors.stake = `Stake must be between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()} Coins`
+      errors.stake = `Entry must be between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()} Coins`
     }
   }
 
@@ -153,7 +153,7 @@ export function SaveParlayDialog({
         <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[80vh] sm:max-h-[85vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]/50 shrink-0">
-            <h2 className="text-base font-semibold text-white">Save Parlay</h2>
+            <h2 className="text-base font-semibold text-white">Save Prediction</h2>
             <button
               type="button"
               onClick={onClose}
@@ -169,7 +169,7 @@ export function SaveParlayDialog({
             {/* Leg summary */}
             <div className="px-3 py-2 rounded-xl bg-white/5 border border-[var(--color-border)]/50">
               <p className="text-xs text-[var(--color-text-muted)]">
-                {legs.length} leg{legs.length !== 1 ? "s" : ""} selected
+                {legs.length} pick{legs.length !== 1 ? "s" : ""} selected
                 {combinedHitRate !== null && (
                   <span className="ml-2 text-[var(--color-lime)] font-semibold">
                     {combinedHitRate.toFixed(1)}% combined hit rate
@@ -244,7 +244,7 @@ export function SaveParlayDialog({
                 htmlFor="parlay-odds"
                 className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
               >
-                Odds <span className="opacity-60">(optional)</span>
+                Multiplier <span className="opacity-60">(optional)</span>
               </label>
               <input
                 id="parlay-odds"
@@ -279,7 +279,7 @@ export function SaveParlayDialog({
                 htmlFor="parlay-stake"
                 className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
               >
-                Stake <span className="opacity-60">(optional, in Coins)</span>
+                Entry <span className="opacity-60">(optional, in Coins)</span>
               </label>
               <div className="relative">
                 <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
@@ -315,7 +315,7 @@ export function SaveParlayDialog({
             {potentialPayout !== null && potentialPayout > 0 && (
               <div className="px-3 py-2 rounded-xl bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
                 <p className="text-xs text-[var(--color-text-muted)]">
-                  Potential Payout
+                  Potential Return
                 </p>
                 <p className="text-sm font-semibold text-[var(--color-lime)]">
                   {potentialPayout.toFixed(0)} Coins
@@ -333,7 +333,7 @@ export function SaveParlayDialog({
               </label>
               <textarea
                 id="parlay-note"
-                placeholder="Add a note about this parlay..."
+                placeholder="Add a note about this prediction..."
                 value={note}
                 onChange={(e) => {
                   setNote(e.target.value)
@@ -400,13 +400,13 @@ export function SaveParlayDialog({
                   Saving...
                 </>
               ) : (
-                "Save Parlay"
+                "Save Prediction"
               )}
             </button>
 
             {!hasMinLegs && (
               <p className="mt-2 text-center text-xs text-[var(--color-text-muted)]">
-                Add at least 2 legs to save a parlay
+                Add at least 2 picks to save a prediction
               </p>
             )}
           </div>

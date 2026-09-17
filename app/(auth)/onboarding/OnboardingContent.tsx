@@ -164,7 +164,7 @@ export function OnboardingContent() {
   const stepTitles: Record<number, { title: string; subtitle: string }> = {
     1: { title: "How will you use Lasyly?", subtitle: "This helps us personalize your experience." },
     2: { title: "Set up your profile", subtitle: "Choose a unique username and set your display name." },
-    3: { title: "What do you bet on?", subtitle: "Select your favorite sports to personalize your feed." },
+    3: { title: "What do you follow?", subtitle: "Select your favorite sports to personalize your feed." },
   }
 
   return (

@@ -3,7 +3,7 @@ import LeaderboardClient from "./LeaderboardClient"
 
 export const metadata: Metadata = {
   title: "Leaderboard | Lasyly",
-  description: "See the top bettors on Lasyly ranked by win rate, total picks, and streaks.",
+  description: "See the top predictors on Lasyly ranked by hit rate, total picks, and streaks.",
 }
 
 export default function LeaderboardPage() {

@@ -46,19 +46,19 @@ export default function BetsPage() {
 
       if (!res.ok) {
         if (res.status === 401) {
-          setError("Sign in to view your bets.")
+          setError("Sign in to view your predictions.")
           setParlays([])
           setIsLoading(false)
           return
         }
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Failed to load bets (${res.status})`)
+        throw new Error(body.error || `Failed to load predictions (${res.status})`)
       }
 
       const data = await res.json()
       setParlays(data.parlays ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load bets")
+      setError(err instanceof Error ? err.message : "Failed to load predictions")
     } finally {
       setIsLoading(false)
     }
@@ -69,7 +69,7 @@ export default function BetsPage() {
     if (!authChecked) return
     if (!currentUserId) {
       setIsLoading(false)
-      setError("Sign in to view your bets.")
+      setError("Sign in to view your predictions.")
       return
     }
     fetchMyParlays()
@@ -120,7 +120,7 @@ export default function BetsPage() {
     return (
       <div className="flex flex-col min-h-screen bg-[var(--color-background)] p-4">
         <div className="flex flex-col mx-auto max-w-2xl w-full">
-          <h1 className="mb-6 text-xl font-bold text-[var(--color-text-primary)]">My Bets</h1>
+          <h1 className="mb-6 text-xl font-bold text-[var(--color-text-primary)]">My Predictions</h1>
           <div className="flex flex-col space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <div
@@ -155,10 +155,10 @@ export default function BetsPage() {
             <AlertCircle className="h-7 w-7 text-red-400" />
           </div>
           <h2 className="mb-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {error === "Sign in to view your bets." ? "Sign in required" : "Failed to load bets"}
+            {error === "Sign in to view your predictions." ? "Sign in required" : "Failed to load predictions"}
           </h2>
           <p className="mb-6 text-sm text-[var(--color-text-muted)]">{error}</p>
-          {error !== "Sign in to view your bets." && (
+          {error !== "Sign in to view your predictions." && (
             <button
               type="button"
               onClick={fetchMyParlays}
@@ -179,7 +179,7 @@ export default function BetsPage() {
       <div className="flex flex-col min-h-screen bg-[var(--color-background)] p-4">
         <div className="flex flex-col mx-auto max-w-2xl w-full">
           <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-xl font-bold text-[var(--color-text-primary)]">My Bets</h1>
+            <h1 className="text-xl font-bold text-[var(--color-text-primary)]">My Predictions</h1>
           </div>
 
           {/* Filter tabs */}
@@ -205,12 +205,12 @@ export default function BetsPage() {
               <BarChart3 className="h-7 w-7 text-[var(--color-text-muted)]" />
             </div>
             <h2 className="mb-2 text-lg font-bold text-[var(--color-text-primary)]">
-              {statusFilter === "all" ? "No bets yet" : `No ${statusFilter} bets`}
+              {statusFilter === "all" ? "No predictions yet" : `No ${statusFilter} predictions`}
             </h2>
             <p className="text-sm text-[var(--color-text-muted)]">
               {statusFilter === "all"
-                ? "Build a parlay from the analysis page to start tracking your bets."
-                : `You don't have any ${statusFilter} parlays. Try a different filter.`}
+                ? "Build a prediction from the analysis page to start tracking your picks."
+                : `You don't have any ${statusFilter} predictions. Try a different filter.`}
             </p>
           </div>
         </div>
@@ -218,12 +218,12 @@ export default function BetsPage() {
     )
   }
 
-  // --- Bets content ---
+  // --- Predictions content ---
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-background)] p-4">
       <div className="flex flex-col mx-auto max-w-2xl w-full">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">My Bets</h1>
+          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">My Predictions</h1>
           <button
             type="button"
             onClick={fetchMyParlays}

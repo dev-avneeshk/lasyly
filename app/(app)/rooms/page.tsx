@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Rooms | Lasyly",
-  description: "Join betting rooms, share picks, and chat with other sports fans in real-time.",
+  description: "Join prediction rooms, share picks, and chat with other sports fans in real-time.",
 }
 
 export default async function RoomsPage() {

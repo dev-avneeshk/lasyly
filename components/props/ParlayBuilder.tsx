@@ -73,7 +73,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
   const handleSaveClick = () => {
     // Auth gate — show toast for guests (the parent page handles the dialog)
     if (!isAuthenticated) {
-      setToastMessage("Sign in to save parlays")
+      setToastMessage("Sign in to save predictions")
       setToastType("info")
       return
     }
@@ -97,9 +97,9 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to save parlay." }))
+        const data = await res.json().catch(() => ({ error: "Failed to save prediction." }))
         // On error: keep dialog open with error message (Requirement 1.8)
-        setSaveError(data.error || "Failed to save parlay.")
+        setSaveError(data.error || "Failed to save prediction.")
         return
       }
 
@@ -107,7 +107,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
       setShowSaveDialog(false)
       onClear()
       setIsOpen(false)
-      setToastMessage("Parlay saved successfully!")
+      setToastMessage("Prediction saved successfully!")
       setToastType("success")
     } catch {
       // Network error: keep dialog open with error message (Requirement 1.8)
@@ -158,7 +158,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50",
           isOpen && "hidden"
         )}
-        aria-label={`View parlay - ${legs.length} legs`}
+        aria-label={`View prediction - ${legs.length} picks`}
       >
         <TrendingUp className="w-5 h-5" />
         {/* Badge count (Requirement 7.4) */}
@@ -188,7 +188,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[var(--color-lime)]" />
               <span className="text-sm font-semibold text-white">
-                My Parlay
+                My Prediction
               </span>
               <span className="text-xs text-[var(--color-text-muted)] bg-white/10 px-1.5 py-0.5 rounded-full">
                 {legs.length}/{MAX_LEGS}
@@ -201,7 +201,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
                 type="button"
                 onClick={onClear}
                 className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-colors"
-                aria-label="Clear all parlay legs"
+                aria-label="Clear all picks"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -210,7 +210,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-white/10 transition-colors"
-                aria-label="Close parlay"
+                aria-label="Close prediction"
               >
                 <ChevronDown className="w-4 h-4" />
               </button>
@@ -250,11 +250,11 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
                 "disabled:opacity-50 disabled:pointer-events-none"
               )}
             >
-              Save Parlay
+              Save Prediction
             </button>
             {!hasMinLegs && (
               <p className="mt-1.5 text-center text-xs text-[var(--color-text-muted)]">
-                Add at least 2 legs to save
+                Add at least 2 picks to save
               </p>
             )}
           </div>
@@ -362,7 +362,7 @@ function ParlayLegRow({ leg, onRemove, onDirectionToggle }: ParlayLegRowProps) {
         type="button"
         onClick={onRemove}
         className="p-1.5 rounded-lg text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 transition-all focus:outline-none focus-visible:opacity-100"
-        aria-label={`Remove ${leg.player} from parlay`}
+        aria-label={`Remove ${leg.player} from prediction`}
       >
         <X className="w-4 h-4" />
       </button>
@@ -389,11 +389,11 @@ export function canAddToParlay(
 ): { canAdd: true } | { canAdd: false; reason: string } {
   // Max legs enforcement (Requirement 7.8)
   if (currentLegs.length >= MAX_LEGS) {
-    return { canAdd: false, reason: `Maximum of ${MAX_LEGS} legs reached` }
+    return { canAdd: false, reason: `Maximum of ${MAX_LEGS} picks reached` }
   }
   // Duplicate propId check
   if (currentLegs.some((leg) => leg.propId === propId)) {
-    return { canAdd: false, reason: "This prop is already in your parlay" }
+    return { canAdd: false, reason: "This prop is already in your prediction" }
   }
   // Duplicate (player_name, stat_category) check (Requirement 7.2)
   if (playerName && statCategory) {
@@ -403,7 +403,7 @@ export function canAddToParlay(
         leg.statCategory.toLowerCase() === statCategory.toLowerCase()
     )
     if (isDuplicate) {
-      return { canAdd: false, reason: "This player + stat is already in your parlay" }
+      return { canAdd: false, reason: "This player + stat is already in your prediction" }
     }
   }
   return { canAdd: true }

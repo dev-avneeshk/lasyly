@@ -58,11 +58,11 @@ function CopyLinkButton({ parlayId }: { parlayId: string }) {
 
 const STATUS_CONFIG = {
   won: {
-    label: "Win",
+    label: "Correct",
     className: "bg-lime-500/20 text-lime-400 border-lime-500/30",
   },
   lost: {
-    label: "Loss",
+    label: "Missed",
     className: "bg-red-500/20 text-red-400 border-red-500/30",
   },
   pending: {
@@ -175,10 +175,10 @@ function CompactVariant({
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-800 border border-zinc-700">
-            <span className="text-[9px] font-black text-zinc-300">SGM</span>
+            <span className="text-[9px] font-black text-zinc-300">PRD</span>
           </div>
           <span className="text-sm font-bold text-white">
-            {parlay.legs.length} Leg Parlay
+            {parlay.legs.length}-Pick Prediction
           </span>
           {parlay.is_logged && (
             <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
@@ -212,7 +212,7 @@ function CompactVariant({
           )
         })}
         <div className="ml-auto flex items-center gap-1 text-xs text-zinc-400">
-          <span>Show Legs</span>
+          <span>Show Picks</span>
           <ChevronDown className="h-3.5 w-3.5" />
         </div>
       </div>
@@ -246,10 +246,10 @@ function ExpandedVariant({
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-800 border border-zinc-700">
-            <span className="text-[9px] font-black text-zinc-300">SGM</span>
+            <span className="text-[9px] font-black text-zinc-300">PRD</span>
           </div>
           <span className="text-sm font-bold text-white">
-            {parlay.legs.length} Leg Parlay
+            {parlay.legs.length}-Pick Prediction
           </span>
           {parlay.is_logged && (
             <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
@@ -293,7 +293,7 @@ function ExpandedVariant({
             onClick={onToggleExpand}
             className="flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
           >
-            Hide Legs
+            Hide Picks
             <ChevronUp className="h-3.5 w-3.5" />
           </button>
         )}
@@ -316,18 +316,18 @@ function ExpandedVariant({
         </AnimatePresence>
       </div>
 
-      {/* Odds & Payout section */}
+      {/* Multiplier & Return section */}
       {(parlay.odds != null || parlay.stake != null) && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
           {parlay.odds != null && (
             <div className="flex flex-col">
-              <span className="text-[10px] text-zinc-500 uppercase font-medium">Odds</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-medium">Multiplier</span>
               <span className="text-sm font-bold text-white">{formatOdds(parlay.odds)}</span>
             </div>
           )}
           {payout != null && (
             <div className="flex flex-col items-end">
-              <span className="text-[10px] text-zinc-500 uppercase font-medium">Payout</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-medium">Return</span>
               <span className="text-sm font-bold text-lime-400">{payout.toFixed(0)} Coins</span>
             </div>
           )}
@@ -414,10 +414,10 @@ function FeedVariant({
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-800 border border-zinc-700">
-            <span className="text-[8px] font-black text-zinc-300">SGM</span>
+            <span className="text-[8px] font-black text-zinc-300">PRD</span>
           </div>
           <span className="text-sm font-bold text-white">
-            {parlay.legs.length} Leg Parlay
+            {parlay.legs.length}-Pick Prediction
           </span>
         </div>
         <span className={cn("rounded-md border px-2.5 py-1 text-[11px] font-bold", config.className)}>
@@ -452,7 +452,7 @@ function FeedVariant({
           onClick={() => setShowLegs(!showLegs)}
           className="flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
         >
-          {showLegs ? "Hide Legs" : "Show Legs"}
+          {showLegs ? "Hide Picks" : "Show Picks"}
           {showLegs ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
       </div>
