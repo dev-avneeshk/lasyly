@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     player.propLine !== null && player.hitRate && player.matchupGrade && player.statCategory
       ? generatePlayerDescription(
           player.name,
-          player.statCategory,
+          player.statLabel ?? player.statCategory,
           player.propLine,
           player.hitRate.l10,
           player.matchupGrade
@@ -77,7 +77,7 @@ export default async function PlayerPage({ params }: PageProps) {
     datePublished: new Date().toISOString().split("T")[0],
     dateModified: new Date().toISOString().split("T")[0],
     description: hasProps
-      ? `${player.name} ${player.statCategory} prop analysis with hit rates and matchup grade.`
+      ? `${player.name} ${player.statLabel} prop analysis with hit rates and matchup grade.`
       : `${player.name} player profile on Lasyly.`,
     about: {
       "@type": "Person",
@@ -87,7 +87,7 @@ export default async function PlayerPage({ params }: PageProps) {
     ...(hasProps && {
       mainEntity: {
         "@type": "SportsEvent",
-        name: `${player.name} ${player.statCategory} Prop`,
+        name: `${player.name} ${player.statLabel} Prop`,
         sport: player.sport,
       },
     }),
@@ -159,8 +159,8 @@ export default async function PlayerPage({ params }: PageProps) {
 
               <div className="flex items-baseline gap-3 mb-1">
                 <span className="text-4xl font-bold text-white">{player.propLine}</span>
-                <span className="text-lg text-[var(--color-text-muted)] uppercase font-medium">
-                  {player.statCategory}
+                <span className="text-lg text-[var(--color-text-muted)] font-medium">
+                  {player.statLabel}
                 </span>
               </div>
             </div>
