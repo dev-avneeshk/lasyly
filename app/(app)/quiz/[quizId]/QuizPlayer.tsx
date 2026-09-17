@@ -25,12 +25,6 @@ const COUNT_OPTIONS = [10, 15, 20] as const
 /** Seconds allowed per question before it auto-advances. */
 const PER_QUESTION_SECONDS = 10
 
-/** Decorative pull-quotes in the side rail. Rotated per question. */
-const TAGLINES: Record<QuizSport, string[]> = {
-  nba: ["Defense builds legends.", "Buckets are earned.", "Rings over numbers.", "Every possession counts."],
-  nfl: ["Trenches decide rings.", "Fourth down. Full send.", "Defense wins Februarys.", "Every yard is earned."],
-}
-
 interface AttemptResponse {
   quizId: string
   title: string
@@ -257,14 +251,13 @@ export default function QuizPlayer({
   }
 
   if (phase === "done" && result) {
-    return <Results eyebrow={eyebrow} sport={sport} result={result} onRetry={backToSetup} />
+    return <Results eyebrow={eyebrow} result={result} onRetry={backToSetup} />
   }
 
   if (phase === "setup" || phase === "loading") {
     return (
       <Setup
         eyebrow={eyebrow}
-        sport={sport}
         description={description}
         pool={pool}
         difficulty={difficulty}
@@ -280,7 +273,6 @@ export default function QuizPlayer({
   }
 
   const [before, accent, after] = accentPrompt(current?.prompt ?? "")
-  const tagline = TAGLINES[sport][index % TAGLINES[sport].length]
 
   return (
     <Frame>
@@ -363,17 +355,8 @@ export default function QuizPlayer({
 
           {error && <p className="mt-4 text-sm text-[var(--color-danger)]">{error}</p>}
 
-          {/* Nav */}
-          <div className="mt-7 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setIndex((i) => Math.max(0, i - 1))}
-              disabled={index === 0}
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-white/[0.02] px-5 py-3 text-sm font-bold text-[var(--color-text-primary)] transition-colors hover:border-white/20 hover:bg-white/[0.05] disabled:pointer-events-none disabled:opacity-40"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back
-            </button>
-
+          {/* Nav — no going back once the clock is running. */}
+          <div className="mt-7 flex items-center justify-end gap-3">
             {isLast ? (
               <button
                 type="button"
@@ -452,8 +435,6 @@ export default function QuizPlayer({
               />
             </span>
           </div>
-
-          <PullQuote text={tagline} />
         </aside>
       </div>
     </Frame>
@@ -462,7 +443,6 @@ export default function QuizPlayer({
 
 function Setup({
   eyebrow,
-  sport,
   description,
   pool,
   difficulty,
@@ -475,7 +455,6 @@ function Setup({
   onStart,
 }: {
   eyebrow: string
-  sport: QuizSport
   description: string
   pool: PoolStats
   difficulty: DifficultyChoice
@@ -535,9 +514,6 @@ function Setup({
                     )}
                   >
                     <span className="block text-xs font-black uppercase tracking-wider">{opt.label}</span>
-                    {n != null && (
-                      <span className="mt-1 block text-[10px] tabular-nums opacity-70">{n}</span>
-                    )}
                   </button>
                 )
               })}
@@ -598,29 +574,8 @@ function Setup({
         {/* Rail */}
         <aside className="order-first lg:order-none lg:border-l lg:border-[var(--color-border)] lg:pl-7">
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--color-text-muted)]">
-            In the bank
-          </p>
-          <div className="mt-1 font-display text-[56px] leading-[0.8] text-[var(--color-text-primary)] tabular-nums">
-            {pool ? pool.total.toLocaleString() : "—"}
-          </div>
-          <div className="mt-4 space-y-1.5">
-            {(["easy", "medium", "hard"] as const).map((level) => (
-              <div
-                key={level}
-                className="flex items-center justify-between border-b border-[var(--color-border)] pb-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]"
-              >
-                <span>{level}</span>
-                <span className="tabular-nums text-[var(--color-text-primary)]">
-                  {pool ? pool[level].toLocaleString() : "—"}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-text-muted)]">
             {PER_QUESTION_SECONDS}s per question
           </p>
-
-          <PullQuote text={TAGLINES[sport][0]} />
         </aside>
       </div>
     </Frame>
@@ -629,12 +584,10 @@ function Setup({
 
 function Results({
   eyebrow,
-  sport,
   result,
   onRetry,
 }: {
   eyebrow: string
-  sport: QuizSport
   result: GradedResult
   onRetry: () => void
 }) {
@@ -755,8 +708,6 @@ function Results({
             Accuracy{" "}
             <span className="text-[var(--color-text-primary)] tabular-nums">{result.accuracy}%</span>
           </p>
-
-          <PullQuote text={TAGLINES[sport][1]} />
         </aside>
       </div>
     </Frame>
@@ -858,17 +809,4 @@ function CornerMark() {
   )
 }
 
-/** Oversized ghost pull-quote that anchors the bottom of the side rail. */
-function PullQuote({ text }: { text: string }) {
-  return (
-    <div aria-hidden className="mt-10 hidden lg:block">
-      <span className="block h-[3px] w-7 bg-[var(--color-lime)]" />
-      <p className="mt-4 font-display text-[26px] uppercase leading-[0.95] text-white/[0.13]">
-        {text}
-      </p>
-      <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.3em] text-white/20">
-        More than a game
-      </p>
-    </div>
-  )
-}
+

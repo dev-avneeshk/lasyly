@@ -150,10 +150,7 @@ function CategoryCard({
           {category.description}
         </p>
 
-        <div className="mt-auto flex items-center justify-between pt-5">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            {quiz.questionCount.toLocaleString()} in the bank
-          </span>
+        <div className="mt-auto flex items-center justify-end pt-5">
           <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--color-lime)]">
             Play
             <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
