@@ -17,7 +17,7 @@ const navItems: NavLeaf[] = [
   { icon: Compass, label: "Explore", href: "/explore", comingSoon: false },
   { icon: Trophy, label: "Live Scores", href: "/scores", comingSoon: false },
   { icon: Newspaper, label: "News", href: "/news", comingSoon: false },
-  { icon: Target, label: "Props", href: "/analysis", comingSoon: false },
+  { icon: Target, label: "Props", href: "/analysis?sport=NFL", comingSoon: false },
   { icon: Medal, label: "Rankings", href: "/rankings", comingSoon: false },
   { icon: Gamepad2, label: "Arena", href: "/arena", comingSoon: false },
   { icon: BarChart2, label: "Predictions", href: "/bets", comingSoon: false },
@@ -76,7 +76,9 @@ export default function Sidebar() {
       {/* Nav items */}
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href)
+          // Nav hrefs may carry a query (e.g. "/analysis?sport=NFL"); the
+          // pathname never does, so match against the path portion only.
+          const isActive = pathname.startsWith(item.href.split("?")[0])
           return (
             <Link
               key={item.href}

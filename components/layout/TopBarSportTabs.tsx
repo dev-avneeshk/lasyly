@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export const TOP_BAR_SPORTS = ["NBA", "NFL", "Soccer", "NHL", "Tennis"] as const
+export const TOP_BAR_SPORTS = ["NFL", "NBA", "Soccer", "NHL", "Tennis"] as const
 
 /** Sections surfaced under the "More" overflow menu. */
 const MORE_LINKS: { label: string; href: string }[] = [
@@ -28,7 +28,7 @@ export default function TopBarSportTabs() {
   const moreRef = useRef<HTMLDivElement>(null)
 
   const onProps = pathname.startsWith("/analysis")
-  const activeSport = onProps ? (searchParams.get("sport") ?? "NBA") : null
+  const activeSport = onProps ? (searchParams.get("sport") ?? "NFL") : null
 
   useEffect(() => {
     if (!moreOpen) return

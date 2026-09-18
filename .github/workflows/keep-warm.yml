@@ -20,3 +20,26 @@ jobs:
           else
             echo "✓ Site is warm and healthy"
           fi
+
+      # Pre-warm the props cache so real users never pay for a cold recompute.
+      # The props endpoint's cache-aside layer keeps a stale entry for 2x the
+      # per-sport TTL (NFL 10min -> 20min window, NBA 3min -> 6min window), so a
+      # hit every 5 minutes keeps the default slates perpetually warm/refreshing
+      # in the background instead of blocking the first visitor after expiry.
+      # NFL is warmed first because it is the default sport on the Props page.
+      - name: Warm props cache
+        run: |
+          warm() {
+            local url="$1"
+            local code
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$url")
+            echo "  [$code] $url"
+          }
+          echo "Warming props cache (default stat=all slates)…"
+          # NFL — default sport, warmed first
+          warm "https://lasyly.me/api/props?sport=NFL&stat=all&direction=all"
+          warm "https://lasyly.me/api/props/games?sport=NFL"
+          # NBA — next most common
+          warm "https://lasyly.me/api/props?sport=NBA&stat=all&direction=all"
+          warm "https://lasyly.me/api/props/games?sport=NBA"
+          echo "✓ Props warm-up complete"

@@ -27,7 +27,7 @@ const VIEW_MODE_STORAGE_KEY = "lasyly:props-view-mode"
 
 function normalizeSport(value?: string): Sport {
   const match = SPORTS.find((s) => s.toLowerCase() === (value ?? "").toLowerCase())
-  return match ?? "NBA"
+  return match ?? "NFL"
 }
 
 /** L10 hit rate as a 0–100 number, falling back to the base hit rate. */
@@ -761,7 +761,7 @@ export default function AnalysisClient({
 
   return (
     <div className="min-h-screen max-w-[1400px] mx-auto text-white font-sans flex flex-col">
-      <div className="px-4 md:px-6 lg:px-8 pt-6 pb-8 flex-1 flex flex-col gap-6">
+      <div className="px-4 md:px-6 lg:px-8 pt-6 pb-[7rem] md:pb-8 flex-1 flex flex-col gap-6">
         <PropsHeader
           sport={sport}
           selectedDate={selectedDate}

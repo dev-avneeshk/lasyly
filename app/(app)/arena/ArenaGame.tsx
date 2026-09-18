@@ -110,7 +110,7 @@ export default function ArenaGame({
   const lot = state.lot
   const timeSec = Math.ceil(game.timeLeft / 1000)
   return (
-    <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-40 md:px-6 lg:pb-8">
+    <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-[19rem] md:px-6 md:pb-40 lg:pb-8">
       {/* MOBILE — compact wallets side by side up top so balance stays visible
           while the card + bid buttons stay above the fold. Hidden on lg+. */}
       <div className="mb-4 grid grid-cols-2 gap-3 lg:hidden">
@@ -122,7 +122,7 @@ export default function ArenaGame({
         <main className="order-1 flex min-w-0 flex-col items-center gap-3 lg:order-2">
           {lot && <AuctionHeader lotNumber={state.results.length + 1} totalLots={state.results.length + state.queue.length} timeSec={timeSec} maxSec={state.config.auctionTimerSeconds} currentBid={lot.currentBid} status={lot.highBidder === "P1" ? { text: "You lead. CPU is deciding.", tone: "good" } : lot.highBidder === "P2" ? { text: "CPU leads. Your move.", tone: "warn" } : { text: "Opening bid. Make an offer.", tone: "neutral" }} />}
           <div className="relative w-full"><div className={cn("transition-[filter] duration-200", game.lastAward && "blur-[2px]")}><AnimatePresence mode="wait">{lot && <PlayerCard key={lot.player.id} player={lot.player} />}</AnimatePresence></div><AnimatePresence>{game.lastAward && <SoldStamp name={game.lastAward.name} winnerLabel={game.lastAward.winner === "P1" ? P1_LABEL : P2_LABEL} price={game.lastAward.price} />}</AnimatePresence></div>
-          {lot && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[var(--color-background)]/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:static lg:z-auto lg:w-full lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"><div className="mx-auto w-full max-w-md lg:max-w-none"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div></div>}
+          {lot && <div className="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-20 border-t border-white/10 bg-[var(--color-background)]/95 px-4 pb-3 pt-3 backdrop-blur-xl md:bottom-0 md:pb-[calc(1rem+env(safe-area-inset-bottom))] lg:static lg:z-auto lg:w-full lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"><div className="mx-auto w-full max-w-md lg:max-w-none"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div></div>}
         </main>
         <div className="hidden lg:order-3 lg:block lg:pt-1">{game.budgets && <BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P2"} isAI />}</div>
       </div>

@@ -151,7 +151,9 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
         type="button"
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full",
+          // Clear the mobile bottom nav (fixed, ~6rem tall, md:hidden); drop back
+          // to bottom-6 on md+ where the nav isn't rendered.
+          "fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-6 z-50 w-14 h-14 rounded-full md:bottom-6",
           "bg-[var(--color-lime)] text-black shadow-lg shadow-[var(--color-lime)]/20",
           "flex items-center justify-center",
           "hover:scale-105 active:scale-95 transition-transform",

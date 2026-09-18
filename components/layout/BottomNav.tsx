@@ -10,7 +10,7 @@ const primaryNav = [
   { icon: Compass, href: "/explore", label: "Explore" },
   { icon: Trophy, href: "/scores", label: "Scores" },
   { icon: Newspaper, href: "/news", label: "News" },
-  { icon: Target, href: "/analysis", label: "Props" },
+  { icon: Target, href: "/analysis?sport=NFL", label: "Props" },
 ]
 
 const moreNav = [
@@ -121,7 +121,9 @@ export default function BottomNav() {
       <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-8 pointer-events-none">
         <div className="pointer-events-auto flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/90 px-6 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
           {primaryNav.map((item) => {
-            const isActive = pathname.startsWith(item.href)
+            // hrefs may carry a query (e.g. "/analysis?sport=NFL"); match the
+            // path portion only since pathname excludes the query string.
+            const isActive = pathname.startsWith(item.href.split("?")[0])
             return (
               <Link
                 key={item.href}
