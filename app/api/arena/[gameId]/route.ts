@@ -67,8 +67,9 @@ export const GET = withSecurity(async (
 
   // Whichever client's poll advanced the clock (e.g. a lot's timer expired and
   // it resolved) pushes that transition to the other so they don't wait for
-  // their own poll to notice it.
-  if (changed) void broadcastArenaUpdate(gameId)
+  // their own poll to notice it. View included so the other client applies it in
+  // one hop rather than answering the nudge with its own GET.
+  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev))
 
   return NextResponse.json(serverView(game.state, viewer, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

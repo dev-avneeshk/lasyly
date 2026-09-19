@@ -16,10 +16,15 @@ import {
   type ArenaGameConfig,
 } from "@/lib/arena/types"
 
+import { MIN_STAKE } from "@/lib/economy/arena"
+import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
+
 const matchmakeSchema = z.object({
   season: z.enum(AVAILABLE_SEASONS as [string, ...string[]]).default(DEFAULT_CONFIG.season),
   budget: z.union([z.literal(25), z.literal(50), z.literal(100)]).default(25),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+  /** Stake per player for this public 1v1, in coins. */
+  stake: z.number().int().min(MIN_STAKE).default(MIN_STAKE),
 })
 
 /**
@@ -59,6 +64,8 @@ export const POST = withSecurity(async (request: Request) => {
   if (err) return err
 
   // ── 1. Try to join a stranger who is already waiting ──────────────────────
+  // Only match players who chose the SAME stake — an uneven pot isn't a fair
+  // winner-take-all 1v1.
   const openGameId = await dequeueOpenGame(async (id) => {
     const g = await loadGame(id)
     if (!g) return false // expired
@@ -66,33 +73,55 @@ export const POST = withSecurity(async (request: Request) => {
     if (g.guestUserId) return false // already full
     if (g.state.isAI.P2) return false // not a human game
     if (g.state.status !== "lobby") return false // already started
+    if ((g.state.econ?.amount ?? 0) !== data.stake) return false // stake mismatch
     return true
   })
 
   if (openGameId) {
-    try {
-      const { game } = await mutateGame(openGameId, (g) => {
-        // Authoritative re-check under the lock — the dequeue check above is a
-        // fast path, this is the one that actually decides the seat.
-        if (g.guestUserId && g.guestUserId !== user.id) {
-          throw new Error("already-full")
-        }
-        g.guestUserId = user.id
-        g.state.isAI.P2 = false
-        if (g.state.status === "lobby") {
-          g.state.status = "auction"
-          openNextLot(g.state)
-        }
-      })
-      // Make sure a claimed game never lingers in the queue.
-      await removeOpenGame(openGameId)
-      // Flip the waiting creator straight into the auction (they've been sitting
-      // on "Finding an opponent…" polling their lobby).
-      void broadcastArenaUpdate(openGameId)
-      return NextResponse.json(serverView(game.state, "P2", game.rev))
-    } catch {
-      // The game filled or vanished between the pop and the lock. Fall through
-      // and create our own lobby rather than failing the request.
+    // Charge the joiner's stake before claiming the seat; refund if we lose the
+    // race for it. Idempotent per (user, game).
+    const joinCharge = await chargeArenaStake({
+      userId: user.id,
+      gameId: openGameId,
+      amount: data.stake,
+      isPvp: true,
+    })
+    if (joinCharge === "insufficient_funds") {
+      return NextResponse.json(
+        { error: `Not enough coins. This match's stake is ${data.stake}.`, code: "INSUFFICIENT_FUNDS" },
+        { status: 402 }
+      )
+    }
+    if (joinCharge === "completed" || joinCharge === "duplicate") {
+      try {
+        const { game } = await mutateGame(openGameId, (g) => {
+          // Authoritative re-check under the lock — the dequeue check above is a
+          // fast path, this is the one that actually decides the seat.
+          if (g.guestUserId && g.guestUserId !== user.id) {
+            throw new Error("already-full")
+          }
+          g.guestUserId = user.id
+          g.state.isAI.P2 = false
+          if (g.state.status === "lobby") {
+            g.state.status = "auction"
+            openNextLot(g.state)
+          }
+        })
+        // Make sure a claimed game never lingers in the queue.
+        await removeOpenGame(openGameId)
+        // Flip the waiting creator straight into the auction (they've been
+        // sitting on "Finding an opponent…" polling their lobby). Ship the view
+        // so they transition in one hop.
+        void broadcastArenaUpdate(openGameId, serverView(game.state, "P2", game.rev))
+        return NextResponse.json(serverView(game.state, "P2", game.rev))
+      } catch {
+        // The game filled or vanished between the pop and the lock. Refund the
+        // stake we just charged and fall through to create our own lobby.
+        await refundArenaStake({ userId: user.id, gameId: openGameId })
+        await removeOpenGame(openGameId)
+      }
+    } else {
+      // Charge failed for a non-funds reason; don't strand the popped game.
       await removeOpenGame(openGameId)
     }
   }
@@ -108,9 +137,28 @@ export const POST = withSecurity(async (request: Request) => {
   }
 
   const gameId = crypto.randomUUID()
+
+  // Charge the creator's stake before the lobby exists.
+  const charge = await chargeArenaStake({
+    userId: user.id,
+    gameId,
+    amount: data.stake,
+    isPvp: true,
+  })
+  if (charge === "insufficient_funds") {
+    return NextResponse.json(
+      { error: `Not enough coins. You need ${data.stake} to play.`, code: "INSUFFICIENT_FUNDS" },
+      { status: 402 }
+    )
+  }
+  if (charge !== "completed" && charge !== "duplicate") {
+    return NextResponse.json({ error: "Couldn't process the stake." }, { status: 500 })
+  }
+
   const state = createGame({ gameId, config, vsAI: false })
   state.isAI.P2 = false
   state.status = "lobby"
+  state.econ = { mode: "pvp", amount: data.stake, settled: false }
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
   await enqueueOpenGame(gameId)

@@ -15,6 +15,8 @@
 
 import { NBA_500_QUESTIONS } from "./nba-500"
 import { NBA_1000_QUESTIONS } from "./nba-501-1000"
+import { NFL_500_QUESTIONS } from "./nfl-500"
+import { NFL_1000_QUESTIONS } from "./nfl-501-1000"
 import type { BankQuestion, Question, Quiz, QuizBucket, QuizCategory, QuizDifficulty, QuizSport } from "./types"
 
 // ─── Categories: exactly three per sport ─────────────────────────────────────
@@ -150,7 +152,7 @@ function toQuestion(q: BankQuestion): Question {
 }
 
 const NBA_BANK: BankQuestion[] = [...STARTER_NBA, ...NBA_500_QUESTIONS, ...NBA_1000_QUESTIONS]
-const NFL_BANK: BankQuestion[] = [...STARTER_NFL]
+const NFL_BANK: BankQuestion[] = [...STARTER_NFL, ...NFL_500_QUESTIONS, ...NFL_1000_QUESTIONS]
 
 // Every quiz id maps to its full question pool. Attempts sample from this; the
 // `Quiz` object below just wraps the same pool so `getQuiz` + metadata work.

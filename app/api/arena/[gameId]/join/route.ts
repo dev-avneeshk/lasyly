@@ -6,6 +6,7 @@ import { loadGame, mutateGame } from "@/lib/arena/store"
 import { openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
 import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 import type { TeamId } from "@/lib/arena/types"
 
 /**
@@ -55,25 +56,65 @@ export const POST = withSecurity(async (
     return NextResponse.json({ error: "This game is already full." }, { status: 409 })
   }
 
-  const { game, changed } = await mutateGame(gameId, (g) => {
-    // Authoritative re-check under the lock: the pre-flight read above is only a
-    // fast path for friendly error messages.
-    if (g.guestUserId && g.guestUserId !== user.id) {
-      throw new Error("This game is already full.")
+  // ── Coin economy ──────────────────────────────────────────────────────────
+  // The joiner must match the creator's stake. Charge BEFORE claiming the seat
+  // so a player who can't cover the stake never gets seated (and never blocks
+  // the game). The debit is idempotent per (user, game): a retry after a
+  // successful charge is a no-op, and if the seat claim below then fails
+  // (someone beat them to it) we refund. We only need the refund path for that
+  // narrow race, handled by the abandonment/refund flow.
+  const stake = existing.state.econ?.amount ?? 0
+  if (stake > 0) {
+    const charge = await chargeArenaStake({
+      userId: user.id,
+      gameId,
+      amount: stake,
+      isPvp: true,
+    })
+    if (charge === "insufficient_funds") {
+      return NextResponse.json(
+        { error: `Not enough coins. This game's stake is ${stake}.`, code: "INSUFFICIENT_FUNDS" },
+        { status: 402 }
+      )
     }
-    g.guestUserId = user.id
-    g.state.isAI.P2 = false
-    // Start the auction now that both seats are filled.
-    if (g.state.status === "lobby") {
-      g.state.status = "auction"
-      openNextLot(g.state)
+    if (charge !== "completed" && charge !== "duplicate") {
+      return NextResponse.json({ error: "Couldn't process the stake." }, { status: 500 })
     }
-  })
+  }
+
+  let game
+  let changed
+  try {
+    ;({ game, changed } = await mutateGame(gameId, (g) => {
+      // Authoritative re-check under the lock: the pre-flight read above is only
+      // a fast path for friendly error messages.
+      if (g.guestUserId && g.guestUserId !== user.id) {
+        throw new Error("This game is already full.")
+      }
+      g.guestUserId = user.id
+      g.state.isAI.P2 = false
+      // Start the auction now that both seats are filled.
+      if (g.state.status === "lobby") {
+        g.state.status = "auction"
+        openNextLot(g.state)
+      }
+    }))
+  } catch (e) {
+    // Lost the race for the seat after we already charged the stake — give it
+    // back. refund is idempotent, so this is safe even if the charge above hit
+    // the 'duplicate' path.
+    if (stake > 0 && e instanceof Error && e.message === "This game is already full.") {
+      await refundArenaStake({ userId: user.id, gameId })
+      return NextResponse.json({ error: "This game is already full." }, { status: 409 })
+    }
+    throw e
+  }
 
   // Flip the waiting creator (P1) straight into the auction instead of making
-  // them wait for their lobby poll to notice the join.
-  if (changed) void broadcastArenaUpdate(gameId)
-
+  // them wait for their lobby poll to notice the join. Ship the view so their
+  // client transitions in one hop.
   const seat: TeamId = "P2"
+  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
+
   return NextResponse.json(serverView(game.state, seat, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

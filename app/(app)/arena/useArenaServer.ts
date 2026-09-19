@@ -36,7 +36,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ArenaServerView } from "@/lib/arena/server"
 import type { AIDifficulty, Season, TeamId } from "@/lib/arena/types"
 import { createClient } from "@/lib/supabase/client"
-import { arenaChannelName, ARENA_UPDATE_EVENT } from "@/lib/realtime/arena"
+import { arenaChannelName, ARENA_UPDATE_EVENT, type ArenaBroadcast } from "@/lib/realtime/arena"
+import { markBidSent, recordBroadcastLatency, recordActionAck } from "./latency"
 
 type View = ArenaServerView
 
@@ -107,6 +108,14 @@ export function useArenaServer() {
   const supabase = useMemo(() => createClient(), [])
   const viewRef = useRef<View | null>(null)
   const gameIdRef = useRef<string | null>(null)
+  // The seat this client controls. A broadcast view is computed for whoever
+  // acted, so on receipt we re-point `viewer` at our own seat. Learned from the
+  // first authoritative response (create/join/matchmake/poll) and held stable.
+  const viewerRef = useRef<TeamId>("P1")
+  // Highest `rev` (sequence number) we've applied. Broadcasts and polls can
+  // arrive out of order; we never move the view backwards, and a gap tells us a
+  // push was dropped so we resync with an authoritative GET.
+  const lastRevRef = useRef<number>(-1)
   // Guards against overlapping polls. A poll that is still in flight must not be
   // joined by another one.
   const pollInFlight = useRef(false)
@@ -121,14 +130,58 @@ export function useArenaServer() {
     gameIdRef.current = gameId
   }, [gameId])
 
+  /**
+   * Apply a view we fetched OURSELVES (create/join/matchmake/poll/action
+   * response). Its `viewer` is authoritative for this client, so we trust and
+   * record it. We still guard against applying a view older than one we've
+   * already shown — a slow GET that resolves after a newer push must not rewind
+   * the board.
+   */
   const apply = useCallback((v: (View & { error?: string }) | null) => {
     if (!v) return
     if (v.error) setError(v.error)
     else setError(null)
-    if (v.gameId) {
-      setView(v)
-      setGameId(v.gameId)
+    if (!v.gameId) return
+    // Record our seat from an authoritative, self-fetched view.
+    if (v.viewer === "P1" || v.viewer === "P2") viewerRef.current = v.viewer
+    // Monotonic: never move the board backwards. `rev` may be absent on some
+    // error bodies; when present, drop anything not strictly newer.
+    if (typeof v.rev === "number") {
+      if (v.rev < lastRevRef.current) return
+      lastRevRef.current = v.rev
     }
+    setView(v)
+    setGameId(v.gameId)
+  }, [])
+
+  /**
+   * Apply a view that arrived via BROADCAST (pushed from another player's
+   * action). One difference from `apply`: `viewer` was computed for whoever
+   * acted, so we re-point it at OUR seat.
+   *
+   * The broadcast carries a COMPLETE authoritative snapshot, so a `rev` jump of
+   * more than one is NOT a hole to fill — the newer snapshot already supersedes
+   * every intermediate state (a single mutate can legitimately advance `rev` by
+   * more than one: bid → driveAI → serverTick). We therefore apply any strictly
+   * newer snapshot directly and never GET-resync on the rev delta. The only
+   * reason to resync is a push with no snapshot (a bare nudge) — handled by the
+   * caller, which calls `pollOnce()` when `payload.view` is absent — or the
+   * reconnect path, which already re-fetches on SUBSCRIBED.
+   *
+   * Returns true if the view was applied directly (always, for a valid newer or
+   * equal snapshot); false only when the payload isn't a usable snapshot, so the
+   * caller falls back to a GET.
+   */
+  const applyRemote = useCallback((v: View | null): boolean => {
+    if (!v || !v.gameId || typeof v.rev !== "number") return false
+    // Already have this or newer — ignore (a push racing our own action reply).
+    if (v.rev <= lastRevRef.current) return true
+    // Strictly newer complete snapshot: apply it directly, whatever the delta.
+    lastRevRef.current = v.rev
+    setError(null)
+    setView({ ...v, viewer: viewerRef.current })
+    setGameId(v.gameId)
+    return true
   }, [])
 
   const create = useCallback(
@@ -258,8 +311,31 @@ export function useArenaServer() {
       const id = gameIdRef.current
       if (!id) return { ok: false, error: "The game is no longer available." }
 
+      // Dev-only timing mark (no-op in production).
+      markBidSent(amount)
+
+      // ── Optimistic echo ──────────────────────────────────────────────────
+      // Reflect the bidder's own click immediately so THEIR bid controls feel
+      // instant, without waiting for the round-trip. This is a display-only
+      // guess on the local view; the server remains the sole authority. The
+      // authoritative response (below) or the next broadcast overwrites it, and
+      // the monotonic `rev` guard means this optimistic frame — which we do NOT
+      // bump `rev` for — is always superseded by the real one. On rejection the
+      // fresh view the server returns snaps the price back.
+      const current = viewRef.current
+      const mySeat = viewerRef.current
+      if (
+        current?.lot &&
+        amount > current.lot.currentBid &&
+        current.lot.highBidder !== mySeat
+      ) {
+        setView({
+          ...current,
+          lot: { ...current.lot, currentBid: amount, highBidder: mySeat },
+        })
+      }
+
       try {
-        const current = viewRef.current
         const res = await api(`/api/arena/${id}/bid`, {
           amount,
           // Lot-identity guard: if the lot resolved while this request was in
@@ -268,7 +344,10 @@ export function useArenaServer() {
           lotPlayerId: current?.lot?.player.id,
           rev: current?.rev,
         })
+        recordActionAck("bid")
         // 400 (illegal bid) and 409 (lot moved on) both carry the fresh view.
+        // apply() is monotonic-guarded, so if a broadcast for this same bid
+        // already landed first, the (equal-rev) HTTP body is harmlessly ignored.
         apply(res.body as View & { error?: string })
         if (!res.ok) {
           const error = (res.body as { error?: string })?.error ?? "That bid is no longer available."
@@ -345,6 +424,28 @@ export function useArenaServer() {
     }
   }, [gameId, status, pollOnce])
 
+  // ── Deadline nudge ──────────────────────────────────────────────────────────
+  // The server clock is lazy: a lot only resolves when an action runs OR a poll
+  // hits the GET after `lotDeadline` (see the GET route + serverTick). With the
+  // fallback poll at 5s, a lot could otherwise sit visibly "at 0:00" for up to
+  // 5s before the server notices. Here we schedule a single GET a hair after the
+  // deadline so the server resolves it right at zero. The SERVER still decides
+  // whether the auction is over — we only ask it to evaluate the clock on time;
+  // we never resolve locally. Both clients arm this; whoever's GET lands first
+  // advances the clock and broadcasts the resolution to the other.
+  const lotDeadline = view?.lotDeadline ?? null
+  useEffect(() => {
+    if (status !== "auction" || lotDeadline === null) return
+    // +150ms guard so the server's `now >= lotDeadline` check is unambiguously
+    // true accounting for minor clock skew and network jitter.
+    const delay = Math.max(0, lotDeadline - Date.now()) + 150
+    const t = setTimeout(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+      void pollOnce()
+    }, delay)
+    return () => clearTimeout(t)
+  }, [status, lotDeadline, pollOnce])
+
   // ── Realtime push ──────────────────────────────────────────────────────────
   // The poll chain above is now only a FALLBACK. The primary path is a Supabase
   // broadcast the server sends after every real state change (bid, pass, lot
@@ -358,10 +459,18 @@ export function useArenaServer() {
 
     const channel = supabase
       .channel(arenaChannelName(gameId))
-      .on("broadcast", { event: ARENA_UPDATE_EVENT }, () => {
+      .on("broadcast", { event: ARENA_UPDATE_EVENT }, (msg) => {
         backoffRef.current = 0
         idleLobbyPolls.current = 0
-        void pollOnce()
+        const payload = (msg as { payload?: ArenaBroadcast }).payload
+        // Dev-only: server→client transit + total ack latency for the bidder.
+        recordBroadcastLatency(payload)
+        // Primary path: the push carried the authoritative view, so apply it in
+        // a single hop — no second GET. Fall back to a GET only when the payload
+        // has no view (a bare nudge) or a sequence gap means we'd be applying a
+        // snapshot with a hole behind it.
+        const applied = payload?.view ? applyRemote(payload.view) : false
+        if (!applied) void pollOnce()
       })
       .subscribe((subStatus) => {
         // Fires on the initial connect AND on every reconnect. A client that
@@ -378,13 +487,15 @@ export function useArenaServer() {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [gameId, status, supabase, pollOnce])
+  }, [gameId, status, supabase, pollOnce, applyRemote])
 
   const reset = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
     backoffRef.current = 0
     idleLobbyPolls.current = 0
+    lastRevRef.current = -1
+    viewerRef.current = "P1"
     setView(null)
     setGameId(null)
     setError(null)

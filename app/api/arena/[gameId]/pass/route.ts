@@ -48,8 +48,9 @@ export const POST = withSecurity(async (
     serverTick(g.state)
   })
 
-  // Push the new lot / resolution to the opponent right away.
-  if (changed) void broadcastArenaUpdate(gameId)
+  // Push the new lot / resolution to the opponent right away, view included so
+  // they apply it in one hop.
+  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
 
   return NextResponse.json(serverView(game.state, seat, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

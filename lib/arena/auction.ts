@@ -68,6 +68,23 @@ export interface ArenaState {
   completedAt: number | null
   /** Cached simulation result (computed once, persisted; never recomputed). */
   result?: GameResult | null
+  /**
+   * Coin-economy metadata. Present when the game involves coins (all games
+   * created through the API do). The wallet is authoritative in Postgres; this
+   * is just the bookkeeping the server routes need to know what to charge and
+   * pay out, and whether that has already happened (so settlement stays
+   * idempotent even before the DB call).
+   */
+  econ?: {
+    /** "cpu" = entry cost + difficulty reward; "pvp" = both players stake. */
+    mode: "cpu" | "pvp"
+    /** Entry cost (cpu) or per-player stake (pvp), in coins. */
+    amount: number
+    /** Reward paid to the human if they beat the CPU (cpu mode only). */
+    cpuReward?: number
+    /** True once the coin reward/payout for this game has been settled. */
+    settled?: boolean
+  }
 }
 
 export function otherTeam(t: TeamId): TeamId {

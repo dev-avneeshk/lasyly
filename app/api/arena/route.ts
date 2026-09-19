@@ -8,6 +8,8 @@ import { driveAI, serverView } from "@/lib/arena/server"
 import { saveGame } from "@/lib/arena/store"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
+import { CPU_ENTRY_COST, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
+import { chargeArenaStake } from "@/lib/economy/wallet"
 
 const createSchema = z.object({
   season: z.enum(AVAILABLE_SEASONS as [string, ...string[]]).default(DEFAULT_CONFIG.season),
@@ -15,6 +17,11 @@ const createSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   /** "ai" = play vs CPU immediately; "human" = open seat P2 for another player. */
   mode: z.enum(["ai", "human"]).default("ai"),
+  /**
+   * 1v1 (mode "human") stake per player, in coins. Ignored for CPU games,
+   * which use the fixed entry cost. Must be a whole number ≥ MIN_STAKE.
+   */
+  stake: z.number().int().min(MIN_STAKE).optional(),
 })
 
 /**
@@ -50,7 +57,33 @@ export const POST = withSecurity(async (request: Request) => {
 
   const gameId = crypto.randomUUID()
   const vsAI = data.mode === "ai"
+
+  // ── Coin economy ──────────────────────────────────────────────────────────
+  // CPU games cost a flat entry fee; 1v1 games cost the chosen stake. Charge the
+  // creator BEFORE the game exists so a failed debit never leaves an orphaned,
+  // unpaid game. The debit is idempotent per (user, game), so a client retry
+  // that lands after a successful charge won't double-bill.
+  const isPvp = !vsAI
+  const amount = isPvp ? (data.stake ?? MIN_STAKE) : CPU_ENTRY_COST
+
+  const charge = await chargeArenaStake({ userId: user.id, gameId, amount, isPvp })
+  if (charge === "insufficient_funds") {
+    return NextResponse.json(
+      { error: `Not enough coins. You need ${amount} to play.`, code: "INSUFFICIENT_FUNDS" },
+      { status: 402 }
+    )
+  }
+  if (charge !== "completed" && charge !== "duplicate") {
+    return NextResponse.json({ error: "Couldn't process the entry cost." }, { status: 500 })
+  }
+
   const state = createGame({ gameId, config, vsAI })
+  state.econ = {
+    mode: isPvp ? "pvp" : "cpu",
+    amount,
+    cpuReward: vsAI ? cpuWinReward(config.difficulty) : undefined,
+    settled: false,
+  }
 
   if (vsAI) {
     // Start the auction immediately against the CPU.

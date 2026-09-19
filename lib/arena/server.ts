@@ -123,6 +123,7 @@ export function serverView(state: ArenaState, viewer: TeamId, rev: number) {
     },
     result,
     completedAt: state.completedAt,
+    econ: state.econ ?? null,
   }
 }
 

@@ -120,7 +120,13 @@ export const POST = withSecurity(async (
   // Push the new state to the opponent immediately instead of waiting for their
   // next poll. Only when something actually moved — a no-op mutate broadcasts
   // nothing. Best-effort: the bid already succeeded, so we don't await failures.
-  if (changed) void broadcastArenaUpdate(gameId)
+  //
+  // The view rides along so the opponent applies it in a single hop instead of
+  // answering the nudge with a second GET. It is the same client-safe projection
+  // the GET route serves; `viewer` is re-pointed to each client's own seat on
+  // receipt (see useArenaServer). Server authority is unchanged — this is what
+  // the server already decided, not a client-computed outcome.
+  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
 
   return NextResponse.json(serverView(game.state, seat, game.rev))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

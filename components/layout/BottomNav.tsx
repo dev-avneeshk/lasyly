@@ -117,9 +117,9 @@ export default function BottomNav() {
         </>
       )}
 
-      {/* Bottom nav bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-8 pointer-events-none">
-        <div className="pointer-events-auto flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/90 px-6 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+      {/* Bottom nav bar — docked edge-to-edge, flush against the bottom */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.35)] pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-stretch justify-around px-2 pt-2 pb-1.5">
           {primaryNav.map((item) => {
             // hrefs may carry a query (e.g. "/analysis?sport=NFL"); match the
             // path portion only since pathname excludes the query string.
@@ -129,22 +129,12 @@ export default function BottomNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative p-2 flex items-center justify-center transition-colors",
+                  "relative flex flex-1 flex-col items-center justify-center gap-1 py-1.5 transition-colors",
                   isActive ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 )}
               >
-                <item.icon className={cn("w-6 h-6 z-10 relative", isActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
-                {/* Was a framer-motion `layoutId` pill that slid between tabs.
-                    Each tab now owns its own glow and cross-fades instead — at
-                    40px across, during a route change, the two read the same,
-                    and it costs no JS. */}
-                <span
-                  aria-hidden
-                  className={cn(
-                    "absolute inset-0 bg-[var(--color-lime)]/20 rounded-full blur-sm transition-opacity duration-200",
-                    isActive ? "opacity-100" : "opacity-0"
-                  )}
-                />
+                <item.icon className={cn("w-6 h-6 relative z-10", isActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
+                <span className="text-[10px] font-medium leading-none">{item.label}</span>
               </Link>
             )
           })}
@@ -155,18 +145,12 @@ export default function BottomNav() {
             aria-label="More"
             aria-expanded={showMore && !closing}
             className={cn(
-              "relative p-2 flex items-center justify-center transition-colors",
+              "relative flex flex-1 flex-col items-center justify-center gap-1 py-1.5 transition-colors",
               isMoreActive ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
             )}
           >
-            <MoreHorizontal className={cn("w-6 h-6 z-10 relative", isMoreActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
-            <span
-              aria-hidden
-              className={cn(
-                "absolute inset-0 bg-[var(--color-lime)]/20 rounded-full blur-sm transition-opacity duration-200",
-                isMoreActive ? "opacity-100" : "opacity-0"
-              )}
-            />
+            <MoreHorizontal className={cn("w-6 h-6 relative z-10", isMoreActive && "drop-shadow-[0_0_8px_rgba(212,255,0,0.5)]")} />
+            <span className="text-[10px] font-medium leading-none">More</span>
           </button>
         </div>
       </div>
