@@ -1,0 +1,41 @@
+name: Precompute Props (NBA + NFL)
+
+# Turns the app's most expensive read-time compute into a scheduled write.
+# Hits /api/cron/precompute-props, which runs the NBA + NFL engines for the
+# default slates (stat=all, direction=all) and stores the finished results in
+# the computed_props table. The /api/props endpoint then serves a single
+# indexed SELECT instead of recomputing, falling back to live compute only for
+# bespoke views (filters/search/matchup) or when a slate is missing/stale.
+#
+# Cadence: every 3 hours. Props derive from completed games + the scheduled
+# slate, which only change when a scraper runs, so 3h keeps lines reasonably
+# fresh (injury/rotation news moves them intraday) without hammering the DB.
+# The scrapers (scrape-nfl 09:00 UTC, scrape-sports) populate the raw tables
+# this reads; running on the 3h grid means a fresh slate lands shortly after
+# each morning scrape.
+
+on:
+  schedule:
+    - cron: '15 */3 * * *'  # every 3 hours, at :15 (after scrapers settle)
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  precompute:
+    name: Precompute default prop slates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger precompute cron
+        run: |
+          echo "Precomputing NBA + NFL default slates…"
+          RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 300 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/precompute-props")
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          CODE=$(echo "$RESPONSE" | tail -n 1)
+          echo "Status: $CODE"
+          echo "Body:   $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Precompute returned $CODE"
+            exit 1
+          fi
+          echo "✓ Precompute complete"

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { cached } from "@/lib/cache"
+import { getPrecomputedProps } from "@/lib/data/computed-props"
 import { computeEnhancedProps } from "@/lib/analytics/engine"
 import { computeMatchupScopedProps, isValidMatchupFormat } from "@/lib/analytics/engine-v2"
 import { computeESPNProps, ESPNSport } from "@/lib/analytics/engine-espn"
@@ -85,6 +86,44 @@ const TEAM_ABBREVIATIONS = new Set([
  */
 function getTodayET(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
+}
+
+/**
+ * Max age of a precomputed slate we'll trust before treating it as absent and
+ * recomputing live. The precompute cron runs every few hours; this bound means
+ * a slate whose cron silently stopped falls back to fresh compute within ~6h
+ * rather than serving an ever-staler payload.
+ */
+const PRECOMPUTED_MAX_AGE_MS = 6 * 60 * 60_000
+
+/**
+ * Read-or-compute for a DEFAULT slate (sport=…&stat=all&direction=all with no
+ * filters/search/matchup). Tries the precomputed `computed_props` table first —
+ * a single indexed SELECT instead of the dozens-of-queries engine fan-out — and
+ * falls back to the live `cached(...)` compute when the row is missing or stale.
+ *
+ * `isDefaultSlate` gates eligibility: anything with a search term, matchup, or
+ * NBA filter is bespoke and was never precomputed, so it always computes live.
+ */
+async function readOrComputeSlate<T>(
+  eligible: boolean,
+  sport: string,
+  todayDate: string,
+  computeCacheKey: string,
+  compute: () => Promise<T>,
+  ttlMs: number
+): Promise<T> {
+  if (eligible) {
+    const precomputed = await getPrecomputedProps<T>(
+      sport,
+      "all",
+      "all",
+      todayDate,
+      PRECOMPUTED_MAX_AGE_MS
+    ).catch(() => null)
+    if (precomputed) return precomputed
+  }
+  return cached(computeCacheKey, compute, ttlMs)
 }
 
 /**
@@ -234,19 +273,36 @@ export const GET = withSecurity(async (request: Request) => {
 
     const filterKey = `${minMinutes}-${vsOpponent ? "1" : "0"}-${withoutPlayer.toLowerCase().replace(/\s+/g, "_")}`
     const nbaCacheKey = `nba-props:${stat}:${direction}:${matchup ?? "all"}:${todayDate}:${filterKey}`
-    const results = await cached(nbaCacheKey, () =>
-      Promise.all(
-        nbaStatsToFetch.map((s) =>
-          computeMatchupScopedProps("NBA", s, {
-            direction: direction === "all" ? "over" : direction,
-            matchup,
-            todayDate,
-            minMinutes,
-            vsOpponent,
-            withoutPlayer,
-          })
-        )
-      ),
+
+    // The precompute cron only covers the default slate (all stats, both
+    // directions, no filters/search/matchup). Bespoke views recompute live.
+    const nbaDefaultSlate =
+      stat === "all" &&
+      direction === "all" &&
+      !matchup &&
+      search.length < 2 &&
+      minMinutes === 0 &&
+      !vsOpponent &&
+      !withoutPlayer.trim()
+
+    const results = await readOrComputeSlate(
+      nbaDefaultSlate,
+      "NBA",
+      todayDate,
+      nbaCacheKey,
+      () =>
+        Promise.all(
+          nbaStatsToFetch.map((s) =>
+            computeMatchupScopedProps("NBA", s, {
+              direction: direction === "all" ? "over" : direction,
+              matchup,
+              todayDate,
+              minMinutes,
+              vsOpponent,
+              withoutPlayer,
+            })
+          )
+        ),
       PROPS_TTL.nba
     )
 
@@ -373,7 +429,17 @@ export const GET = withSecurity(async (request: Request) => {
     const nflMatchup = matchup && /^[A-Za-z]{2,3}-[A-Za-z]{2,3}$/.test(matchup) ? matchup : undefined
 
     const nflCacheKey = `nfl-props:${stat}:${direction}:${search}:${todayDate}:${nflMatchup ?? "all"}`
-    const nflResults = await cached(
+
+    // Precompute covers the default slate only (all stats, both directions, no
+    // search/matchup). The cron stores limit:200 results; the endpoint applies
+    // its own limit downstream, so a wider stored set is safe.
+    const nflDefaultSlate =
+      stat === "all" && direction === "all" && !nflMatchup && search.length < 2
+
+    const nflResults = await readOrComputeSlate(
+      nflDefaultSlate,
+      "NFL",
+      todayDate,
       nflCacheKey,
       () =>
         Promise.all(
