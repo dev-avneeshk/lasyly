@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { ChevronLeft, ChevronRight, Flame, Zap, MapPin, Trophy, Newspaper, Users, Clock, Heart, MessageCircle, Send, Plus, Copy } from "lucide-react"
+import { ChevronLeft, ChevronRight, Zap, MapPin, Trophy, Users, Heart, MessageCircle, Send, Plus, Copy, Activity, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import dynamic from "next/dynamic"
@@ -99,34 +99,39 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
 
   return (
     <div className="w-full">
-      {/* Explore section — scores strip */}
-      <section className="px-6 md:px-10 py-6 border-b border-[var(--color-border)]">
+      {/* Featured game — hero */}
+      <section className="px-6 md:px-10 pt-6 pb-2">
+        <FeaturedGame scores={scores} />
+      </section>
+
+      {/* Live & Upcoming — scores strip */}
+      <section className="px-6 md:px-10 py-6">
         <div className="flex items-center gap-4 mb-4 flex-wrap">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <Zap className="w-5 h-5 text-[var(--color-lime)]" />
-            <span>EXPLORE</span>
+          <h2 className="text-sm font-bold tracking-wide flex items-center gap-2">
+            <Activity className="w-4 h-4 text-[var(--color-lime)]" />
+            <span>LIVE &amp; UPCOMING</span>
           </h2>
           <div className="flex gap-2">
             <button
               onClick={() => setDateFilter(dateFilter === "today" ? "all" : "today")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 dateFilter === "today"
-                  ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
-                  : "border-[var(--color-border)] hover:border-white/30"
+                  ? "bg-[var(--color-lime)] text-black"
+                  : "border border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-white/30 hover:text-white"
               }`}
             >
-              📅 TODAY
+              📅 Today
             </button>
             <div className="relative">
               <button
                 onClick={(e) => { e.stopPropagation(); setShowSportDropdown(!showSportDropdown) }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                   sportFilter !== "all"
-                    ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
-                    : "border-[var(--color-border)] hover:border-white/30"
+                    ? "bg-[var(--color-lime)] text-black"
+                    : "border border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-white/30 hover:text-white"
                 }`}
               >
-                {sportFilter === "all" ? "🔥 ALL SPORTS" : `${SPORT_OPTIONS.find(s => s.id === sportFilter)?.emoji || "🎯"} ${SPORT_OPTIONS.find(s => s.id === sportFilter)?.label || sportFilter.toUpperCase()}`}
+                {sportFilter === "all" ? "🔥 All Sports" : `${SPORT_OPTIONS.find(s => s.id === sportFilter)?.emoji || "🎯"} ${SPORT_OPTIONS.find(s => s.id === sportFilter)?.label || sportFilter.toUpperCase()}`}
               </button>
               {showSportDropdown && (
                 <div className="absolute top-full left-0 mt-1 z-50 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-xl py-1 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
@@ -148,13 +153,18 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
               )}
             </div>
           </div>
-          <div className="ml-auto flex gap-2">
-            <button onClick={() => scrollScores(-1)} aria-label="Scroll scores left" className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-white transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button onClick={() => scrollScores(1)} aria-label="Scroll scores right" className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-white transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          <div className="ml-auto flex items-center gap-3">
+            <Link href="/scores" className="text-xs font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-lime)] transition-colors whitespace-nowrap">
+              View All →
+            </Link>
+            <div className="flex gap-2">
+              <button onClick={() => scrollScores(-1)} aria-label="Scroll scores left" className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-white transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => scrollScores(1)} aria-label="Scroll scores right" className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-white transition-colors">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -177,21 +187,33 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
           ) : (
             scores.slice(0, 20).map((match) => {
               const isFinished = match.status === "Finished"
+              const isUpcoming = match.status === "Not Started"
               return (
                 <div
                   key={match.id}
                   onClick={() => setSelectedMatch(match)}
-                  className="min-w-[220px] flex-shrink-0 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 cursor-pointer transition-colors hover:border-[var(--color-lime)]/30"
+                  className={`min-w-[220px] flex-shrink-0 bg-[var(--color-surface)] border rounded-xl p-3 cursor-pointer transition-colors hover:border-[var(--color-lime)]/30 ${
+                    isUpcoming ? "border-[var(--color-lime)]/40" : "border-[var(--color-border)]"
+                  }`}
                 >
                   {/* Same timezone-driven server/client text mismatch as the
                       featured card: keep the time on one line and let the league
                       absorb the slack, so a longer server-rendered timestamp
                       cannot reflow the row at hydration. */}
-                  <div className="flex justify-between text-[11px] text-[var(--color-text-muted)] mb-2">
-                    <span className="whitespace-nowrap shrink-0" suppressHydrationWarning>
-                      {isFinished ? "FT" : match.startTime ? formatMatchTime(match.startTime) : (match.clock || "Scheduled")}
-                    </span>
-                    <span className="truncate ml-2 min-w-0">{match.league}</span>
+                  <div className="flex justify-between items-center text-[11px] text-[var(--color-text-muted)] mb-2">
+                    <span className="truncate min-w-0 font-semibold text-white/80">{match.league}</span>
+                    {isFinished ? (
+                      <span className="shrink-0 ml-2 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/5 text-[var(--color-text-muted)]">Final</span>
+                    ) : isUpcoming ? (
+                      <span className="shrink-0 ml-2 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[var(--color-lime)]/15 text-[var(--color-lime)]">Upcoming</span>
+                    ) : (
+                      <span className="shrink-0 ml-2 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" /> Live
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] mb-1.5 whitespace-nowrap" suppressHydrationWarning>
+                    {isFinished ? "FT" : match.startTime ? formatMatchTime(match.startTime) : (match.clock || "Scheduled")}
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-[13px]">
@@ -230,11 +252,6 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
             })
           )}
         </div>
-      </section>
-
-      {/* Featured game */}
-      <section className="px-6 md:px-10 py-6">
-        <FeaturedGame scores={scores} />
       </section>
 
       {/* Main content: Social Feed + Mini Leaderboard */}
@@ -295,7 +312,7 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
 }
 
 
-/** Featured Game — picks the hottest upcoming match (falls back to a result) */
+/** Featured Game — the hero card. Picks the hottest upcoming match (falls back to a result). */
 function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
   const popularSports = ["Basketball", "Football", "American Football", "Tennis", "MMA"]
   const upcomingMatches = scores.filter((m) => m.status === "Not Started")
@@ -304,54 +321,86 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
 
   if (!hotMatch) return null
 
+  const isUpcoming = hotMatch.status === "Not Started"
+  // Split the metadata line into league + time/score so it can never wrap;
+  // formatMatchTime resolves in the viewer's timezone (server/client mismatch),
+  // so keeping it on a single truncating line keeps the hero height stable at
+  // hydration and avoids the CLS the old card was prone to.
+  const metaLine = isUpcoming
+    ? hotMatch.startTime
+      ? formatMatchTime(hotMatch.startTime)
+      : "Upcoming"
+    : `${hotMatch.homeScore} - ${hotMatch.awayScore}`
+
   return (
-    <Link href="/scores" className="block group">
-      <div className="rounded-2xl border border-[var(--color-border)] p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors group-hover:border-[var(--color-lime)]/30"
-        style={{ background: "linear-gradient(135deg, #1a2e1a 0%, #1e2820 30%, #1a1f1a 60%, var(--color-surface) 100%)" }}>
-        <div>
-          <div className="flex items-center gap-2 text-sm font-bold text-[var(--color-warning)] mb-2">
-            <Flame className="w-4 h-4" /> FEATURED MATCHUP
+    <div
+      className="relative overflow-hidden rounded-3xl border border-[var(--color-border)]"
+      style={{
+        background:
+          "radial-gradient(120% 140% at 100% 0%, rgba(212,255,0,0.10) 0%, rgba(20,26,16,0.6) 35%, #0d0f0c 70%, #0a0b09 100%)",
+      }}
+    >
+      {/* Diagonal lime energy streak, echoing the mockup's "vs" bolt */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-[38%] w-[2px] rotate-[18deg] bg-gradient-to-b from-transparent via-[var(--color-lime)]/70 to-transparent blur-[1px] hidden md:block"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-[-30%] right-[-10%] w-[45%] h-[160%] rotate-[18deg] bg-[var(--color-lime)]/10 blur-3xl hidden md:block"
+      />
+
+      <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 md:p-10">
+        {/* Left — matchup info */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-lime)] mb-4">
+            <Zap className="w-3.5 h-3.5" /> Featured Matchup
           </div>
-          <h3 className="text-xl md:text-2xl font-extrabold tracking-wide mb-1">
-            {hotMatch.homeTeam} vs {hotMatch.awayTeam}
-          </h3>
-          {/* `truncate` (nowrap + ellipsis) is load-bearing, not cosmetic.
-              formatMatchTime resolves in the VIEWER's timezone, so the server
-              renders a different string than the client — e.g. "3 Oct, 12:30 am"
-              on a UTC server vs "7:00 pm" locally. The longer server string
-              wrapped onto a second line and then collapsed to one line at
-              hydration, shrinking this block by ~16px and pulling the whole feed
-              section up with it. That reflow was the measured 0.121 CLS on
-              /explore (confirmed in the Lighthouse trace: siblings moved up 16px
-              while text boxes narrowed 314px -> 308px). Pinning this to a single
-              line makes the height independent of the string length. */}
-          <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate" suppressHydrationWarning>
-            {hotMatch.league} · {hotMatch.status === "Not Started" ? (hotMatch.startTime ? formatMatchTime(hotMatch.startTime) : "Upcoming") : `${hotMatch.homeScore} - ${hotMatch.awayScore}`}
+          <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-[1.05] mb-4">
+            <span className="block text-white">{hotMatch.homeTeam}</span>
+            <span className="block">
+              <span className="text-[var(--color-lime)]">vs </span>
+              <span className="text-white">{hotMatch.awayTeam}</span>
+            </span>
+          </h2>
+          <p className="text-sm text-[var(--color-text-muted)] mb-1 truncate" suppressHydrationWarning>
+            {hotMatch.league} · {metaLine}
           </p>
           {hotMatch.venue && (
-            <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
+            <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1 mb-6">
               <MapPin className="w-3 h-3" /> {hotMatch.venue}
             </p>
           )}
+          <Link
+            href="/scores"
+            className="inline-flex items-center gap-2 bg-[var(--color-lime)] text-black font-bold text-sm px-5 py-2.5 rounded-full hover:scale-[0.98] active:scale-[0.96] transition-transform duration-300"
+          >
+            View Match <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {hotMatch.status === "Not Started" && (
-            <div className="flex items-center gap-2 bg-[var(--color-surface)] border border-[var(--color-lime)]/30 rounded-full px-4 py-2 text-sm font-semibold">
-              <span className="text-[var(--color-lime)]">UPCOMING</span>
-            </div>
-          )}
-          <div className="flex items-center gap-3">
+
+        {/* Right — logos + tagline */}
+        <div className="flex items-center gap-8 shrink-0">
+          <div className="flex items-center gap-4 md:gap-6">
             {hotMatch.homeLogo && (
-              <Image src={hotMatch.homeLogo} alt={hotMatch.homeTeam} width={40} height={40} className="w-10 h-10 object-contain" />
+              <Image src={hotMatch.homeLogo} alt={hotMatch.homeTeam} width={72} height={72} className="w-14 h-14 md:w-20 md:h-20 object-contain drop-shadow-[0_0_20px_rgba(212,255,0,0.15)]" />
             )}
-            <span className="text-2xl font-black">{hotMatch.status === "Not Started" ? "vs" : `${hotMatch.homeScore} - ${hotMatch.awayScore}`}</span>
+            <span className="text-2xl md:text-3xl font-black text-[var(--color-lime)]">
+              {isUpcoming ? "VS" : `${hotMatch.homeScore}-${hotMatch.awayScore}`}
+            </span>
             {hotMatch.awayLogo && (
-              <Image src={hotMatch.awayLogo} alt={hotMatch.awayTeam} width={40} height={40} className="w-10 h-10 object-contain" />
+              <Image src={hotMatch.awayLogo} alt={hotMatch.awayTeam} width={72} height={72} className="w-14 h-14 md:w-20 md:h-20 object-contain drop-shadow-[0_0_20px_rgba(212,255,0,0.15)]" />
             )}
+          </div>
+          <div className="hidden lg:block text-right leading-relaxed">
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/70">Play.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/70">Analyze.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/70">Discuss.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[var(--color-lime)]">Belong.</p>
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
 
@@ -417,33 +466,44 @@ function MiniLeaderboard({ initialLeaders }: { initialLeaders: LeaderboardSnapsh
       ) : leaders.length === 0 ? (
         <p className="text-xs text-[var(--color-text-muted)] text-center py-4 min-h-[200px] flex items-center justify-center">No data yet</p>
       ) : (
-        <div className="space-y-2.5 min-h-[200px]">
-          {leaders.map((entry, i) => (
-            <Link
-              key={entry.user_id}
-              href={`/l/${entry.username}`}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group"
-            >
-              <span className={`text-xs font-bold w-5 text-center ${i === 0 ? "text-yellow-400" : i === 1 ? "text-gray-300" : i === 2 ? "text-amber-600" : "text-[var(--color-text-muted)]"}`}>
-                {i + 1}
-              </span>
-              {entry.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={entry.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-[var(--color-lime)]/10 flex items-center justify-center">
-                  <Users className="w-3.5 h-3.5 text-[var(--color-lime)]" />
+        <div className="space-y-1 min-h-[200px]">
+          {leaders.map((entry, i) => {
+            // Top three get a filled medal chip; everyone else a plain numeral.
+            const medal =
+              i === 0
+                ? "bg-yellow-400/15 text-yellow-400 ring-1 ring-yellow-400/40"
+                : i === 1
+                  ? "bg-gray-300/15 text-gray-300 ring-1 ring-gray-300/40"
+                  : i === 2
+                    ? "bg-amber-600/15 text-amber-500 ring-1 ring-amber-600/40"
+                    : "text-[var(--color-text-muted)]"
+            return (
+              <Link
+                key={entry.user_id}
+                href={`/l/${entry.username}`}
+                className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group"
+              >
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${medal}`}>
+                  {i + 1}
+                </span>
+                {entry.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entry.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[var(--color-lime)]/10 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-[var(--color-lime)]" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white truncate group-hover:text-[var(--color-lime)] transition-colors">
+                    {entry.display_name || entry.username}
+                  </p>
+                  <p className="text-[10px] text-[var(--color-text-muted)]">{entry.total_picks} picks</p>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate group-hover:text-[var(--color-lime)] transition-colors">
-                  {entry.display_name || entry.username}
-                </p>
-                <p className="text-[10px] text-[var(--color-text-muted)]">{entry.total_picks} picks</p>
-              </div>
-              <span className="text-xs font-bold text-[var(--color-lime)]">{entry.win_rate}%</span>
-            </Link>
-          ))}
+                <span className="shrink-0 text-xs font-bold text-[var(--color-lime)] tabular-nums">{entry.win_rate}%</span>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
@@ -508,6 +568,12 @@ function SocialFeed({ initialFeed }: { initialFeed: FeedSnapshot }) {
   const [nextCursor, setNextCursor] = useState<string | null>(initialFeed.nextCursor)
   const [loadingMore, setLoadingMore] = useState(false)
   const observerRef = useRef<HTMLDivElement>(null)
+
+  // Feed tab. The feed API only supports cursor pagination, so these tabs
+  // reshape the already-loaded posts client-side rather than pretending the
+  // server can filter them: "for-you" keeps server order, "trending" sorts by
+  // engagement, and "following" is a placeholder until a follow graph exists.
+  const [feedTab, setFeedTab] = useState<"for-you" | "trending" | "following">("for-you")
 
   // Compose state
   const [showCompose, setShowCompose] = useState(false)
@@ -647,13 +713,45 @@ function SocialFeed({ initialFeed }: { initialFeed: FeedSnapshot }) {
     }
   }
 
+  // Reshape posts for the active tab (see feedTab note above).
+  const displayPosts =
+    feedTab === "trending"
+      ? [...posts].sort(
+          (a, b) => (b.like_count + b.comment_count) - (a.like_count + a.comment_count),
+        )
+      : posts
+
+  const TABS: Array<{ id: typeof feedTab; label: string }> = [
+    { id: "for-you", label: "For You" },
+    { id: "trending", label: "Trending" },
+    { id: "following", label: "Following" },
+  ]
+
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold flex items-center gap-2">
-          <Users className="w-5 h-5 text-[var(--color-lime)]" /> COMMUNITY
-        </h3>
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <h3 className="text-base font-bold flex items-center gap-2">
+            <Users className="w-5 h-5 text-[var(--color-lime)]" /> COMMUNITY
+          </h3>
+          {/* Tabs */}
+          <div className="flex items-center gap-1 rounded-full bg-white/5 p-0.5">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFeedTab(tab.id)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  feedTab === tab.id
+                    ? "bg-[var(--color-lime)] text-black"
+                    : "text-[var(--color-text-muted)] hover:text-white"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <button
           onClick={() => setShowCompose(!showCompose)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-lime)] text-black rounded-lg text-xs font-bold hover:bg-[var(--color-lime)]/90 transition-colors"
@@ -777,21 +875,30 @@ function SocialFeed({ initialFeed }: { initialFeed: FeedSnapshot }) {
             </div>
           ))}
         </div>
-      ) : posts.length === 0 ? (
+      ) : feedTab === "following" ? (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-8 text-center">
+          <Users className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-3" />
+          <p className="text-sm text-[var(--color-text-muted)] mb-1">Nothing here yet</p>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Follow creators and friends to see their posts in this tab.
+          </p>
+        </div>
+      ) : displayPosts.length === 0 ? (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-8 text-center">
           <Users className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-3" />
           <p className="text-sm text-[var(--color-text-muted)]">No posts yet. Be the first to share!</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {posts.map((post) => (
+          {displayPosts.map((post) => (
             <PostCard key={post.id} post={post} onLike={handleLike} />
           ))}
 
-          {/* Infinite scroll trigger */}
-          <div ref={observerRef} className="h-4" />
+          {/* Infinite scroll trigger — only paginate the default feed order,
+              since the trending sort reorders the loaded set client-side. */}
+          {feedTab === "for-you" && <div ref={observerRef} className="h-4" />}
 
-          {loadingMore && (
+          {loadingMore && feedTab === "for-you" && (
             <div className="flex justify-center py-4">
               <div className="w-6 h-6 border-2 border-[var(--color-lime)] border-t-transparent rounded-full animate-spin" />
             </div>

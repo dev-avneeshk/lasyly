@@ -15,7 +15,9 @@ import { useArenaServer } from "./useArenaServer"
 import { ServerArena } from "./ServerArena"
 import type { ArenaLaunch } from "./ArenaSetup"
 import type { TeamId } from "@/lib/arena/types"
+import { getSeasonPlayers } from "@/lib/arena/data"
 import { cn } from "@/lib/utils"
+import { Hourglass } from "lucide-react"
 
 /**
  * Everything expensive about /arena/nba: the auction engine, the AI, the
@@ -110,7 +112,7 @@ export default function ArenaGame({
   const lot = state.lot
   const timeSec = Math.ceil(game.timeLeft / 1000)
   return (
-    <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-[19rem] md:px-6 md:pb-40 lg:pb-8">
+    <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-6 md:pb-16 lg:pb-8">
       {/* MOBILE — compact wallets side by side up top so balance stays visible
           while the card + bid buttons stay above the fold. Hidden on lg+. */}
       <div className="mb-4 grid grid-cols-2 gap-3 lg:hidden">
@@ -122,11 +124,60 @@ export default function ArenaGame({
         <main className="order-1 flex min-w-0 flex-col items-center gap-3 lg:order-2">
           {lot && <AuctionHeader lotNumber={state.results.length + 1} totalLots={state.results.length + state.queue.length} timeSec={timeSec} maxSec={state.config.auctionTimerSeconds} currentBid={lot.currentBid} status={lot.highBidder === "P1" ? { text: "You lead. CPU is deciding.", tone: "good" } : lot.highBidder === "P2" ? { text: "CPU leads. Your move.", tone: "warn" } : { text: "Opening bid. Make an offer.", tone: "neutral" }} />}
           <div className="relative w-full"><div className={cn("transition-[filter] duration-200", game.lastAward && "blur-[2px]")}><AnimatePresence mode="wait">{lot && <PlayerCard key={lot.player.id} player={lot.player} />}</AnimatePresence></div><AnimatePresence>{game.lastAward && <SoldStamp name={game.lastAward.name} winnerLabel={game.lastAward.winner === "P1" ? P1_LABEL : P2_LABEL} price={game.lastAward.price} />}</AnimatePresence></div>
-          {lot && <div className="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-20 border-t border-white/10 bg-[var(--color-background)]/95 px-4 pb-3 pt-3 backdrop-blur-xl md:bottom-0 md:pb-[calc(1rem+env(safe-area-inset-bottom))] lg:static lg:z-auto lg:w-full lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"><div className="mx-auto w-full max-w-md lg:max-w-none"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div></div>}
+          {/* Bid controls flow inline like the mockup — no fixed overlay that
+              clips the card or hides the queue bar. On lg+ this sits inside the
+              center column. */}
+          {lot && <div className="w-full"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div>}
+          {lot && <NextInQueue season={state.season} queue={state.queue} currentId={lot.player.id} />}
         </main>
         <div className="hidden lg:order-3 lg:block lg:pt-1">{game.budgets && <BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P2"} isAI />}</div>
       </div>
     </div>
+  )
+}
+
+/**
+ * MOBILE-ONLY "up next" strip. `state.queue` holds the ids still to be
+ * auctioned (the current lot is already popped off), so the head of the queue
+ * — minus the current player, guarding the transient window where it hasn't
+ * been removed yet — is the next lot, and the queue length is what's left. The
+ * progress bar shows how far through the board we are. Hidden on lg+ where the
+ * side rails already carry roster/budget context.
+ */
+function NextInQueue({ season, queue, currentId }: { season: Parameters<typeof getSeasonPlayers>[0]; queue: string[]; currentId: string }) {
+  const remainingIds = queue.filter((id) => id !== currentId)
+  const remaining = remainingIds.length
+  if (remaining === 0) return null
+
+  const pool = getSeasonPlayers(season)
+  const next = pool.find((p) => p.id === remainingIds[0])
+  if (!next) return null
+
+  const positions = [next.primaryPosition, ...next.secondaryPositions].join(" / ")
+  // Rough board progress: filled portion grows as the queue drains. Uses the
+  // next player's overall as a light visual so the bar isn't static; purely
+  // decorative, not a real metric.
+  const pct = Math.max(0.08, Math.min(1, next.overall / 100))
+
+  return (
+    <section className="w-full rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 px-3.5 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.16)] lg:hidden">
+      <div className="flex items-center gap-3">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.06] text-[#8f9ab0]">
+          <Hourglass className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="block text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8f9ab0]">Next in queue</span>
+          <strong className="block truncate text-sm font-black text-[#f4f6fb]">{next.name}</strong>
+        </div>
+        <span className="shrink-0 text-[10px] font-semibold text-[#8f9ab0]">{remaining} remaining</span>
+      </div>
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+          <motion.span className="block h-full rounded-full bg-[#7c6bff]" initial={{ scaleX: 0 }} animate={{ scaleX: pct }} transition={{ duration: 0.4 }} style={{ transformOrigin: "left" }} />
+        </div>
+        <span className="shrink-0 text-[9px] font-medium text-[#8f9ab0]">{positions}</span>
+      </div>
+    </section>
   )
 }
 

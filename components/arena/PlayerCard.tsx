@@ -15,7 +15,7 @@ function Headshot({ player }: { player: SeasonPlayer }) {
   const [failed, setFailed] = useState(false)
 
   return (
-    <div className="relative h-[8.75rem] w-[8.75rem] shrink-0 overflow-hidden rounded-[1.15rem] border border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(123,110,255,0.52),transparent_58%),linear-gradient(145deg,#202955,#0c1025)] sm:h-40 sm:w-40">
+    <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-[1.15rem] border border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(123,110,255,0.52),transparent_58%),linear-gradient(145deg,#202955,#0c1025)] sm:h-40 sm:w-40">
       {url && !failed ? (
         // next/image optimizes + edge-caches NBA CDN headshots (AVIF/WebP,
         // 24h minimumCacheTTL). `priority` because this is the focal card of
@@ -102,15 +102,18 @@ export function PlayerCard({ player }: { player: SeasonPlayer }) {
             ))}
           </div>
         </div>
-        <div className="grid h-[4.4rem] w-[4.4rem] shrink-0 place-items-center rounded-xl border border-white/[0.06] bg-[#090d1f]/65 text-center">
+        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-white/[0.06] bg-[#090d1f]/65 text-center sm:h-[4.4rem] sm:w-[4.4rem]">
           <div>
             <span className="block text-[8px] font-semibold uppercase tracking-[0.16em] text-[#9da6be]">OVR</span>
-            <span className="mt-0.5 block text-3xl font-black leading-none tabular-nums text-[#d4ff00]">{player.overall}</span>
+            <span className="mt-0.5 block text-2xl font-black leading-none tabular-nums text-[#d4ff00] sm:text-3xl">{player.overall}</span>
           </div>
         </div>
       </div>
 
-      <div className="relative mt-5 grid gap-3 sm:grid-cols-[1fr_0.9fr]">
+      {/* Detailed breakdown is hidden on mobile — the chips above already
+          convey the player's identity, and dropping the grid keeps the card
+          compact so the bid controls stay above the fold. Shown on sm+. */}
+      <div className="relative mt-5 hidden gap-3 sm:grid sm:grid-cols-[1fr_0.9fr]">
         <section className="rounded-xl border border-white/[0.06] bg-[#090d1f]/45 p-3">
           <h3 className="mb-3 text-[9px] font-bold uppercase tracking-[0.16em] text-[#d7ddeb]">Attributes</h3>
           <div className="space-y-2.5">

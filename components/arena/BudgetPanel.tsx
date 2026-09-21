@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
+import { Cpu, Wallet } from "lucide-react"
 import type { BudgetSnapshot } from "@/lib/arena/budget"
 import type { RosterState, RosterSlot, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { ROSTER_SLOTS } from "@/lib/arena/types"
@@ -42,20 +43,29 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
         "rounded-[1.1rem] border bg-[#11141e]/90 p-3.5 shadow-[0_18px_34px_rgba(0,0,0,0.16)]",
         isHighBidder ? "border-[#b8ed0c]/75" : "border-white/[0.08]"
       )}>
+        {/* ── Header row ─────────────────────────────────────────────
+            MOBILE mirrors the mockup: rounded icon tile + name, AI badge,
+            and a LEADING pill pinned right. The desktop tree keeps its own
+            "View budget →" affordance below. */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.04em] text-[#f1f4fb]">{isYou ? "Your wallet" : label}</h2>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/[0.06] text-[#e7ebf5] lg:hidden">
+              {isYou ? <Wallet className="h-3.5 w-3.5" /> : <Cpu className="h-3.5 w-3.5" />}
+            </span>
+            <h2 className="truncate text-[11px] font-black uppercase tracking-[0.04em] text-[#f1f4fb]">{isYou ? "Wallet" : label}</h2>
             {isAI && <span className="rounded bg-[#5442c7]/40 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#c3bdff]">AI</span>}
           </div>
-          {isHighBidder ? <span className="rounded bg-[#d4ff00] px-1.5 py-0.5 text-[8px] font-black uppercase text-[#151a0a]">Leading</span> : isYou ? <span className="text-[9px] font-semibold text-[#8b7fff]">View budget →</span> : null}
+          {isHighBidder ? <span className="rounded bg-[#d4ff00] px-1.5 py-0.5 text-[8px] font-black uppercase text-[#151a0a]">Leading</span> : isYou ? <span className="hidden text-[9px] font-semibold text-[#8b7fff] lg:inline">View budget →</span> : null}
         </div>
 
-        {/* Compact money line — MOBILE ONLY. Keeps balance visible without the
-            tall wallet grid + roster list pushing the bid buttons off-screen. */}
-        <div className="mt-2 flex items-center justify-between gap-2 text-[10px] lg:hidden">
-          <span className="text-[#9ba6ba]">Left <span className="font-black tabular-nums text-[#d4ff00]">${formatMoney(budget.remaining)}</span></span>
-          <span className="text-[#9ba6ba]">Max <span className="font-bold tabular-nums text-[#f1f4fb]">${formatMoney(budget.maxAffordable)}</span></span>
-          <span className="text-[#9ba6ba]">Roster <span className="font-bold tabular-nums text-[#f1f4fb]">{budget.slotsFilled}/{budget.slotsFilled + budget.slotsRemaining}</span></span>
+        {/* Labeled stat columns — MOBILE ONLY. Matches the mockup's
+            Left / Max per bid / Roster spots layout instead of a cramped
+            single line, while staying short enough to keep the bid buttons
+            above the fold. */}
+        <div className="mt-2.5 grid grid-cols-3 gap-2 lg:hidden">
+          <MobileStat label="Left" value={`$${formatMoney(budget.remaining)}`} tone="lime" />
+          <MobileStat label="Max per bid" value={`$${formatMoney(budget.maxAffordable)}`} />
+          <MobileStat label="Roster spots" value={`${budget.slotsFilled}/${budget.slotsFilled + budget.slotsRemaining}`} />
         </div>
 
         <div className="mt-3 hidden grid-cols-3 gap-1.5 lg:grid">
@@ -98,6 +108,17 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
         </div>
       </section>
     </aside>
+  )
+}
+
+function MobileStat({ label, value, tone }: { label: string; value: string; tone?: "lime" }) {
+  return (
+    <div className="min-w-0">
+      <span className={cn("block text-[15px] font-black leading-none tabular-nums", tone === "lime" ? "text-[#d4ff00]" : "text-[#f1f4fb]")}>{value}</span>
+      {/* Labels wrap rather than truncate so "Max per bid" / "Roster spots"
+          stay readable at narrow widths instead of collapsing to "Max per…". */}
+      <span className="mt-1.5 block text-[8px] font-semibold uppercase leading-tight tracking-[0.06em] text-[#8f9ab0]">{label}</span>
+    </div>
   )
 }
 

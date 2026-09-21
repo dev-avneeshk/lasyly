@@ -34,7 +34,7 @@
       },
       "p2": {
         "PG": {
-          "id": "bradley-beal",
+          "id": "daeqwon-plowden",
           "price": 3
         },
         "SG": {
@@ -54,14 +54,14 @@
           "price": 5
         },
         "BENCH": {
-          "id": "chris-paul",
+          "id": "chucky-hepburn",
           "price": 6
         }
       },
       "ts": {
-        "p1WinRate": 0.8825,
-        "avgP1": 112.8025,
-        "avgP2": 91.66
+        "p1WinRate": 0.8475,
+        "avgP1": 113.2025,
+        "avgP2": 95.68
       }
     },
     {
@@ -75,7 +75,7 @@
           "price": 4
         },
         "SG": {
-          "id": "kyshawn-george",
+          "id": "kevin-huerter",
           "price": 5
         },
         "SF": {
@@ -91,13 +91,13 @@
           "price": 1
         },
         "BENCH": {
-          "id": "landry-shamet",
+          "id": "kyle-kuzma",
           "price": 1
         }
       },
       "p2": {
         "PG": {
-          "id": "will-richard",
+          "id": "wendell-moore-jr",
           "price": 2
         },
         "SG": {
@@ -105,7 +105,7 @@
           "price": 6
         },
         "SF": {
-          "id": "cam-whitmore",
+          "id": "carter-bryant",
           "price": 1
         },
         "PF": {
@@ -122,9 +122,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.5875,
-        "avgP1": 106.0925,
-        "avgP2": 102.1675
+        "p1WinRate": 0.535,
+        "avgP1": 106,
+        "avgP2": 103.54
       }
     },
     {
@@ -134,7 +134,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "daquan-jeffries",
+          "id": "christian-braun",
           "price": 6
         },
         "SG": {
@@ -180,14 +180,14 @@
           "price": 5
         },
         "BENCH": {
-          "id": "cameron-payne",
+          "id": "branden-carlson",
           "price": 5
         }
       },
       "ts": {
-        "p1WinRate": 0.31,
-        "avgP1": 100.725,
-        "avgP2": 109.2425
+        "p1WinRate": 0.2275,
+        "avgP1": 97.205,
+        "avgP2": 110.3175
       }
     },
     {
@@ -197,7 +197,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "gary-harris",
+          "id": "gradey-dick",
           "price": 5
         },
         "SG": {
@@ -243,14 +243,14 @@
           "price": 6
         },
         "BENCH": {
-          "id": "guerschon-yabusele",
+          "id": "garrison-mathews",
           "price": 5
         }
       },
       "ts": {
-        "p1WinRate": 0.69,
-        "avgP1": 107.1975,
-        "avgP2": 98.5425
+        "p1WinRate": 0.7225,
+        "avgP1": 106.9,
+        "avgP2": 97.5925
       }
     },
     {
@@ -286,7 +286,7 @@
       },
       "p2": {
         "PG": {
-          "id": "bryce-mcgowens",
+          "id": "caleb-love",
           "price": 5
         },
         "SG": {
@@ -311,9 +311,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.355,
-        "avgP1": 104.795,
-        "avgP2": 109.4725
+        "p1WinRate": 0.465,
+        "avgP1": 104.715,
+        "avgP2": 105.695
       }
     },
     {
@@ -374,9 +374,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.4175,
-        "avgP1": 98.6775,
-        "avgP2": 102.6025
+        "p1WinRate": 0.395,
+        "avgP1": 98.46,
+        "avgP2": 102.655
       }
     },
     {
@@ -390,7 +390,7 @@
           "price": 6
         },
         "SG": {
-          "id": "josh-minott",
+          "id": "john-konchar",
           "price": 4
         },
         "SF": {
@@ -406,13 +406,13 @@
           "price": 1
         },
         "BENCH": {
-          "id": "trey-alexander",
+          "id": "taylor-hendricks",
           "price": 6
         }
       },
       "p2": {
         "PG": {
-          "id": "javon-small",
+          "id": "jaylon-tyson",
           "price": 1
         },
         "SG": {
@@ -437,9 +437,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.2475,
-        "avgP1": 101.15,
-        "avgP2": 112.5275
+        "p1WinRate": 0.2375,
+        "avgP1": 99.3425,
+        "avgP2": 110.8575
       }
     },
     {
@@ -453,11 +453,11 @@
           "price": 2
         },
         "SG": {
-          "id": "cole-anthony",
+          "id": "cody-martin",
           "price": 5
         },
         "SF": {
-          "id": "chris-boucher",
+          "id": "carter-bryant",
           "price": 6
         },
         "PF": {
@@ -469,13 +469,13 @@
           "price": 6
         },
         "BENCH": {
-          "id": "jamal-shead",
+          "id": "jamal-cain",
           "price": 1
         }
       },
       "p2": {
         "PG": {
-          "id": "dangelo-russell",
+          "id": "chris-youngblood",
           "price": 2
         },
         "SG": {
@@ -500,9 +500,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.605,
-        "avgP1": 104.705,
-        "avgP2": 101.7675
+        "p1WinRate": 0.38,
+        "avgP1": 106.535,
+        "avgP2": 111.4325
       }
     },
     {
@@ -542,7 +542,7 @@
           "price": 4
         },
         "SG": {
-          "id": "javon-small",
+          "id": "haywood-highsmith",
           "price": 5
         },
         "SF": {
@@ -558,14 +558,14 @@
           "price": 4
         },
         "BENCH": {
-          "id": "matas-buzelis",
+          "id": "kadary-richmond",
           "price": 5
         }
       },
       "ts": {
-        "p1WinRate": 0.7,
-        "avgP1": 106.9825,
-        "avgP2": 98.93
+        "p1WinRate": 0.765,
+        "avgP1": 108.705,
+        "avgP2": 97.3325
       }
     },
     {
@@ -579,7 +579,7 @@
           "price": 2
         },
         "SG": {
-          "id": "nigel-hayes-davis",
+          "id": "nikola-topic",
           "price": 3
         },
         "SF": {
@@ -626,9 +626,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.6,
-        "avgP1": 111.47,
-        "avgP2": 107.2225
+        "p1WinRate": 0.6375,
+        "avgP1": 112.2075,
+        "avgP2": 106.605
       }
     },
     {
@@ -658,13 +658,13 @@
           "price": 4
         },
         "BENCH": {
-          "id": "jamal-cain",
+          "id": "hugo-gonzalez",
           "price": 1
         }
       },
       "p2": {
         "PG": {
-          "id": "tyler-kolek",
+          "id": "stanley-umude",
           "price": 5
         },
         "SG": {
@@ -684,14 +684,14 @@
           "price": 6
         },
         "BENCH": {
-          "id": "jeremy-sochan",
+          "id": "jeremiah-fears",
           "price": 3
         }
       },
       "ts": {
-        "p1WinRate": 0.7925,
-        "avgP1": 106.8525,
-        "avgP2": 93.835
+        "p1WinRate": 0.735,
+        "avgP1": 104.77,
+        "avgP2": 94.75
       }
     },
     {
@@ -731,11 +731,11 @@
           "price": 1
         },
         "SG": {
-          "id": "noah-penda",
+          "id": "mike-conley",
           "price": 1
         },
         "SF": {
-          "id": "andersson-garcia",
+          "id": "zaccharie-risacher",
           "price": 2
         },
         "PF": {
@@ -747,14 +747,14 @@
           "price": 4
         },
         "BENCH": {
-          "id": "keshad-johnson",
+          "id": "kelly-olynyk",
           "price": 5
         }
       },
       "ts": {
-        "p1WinRate": 0.2425,
-        "avgP1": 96.905,
-        "avgP2": 108.2875
+        "p1WinRate": 0.2925,
+        "avgP1": 100.2025,
+        "avgP2": 108.7975
       }
     },
     {
@@ -784,7 +784,7 @@
           "price": 1
         },
         "BENCH": {
-          "id": "colby-jones",
+          "id": "caris-levert",
           "price": 1
         }
       },
@@ -794,11 +794,11 @@
           "price": 6
         },
         "SG": {
-          "id": "riley-minix",
+          "id": "quentin-grimes",
           "price": 5
         },
         "SF": {
-          "id": "kevin-huerter",
+          "id": "kyshawn-george",
           "price": 1
         },
         "PF": {
@@ -815,9 +815,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.535,
-        "avgP1": 112.315,
-        "avgP2": 111.26
+        "p1WinRate": 0.465,
+        "avgP1": 109.8,
+        "avgP2": 112.585
       }
     },
     {
@@ -827,7 +827,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "jase-richardson",
+          "id": "jared-mccain",
           "price": 5
         },
         "SG": {
@@ -857,7 +857,7 @@
           "price": 6
         },
         "SG": {
-          "id": "luke-travers",
+          "id": "malevy-leons",
           "price": 3
         },
         "SF": {
@@ -878,9 +878,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.8275,
-        "avgP1": 113.88,
-        "avgP2": 99.7575
+        "p1WinRate": 0.89,
+        "avgP1": 118.47,
+        "avgP2": 100.1125
       }
     },
     {
@@ -890,7 +890,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "jamal-shead",
+          "id": "garrison-mathews",
           "price": 5
         },
         "SG": {
@@ -916,11 +916,11 @@
       },
       "p2": {
         "PG": {
-          "id": "chris-youngblood",
+          "id": "bub-carrington",
           "price": 4
         },
         "SG": {
-          "id": "tristen-newton",
+          "id": "nickeil-alexander-walker",
           "price": 5
         },
         "SF": {
@@ -941,9 +941,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.09,
-        "avgP1": 97.57,
-        "avgP2": 116.9425
+        "p1WinRate": 0.125,
+        "avgP1": 101.2575,
+        "avgP2": 119.8
       }
     },
     {
@@ -953,7 +953,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "eric-gordon",
+          "id": "donte-divincenzo",
           "price": 1
         },
         "SG": {
@@ -979,7 +979,7 @@
       },
       "p2": {
         "PG": {
-          "id": "josh-okogie",
+          "id": "josh-green",
           "price": 3
         },
         "SG": {
@@ -999,14 +999,14 @@
           "price": 6
         },
         "BENCH": {
-          "id": "tyus-jones",
+          "id": "yuki-kawamura",
           "price": 5
         }
       },
       "ts": {
-        "p1WinRate": 0.535,
-        "avgP1": 103.0925,
-        "avgP2": 102.2425
+        "p1WinRate": 0.5375,
+        "avgP1": 105.22,
+        "avgP2": 103.0225
       }
     },
     {
@@ -1016,15 +1016,15 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "gary-harris",
+          "id": "gradey-dick",
           "price": 4
         },
         "SG": {
-          "id": "bez-mbeng",
+          "id": "andersson-garcia",
           "price": 3
         },
         "SF": {
-          "id": "toumani-camara",
+          "id": "tidjane-salaun",
           "price": 3
         },
         "PF": {
@@ -1046,7 +1046,7 @@
           "price": 2
         },
         "SG": {
-          "id": "jamir-watkins",
+          "id": "jalen-pickett",
           "price": 5
         },
         "SF": {
@@ -1062,14 +1062,14 @@
           "price": 5
         },
         "BENCH": {
-          "id": "jakob-poeltl",
+          "id": "grayson-allen",
           "price": 5
         }
       },
       "ts": {
-        "p1WinRate": 0.7975,
-        "avgP1": 107.615,
-        "avgP2": 94.03
+        "p1WinRate": 0.815,
+        "avgP1": 108.1525,
+        "avgP2": 94.8075
       }
     },
     {
@@ -1079,7 +1079,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "lonzo-ball",
+          "id": "landry-shamet",
           "price": 2
         },
         "SG": {
@@ -1125,14 +1125,14 @@
           "price": 3
         },
         "BENCH": {
-          "id": "trentyn-flowers",
+          "id": "trendon-watford",
           "price": 1
         }
       },
       "ts": {
-        "p1WinRate": 0.4275,
-        "avgP1": 98.2675,
-        "avgP2": 100.9725
+        "p1WinRate": 0.5,
+        "avgP1": 102.6075,
+        "avgP2": 103.08
       }
     },
     {
@@ -1193,9 +1193,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.54,
-        "avgP1": 108.82,
-        "avgP2": 106.345
+        "p1WinRate": 0.5225,
+        "avgP1": 108.7175,
+        "avgP2": 106.45
       }
     },
     {
@@ -1205,7 +1205,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "max-shulga",
+          "id": "miles-kelly",
           "price": 6
         },
         "SG": {
@@ -1231,11 +1231,11 @@
       },
       "p2": {
         "PG": {
-          "id": "johnny-juzang",
+          "id": "john-poulakidas",
           "price": 5
         },
         "SG": {
-          "id": "buddy-boeheim",
+          "id": "caleb-love",
           "price": 2
         },
         "SF": {
@@ -1256,9 +1256,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.5625,
-        "avgP1": 96.215,
-        "avgP2": 93.58
+        "p1WinRate": 0.465,
+        "avgP1": 97.2,
+        "avgP2": 98.8675
       }
     },
     {
@@ -1268,7 +1268,7 @@
       "games": 400,
       "p1": {
         "PG": {
-          "id": "bilal-coulibaly",
+          "id": "baylor-scheierman",
           "price": 2
         },
         "SG": {
@@ -1298,7 +1298,7 @@
           "price": 1
         },
         "SG": {
-          "id": "chris-livingston",
+          "id": "bruce-brown",
           "price": 4
         },
         "SF": {
@@ -1319,9 +1319,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.64,
-        "avgP1": 109.5075,
-        "avgP2": 102.9275
+        "p1WinRate": 0.7575,
+        "avgP1": 113.745,
+        "avgP2": 102.3475
       }
     },
     {
@@ -1335,7 +1335,7 @@
           "price": 4
         },
         "SG": {
-          "id": "adama-alpha-bal",
+          "id": "adou-thiero",
           "price": 1
         },
         "SF": {
@@ -1365,7 +1365,7 @@
           "price": 5
         },
         "SF": {
-          "id": "josh-hart",
+          "id": "michael-porter-jr",
           "price": 4
         },
         "PF": {
@@ -1382,9 +1382,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.425,
-        "avgP1": 104.7,
-        "avgP2": 108.625
+        "p1WinRate": 0.255,
+        "avgP1": 101.55,
+        "avgP2": 111.92
       }
     },
     {
@@ -1445,9 +1445,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.225,
-        "avgP1": 95.805,
-        "avgP2": 107.3975
+        "p1WinRate": 0.2025,
+        "avgP1": 95.715,
+        "avgP2": 108.045
       }
     },
     {
@@ -1461,7 +1461,7 @@
           "price": 3
         },
         "SG": {
-          "id": "buddy-hield",
+          "id": "blake-hinson",
           "price": 5
         },
         "SF": {
@@ -1483,7 +1483,7 @@
       },
       "p2": {
         "PG": {
-          "id": "bruce-brown",
+          "id": "aj-lawson",
           "price": 6
         },
         "SG": {
@@ -1491,7 +1491,7 @@
           "price": 5
         },
         "SF": {
-          "id": "kevin-huerter",
+          "id": "keldon-johnson",
           "price": 4
         },
         "PF": {
@@ -1503,14 +1503,14 @@
           "price": 1
         },
         "BENCH": {
-          "id": "ja-morant",
+          "id": "ivica-zubac",
           "price": 3
         }
       },
       "ts": {
-        "p1WinRate": 0.6825,
-        "avgP1": 109.63,
-        "avgP2": 102.1725
+        "p1WinRate": 0.6125,
+        "avgP1": 111.355,
+        "avgP2": 106.915
       }
     },
     {
@@ -1524,11 +1524,11 @@
           "price": 1
         },
         "SG": {
-          "id": "chris-manon",
+          "id": "caleb-houstan",
           "price": 5
         },
         "SF": {
-          "id": "trendon-watford",
+          "id": "trentyn-flowers",
           "price": 4
         },
         "PF": {
@@ -1540,13 +1540,13 @@
           "price": 5
         },
         "BENCH": {
-          "id": "julian-champagnie",
+          "id": "jalen-slawson",
           "price": 1
         }
       },
       "p2": {
         "PG": {
-          "id": "aj-lawson",
+          "id": "zyon-pullin",
           "price": 2
         },
         "SG": {
@@ -1571,9 +1571,9 @@
         }
       },
       "ts": {
-        "p1WinRate": 0.1,
-        "avgP1": 94.8175,
-        "avgP2": 115.2125
+        "p1WinRate": 0.07,
+        "avgP1": 94.3825,
+        "avgP2": 118.5375
       }
     }
   ]

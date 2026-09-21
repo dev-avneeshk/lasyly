@@ -184,7 +184,15 @@ export function getTeamLogoUrl(teamIdentifier: string, sport: string): string | 
   }
 
   if (sport === "NFL") {
-    const slug = NFL_TEAM_SLUG_MAP[lower]
+    // Ranking/roster data stores NFL teams as abbreviations ("SEA", "LAR",
+    // "NE"), while NFL_TEAM_SLUG_MAP is keyed by full names ("seattle
+    // seahawks"). Try the full-name map first, then fall back to treating the
+    // identifier as an abbreviation — the ESPN NFL slug is just the lowercased
+    // abbreviation. We validate against NFL_TEAM_FULL_NAME so an unknown string
+    // still returns null instead of a broken CDN URL.
+    const slug =
+      NFL_TEAM_SLUG_MAP[lower] ??
+      (NFL_TEAM_FULL_NAME[teamIdentifier.toUpperCase()] ? lower : undefined)
     return slug ? `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png` : null
   }
 
