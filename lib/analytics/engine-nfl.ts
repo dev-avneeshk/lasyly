@@ -557,9 +557,11 @@ async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
  */
 async function fetchHeadshotMap(): Promise<Record<string, string>> {
   return cached(
-    // v2: the values are now our own Storage URLs where available, so entries
-    // written by the previous version must not be served from cache.
-    "nfl-headshots:v2",
+    // v3: the values changed shape twice — first to our own Storage URLs, then
+    // to the 160px `sm` variant of them. This map is held for 24 hours, so
+    // without bumping the key a deploy would keep serving the previous
+    // generation's URLs for a full day.
+    "nfl-headshots:v3",
     async () => {
       const supabase = createAdminClient()
 

@@ -25,6 +25,21 @@ interface PlayerHeroProps {
   onBack: () => void
 }
 
+/**
+ * Upgrade a self-hosted headshot to the large variant.
+ *
+ * The props API serves the 160px `sm` variant, because a props page renders up
+ * to 50 avatars at 36-40 CSS px and the small file saves ~280KB there. This hero
+ * is a single image at 116 CSS px, so it wants the 320px one. Swapping the path
+ * segment avoids a second API round trip just to learn a URL we can derive.
+ *
+ * Non-Supabase URLs (the ESPN fallback) are returned untouched.
+ */
+function largeHeadshot(url: string): string {
+  if (!url.includes("/storage/v1/object/public/player-headshots/")) return url
+  return url.replace(/\/sm\/([^/]+\.webp)$/, "/$1")
+}
+
 /** Splits a name into a two-line watermark, e.g. ["NOAH", "GRAY"]. */
 function watermarkLines(name: string): [string, string] {
   const parts = name.trim().split(/\s+/)
@@ -118,7 +133,7 @@ export function PlayerHero({
               // Headshots come from several ESPN CDN hosts and are already sized.
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={headshotUrl}
+                src={largeHeadshot(headshotUrl)}
                 alt={playerName}
                 className="w-full h-full object-cover object-top"
               />

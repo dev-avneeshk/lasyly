@@ -56,6 +56,16 @@ import { loadEnv, BUCKET } from "./create-headshot-bucket.mjs"
  */
 const SIZE = 320
 
+/**
+ * Card variant, stored alongside the 320px one at `{league}/sm/{espn_id}.webp`.
+ *
+ * Prop cards render 36-40 CSS px and there are up to 50 on a page, so they are
+ * the case worth optimising: 4KB apiece instead of 9.6KB is ~280KB across a full
+ * scroll. 160px still covers a 2x display comfortably. The 320px variant stays
+ * for PlayerHero on the detail page, which is a single image at 116 CSS px.
+ */
+const SIZE_SM = 160
+
 /** WebP quality. 82 is visually indistinguishable at these sizes. */
 const QUALITY = 82
 
@@ -133,7 +143,9 @@ async function listStored(prefix) {
     if (!res.ok) throw new Error(`storage list failed (${res.status}): ${await res.text()}`)
     const objs = await res.json()
     if (!Array.isArray(objs) || objs.length === 0) break
-    for (const o of objs) if (o.name) found.add(`${prefix}${o.name}`)
+    // Files only. A listing of "{league}/" also returns the "sm" folder entry,
+    // which is not a stored headshot and must not count as one.
+    for (const o of objs) if (o.name?.endsWith(".webp")) found.add(`${prefix}${o.name}`)
     if (objs.length < pageSize) break
   }
   return found
@@ -194,15 +206,17 @@ async function buildWebp(row, league) {
   const buf = Buffer.from(await res.arrayBuffer())
   if (buf.length < 512) return { skip: `source too small (${buf.length}B)` }
 
-  // `fit: inside` + no enlargement: scale down to fit a 320 box, never change the
+  // `fit: inside` + no enlargement: scale down to fit the box, never change the
   // aspect ratio, never upscale a source that is already smaller. See the SIZE
   // comment for why preserving aspect matters to the component's zoom.
-  const webp = await sharp(buf)
-    .resize(SIZE, SIZE, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: QUALITY })
-    .toBuffer()
+  const encode = (edge) =>
+    sharp(buf)
+      .resize(edge, edge, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: QUALITY })
+      .toBuffer()
 
-  return { webp }
+  const [webp, webpSm] = await Promise.all([encode(SIZE), encode(SIZE_SM)])
+  return { webp, webpSm }
 }
 
 // ─── Bounded parallel map ────────────────────────────────────────────────────
@@ -256,15 +270,22 @@ async function main() {
 
     await mapLimit(todo, CONCURRENCY, async (row) => {
       const path = `${prefix}${row.espn_id}.webp`
+      const pathSm = `${prefix}sm/${row.espn_id}.webp`
       try {
-        const { webp, skip } = await buildWebp(row, league)
+        const { webp, webpSm, skip } = await buildWebp(row, league)
         if (skip) {
           stats.skipped++
           problems.push(`${row.name} (${row.espn_id}): ${skip}`)
         } else {
+          // ORDER MATTERS: small first, large second. The resumability check and
+          // the app's stored index are both keyed on the large object, so writing
+          // it last means its presence implies the small one is already there. The
+          // reverse order would let a crash between the two uploads leave every
+          // prop card pointing at a 404.
+          await upload(pathSm, webpSm)
           await upload(path, webp)
           stats.synced++
-          stats.bytesOut += webp.length
+          stats.bytesOut += webp.length + webpSm.length
         }
       } catch (e) {
         stats.failed++
