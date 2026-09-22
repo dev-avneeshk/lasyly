@@ -97,6 +97,17 @@ function getTodayET(): string {
 const PRECOMPUTED_MAX_AGE_MS = 6 * 60 * 60_000
 
 /**
+ * How long to remember the *result of looking up* a precomputed slate, hit or
+ * miss.
+ *
+ * The stored payload is the whole default slate (~1MB of JSONB), so reading it
+ * per request is not cheap even though the lookup is a primary-key SELECT. The
+ * cron writes every 3 hours and a slate stays valid for 6, so picking up a new
+ * one within 5 minutes is far tighter than the data actually changes.
+ */
+const PRECOMPUTED_LOOKUP_TTL_MS = 5 * 60_000
+
+/**
  * Read-or-compute for a DEFAULT slate (sport=…&stat=all&direction=all with no
  * filters/search/matchup). Tries the precomputed `computed_props` table first —
  * a single indexed SELECT instead of the dozens-of-queries engine fan-out — and
@@ -114,14 +125,27 @@ async function readOrComputeSlate<T>(
   ttlMs: number
 ): Promise<T> {
   if (eligible) {
-    const precomputed = await getPrecomputedProps<T>(
-      sport,
-      "all",
-      "all",
-      todayDate,
-      PRECOMPUTED_MAX_AGE_MS
-    ).catch(() => null)
-    if (precomputed) return precomputed
+    // Wrapped in `cached()` because this lookup ran on EVERY eligible request,
+    // uncached. When the precompute cron is not writing rows — which was the
+    // live state; `computed_props` was empty because the workflow was curling a
+    // URL that 307s and dropping its auth header — that made it a guaranteed
+    // wasted Supabase round trip in front of the full live compute. A miss is
+    // now remembered too, via a sentinel wrapper: `cached()` reads a stored
+    // `null` back as "no entry" and would re-query forever.
+    const precomputed = await cached<{ payload: T | null }>(
+      `precomputed-slate:${sport}:all:all:${todayDate}`,
+      async () => ({
+        payload: await getPrecomputedProps<T>(
+          sport,
+          "all",
+          "all",
+          todayDate,
+          PRECOMPUTED_MAX_AGE_MS
+        ).catch(() => null),
+      }),
+      PRECOMPUTED_LOOKUP_TTL_MS
+    ).catch(() => ({ payload: null }))
+    if (precomputed.payload) return precomputed.payload
   }
   return cached(computeCacheKey, compute, ttlMs)
 }
@@ -393,20 +417,25 @@ export const GET = withSecurity(async (request: Request) => {
     // single Redis GET once warm. It used to be an inline Supabase query plus up
     // to six 4-second ESPN roster fetches, run on every request — including the
     // cache hits above that had otherwise done no work at all.
+    //
+    // Copy-on-write rather than assigning onto `prop`: these objects come
+    // straight out of the cached/precomputed slate, and `cached()` now hands
+    // concurrent callers the same object reference instead of a freshly parsed
+    // one. Writing through would mutate the cache in place. The values are
+    // identical either way, so this is defensive, but it keeps "nothing mutates
+    // a cached value" true as an invariant instead of an accident.
+    let withHeadshots = limited
     if (limited.length > 0) {
       const headshots = await resolveNBAHeadshots(
         limited.map((p: any) => ({ player: p.player as string, team: p.team as string | null }))
       )
-      for (const prop of limited) {
-        const p = prop as any
-        if (!p.headshotUrl) {
-          p.headshotUrl = headshots[p.player] ?? null
-        }
-      }
+      withHeadshots = limited.map((prop: any) =>
+        prop.headshotUrl ? prop : { ...prop, headshotUrl: headshots[prop.player] ?? null }
+      )
     }
 
     return NextResponse.json({
-      props: limited,
+      props: withHeadshots,
       todayGames,
       fallbackMode,
       meta: {

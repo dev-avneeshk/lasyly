@@ -27,7 +27,14 @@ jobs:
       - name: Trigger precompute cron
         run: |
           echo "Precomputing NBA + NFL default slates…"
-          RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 300 \
+          # --location-trusted, not just -L: the apex domain 307s to the www
+          # canonical host, and plain -L DROPS the Authorization header on a
+          # cross-host redirect. Without this the job either reported 307 (no
+          # -L) or 401 (plain -L) and never wrote a row — which is why
+          # computed_props sat empty and every props request fell through to a
+          # full live recompute. Both hosts are ours, so forwarding the cron
+          # secret across the redirect is safe.
+          RESPONSE=$(curl -s --location-trusted -w "\n%{http_code}" --max-time 300 \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ secrets.SITE_URL }}/api/cron/precompute-props")
           BODY=$(echo "$RESPONSE" | head -n -1)

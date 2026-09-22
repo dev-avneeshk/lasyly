@@ -241,7 +241,7 @@ async function fetchDefenseRows(season: number | "all"): Promise<RawRow[]> {
  * engine swallowed in a `catch`, so matchup grades silently disappeared and the
  * /api/props/nfl-defense panels returned empty groups until the TTL lapsed.
  */
-interface LeagueTable {
+export interface LeagueTable {
   /** team → position → statKey → per-game value allowed. */
   perGame: Record<string, Record<string, Record<string, number>>>
   /** team → distinct games its defense faced. */
@@ -314,13 +314,20 @@ function computeLeagueTable(rows: RawRow[], split: DefenseSplit): LeagueTable {
  * Returns the full "Defense Allowed" payload for a single team + position,
  * including league averages and ranks computed across all 32 teams.
  */
-export async function getNFLDefenseAllowed(
-  team: string,
-  position: NFLDefensePosition,
-  opts?: { season?: number | "all"; split?: DefenseSplit }
-): Promise<DefenseAllowedResult> {
-  const season = opts?.season ?? "all"
-  const split = opts?.split ?? "all"
+/**
+ * The cached league-wide allowance table for a (season, split).
+ *
+ * Exported separately from `getNFLDefenseAllowed` because the props engine needs
+ * the grade for dozens of (opponent, position) pairs per request. When the only
+ * entry point was `getNFLDefenseAllowed`, each of those pairs went through
+ * `cached()` independently — the table is the *same* for all of them, so a
+ * single NFL props request fetched this 13.7KB blob ~160 times over Redis. Fetch
+ * the table once with this, then call `rankDefenseTable` per pair in memory.
+ */
+export async function getNFLDefenseLeagueTable(
+  season: number | "all" = "all",
+  split: DefenseSplit = "all"
+): Promise<LeagueTable> {
   // v2 in the key retires entries written in the old Map-based shape, which
   // deserialize from Redis as `{}` and would otherwise read as a valid-but-empty
   // table for the life of the TTL.
@@ -329,11 +336,27 @@ export async function getNFLDefenseAllowed(
   // 1 hour: this is a full-table aggregate over every player-game of the season,
   // and NFL box scores only change once a week. A 10-minute TTL meant a browsing
   // session kept paying for the cold recompute.
-  const league = await cached(key, async () => {
-    const rows = await fetchDefenseRows(season)
-    return computeLeagueTable(rows, split)
-  }, 60 * 60_000)
+  return cached(
+    key,
+    async () => {
+      const rows = await fetchDefenseRows(season)
+      return computeLeagueTable(rows, split)
+    },
+    60 * 60_000
+  )
+}
 
+/**
+ * Rank one team + position against an already-fetched league table. Pure and
+ * synchronous — no I/O — so callers can grade a whole slate in one pass.
+ */
+export function rankDefenseTable(
+  league: LeagueTable,
+  team: string,
+  position: NFLDefensePosition,
+  season: number | "all" = "all",
+  split: DefenseSplit = "all"
+): DefenseAllowedResult {
   const teamU = team.toUpperCase()
   const posU = position.toUpperCase() as NFLDefensePosition
 
@@ -391,6 +414,25 @@ export async function getNFLDefenseAllowed(
     groups,
     byStat,
   }
+}
+
+/**
+ * Returns the full "Defense Allowed" payload for a single team + position,
+ * including league averages and ranks computed across all 32 teams.
+ *
+ * Convenience wrapper over `getNFLDefenseLeagueTable` + `rankDefenseTable` for
+ * single-pair callers (the /api/props/nfl-defense panel). Callers grading many
+ * pairs should fetch the table once and rank in memory instead.
+ */
+export async function getNFLDefenseAllowed(
+  team: string,
+  position: NFLDefensePosition,
+  opts?: { season?: number | "all"; split?: DefenseSplit }
+): Promise<DefenseAllowedResult> {
+  const season = opts?.season ?? "all"
+  const split = opts?.split ?? "all"
+  const league = await getNFLDefenseLeagueTable(season, split)
+  return rankDefenseTable(league, team, position, season, split)
 }
 
 /**

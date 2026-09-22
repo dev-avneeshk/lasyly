@@ -11,9 +11,15 @@ jobs:
     name: Ping production
     runs-on: ubuntu-latest
     steps:
+      # All URLs below use the CANONICAL www host and follow redirects.
+      # They previously pointed at the apex domain without -L, so every request
+      # got a 307 to www and nothing was ever warmed: the health check reported
+      # a bogus non-200 and the props warm-up did no work at all, which is what
+      # let the prop slate caches lapse and left real visitors paying for the
+      # cold recompute.
       - name: Ping health endpoint
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://lasyly.me/api/health)
+          STATUS=$(curl -sL -o /dev/null -w "%{http_code}" https://www.lasyly.me/api/health)
           echo "Health check status: $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "::warning::Health check returned $STATUS — site may be down"
@@ -31,15 +37,19 @@ jobs:
         run: |
           warm() {
             local url="$1"
-            local code
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$url")
-            echo "  [$code] $url"
+            local out
+            out=$(curl -sL -o /dev/null -w "%{http_code} %{time_total}s" --max-time 90 "$url")
+            echo "  [$out] $url"
+            case "$out" in
+              200*) ;;
+              *) echo "::warning::warm-up did not return 200 for $url" ;;
+            esac
           }
           echo "Warming props cache (default stat=all slates)…"
           # NFL — default sport, warmed first
-          warm "https://lasyly.me/api/props?sport=NFL&stat=all&direction=all"
-          warm "https://lasyly.me/api/props/games?sport=NFL"
+          warm "https://www.lasyly.me/api/props?sport=NFL&stat=all&direction=all"
+          warm "https://www.lasyly.me/api/props/games?sport=NFL"
           # NBA — next most common
-          warm "https://lasyly.me/api/props?sport=NBA&stat=all&direction=all"
-          warm "https://lasyly.me/api/props/games?sport=NBA"
+          warm "https://www.lasyly.me/api/props?sport=NBA&stat=all&direction=all"
+          warm "https://www.lasyly.me/api/props/games?sport=NBA"
           echo "✓ Props warm-up complete"

@@ -42,6 +42,16 @@ if (typeof setInterval !== "undefined") {
         memoryCache.delete(key)
       }
     }
+    // Keep the invalidation-epoch map from growing without bound. An epoch only
+    // matters while a read for that key is in flight or its memo entry is live,
+    // so anything in neither map is safe to forget. Dropping an epoch that a
+    // pending read still remembers fails safe: the mismatch just skips that
+    // read's memo write.
+    for (const key of invalidationEpochs.keys()) {
+      if (!memoryCache.has(key) && !inflightReads.has(key)) {
+        invalidationEpochs.delete(key)
+      }
+    }
   }, 30_000)
 }
 
@@ -128,6 +138,67 @@ async function redisSetTimestamp(key: string, ttlMs: number): Promise<void> {
  */
 const inflightRefreshes = new Map<string, Promise<unknown>>()
 
+/**
+ * Concurrent-READ coalescing, which is a different problem from refresh dedup
+ * above and was the dominant cost of the props page.
+ *
+ * `inflightRefreshes` only covers misses and background refreshes. A plain cache
+ * HIT went straight to Redis every time, so N concurrent callers asking for the
+ * same key produced N round trips. `/api/props?sport=NFL&stat=all` fans out to
+ * four parallel `computeNFLProps` calls that each read the same slate, the same
+ * 1.9MB player-history blob and the same headshot map, and the defense layer
+ * asked for one league table per (opponent, position) pair. Measured on the live
+ * data set: **360 Redis GETs and 10.4MB transferred for a single fully warm
+ * request**, which is where the ~17s `computeTimeMs` came from — not compute. The
+ * engine's own CPU work is ~36ms.
+ *
+ * Keyed by cache key, holding the in-flight `[value, timestamp]` read so every
+ * concurrent caller awaits one Redis round trip instead of issuing its own.
+ */
+const inflightReads = new Map<string, Promise<readonly [unknown, number | null]>>()
+
+/**
+ * Upper bound on how long this instance may serve a value out of local memory
+ * without re-checking Redis.
+ *
+ * The window is `ttlMs / 10` capped here, so it is always proportional to the
+ * freshness the caller asked for: live scores (10s TTL) memoize for 1s, prop
+ * slates (3-10min) for the full 10s. That bounds the extra staleness this adds
+ * to 10% of the declared TTL while still collapsing the hundreds of same-key
+ * reads a single request makes.
+ */
+const LOCAL_MEMO_MAX_MS = 10_000
+
+/** How long `key` may be served from local memory, given its declared TTL. */
+function memoWindowFor(ttlMs: number): number {
+  return Math.min(ttlMs / 10, LOCAL_MEMO_MAX_MS)
+}
+
+/**
+ * Per-key invalidation counter, guarding a race the local memo would otherwise
+ * introduce.
+ *
+ * Without it: a read fetches value V from Redis, an `invalidateCache(key)` lands
+ * while that read is still in flight, and the read then resolves and writes V
+ * into the memo — where it is served for the whole memo window despite having
+ * been explicitly invalidated. Dropping the key from `inflightReads` does not
+ * help, because the caller already holds the promise.
+ *
+ * So every read records the epoch it started in and refuses to populate the memo
+ * if an invalidation bumped it in the meantime. The caller still receives V for
+ * its own response (unchanged from the pre-memo behaviour); it just no longer
+ * persists it for anyone else.
+ */
+const invalidationEpochs = new Map<string, number>()
+
+function epochOf(key: string): number {
+  return invalidationEpochs.get(key) ?? 0
+}
+
+function bumpEpoch(key: string): void {
+  invalidationEpochs.set(key, epochOf(key) + 1)
+}
+
 /** Lease key namespace for cross-instance refresh coordination. */
 const LEASE_PREFIX = "cache_lock:"
 
@@ -193,15 +264,44 @@ export async function cached<T>(
   // ── Redis path ──────────────────────────────────────────────────────────────
   if (redis) {
     try {
-      const [cachedData, timestamp] = await Promise.all([
-        redisGet<T>(key),
-        redisGetTimestamp(key),
-      ])
+      // Local memo: skip Redis entirely for a key this instance just read.
+      // Bounded by `memoWindowFor`, so it never exceeds the caller's freshness
+      // budget by more than 10%.
+      const memo = memoryCache.get(key) as MemoryCacheEntry<T> | undefined
+      if (memo && Date.now() - memo.timestamp < memoWindowFor(ttlMs)) {
+        return memo.data
+      }
+
+      // Epoch at the moment this read starts. Compared again before writing to
+      // the memo, so an invalidation that lands mid-read wins.
+      const startEpoch = epochOf(key)
+      const memoize = (data: T, at: number) => {
+        if (epochOf(key) !== startEpoch) return
+        memoryCache.set(key, { data, timestamp: at, ttl: ttlMs })
+      }
+
+      // Coalesce concurrent reads of the same key into one round trip. Without
+      // this, the four parallel stat computations behind `stat=all` each fetch
+      // the same multi-megabyte blob.
+      let read = inflightReads.get(key)
+      if (!read) {
+        read = (async () => {
+          const [value, ts] = await Promise.all([redisGet<T>(key), redisGetTimestamp(key)])
+          return [value, ts] as const
+        })().finally(() => {
+          inflightReads.delete(key)
+        })
+        inflightReads.set(key, read)
+      }
+      const [cachedData, timestamp] = (await read) as readonly [T | null, number | null]
 
       const now = Date.now()
 
       // Fresh hit
       if (cachedData !== null && timestamp !== null && now - timestamp < ttlMs) {
+        // Memoize so the rest of this request (and the next few seconds of
+        // requests on this instance) costs nothing.
+        memoize(cachedData, now)
         return cachedData
       }
 
@@ -231,6 +331,11 @@ export async function cached<T>(
             })
           inflightRefreshes.set(key, refreshPromise)
         }
+        // Memoize the stale value too. Otherwise a key sitting in its
+        // stale-while-revalidate window — the common state for a slate whose
+        // TTL just lapsed — keeps paying full Redis round trips for every one
+        // of the hundreds of same-key reads a request makes.
+        memoize(cachedData, now)
         return cachedData
       }
 
@@ -275,6 +380,7 @@ export async function cached<T>(
 
       try {
         const data = await fetchPromise
+        memoize(data, Date.now())
         return data
       } finally {
         inflightRefreshes.delete(key)
@@ -324,6 +430,11 @@ export async function cached<T>(
  */
 export async function invalidateCache(key: string): Promise<void> {
   memoryCache.delete(key)
+  // Bump the epoch and drop any in-flight read: the epoch stops a read that is
+  // already pending from writing its now-invalidated value into the memo once it
+  // resolves, and the delete stops new callers from joining that read.
+  bumpEpoch(key)
+  inflightReads.delete(key)
   await redisDel(key)
 }
 
@@ -332,11 +443,17 @@ export async function invalidateCache(key: string): Promise<void> {
  * Note: For Redis, this uses SCAN which is safe for production.
  */
 export async function invalidateCachePrefix(prefix: string): Promise<void> {
-  // In-memory
-  for (const key of memoryCache.keys()) {
-    if (key.startsWith(prefix)) {
-      memoryCache.delete(key)
-    }
+  // In-memory: clear the local memo and bump the epoch of every matching key,
+  // for the same reason as invalidateCache above. Epochs are bumped for keys
+  // seen in either map, so a read already in flight cannot repopulate the memo
+  // after this returns.
+  const matching = new Set<string>()
+  for (const key of memoryCache.keys()) if (key.startsWith(prefix)) matching.add(key)
+  for (const key of inflightReads.keys()) if (key.startsWith(prefix)) matching.add(key)
+  for (const key of matching) {
+    memoryCache.delete(key)
+    inflightReads.delete(key)
+    bumpEpoch(key)
   }
 
   // Redis — scan and delete matching keys

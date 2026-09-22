@@ -22,7 +22,8 @@ import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { PropCardData, GameResult } from "@/lib/props/types"
 import {
-  getNFLDefenseAllowed,
+  getNFLDefenseLeagueTable,
+  rankDefenseTable,
   NFLDefensePosition,
   NFLDefenseStatKey,
   DefenseAllowedResult,
@@ -435,18 +436,26 @@ async function enrichWithMatchup(props: NFLPropCard[], stat: string): Promise<vo
   }
 
   // Batch: defense results, series records, pace.
-  const defenseResults = new Map<string, DefenseAllowedResult>()
-  await Promise.all(
-    [...defenseKeys.entries()].map(async ([k, { opp, pos }]) => {
-      try {
-        defenseResults.set(k, await getNFLDefenseAllowed(opp, pos))
-      } catch { /* skip */ }
-    })
-  )
-  const [seriesMap, paceMap] = await Promise.all([
+  //
+  // The league allowance table is identical for every (opponent, position) pair,
+  // so it is fetched ONCE and ranked in memory. Previously this mapped over
+  // `defenseKeys` calling `getNFLDefenseAllowed`, which went through `cached()`
+  // per pair — ~40 Redis reads of the same blob per stat, ~160 per `stat=all`
+  // request, for data that never varies within a request.
+  const [leagueTable, seriesMap, paceMap] = await Promise.all([
+    getNFLDefenseLeagueTable().catch(() => null),
     fetchSeriesRecords(seriesPairs),
     fetchPaceMap([...oppsForPace]),
   ])
+
+  const defenseResults = new Map<string, DefenseAllowedResult>()
+  if (leagueTable) {
+    for (const [k, { opp, pos }] of defenseKeys) {
+      try {
+        defenseResults.set(k, rankDefenseTable(leagueTable, opp, pos))
+      } catch { /* skip */ }
+    }
+  }
 
   for (const p of props) {
     const opp = (p as any).__opp as string
