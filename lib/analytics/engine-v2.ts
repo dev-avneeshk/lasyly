@@ -11,6 +11,7 @@
 import { PropCardData } from "@/lib/props/types"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { parsePosition, Position } from "./position"
 import {
   computeProbability,
@@ -328,9 +329,8 @@ export async function fetchBatchPlayerStats(
   cutoffDate.setDate(cutoffDate.getDate() - 90)
   const cutoff = cutoffDate.toISOString().split("T")[0]
 
-  const { data, error } = await supabase
-    .from("nba_player_stats")
-    .select(`
+  const select = `
+      id,
       player_name,
       team,
       opponent,
@@ -338,14 +338,53 @@ export async function fetchBatchPlayerStats(
       minutes,
       ${column},
       nba_games!inner(game_date, home_team, away_team)
-    `)
-    .in("team", teams)
-    .gte("nba_games.game_date", cutoff)
-    .order("nba_games(game_date)", { ascending: false })
-    .limit(5000)
+    `
 
-  if (error || !data) {
-    console.error("[engine-v2] Failed to fetch batch player stats:", error?.message)
+  // PAGED, because `.limit(5000)` did not do what it looked like it did:
+  // PostgREST caps a response at 1000 rows regardless of the requested limit,
+  // silently. Combined with `ORDER BY game_date DESC` that meant this returned
+  // only the most recent ~1000 player-games — roughly the last couple of days of
+  // the league — and every player short of MIN_GAMES was then dropped by the
+  // quality gate. In-season a 90-day window across 30 teams is ~16k rows, so the
+  // engine was seeing about 6% of its input. The same mistake was found in
+  // engine-nfl's headshot map, where it was provable against live data.
+  //
+  // `id` is the tiebreaker, not decoration: paging in parallel makes each page
+  // its own query, and ordering only by the non-unique game_date lets Postgres
+  // return equal-dated rows in a different order per page, which silently
+  // duplicates some rows and drops others. Ordering by the primary key last
+  // makes the sort total.
+  const data = await fetchPagedParallel<Record<string, unknown>>(
+    async () => {
+      const { count } = await supabase
+        .from("nba_player_stats")
+        .select("id, nba_games!inner(game_date)", { count: "exact", head: true })
+        .in("team", teams)
+        .gte("nba_games.game_date", cutoff)
+      return count ?? null
+    },
+    async (from, to) => {
+      const { data, error } = await supabase
+        .from("nba_player_stats")
+        .select(select)
+        .in("team", teams)
+        .gte("nba_games.game_date", cutoff)
+        .order("nba_games(game_date)", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+
+      if (error) {
+        console.error("[engine-v2] batch player stats page failed:", error.message)
+        return []
+      }
+      return (data ?? []) as unknown as Record<string, unknown>[]
+    },
+    // Generous enough for a full 90-day window across the league, while still
+    // bounding the worst case.
+    { maxRows: 20_000 }
+  )
+
+  if (data.length === 0) {
     return new Map()
   }
 
@@ -649,10 +688,19 @@ export async function computeMatchupScopedProps(
     : ""
   const cacheKey = `matchup-props:${sport}:${stat}:${today}${filterSuffix}`
 
+  // 3 minutes, matching PROPS_TTL.nba in /api/props.
+  //
+  // This was 60s while the route's own cache around it was 3 minutes, so the
+  // inner layer always expired first and every outer refresh recomputed from
+  // Postgres rather than reusing anything. Now that the underlying query pages up
+  // to 20k rows instead of silently truncating at 1000, paying for that four
+  // times as often as the route actually needs is worth not doing. Props derive
+  // from completed games plus the scheduled slate, and neither changes faster
+  // than a scraper run.
   return cached(
     cacheKey,
     () => computeMatchupScopedPropsUncached(sport, stat, direction, matchup, today, { minMinutes, vsOpponent, withoutPlayer }),
-    60_000
+    3 * 60_000
   )
 }
 
