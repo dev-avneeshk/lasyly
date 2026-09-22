@@ -31,6 +31,17 @@ function getCacheKey(name: string, team: string, sport?: string): string {
   return `${name.toLowerCase()}|${team.toLowerCase()}|${(sport ?? "").toLowerCase()}`
 }
 
+/**
+ * Is this one of our own pre-optimized headshots in Supabase Storage?
+ *
+ * Matched on the storage object path rather than the project hostname so it
+ * still holds if the Supabase URL changes, and so it cannot accidentally match
+ * some other Supabase-hosted asset.
+ */
+function isSelfHosted(url: string): boolean {
+  return url.includes("/storage/v1/object/public/player-headshots/")
+}
+
 function getPlayerInitials(name: string): string {
   const parts = name.trim().split(/\s+/)
   if (parts.length === 0) return "?"
@@ -139,7 +150,17 @@ export function PlayerPhoto({ playerName, team, sport, headshotUrl: preloadedUrl
         width={size}
         height={size}
         className="object-cover scale-[1.5] translate-y-[2px]"
-        unoptimized
+        // Skip Next's optimizer ONLY for headshots we host ourselves. Those are
+        // already 320px WebP at ~10KB (see scripts/db/sync-headshots.mjs), served
+        // from Supabase's CDN with a one-year immutable cache, so a transform
+        // would cost a Vercel image optimization to save almost nothing.
+        //
+        // Anything else is an ESPN fallback, and those are the full-resolution
+        // press originals — ~225KB of PNG for a 36px circle. `unoptimized` used
+        // to apply to every image, which is what made a props page pull ~5.9MB
+        // of headshots. Letting the optimizer handle that path takes each one to
+        // roughly 1KB.
+        unoptimized={isSelfHosted(headshotUrl)}
         onError={() => {
           headshotCache.set(cacheKey, FAILED_SENTINEL)
           setFailed(true)

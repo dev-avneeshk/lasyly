@@ -20,6 +20,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
+import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 import { PropCardData, GameResult } from "@/lib/props/types"
 import {
   getNFLDefenseLeagueTable,
@@ -556,28 +557,61 @@ async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
  */
 async function fetchHeadshotMap(): Promise<Record<string, string>> {
   return cached(
-    "nfl-headshots",
+    // v2: the values are now our own Storage URLs where available, so entries
+    // written by the previous version must not be served from cache.
+    "nfl-headshots:v2",
     async () => {
       const supabase = createAdminClient()
-      // Filter on `league`, not `sport`: the ESPN scraper writes sport="football"
-      // and league="nfl" (see scripts/scrape_espn.py LEAGUES), so an
-      // .eq("sport","NFL") filter matches nothing. `league` is also indexed.
-      const { data, error } = await supabase
-        .from("espn_players")
-        .select("name, espn_id, headshot_url")
-        .eq("league", "nfl")
-        .limit(4000)
 
-      if (error || !data) return {}
+      // Which players we serve ourselves. Independent of the row fetch, so both
+      // go out together.
+      //
+      // The row fetch is PAGED, and that is the fix for a real bug rather than a
+      // precaution. This was a single `.limit(4000)` call, but PostgREST caps a
+      // response at 1000 rows irrespective of the requested limit — silently. So
+      // this map only ever held ~1000 of the 2913 NFL players, and every player
+      // past the cap arrived at the client with no photo, which then made
+      // PlayerPhoto fire an individual /api/players/headshot request per card.
+      // That was ~25 extra requests on a 50-prop page, and it looked like a
+      // name-matching problem when it was truncation.
+      const [storedIds, rows] = await Promise.all([
+        getStoredHeadshotIds("nfl"),
+        fetchPagedParallel<{ name: string; espn_id: string | null; headshot_url: string | null }>(
+          async () => {
+            const { count } = await supabase
+              .from("espn_players")
+              .select("name", { count: "exact", head: true })
+              .eq("league", "nfl")
+            return count ?? null
+          },
+          async (from, to) => {
+            // Filter on `league`, not `sport`: the ESPN scraper writes
+            // sport="football" and league="nfl" (see scripts/scrape_espn.py
+            // LEAGUES), so an .eq("sport","NFL") filter matches nothing.
+            // `league` is also indexed.
+            const { data, error } = await supabase
+              .from("espn_players")
+              .select("name, espn_id, headshot_url")
+              .eq("league", "nfl")
+              .order("espn_id", { ascending: true })
+              .range(from, to)
+            if (error) {
+              console.error("[engine-nfl] headshot page failed:", error.message)
+              return []
+            }
+            return (data ?? []) as { name: string; espn_id: string | null; headshot_url: string | null }[]
+          },
+          { maxRows: 8000 }
+        ),
+      ])
 
       const map: Record<string, string> = {}
-      for (const row of data as any[]) {
+      for (const row of rows) {
         if (!row.name) continue
-        const url =
-          row.headshot_url ||
-          (row.espn_id
-            ? `https://a.espncdn.com/i/headshots/nfl/players/full/${row.espn_id}.png`
-            : null)
+        // Prefers our stored ~10KB WebP, then the row's ESPN URL, then a URL
+        // synthesised from espn_id — that last step stops a null headshot_url
+        // from reaching the client as a missing photo.
+        const url = resolveHeadshotUrl("nfl", row.espn_id, row.headshot_url, storedIds)
         if (url) map[row.name] = url
       }
       return map

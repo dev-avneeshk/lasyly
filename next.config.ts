@@ -43,6 +43,14 @@ const nextConfig: NextConfig = {
         pathname: "/headshots/**",
       },
       {
+        // Self-hosted player headshots. Scoped to the public storage path for
+        // this bucket rather than the whole project, so a misconfigured src
+        // cannot turn next/image into a proxy for arbitrary Supabase objects.
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/player-headshots/**",
+      },
+      {
         protocol: "https",
         hostname: "a.espncdn.com",
       },
