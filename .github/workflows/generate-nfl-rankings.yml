@@ -39,7 +39,7 @@ jobs:
             season_json="\"season\": \"$season_input\","
           fi
 
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -s --location-trusted -w "\n%{http_code}" -X POST \
             "${{ secrets.SITE_URL }}/api/jobs/generate-nfl-rankings" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \

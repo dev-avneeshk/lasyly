@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Purge messages older than 30 days
         run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -s --location-trusted -w "\n%{http_code}" -X POST \
             "${{ secrets.SITE_URL }}/api/cron/cleanup-chat" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")

@@ -71,6 +71,6 @@ jobs:
       - name: Settle parlay legs with new stats
         if: success()
         run: |
-          curl -X POST "${{ secrets.SITE_URL }}/api/cron/settle-parlays" \
+          curl --location-trusted -X POST "${{ secrets.SITE_URL }}/api/cron/settle-parlays" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" || true
