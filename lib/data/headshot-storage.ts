@@ -30,12 +30,17 @@ export const HEADSHOT_BUCKET = "player-headshots"
 /**
  * How long to hold the stored-object index.
  *
- * Rosters and photos change on the order of days, and the backfill runs on
- * demand, so a day is safe. The cost of being wrong is small and self-correcting
- * in both directions: a player synced after this was cached simply keeps using
- * the ESPN fallback until the TTL lapses.
+ * One hour, NOT a day. A day was the original choice on the reasoning that
+ * rosters change slowly, and it backfired immediately: production cached this
+ * index while the backfill was still uploading, captured a partial bucket, and
+ * then served the ESPN fallback for 8 players who were in fact already stored —
+ * for a full 24 hours, with no way to correct it short of a redeploy.
+ *
+ * The index is three cheap list calls, so holding it for an hour costs almost
+ * nothing and bounds that window to something survivable. The failure is still
+ * self-correcting in both directions; the point is how long "still wrong" lasts.
  */
-const STORED_INDEX_TTL_MS = 24 * 60 * 60_000
+const STORED_INDEX_TTL_MS = 60 * 60_000
 
 /** Storage list() caps per call; page until exhausted. */
 const LIST_PAGE_SIZE = 1000
@@ -59,7 +64,9 @@ async function fetchStoredIds(league: string): Promise<string[]> {
   const lg = league.toLowerCase()
 
   return cached(
-    `headshots-stored:${lg}`,
+    // v2 retires index entries captured mid-backfill, which held a partial
+    // bucket listing and pinned already-stored players to the ESPN fallback.
+    `headshots-stored:v2:${lg}`,
     async () => {
       const supabase = createAdminClient()
       const ids: string[] = []

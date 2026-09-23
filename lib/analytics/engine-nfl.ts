@@ -557,11 +557,12 @@ async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
  */
 async function fetchHeadshotMap(): Promise<Record<string, string>> {
   return cached(
-    // v3: the values changed shape twice — first to our own Storage URLs, then
-    // to the 160px `sm` variant of them. This map is held for 24 hours, so
-    // without bumping the key a deploy would keep serving the previous
-    // generation's URLs for a full day.
-    "nfl-headshots:v3",
+    // v4: this map is held for 24 hours and bakes in whatever the stored-object
+    // index said at the moment it was built. v3 entries were built while the
+    // backfill was mid-flight, so they pinned 8 already-stored players to the
+    // ESPN fallback. Bumping evicts them; the index TTL is now an hour so the
+    // window cannot reopen anywhere near as wide.
+    "nfl-headshots:v4",
     async () => {
       const supabase = createAdminClient()
 
