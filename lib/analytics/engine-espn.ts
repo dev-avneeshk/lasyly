@@ -18,6 +18,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 import { cached } from "@/lib/cache"
 import { PropCardData, GameResult } from "@/lib/props/types"
 
@@ -476,20 +477,44 @@ async function computeESPNPropsUncached(
   const limited = props.slice(0, limit)
 
   // ─── Bulk fetch headshot URLs from espn_players table ─────────────────────
+  //
+  // Prefers our own Storage copy (see lib/data/headshot-storage.ts). NHL photos
+  // were backfilled alongside NFL's but this path was still hot-linking ESPN, so
+  // the stored objects went unused.
+  //
+  // `league` is also the right column for the URL path, not `sport`. The scraper
+  // writes sport="hockey" / league="nhl", and ESPN's path segment is "nhl" —
+  // so the previous fallback built .../i/headshots/hockey/... which 404s. Every
+  // NHL player whose headshot_url column happened to be null therefore had a
+  // broken image rather than a working fallback.
   if (limited.length > 0) {
     const playerNames = limited.map((p) => p.player)
     try {
       const { data: playerRows } = await supabase
         .from("espn_players")
-        .select("name, espn_id, headshot_url, sport")
+        .select("name, espn_id, headshot_url, league")
         .in("name", playerNames)
 
       if (playerRows && playerRows.length > 0) {
+        const leagues = [
+          ...new Set((playerRows as any[]).map((r) => String(r.league ?? "").toLowerCase()).filter(Boolean)),
+        ]
+        const storedByLeague = new Map<string, Set<string>>()
+        await Promise.all(
+          leagues.map(async (lg) => storedByLeague.set(lg, await getStoredHeadshotIds(lg)))
+        )
+
         const headshotMap = new Map<string, string>()
         for (const row of playerRows as any[]) {
-          const url = row.headshot_url
-            || `https://a.espncdn.com/i/headshots/${row.sport}/players/full/${row.espn_id}.png`
-          headshotMap.set(row.name, url)
+          const league = String(row.league ?? "").toLowerCase()
+          if (!league) continue
+          const url = resolveHeadshotUrl(
+            league,
+            row.espn_id,
+            row.headshot_url,
+            storedByLeague.get(league) ?? new Set()
+          )
+          if (url) headshotMap.set(row.name, url)
         }
         for (const prop of limited) {
           prop.headshotUrl = headshotMap.get(prop.player) ?? null

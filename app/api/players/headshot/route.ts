@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cached } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getStoredHeadshotIds, storedHeadshotUrl } from "@/lib/data/headshot-storage"
 import {
   getHeadshotLookupTerm,
   isHeadshotNameMatch,
@@ -110,9 +111,12 @@ async function handleGET(request: Request) {
   const sportConfig = SPORT_CONFIG[sportParam] ?? SPORT_CONFIG.nba
 
   try {
-    // v2 uses accent-insensitive identity matching and invalidates cached misses
-    // produced by the previous lowercase-only resolver.
-    const cacheKey = `headshot:v2:${normalizeHeadshotName(playerName)}:${(team ?? "").toLowerCase()}:${sportParam}`
+    // v2 used accent-insensitive identity matching and invalidated cached misses
+    // produced by the previous lowercase-only resolver. v3 retires entries whose
+    // values are ESPN URLs, now that we prefer our own Storage copy — these are
+    // held for 24h, so without the bump a deploy would keep serving the old
+    // hot-linked URLs for a full day.
+    const cacheKey = `headshot:v3:${normalizeHeadshotName(playerName)}:${(team ?? "").toLowerCase()}:${sportParam}`
 
     const result = await cached(cacheKey, async () => {
       // ─── Strategy 1: Check our espn_players table (fastest, all sports) ────
@@ -197,7 +201,21 @@ async function searchDatabase(
     if (!match?.espn_id) return null
 
     const espnId = match.espn_id
-    // Use stored headshot_url if available, otherwise construct from ESPN ID
+
+    // Prefer our own Storage copy over ESPN. `sportKey` is the league segment
+    // ESPN uses in its paths ("nfl", "nhl"), which is exactly how the bucket is
+    // partitioned, so it doubles as the storage prefix.
+    const stored = await getStoredHeadshotIds(sportKey)
+    if (stored.has(espnId)) {
+      const small = storedHeadshotUrl(sportKey, espnId, "sm")
+      const large = storedHeadshotUrl(sportKey, espnId, "lg")
+      if (small && large) {
+        // Already sized for a card; there is nothing for ESPN's combiner to crop.
+        return { espnId, headshot: large, headshotCropped: small }
+      }
+    }
+
+    // Fall back to ESPN for anything not yet backfilled.
     const headshot = match.headshot_url || buildHeadshotUrl(espnId, sportKey)
 
     return {
