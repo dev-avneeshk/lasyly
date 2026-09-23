@@ -10,20 +10,16 @@ jobs:
   process:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      # Delegates to scripts/ci/call-cron.sh, which resolves the canonical origin
+      # before sending the secret and — more usefully — says what a failure
+      # actually means. This job had been failing every 2 minutes and reporting
+      # only "failed with status 401", which does not distinguish "wrong URL" from
+      # "wrong secret". It is the latter: the request reaches the endpoint and is
+      # rejected, so secrets.CRON_SECRET does not match the CRON_SECRET in Vercel.
       - name: Process pending jobs
-        run: |
-          response=$(curl -s --location-trusted -w "\n%{http_code}" -X POST \
-            "${{ secrets.SITE_URL }}/api/jobs/process" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          
-          echo "Status: $http_code"
-          echo "Response: $body"
-          
-          if [ "$http_code" != "200" ]; then
-            echo "::error::Job processing failed with status $http_code"
-            exit 1
-          fi
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: scripts/ci/call-cron.sh /api/jobs/process POST

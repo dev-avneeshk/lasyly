@@ -24,40 +24,15 @@ jobs:
     name: Precompute default prop slates
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger precompute cron
-        run: |
-          # Resolve the CANONICAL origin before sending the secret.
-          #
-          # The apex domain 307s to the www host. Sending the request at the apex
-          # with no -L got a redirect stub (the job then failed on a 307), and
-          # plain -L drops the Authorization header across a cross-host redirect
-          # and got a 401. Either way computed_props stayed empty and every props
-          # request fell through to a full live recompute. Both were verified
-          # against production.
-          #
-          # So: follow redirects ONCE on a harmless unauthenticated endpoint to
-          # learn where SITE_URL actually lands, then post the secret directly to
-          # that origin. No credential ever crosses a redirect, and this is
-          # correct whether the SITE_URL secret holds the apex or the www host.
-          RAW="${{ secrets.SITE_URL }}"
-          FINAL=$(curl -s -o /dev/null -L --max-time 30 -w '%{url_effective}' "$RAW/api/health" || echo "")
-          if [ -n "$FINAL" ]; then
-            ORIGIN=$(printf '%s' "$FINAL" | sed -E 's#^(https?://[^/]+).*#\1#')
-          else
-            ORIGIN="$RAW"
-          fi
-          echo "SITE_URL resolved to origin: $ORIGIN"
+      - uses: actions/checkout@v4
 
-          echo "Precomputing NBA + NFL default slates…"
-          RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 300 \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "$ORIGIN/api/cron/precompute-props")
-          BODY=$(echo "$RESPONSE" | head -n -1)
-          CODE=$(echo "$RESPONSE" | tail -n 1)
-          echo "Status: $CODE"
-          echo "Body:   $BODY"
-          if [ "$CODE" != "200" ]; then
-            echo "::error::Precompute returned $CODE"
-            exit 1
-          fi
-          echo "✓ Precompute complete"
+      # Delegates to scripts/ci/call-cron.sh, which resolves the canonical origin
+      # before sending the secret (the apex domain 307s to www, and plain -L drops
+      # the Authorization header across that hop) and prints the actual
+      # remediation on failure instead of a bare status code.
+      - name: Trigger precompute cron
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_TIMEOUT: "300"
+        run: scripts/ci/call-cron.sh /api/cron/precompute-props GET
