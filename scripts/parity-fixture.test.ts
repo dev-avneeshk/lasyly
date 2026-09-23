@@ -12,7 +12,7 @@
  */
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { test } from "vitest"
+import { test, expect } from "vitest"
 import { getSeasonPlayers } from "../lib/arena/data"
 import { emptyRoster, placePlayer } from "../lib/arena/roster"
 import { simulateGame } from "../lib/arena/simulation"
@@ -84,8 +84,42 @@ test("export parity fixtures", () => {
     })
   }
 
+  // ─── Assertions ───────────────────────────────────────────────────────────
+  //
+  // This file used to only write its output and assert nothing, which meant it
+  // burned ~6s of every test run to verify precisely nothing — and it failed
+  // anyway, on vitest's 5s default timeout rather than on anything real.
+  //
+  // The fixtures are the contract the Python parity harness checks against, so a
+  // malformed export is worth catching here rather than as a confusing mismatch
+  // on the Python side. These are cheap, given the simulation has already run.
+  expect(fixtures).toHaveLength(PAIRS)
+
+  for (const fixture of fixtures as Array<Record<string, any>>) {
+    // Win rate is a probability, and the score averages must be real positives —
+    // a zero average is the signature of a simulator returning empty results,
+    // which is exactly the regression that would make a parity run meaningless.
+    expect(fixture.ts.p1WinRate).toBeGreaterThanOrEqual(0)
+    expect(fixture.ts.p1WinRate).toBeLessThanOrEqual(1)
+    expect(fixture.ts.avgP1).toBeGreaterThan(0)
+    expect(fixture.ts.avgP2).toBeGreaterThan(0)
+
+    // Both rosters must be completely filled; a null slot means buildRoster
+    // silently ran out of eligible players and the pair is not comparable.
+    for (const side of ["p1", "p2"] as const) {
+      for (const slot of SLOTS) {
+        expect(fixture[side][slot], `${side}.${slot} in pair ${fixture.pair}`).not.toBeNull()
+      }
+    }
+  }
+
+  // The two rosters in a pair must not share a player — `used` is meant to
+  // guarantee that, and a duplicate would quietly bias the win rate.
+  for (const fixture of fixtures as Array<Record<string, any>>) {
+    const ids = [...SLOTS.map((s) => fixture.p1[s]?.id), ...SLOTS.map((s) => fixture.p2[s]?.id)]
+    expect(new Set(ids).size, `duplicate player across rosters in pair ${fixture.pair}`).toBe(ids.length)
+  }
+
   const dest = resolve(process.cwd(), "auction_ai/validation/parity_fixtures.json")
   writeFileSync(dest, JSON.stringify({ season: SEASON, fixtures }, null, 2))
-  // eslint-disable-next-line no-console
-  console.log(`Wrote ${fixtures.length} parity fixtures to ${dest}`)
 })
