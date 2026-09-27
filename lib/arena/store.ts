@@ -84,8 +84,10 @@ export function needsServerTick(state: ArenaState, now = Date.now()): boolean {
     if (!state.lot) return true
     return state.lotDeadline !== null && now >= state.lotDeadline
   }
-  // Defensive: a finished auction whose result never got computed (e.g. the
-  // process died between the status flip and the write) must be repaired.
-  if (state.status === "lineup" && !state.result) return true
+  // Defensive: any post-auction phase missing its result (e.g. the process died
+  // between the status flip and the write) must be repaired — otherwise the
+  // client renders a phase that claims the game is running with nothing to show.
+  // serverTick handles this branch; see the repair path at the top of it.
+  if (state.status !== "lobby" && !state.result) return true
   return false
 }

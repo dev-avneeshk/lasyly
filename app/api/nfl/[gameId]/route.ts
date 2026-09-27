@@ -38,7 +38,12 @@ export const GET = withSecurity(async (
     return NextResponse.json({ error: "Game not found." }, { status: 404 })
   }
 
-  const viewer = seatForUser(existing, user.id) ?? "P1"
+  // Private to the game's two players; see the arena twin. 404, not 403, so an
+  // outsider can't confirm a gameId exists.
+  const viewer = seatForUser(existing, user.id)
+  if (!viewer) {
+    return NextResponse.json({ error: "Game not found." }, { status: 404 })
+  }
 
   if (!needsServerTick(existing.state)) {
     return NextResponse.json(serverView(existing.state, viewer, existing.rev))

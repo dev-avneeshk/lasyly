@@ -5,7 +5,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { pass } from "@/lib/arena/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/arena/server"
-import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 
 /**
  * POST /api/arena/[gameId]/pass — the human passes on the current lot. If the
@@ -52,5 +52,5 @@ export const POST = withSecurity(async (
   // they apply it in one hop.
   if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
 
-  return NextResponse.json(serverView(game.state, seat, game.rev))
+  return NextResponse.json(participantView(serverView(game.state, seat, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

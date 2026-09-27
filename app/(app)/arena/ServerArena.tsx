@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Copy, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,8 @@ import { BidControls } from "@/components/arena/BidControls"
 import { SimulationScreen } from "@/components/arena/SimulationScreen"
 import { GameSummary } from "@/components/arena/GameSummary"
 import { SoldStamp } from "@/components/arena/SoldStamp"
+import { SimHandoff } from "@/components/arena/SimHandoff"
+import { useAutoSimulate } from "@/lib/hooks/useAutoSimulate"
 import type { ArenaServerView } from "@/lib/arena/server"
 import type { ArenaState } from "@/lib/arena/auction"
 import type { TeamId } from "@/lib/arena/types"
@@ -49,17 +51,30 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
   useEffect(() => { const id = setInterval(() => { const deadline = deadlineRef.current; setTimeLeft(deadline ? Math.max(0, deadline - Date.now()) : 0) }, 100); return () => clearInterval(id) }, [])
 
   // Auto-run the simulation once both rosters lock — no manual "Start" click.
-  // Only the owner (P1) fires it to avoid both clients racing; startSimulation
-  // is idempotent server-side anyway, so a double call is harmless.
-  const autoSimFired = useRef(false)
-  useEffect(() => {
-    if (view?.status === "lineup" && viewer === "P1" && !autoSimFired.current) {
-      autoSimFired.current = true
-      const t = setTimeout(() => server.simulate(), 1400)
-      return () => clearTimeout(t)
-    }
-    if (view?.status !== "lineup") autoSimFired.current = false
-  }, [view?.status, viewer, server])
+  //
+  // BOTH seats now fire this, not just the owner. `startSimulation` is
+  // idempotent server-side (a game already "complete" produces no write and no
+  // rev bump), so the only cost of a second caller is one wasted POST — whereas
+  // gating it to P1 meant the guest's game was stranded forever if the owner
+  // closed their tab, backgrounded it to death, or lost connectivity during the
+  // lineup beat. P2 waits a beat longer so P1 normally wins the race and the
+  // second POST never happens.
+  //
+  // The previous hand-rolled ref+timeout dropped the transition whenever a
+  // re-render landed in the 1400ms window (the 100ms timeLeft tick and the poll
+  // chain both re-render this component) and had no retry, so a single failed
+  // POST hung the client on "Starting simulation…". See useAutoSimulate.
+  const autoSim = useAutoSimulate({
+    active: view?.status === "lineup",
+    run: server.simulate,
+    firstDelayMs: viewer === "P1" ? 1400 : 3200,
+  })
+
+  // Stable so SimulationScreen's pacing effect (deps: [idx, moments, onDone])
+  // isn't torn down and restarted by this component's 100ms clock tick — an
+  // inline arrow here meant every re-render cancelled the pending moment timer,
+  // which could freeze the reveal at 0-0.
+  const revealDone = useCallback(() => setRevealed(true), [])
 
   const opponent: TeamId = viewer === "P1" ? "P2" : "P1"
   const state = useMemo(() => (view ? asState(view) : null), [view])
@@ -67,8 +82,20 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
 
   if (!view || !state) return <div className="flex items-center justify-center py-20 text-[var(--color-text-muted)]"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Connecting…</div>
   if (view.status === "lobby") return <WaitingRoom gameId={view.gameId} error={error} isPublic={server.isPublicLobby} />
-  if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={() => setRevealed(true)} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} />
-  if (view.status === "lineup") return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Both lineups are locked. Tipping off…</p><div className="grid w-full gap-4 md:grid-cols-2"><BudgetPanel team="P1" label={labelFor("P1")} budget={view.budgets.P1} roster={view.rosters.P1} isAI={view.isAI.P1} /><BudgetPanel team="P2" label={labelFor("P2")} budget={view.budgets.P2} roster={view.rosters.P2} isAI={view.isAI.P2} /></div><div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]"><Loader2 className="h-4 w-4 animate-spin" />Starting simulation…</div></div>
+  if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={revealDone} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} />
+  // "lineup" OR a phase that claims the game is running but carries no result:
+  // both mean we're still waiting on the handoff. The second case used to fall
+  // through to the auction renderer with `lot === null` and paint an empty board.
+  if (view.status === "lineup" || view.status === "simulating" || view.status === "complete") {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10">
+        <h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2>
+        <p className="text-sm text-[var(--color-text-muted)]">Both lineups are locked. Tipping off…</p>
+        <div className="grid w-full gap-4 md:grid-cols-2"><BudgetPanel team="P1" label={labelFor("P1")} budget={view.budgets.P1} roster={view.rosters.P1} isAI={view.isAI.P1} /><BudgetPanel team="P2" label={labelFor("P2")} budget={view.budgets.P2} roster={view.rosters.P2} isAI={view.isAI.P2} /></div>
+        <SimHandoff autoSim={autoSim} />
+      </div>
+    )
+  }
 
   const lot = view.lot
   const lastResult = view.results[view.results.length - 1]

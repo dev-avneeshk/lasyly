@@ -27,6 +27,9 @@ const envSchema = z.object({
   // Required if /api/auth/guest is used (otherwise guest sessions are denied).
   // Must be at least 32 characters of high-entropy randomness.
   GUEST_TOKEN_SECRET: z.string().min(32).optional(),
+  // Optional: HMAC key for private arena realtime channel names. Falls back to
+  // SUPABASE_SERVICE_ROLE_KEY. At least 32 characters.
+  ARENA_CHANNEL_SECRET: z.string().min(32).optional(),
   OPENAI_API_KEY: z.string().optional(),
   YOUTUBE_API_KEY: z.string().optional(),
   SPORTS_API_KEY: z.string().optional(),

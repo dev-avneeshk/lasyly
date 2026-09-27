@@ -72,6 +72,6 @@ export function needsServerTick(state: NflAuctionState, now = Date.now()): boole
     if (!state.lot) return true
     return state.lotDeadline !== null && now >= state.lotDeadline
   }
-  if (state.status === "lineup" && !state.result) return true
+  if (state.status !== "lobby" && !state.result) return true
   return false
 }

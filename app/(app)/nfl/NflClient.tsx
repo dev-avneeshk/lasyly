@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronRight, Bot, Trophy, ClipboardList, Loader2 } from "lucide-react"
+import { ChevronRight, Bot, Trophy, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NflPlayerCard } from "@/components/nfl/NflPlayerCard"
 import { NflBudgetPanel } from "@/components/nfl/NflBudgetPanel"
@@ -10,6 +10,8 @@ import { NflBidControls } from "@/components/nfl/NflBidControls"
 import { NflSimulationScreen } from "@/components/nfl/NflSimulationScreen"
 import { NflGameSummary } from "@/components/nfl/NflGameSummary"
 import { NflSoldStamp } from "@/components/nfl/NflSoldStamp"
+import { SimHandoff, SimStalled } from "@/components/arena/SimHandoff"
+import { useAutoSimulate } from "@/lib/hooks/useAutoSimulate"
 import { useNflGame } from "./useNflGame"
 import type { AIDifficulty, BudgetPreset, Season } from "@/lib/nfl/types"
 import { BUDGET_PRESETS, bidIncrementForBudget } from "@/lib/nfl/types"
@@ -49,15 +51,29 @@ export default function NflClient() {
   const p2Label = cpu.name
 
   // Auto-run the simulation once both rosters lock — no "Kick Off" click needed.
-  const autoSimFired = useRef(false)
-  useEffect(() => {
-    if (state?.status === "lineup" && !autoSimFired.current) {
-      autoSimFired.current = true
-      const t = setTimeout(() => game.simulate(), 1400)
-      return () => clearTimeout(t)
+  //
+  // This was the unfixed twin of the NBA arena bug: a ref-guarded setTimeout in
+  // an effect that depended on `game`, which is a fresh object on every render.
+  // Any re-render inside the 1400ms beat ran the cleanup, cancelled the timer,
+  // and the already-flipped guard refused to reschedule — so the game hung on
+  // "Starting simulation…" with no retry and no button. See useAutoSimulate.
+  const autoSim = useAutoSimulate({
+    active: state?.status === "lineup",
+    run: game.simulate,
+  })
+
+  // Recovery for a phase that claims the game is running but has no result. The
+  // watchdog only watches "lineup", so its retryNow is a no-op there; this
+  // recomputes directly (the sim is seeded, so it reproduces the same game).
+  const [recoverError, setRecoverError] = useState<string | null>(null)
+  const recover = () => {
+    try {
+      game.simulate()
+      setRecoverError(null)
+    } catch (e) {
+      setRecoverError(e instanceof Error ? e.message : "We couldn't start the simulation.")
     }
-    if (state?.status !== "lineup") autoSimFired.current = false
-  }, [state?.status, game])
+  }
 
   // ── LANDING / LOBBY ────────────────────────────────────────────────────
   if (!state) {
@@ -206,11 +222,15 @@ export default function NflClient() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]">
-          <Loader2 className="h-4 w-4 animate-spin" /> Starting simulation…
-        </div>
+        <SimHandoff autoSim={autoSim} label="Kicking off…" />
       </div>
     )
+  }
+
+  // Claims to be running but carries no result — used to fall through to the
+  // auction renderer and paint an empty board. Fail visibly with a way out.
+  if (state.status === "simulating" || state.status === "complete") {
+    return <SimStalled label="Kicking off…" error={recoverError} running={false} onRetry={recover} onExit={() => game.reset()} />
   }
 
   // ── AUCTION ────────────────────────────────────────────────────────────

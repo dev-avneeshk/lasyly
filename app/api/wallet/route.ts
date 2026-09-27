@@ -66,9 +66,13 @@ export const GET = withSecurity(async (request: Request) => {
   const transactions = hasMore ? allResults.slice(0, pageSize) : allResults
   const nextCursor = hasMore ? transactions[transactions.length - 1]?.created_at ?? null : null
 
-  // For transactions with reference_id, fetch associated betslip info
+  // Fetch betslip info for pick purchases/earnings. Only those rows reference a
+  // betslip: arena rows hold a game id and the weekly bonus an ISO week key
+  // ("2026-W39") in the same column. Passing a non-UUID to `.in("id", …)` on
+  // betslips fails the whole query, which would blank every betslip on the page.
+  const BETSLIP_TYPES = new Set(["PURCHASE", "EARNING"])
   const referenceIds = transactions
-    .filter((t) => t.reference_id)
+    .filter((t) => t.reference_id && BETSLIP_TYPES.has(t.type))
     .map((t) => t.reference_id)
 
   const betslipMap: Record<string, { sportsbook: string; bet_type: string; odds: number } | null> = {}
@@ -94,7 +98,7 @@ export const GET = withSecurity(async (request: Request) => {
     status: t.status,
     created_at: t.created_at,
     reference_id: t.reference_id,
-    betslip: t.reference_id ? (betslipMap[t.reference_id] ?? null) : null,
+    betslip: t.reference_id && BETSLIP_TYPES.has(t.type) ? (betslipMap[t.reference_id] ?? null) : null,
   }))
 
   return NextResponse.json({

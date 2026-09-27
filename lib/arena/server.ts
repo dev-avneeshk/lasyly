@@ -59,7 +59,15 @@ export function driveAI(state: ArenaState, maxSteps = 20): void {
  * next lot; then let AI respond to the new lot.
  */
 export function serverTick(state: ArenaState, now = Date.now()): void {
-  if (state.status !== "auction") return
+  // Repair path. `needsServerTick` sends us here for a finished auction whose
+  // result was never persisted (the process died between the status flip and the
+  // write). Without this branch the early return below meant every poll took the
+  // lock, changed nothing, and asked again on the next poll — forever — while
+  // the client sat on a phase it had no result to render.
+  if (state.status !== "lobby" && state.status !== "auction") {
+    ensureResult(state)
+    return
+  }
   if (!state.lot) {
     openNextLot(state)
   } else if (state.lotDeadline !== null && now >= state.lotDeadline) {

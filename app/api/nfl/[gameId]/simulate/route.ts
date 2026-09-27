@@ -34,7 +34,12 @@ export const POST = withSecurity(async (
   const existing = await loadGame(gameId)
   if (!existing) return NextResponse.json({ error: "Game not found." }, { status: 404 })
 
-  const seat = seatForUser(existing, user.id) ?? "P1"
+  // Only a human participant may end the game. The old `?? "P1"` fallback let
+  // any signed-in user complete someone else's game. Matches the bid/pass routes.
+  const seat = seatForUser(existing, user.id)
+  if (!seat || existing.state.isAI[seat]) {
+    return NextResponse.json({ error: "You don't control a seat in this game." }, { status: 403 })
+  }
 
   const { game } = await mutateGame(gameId, (g) => {
     if (g.state.status !== "lineup" && g.state.status !== "complete") {

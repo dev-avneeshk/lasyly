@@ -6,6 +6,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
 import { driveAI, serverView } from "@/lib/arena/server"
 import { saveGame } from "@/lib/arena/store"
+import { participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
 import { CPU_ENTRY_COST, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
@@ -96,6 +97,9 @@ export const POST = withSecurity(async (request: Request) => {
   }
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  // Before responding: the client subscribes as soon as it has `channel`, and
+  // Realtime checks the seat at that moment.
+  await registerArenaChannelMember(gameId, user.id, "P1")
 
-  return NextResponse.json(serverView(state, "P1", 1), { status: 201 })
+  return NextResponse.json(participantView(serverView(state, "P1", 1)), { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

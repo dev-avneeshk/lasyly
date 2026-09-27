@@ -5,7 +5,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
-import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 import type { TeamId } from "@/lib/arena/types"
 
@@ -41,11 +41,15 @@ export const POST = withSecurity(async (
   if (!existing) return NextResponse.json({ error: "Game not found." }, { status: 404 })
 
   // Already in the game?
+  // Re-registering the channel seat here is idempotent, and it repairs live
+  // updates for a player whose first registration failed (they reload → join).
   if (existing.ownerUserId === user.id) {
-    return NextResponse.json(serverView(existing.state, "P1", existing.rev))
+    await registerArenaChannelMember(gameId, user.id, "P1")
+    return NextResponse.json(participantView(serverView(existing.state, "P1", existing.rev)))
   }
   if (existing.guestUserId === user.id) {
-    return NextResponse.json(serverView(existing.state, "P2", existing.rev))
+    await registerArenaChannelMember(gameId, user.id, "P2")
+    return NextResponse.json(participantView(serverView(existing.state, "P2", existing.rev)))
   }
 
   // Only human-vs-human games with an open P2 can be joined.
@@ -116,5 +120,8 @@ export const POST = withSecurity(async (
   const seat: TeamId = "P2"
   if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
 
-  return NextResponse.json(serverView(game.state, seat, game.rev))
+  // The caller now holds seat P2: allow them on the private channel before
+  // handing them its name (Realtime checks the seat when they subscribe).
+  await registerArenaChannelMember(gameId, user.id, seat)
+  return NextResponse.json(participantView(serverView(game.state, seat, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

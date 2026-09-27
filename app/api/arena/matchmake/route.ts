@@ -7,7 +7,7 @@ import { createGame, openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
 import { saveGame, loadGame, mutateGame } from "@/lib/arena/store"
 import { enqueueOpenGame, dequeueOpenGame, removeOpenGame } from "@/lib/arena/matchmaking"
-import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import {
   DEFAULT_CONFIG,
@@ -109,11 +109,13 @@ export const POST = withSecurity(async (request: Request) => {
         })
         // Make sure a claimed game never lingers in the queue.
         await removeOpenGame(openGameId)
+        // Let the new P2 join the private channel before they learn its name.
+        await registerArenaChannelMember(openGameId, user.id, "P2")
         // Flip the waiting creator straight into the auction (they've been
         // sitting on "Finding an opponent…" polling their lobby). Ship the view
         // so they transition in one hop.
         void broadcastArenaUpdate(openGameId, serverView(game.state, "P2", game.rev))
-        return NextResponse.json(serverView(game.state, "P2", game.rev))
+        return NextResponse.json(participantView(serverView(game.state, "P2", game.rev)))
       } catch {
         // The game filled or vanished between the pop and the lock. Refund the
         // stake we just charged and fall through to create our own lobby.
@@ -161,7 +163,8 @@ export const POST = withSecurity(async (request: Request) => {
   state.econ = { mode: "pvp", amount: data.stake, settled: false }
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  await registerArenaChannelMember(gameId, user.id, "P1")
   await enqueueOpenGame(gameId)
 
-  return NextResponse.json(serverView(state, "P1", 1), { status: 201 })
+  return NextResponse.json(participantView(serverView(state, "P1", 1)), { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

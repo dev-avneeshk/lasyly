@@ -255,20 +255,42 @@ export function useArenaGame() {
   }, [bid])
 
   // ── Simulation ─────────────────────────────────────────────────────────
+  /**
+   * Run the game and enter the "simulating" phase.
+   *
+   * ORDER MATTERS. This used to commit `status = "simulating"` first and then
+   * call `runSimulation`. React batches both updates, so a throw from the sim
+   * still let the phase flip — landing the UI in "simulating" with `result ===
+   * null`, which no render branch handled, so the screen fell through to the
+   * auction layout with no lot and rendered blank. Computing first means the
+   * phase only ever advances alongside a result, and a failure leaves the game
+   * at "lineup" where the auto-sim watchdog can retry it and the player has a
+   * button. Throws on failure so the caller can report it.
+   */
   const simulate = useCallback(() => {
     const s = stateRef.current
-    if (!s) return
+    if (!s) throw new Error("There's no game to simulate.")
+    // Callable from any post-auction phase, not just "lineup". The sim is seeded,
+    // so recomputing yields the identical game — which makes this the recovery
+    // path for a screen that somehow holds a running phase with no result to
+    // render, instead of leaving the player with a dead retry button.
+    if (s.status === "lobby" || s.status === "auction") {
+      throw new Error("The rosters aren't locked yet.")
+    }
     const next = clone(s)
-    next.status = "simulating"
-    commit(next)
-    // Compute result immediately; the SimulationScreen paces the reveal.
-    // The CPU seat (P2) gets a difficulty execution edge.
+    // The CPU seat gets a difficulty execution edge.
     const edges = {
       P1: next.isAI.P1 ? difficultyEdge(next.config.difficulty) : 0,
       P2: next.isAI.P2 ? difficultyEdge(next.config.difficulty) : 0,
     }
     const r = runSimulation(next.rosters.P1, next.rosters.P2, next.season, next.seed, edges)
+    if (!r || !Array.isArray(r.moments)) {
+      throw new Error("The simulation produced no result.")
+    }
+    // Commit phase + result together; the SimulationScreen paces the reveal.
+    next.status = "simulating"
     setResult(r)
+    commit(next)
   }, [commit])
 
   const finishSimulation = useCallback(() => {

@@ -12,6 +12,22 @@ function freshGame(gameId: string, seed = 1): ArenaState {
   driveAI(s)
   return s
 }
+/**
+ * Plays a game all the way to "lineup" using only the server clock, so both
+ * rosters are legally complete and the state is genuinely simulatable. Tests that
+ * poke at post-auction phases need this rather than freshGame, whose rosters are
+ * still empty.
+ */
+function playToLineup(gameId: string, seed = 1): ArenaState {
+  const s = freshGame(gameId, seed)
+  let guard = 0
+  while (s.status === "auction" && guard++ < 5000) {
+    // Jump the clock to the current lot's deadline so the tick resolves it.
+    serverTick(s, (s.lotDeadline ?? Date.now()) + 1)
+  }
+  if (s.status === "auction") throw new Error("auction never finished")
+  return s
+}
 
 describe("Arena server — store", () => {
   it("saves, loads, and deletes a game (in-memory fallback)", async () => {
@@ -205,9 +221,41 @@ describe("Arena — abuse resistance", () => {
     expect(needsServerTick(state)).toBe(false)
   })
 
-  it("a completed game never needs the clock", () => {
+  it("a completed game with its result never needs the clock", () => {
     const state = freshGame("tick-3", 15)
     state.status = "complete"
+    state.result = { winner: "P1" } as unknown as NonNullable<typeof state.result>
     expect(needsServerTick(state)).toBe(false)
+  })
+
+  it("repairs ANY post-auction phase that is missing its result, then goes quiet", () => {
+    // A phase that says the game is running but carries no result renders as a
+    // blank screen on the client, so it has to be repairable — not just "lineup".
+    // serverTick used to return early for every non-auction status, so
+    // needsServerTick kept saying "yes, there's work", each poll took the lock,
+    // repaired nothing, and asked again forever. The repair is one-shot: after it
+    // the result is cached and polling a finished game takes no lock again.
+    for (const status of ["lineup", "simulating", "complete"] as const) {
+      const state = playToLineup(`tick-repair-${status}`, 16)
+      state.status = status
+      state.result = null
+      expect(needsServerTick(state), `${status} without a result`).toBe(true)
+
+      serverTick(state)
+      expect(state.result, `${status} should have been repaired`).not.toBeNull()
+      expect(needsServerTick(state), `${status} after repair`).toBe(false)
+    }
+  })
+
+  it("refuses to simulate an unplayable roster with a named error, not a TypeError", () => {
+    // The auction always auto-fills to a legal five (see lineup-handoff.test.ts),
+    // so this is corrupt-state territory. It still must not surface as
+    // "Cannot read properties of undefined (reading 'owned')" from 250 lines deep
+    // in the possession loop — inside mutateGame that became an opaque 500 and on
+    // the client a blank simulation screen.
+    const state = freshGame("tick-unplayable", 17)
+    state.status = "lineup"
+    state.result = null
+    expect(() => serverTick(state)).toThrow(/starters/i)
   })
 })

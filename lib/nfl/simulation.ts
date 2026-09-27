@@ -26,6 +26,7 @@ import type {
   TeamBox,
   TeamId,
 } from "./types"
+import { ROSTER_SLOTS } from "./types"
 import { orderedRoster, playerInSlot } from "./roster"
 import { buildTeamProfile, type NflTeamProfile } from "./teamRating"
 import { mulberry32, type RNG } from "./rng"
@@ -84,6 +85,21 @@ function newTeamBox(team: TeamId): TeamBox {
     team, points: 0, totalYards: 0, passYards: 0, rushYards: 0,
     firstDowns: 0, thirdDownAtt: 0, thirdDownConv: 0,
     turnovers: 0, sacks: 0, timeOfPossession: 0, drives: 0,
+  }
+}
+
+/**
+ * A squad is playable only with every slot filled — the sim needs a QB to throw,
+ * receivers to target and four defenders to credit. The auction guarantees this
+ * (finalizeAuction auto-fills), so reaching here means corrupt or hand-built
+ * state, which deserves a named error rather than a crash mid-drive.
+ */
+function assertPlayable(team: TeamId, roster: RosterState): void {
+  const missing = ROSTER_SLOTS.filter((s) => !roster.slots[s])
+  if (missing.length > 0) {
+    throw new Error(
+      `${team} can't play: ${missing.join(", ")} unfilled. The roster never completed.`
+    )
   }
 }
 
@@ -455,6 +471,15 @@ export function simulateGame(
   seed: number,
   edges: Record<TeamId, number> = { P1: 0, P2: 0 }
 ): NflGameResult {
+  // Fail fast and legibly on a roster that can't play. The receiver/defender
+  // pickers fall back to `candidates[0]` and pickMvp to `pool[0]`, which are
+  // `undefined` on an empty squad, so a corrupt state died with a bare TypeError
+  // deep inside a drive — a blank simulation screen on the client and an opaque
+  // 500 inside the game lock on the server. Mirrors the NBA twin in
+  // lib/arena/simulation.ts.
+  assertPlayable("P1", rosterP1)
+  assertPlayable("P2", rosterP2)
+
   const rng = mulberry32(seed >>> 0)
   const p1 = buildSimTeam("P1", rosterP1, edges.P1)
   const p2 = buildSimTeam("P2", rosterP2, edges.P2)

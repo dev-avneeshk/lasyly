@@ -52,7 +52,13 @@ export function driveAI(state: NflAuctionState, maxSteps = 20): void {
 
 /** Apply the server clock: resolve an expired lot, open the next, drive AI. */
 export function serverTick(state: NflAuctionState, now = Date.now()): void {
-  if (state.status !== "auction") return
+  // Repair path — see the arena twin in lib/arena/server.ts. needsServerTick
+  // routes a result-less post-auction state here; the old early return meant
+  // every poll took the lock, repaired nothing and asked again forever.
+  if (state.status !== "lobby" && state.status !== "auction") {
+    ensureResult(state)
+    return
+  }
   if (!state.lot) {
     openNextLot(state)
   } else if (state.lotDeadline !== null && now >= state.lotDeadline) {

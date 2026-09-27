@@ -4,12 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame } from "@/lib/arena/store"
+import { seatForUser } from "@/lib/arena/server"
 import { levelProgress } from "@/lib/economy/arena"
 import type { TeamId } from "@/lib/arena/types"
 
 /**
- * GET /api/arena/[gameId]/players — public profile cards for both seats of a
- * game, for the 1v1 "VS" header (avatar, username, level, arena W/L).
+ * GET /api/arena/[gameId]/players — profile cards for both seats of a game, for
+ * the 1v1 "VS" header (avatar, username, level, arena W/L). Only the game's own
+ * players may call it.
  *
  * Only seats that are humans are returned; the CPU seat is reported as such.
  * Arena win/loss is DERIVED from the append-only transactions ledger (no
@@ -42,7 +44,11 @@ export const GET = withSecurity(async (
   }
 
   const game = await loadGame(gameId)
-  if (!game) return NextResponse.json({ error: "Game not found." }, { status: 404 })
+  // Private to the game's two players, like the game view itself. Same 404 for
+  // "no such game" and "not your game" so outsiders can't probe gameIds.
+  if (!game || !seatForUser(game, user.id)) {
+    return NextResponse.json({ error: "Game not found." }, { status: 404 })
+  }
 
   const admin = createAdminClient()
 

@@ -4,7 +4,7 @@ import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { startSimulation, serverView, seatForUser } from "@/lib/arena/server"
-import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 import { awardCpuReward, settle1v1 } from "@/lib/economy/wallet"
 import { XP_REWARDS, stakePayout } from "@/lib/economy/arena"
 import type { TeamId } from "@/lib/arena/types"
@@ -35,7 +35,14 @@ export const POST = withSecurity(async (
   const existing = await loadGame(gameId)
   if (!existing) return NextResponse.json({ error: "Game not found." }, { status: 404 })
 
-  const seat = seatForUser(existing, user.id) ?? "P1"
+  // Only a human participant may end the game. This used to fall back to "P1"
+  // for anyone, so any signed-in user who knew a gameId could drive someone
+  // else's game to "complete" (and trigger its coin settlement). Matches the
+  // bid/pass routes.
+  const seat = seatForUser(existing, user.id)
+  if (!seat || existing.state.isAI[seat]) {
+    return NextResponse.json({ error: "You don't control a seat in this game." }, { status: 403 })
+  }
 
   // startSimulation is idempotent: a game already at "complete" produces no
   // change, so the store writes nothing and `rev` stays put. Spamming this
@@ -69,7 +76,7 @@ export const POST = withSecurity(async (
   // Push the final result to the opponent so both flip to the summary together.
   if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
 
-  return NextResponse.json(serverView(game.state, seat, game.rev))
+  return NextResponse.json(participantView(serverView(game.state, seat, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 /**

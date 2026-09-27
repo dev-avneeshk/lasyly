@@ -83,6 +83,21 @@ function newTeamBox(team: TeamId): TeamBox {
   }
 }
 
+/**
+ * A roster is playable when all five starting slots are filled. The auction
+ * guarantees this (finalizeAuction auto-fills), so reaching here means the state
+ * was corrupted or hand-built — worth an explicit error rather than a crash deep
+ * in the possession loop.
+ */
+function assertPlayable(team: TeamId, roster: RosterState): void {
+  const five = starters(roster)
+  if (five.length < 5) {
+    throw new Error(
+      `${team} can't play: ${five.length} of 5 starters filled. The roster never completed.`
+    )
+  }
+}
+
 function buildSimTeam(team: TeamId, roster: RosterState, oppRoster: RosterState, edge = 0): SimTeam {
   const profile = buildTeamProfile(team, roster)
   const shares = usageShares(roster)
@@ -171,6 +186,10 @@ type ActionKind = "iso" | "pnr" | "post" | "spotup" | "transition" | "drive" | "
 
 function chooseBallHandler(t: SimTeam, rng: RNG): SimPlayer {
   const court = onCourtPlayers(t)
+  // The final fallback below indexes `court`, so an empty court would hand back
+  // `undefined` and the caller would dereference it. assertPlayable makes this
+  // unreachable; the guard keeps the failure named if that ever regresses.
+  if (court.length === 0) throw new Error(`${t.team} has nobody on the floor.`)
   // Weight by effective usage × fatigue factor.
   const weights = court.map((p) => p.usage * (0.6 + (p.stamina / 100) * 0.4))
   const total = weights.reduce((s, w) => s + w, 0) || 1
@@ -602,6 +621,15 @@ export function simulateGame(
   seed: number,
   edges: Record<TeamId, number> = { P1: 0, P2: 0 }
 ): GameResult {
+  // Fail fast and legibly on a roster that can't play. Everything downstream —
+  // buildSimTeam, assignMatchups, chooseBallHandler — assumes a full starting
+  // five; with fewer, `chooseBallHandler` returned `undefined` off an empty court
+  // and the first possession died on `handler.owned` with a bare TypeError, ~250
+  // lines from the actual problem. On the client that surfaced as a blank or hung
+  // simulation screen; on the server it became a 500 inside the game lock.
+  assertPlayable("P1", rosterP1)
+  assertPlayable("P2", rosterP2)
+
   const rng = mulberry32(seed >>> 0)
   const p1 = buildSimTeam("P1", rosterP1, rosterP2, edges.P1)
   const p2 = buildSimTeam("P2", rosterP2, rosterP1, edges.P2)

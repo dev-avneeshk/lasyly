@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,8 @@ import { BidControls } from "@/components/arena/BidControls"
 import { SimulationScreen } from "@/components/arena/SimulationScreen"
 import { GameSummary } from "@/components/arena/GameSummary"
 import { SoldStamp } from "@/components/arena/SoldStamp"
+import { SimHandoff, SimStalled } from "@/components/arena/SimHandoff"
+import { useAutoSimulate } from "@/lib/hooks/useAutoSimulate"
 import { useArenaGame } from "./useArenaGame"
 import { useArenaServer } from "./useArenaServer"
 import { ServerArena } from "./ServerArena"
@@ -63,16 +65,33 @@ export default function ArenaGame({
 
   // Auto-run the simulation the moment both rosters are locked — no "Start
   // simulation" click. A short beat lets the "Rosters set" screen register
-  // before the sim takes over. Guarded so it fires once per lineup phase.
-  const autoSimFired = useRef(false)
-  useEffect(() => {
-    if (state?.status === "lineup" && !autoSimFired.current) {
-      autoSimFired.current = true
-      const t = setTimeout(() => game.simulate(), 1400)
-      return () => clearTimeout(t)
+  // before the sim takes over.
+  //
+  // This was a hand-rolled `useRef` + `setTimeout` effect that dropped the
+  // transition whenever a re-render landed inside the 1400ms beat, hanging the
+  // UI on "Starting simulation…" with no way out. useAutoSimulate keeps retrying
+  // until the phase actually advances and reports a stall so the lineup screen
+  // can offer a manual button. See lib/hooks/useAutoSimulate.ts.
+  const autoSim = useAutoSimulate({
+    active: state?.status === "lineup",
+    run: game.simulate,
+  })
+
+  // Last-ditch recovery for a phase that claims the game is running but has no
+  // result. The watchdog above is inactive there (it only watches "lineup"), so
+  // its retryNow would be a no-op — this recomputes directly. The sim is seeded,
+  // so it reproduces the same game.
+  const [recoverError, setRecoverError] = useState<string | null>(null)
+  const recover = useCallback(() => {
+    try {
+      game.simulate()
+      setRecoverError(null)
+    } catch (e) {
+      setRecoverError(e instanceof Error ? e.message : "We couldn't start the simulation.")
     }
-    if (state?.status !== "lineup") autoSimFired.current = false
-  }, [state?.status, game])
+    // `game.simulate` is a stable useCallback from useArenaGame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.simulate])
 
   if (server.view) return <ServerArena server={server} labelFor={serverLabelFor} />
 
@@ -105,8 +124,22 @@ export default function ArenaGame({
   if (state.status === "simulating" && result) return <SimulationScreen result={result} p1Label={P1_LABEL} p2Label={P2_LABEL} onDone={game.finishSimulation} />
   if (state.status === "complete" && result) return <GameSummary result={result} humanSeat={game.humanSeat} p1Label={P1_LABEL} p2Label={P2_LABEL} onRematch={() => game.start(launch)} onNewAuction={() => onExit(null)} onExit={() => onExit(null)} />
 
+  // "simulating" with no result should be unreachable now that `simulate`
+  // commits the phase and the result together, but it used to fall through to
+  // the auction layout below and render an empty board. Fail loudly instead.
+  if (state.status === "simulating" || state.status === "complete") {
+    return <SimStalled label="Tipping off…" error={recoverError} running={false} onRetry={recover} onExit={() => onExit(null)} />
+  }
+
   if (state.status === "lineup") {
-    return <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10"><h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2><p className="text-sm text-[var(--color-text-muted)]">Lineups are locked. Tipping off…</p><div className="grid w-full gap-4 md:grid-cols-2">{game.budgets && <><BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} /><BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} isAI /></>}</div><div className="flex items-center gap-2 text-sm font-bold text-[var(--color-lime)]"><Loader2 className="h-4 w-4 animate-spin" />Starting simulation…</div></div>
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10">
+        <h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2>
+        <p className="text-sm text-[var(--color-text-muted)]">Lineups are locked. Tipping off…</p>
+        <div className="grid w-full gap-4 md:grid-cols-2">{game.budgets && <><BudgetPanel team="P1" label={P1_LABEL} budget={game.budgets.P1} roster={state.rosters.P1} /><BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} isAI /></>}</div>
+        <SimHandoff autoSim={autoSim} />
+      </div>
+    )
   }
 
   const lot = state.lot

@@ -198,18 +198,34 @@ export function useNflGame() {
   }, [bid])
 
   // ── Simulation ─────────────────────────────────────────────────────────
+  /**
+   * Run the game and enter the "simulating" phase. Computes the result BEFORE
+   * committing the phase — see the twin in useArenaGame for why: flipping the
+   * phase first meant a throw from the sim left the UI in "simulating" with no
+   * result, which renders as a blank screen. Throws on failure so the caller
+   * (the auto-sim watchdog) can retry and report.
+   */
   const simulate = useCallback(() => {
     const s = stateRef.current
-    if (!s) return
+    if (!s) throw new Error("There's no game to simulate.")
+    // Callable from any post-auction phase — see the arena twin. The sim is
+    // seeded, so this doubles as the recovery path for a running phase that has
+    // no result to render.
+    if (s.status === "lobby" || s.status === "auction") {
+      throw new Error("The rosters aren't locked yet.")
+    }
     const next = clone(s)
-    next.status = "simulating"
-    commit(next)
     const edges = {
       P1: next.isAI.P1 ? difficultyEdge(next.config.difficulty) : 0,
       P2: next.isAI.P2 ? difficultyEdge(next.config.difficulty) : 0,
     }
     const r = runSimulation(next.rosters.P1, next.rosters.P2, next.season, next.seed, edges)
+    if (!r || !Array.isArray(r.scoringPlays)) {
+      throw new Error("The simulation produced no result.")
+    }
+    next.status = "simulating"
     setResult(r)
+    commit(next)
   }, [commit])
 
   const finishSimulation = useCallback(() => {

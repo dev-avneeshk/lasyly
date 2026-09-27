@@ -36,7 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ArenaServerView } from "@/lib/arena/server"
 import type { AIDifficulty, Season, TeamId } from "@/lib/arena/types"
 import { createClient } from "@/lib/supabase/client"
-import { arenaChannelName, ARENA_UPDATE_EVENT, type ArenaBroadcast } from "@/lib/realtime/arena"
+import { ARENA_UPDATE_EVENT, type ArenaBroadcast } from "@/lib/realtime/arena-shared"
 import { markBidSent, recordBroadcastLatency, recordActionAck } from "./latency"
 
 type View = ArenaServerView
@@ -104,6 +104,11 @@ export function useArenaServer() {
   // an opponent" state instead of the private "share this link" one. A private
   // (invite-link) lobby leaves this false.
   const [publicLobby, setPublicLobby] = useState(false)
+  // Private realtime topic for this game. The server only puts it in responses
+  // to verified players (`channel` on create/join/matchmake/GET/actions), and it
+  // can't be derived from the gameId, so a link-holder can't listen in. Null
+  // until we've heard from the server, or when realtime is off (then we poll).
+  const [channelName, setChannelName] = useState<string | null>(null)
 
   const supabase = useMemo(() => createClient(), [])
   const viewRef = useRef<View | null>(null)
@@ -137,11 +142,14 @@ export function useArenaServer() {
    * already shown — a slow GET that resolves after a newer push must not rewind
    * the board.
    */
-  const apply = useCallback((v: (View & { error?: string }) | null) => {
+  const apply = useCallback((v: (View & { error?: string; channel?: string | null }) | null) => {
     if (!v) return
     if (v.error) setError(v.error)
     else setError(null)
     if (!v.gameId) return
+    // Sticky: error bodies and broadcasts don't carry it, so only overwrite when
+    // the server actually sent one.
+    if (typeof v.channel === "string") setChannelName(v.channel)
     // Record our seat from an authoritative, self-fetched view.
     if (v.viewer === "P1" || v.viewer === "P2") viewerRef.current = v.viewer
     // Monotonic: never move the board backwards. `rev` may be absent on some
@@ -371,11 +379,31 @@ export function useArenaServer() {
     apply(res.body as View & { error?: string })
   }, [apply])
 
+  /**
+   * Ask the server to run the game. THROWS on any failure.
+   *
+   * This used to swallow everything: `apply()` bails on a body without a
+   * `gameId`, so a 429 (the route shares the 60/min arenaAction budget), a 503
+   * from GameBusyError, a 409, or a dropped connection all returned quietly and
+   * left the view stuck at "lineup" forever. Nothing else could rescue it — the
+   * GET poll path caches the result and then reports "no work to do" — so the
+   * game was simply dead. Throwing hands the failure to the auto-sim watchdog,
+   * which retries on a backoff and shows the player what went wrong.
+   */
   const simulate = useCallback(async () => {
     const id = gameIdRef.current
-    if (!id) return
-    const res = await api(`/api/arena/${id}/simulate`, {})
+    if (!id) throw new Error("This game is no longer available.")
+    let res: Awaited<ReturnType<typeof api>>
+    try {
+      res = await api(`/api/arena/${id}/simulate`, {})
+    } catch {
+      throw new Error("We couldn't reach the server to start the game.")
+    }
     apply(res.body as View & { error?: string })
+    if (!res.ok) {
+      const message = (res.body as { error?: string })?.error
+      throw new Error(message || "The server couldn't start the game.")
+    }
   }, [apply])
 
   // ── Self-scheduling poll chain ─────────────────────────────────────────────
@@ -453,41 +481,67 @@ export function useArenaServer() {
   // view immediately, so the opponent sees a bid in ~100-300ms instead of on
   // their next 2.5s poll. pollOnce dedupes in-flight requests, so a nudge that
   // races the fallback timer is harmless.
+  //
+  // The channel is PRIVATE: Realtime lets us join only if the database says we
+  // hold a seat in this game (RLS on realtime.messages; the server records the
+  // seat before it tells us the channel name). If we're refused — seat not
+  // recorded, realtime misconfigured — the subscribe errors and the poll chain
+  // above carries the game on its own.
   useEffect(() => {
-    if (!gameId) return
+    if (!gameId || !channelName) return
     if (status === "complete") return
 
-    const channel = supabase
-      .channel(arenaChannelName(gameId))
-      .on("broadcast", { event: ARENA_UPDATE_EVENT }, (msg) => {
-        backoffRef.current = 0
-        idleLobbyPolls.current = 0
-        const payload = (msg as { payload?: ArenaBroadcast }).payload
-        // Dev-only: server→client transit + total ack latency for the bidder.
-        recordBroadcastLatency(payload)
-        // Primary path: the push carried the authoritative view, so apply it in
-        // a single hop — no second GET. Fall back to a GET only when the payload
-        // has no view (a bare nudge) or a sequence gap means we'd be applying a
-        // snapshot with a hole behind it.
-        const applied = payload?.view ? applyRemote(payload.view) : false
-        if (!applied) void pollOnce()
-      })
-      .subscribe((subStatus) => {
-        // Fires on the initial connect AND on every reconnect. A client that
-        // briefly dropped its socket would have missed any nudges sent while it
-        // was gone; re-fetch on (re)subscribe so it re-syncs to the current
-        // authoritative view the moment the channel is live again.
-        if (subStatus === "SUBSCRIBED") {
+    let cancelled = false
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    const connect = async () => {
+      // A private join is authorized by the JWT the socket sends with it. Load
+      // the current session token first so the join can't go out with only
+      // the anon key (which the policy rejects).
+      try {
+        await supabase.realtime.setAuth()
+      } catch {
+        // Fall through: the join may still succeed with an already-set token,
+        // and if not, polling covers it.
+      }
+      if (cancelled) return
+
+      channel = supabase
+        .channel(channelName, { config: { private: true } })
+        .on("broadcast", { event: ARENA_UPDATE_EVENT }, (msg) => {
           backoffRef.current = 0
           idleLobbyPolls.current = 0
-          void pollOnce()
-        }
-      })
+          const payload = (msg as { payload?: ArenaBroadcast }).payload
+          // Dev-only: server→client transit + total ack latency for the bidder.
+          recordBroadcastLatency(payload)
+          // Primary path: the push carried the authoritative view, so apply it
+          // in a single hop — no second GET. Fall back to a GET only when the
+          // payload has no view (a bare nudge).
+          const applied = payload?.view ? applyRemote(payload.view) : false
+          if (!applied) void pollOnce()
+        })
+        .subscribe((subStatus) => {
+          // Fires on the initial connect AND on every reconnect. A client that
+          // briefly dropped its socket would have missed any pushes sent while
+          // it was gone; re-fetch on (re)subscribe so it re-syncs the moment the
+          // channel is live again.
+          if (subStatus === "SUBSCRIBED") {
+            backoffRef.current = 0
+            idleLobbyPolls.current = 0
+            void pollOnce()
+          } else if (subStatus === "CHANNEL_ERROR" && process.env.NODE_ENV !== "production") {
+            console.warn("[arena] live updates unavailable for this game; polling instead.")
+          }
+        })
+    }
+
+    void connect()
 
     return () => {
-      void supabase.removeChannel(channel)
+      cancelled = true
+      if (channel) void supabase.removeChannel(channel)
     }
-  }, [gameId, status, supabase, pollOnce, applyRemote])
+  }, [gameId, channelName, status, supabase, pollOnce, applyRemote])
 
   const reset = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -498,6 +552,7 @@ export function useArenaServer() {
     viewerRef.current = "P1"
     setView(null)
     setGameId(null)
+    setChannelName(null)
     setError(null)
     setPublicLobby(false)
   }, [])

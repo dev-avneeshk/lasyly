@@ -6,7 +6,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { placeBid } from "@/lib/arena/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/arena/server"
-import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 
 const bidSchema = z.object({
   amount: z.number().int().min(1).max(200),
@@ -128,5 +128,5 @@ export const POST = withSecurity(async (
   // the server already decided, not a client-computed outcome.
   if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
 
-  return NextResponse.json(serverView(game.state, seat, game.rev))
+  return NextResponse.json(participantView(serverView(game.state, seat, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

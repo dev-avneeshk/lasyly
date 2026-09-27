@@ -4,7 +4,7 @@ import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame, needsServerTick } from "@/lib/arena/store"
 import { serverTick, serverView, seatForUser } from "@/lib/arena/server"
-import { broadcastArenaUpdate } from "@/lib/realtime/arena"
+import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 
 /**
  * GET /api/arena/[gameId] — the current authoritative view.
@@ -51,11 +51,21 @@ export const GET = withSecurity(async (
     return NextResponse.json({ error: "Game not found." }, { status: 404 })
   }
 
-  const viewer = seatForUser(existing, user.id) ?? "P1" // spectators view as P1
+  // Games are private to their two players. This used to fall back to "P1" so
+  // anyone with the gameId (it's in the invite link) could watch both rosters,
+  // every bid and the result. A guest who hasn't joined yet gets in through
+  // POST /join, which never calls this route first.
+  //
+  // 404 rather than 403, so an outsider can't use this to confirm a gameId
+  // exists.
+  const viewer = seatForUser(existing, user.id)
+  if (!viewer) {
+    return NextResponse.json({ error: "Game not found." }, { status: 404 })
+  }
 
   // Fast path: nothing for the clock to do, so don't take a lock or write.
   if (!needsServerTick(existing.state)) {
-    return NextResponse.json(serverView(existing.state, viewer, existing.rev))
+    return NextResponse.json(participantView(serverView(existing.state, viewer, existing.rev)))
   }
 
   // The clock genuinely needs to advance (lot expired / none open). Serialize so
@@ -71,5 +81,5 @@ export const GET = withSecurity(async (
   // one hop rather than answering the nudge with its own GET.
   if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev))
 
-  return NextResponse.json(serverView(game.state, viewer, game.rev))
+  return NextResponse.json(participantView(serverView(game.state, viewer, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

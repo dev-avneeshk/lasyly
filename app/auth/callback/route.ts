@@ -64,25 +64,6 @@ export async function GET(request: NextRequest) {
             { onConflict: "id", ignoreDuplicates: true }
           )
 
-          // Grant the one-time starter Coins here — this is the actual signup
-          // moment, and it happens exactly once per account.
-          //
-          // It used to live in PATCH /api/profiles/me, which ran it on EVERY
-          // profile update. That route had no per-user rate limit, and the RPC's
-          // duplicate guard was an unlocked read, so firing concurrent PATCHes
-          // let a user mint 500 Coins per race won. The RPC is now serialized by
-          // an advisory lock and backed by a unique index
-          // (20260914_lock_down_money_rpcs.sql + _idempotency_constraints.sql),
-          // so this call is idempotent regardless — but granting it once, at the
-          // right moment, is the part that belongs in the application.
-          const { error: bonusErr } = await admin.rpc("grant_signup_bonus", {
-            p_user_id: user.id,
-          })
-          if (bonusErr) {
-            // Best-effort: never block sign-in on the bonus.
-            console.error("Signup bonus grant error:", bonusErr.message)
-          }
-
           redirectTo = "/onboarding"
         } else if (profile.username.match(/_[a-f0-9]{8}$/) || profile.username.startsWith("user_")) {
           // Profile exists but onboarding incomplete
@@ -90,6 +71,30 @@ export async function GET(request: NextRequest) {
         } else {
           // Returning user with complete profile
           redirectTo = next === "/dashboard" ? "/explore" : next
+        }
+
+        // Starter Coins, on EVERY sign-in rather than only when this route
+        // created the profile.
+        //
+        // It used to sit inside the `!profile` branch above, and it never took
+        // effect: on the live database all 23 accounts had 0 Coins and the
+        // ledger had no SIGNUP_BONUS rows at all. Either the branch didn't run
+        // (a profile already existed, e.g. created by a database trigger) or
+        // the call failed and was only logged. Granting outside the branch
+        // covers both, and gives existing accounts their bonus on next sign-in.
+        //
+        // Calling it every time is safe. grant_signup_bonus takes a per-user
+        // advisory lock and uq_transactions_signup_bonus allows one row per
+        // user, so repeats return 'duplicate' without touching the balance.
+        // (It must never go back in PATCH /api/profiles/me: that route runs on
+        // every profile edit and has no per-user rate limit.) Sign-ins are rare
+        // enough that one extra RPC here costs nothing.
+        const { data: bonus, error: bonusErr } = await admin.rpc("grant_signup_bonus", {
+          p_user_id: user.id,
+        })
+        if (bonusErr || (bonus !== "completed" && bonus !== "duplicate")) {
+          // Best-effort: never block sign-in on the bonus.
+          console.error("Signup bonus grant error:", bonusErr?.message ?? bonus)
         }
       }
 
