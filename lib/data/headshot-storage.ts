@@ -24,8 +24,25 @@ import { cached } from "@/lib/cache"
  * whereas a stale column would keep pointing at a 404.
  */
 
-/** Must match BUCKET in scripts/db/create-headshot-bucket.mjs. */
-export const HEADSHOT_BUCKET = "player-headshots"
+// Path conventions live in headshot-paths.ts, which carries no `server-only`
+// marker so that client components can build the same URLs. Re-exported here so
+// existing server-side importers keep working unchanged.
+import {
+  HEADSHOT_BUCKET,
+  espnHeadshotUrl,
+  storedHeadshotUrl,
+  type HeadshotVariant,
+} from "./headshot-paths"
+
+export {
+  HEADSHOT_BUCKET,
+  NBA_CDN_NAMESPACE,
+  espnHeadshotUrl,
+  headshotObjectPath,
+  nbaCdnHeadshotUrl,
+  storedHeadshotUrl,
+  type HeadshotVariant,
+} from "./headshot-paths"
 
 /**
  * How long to hold the stored-object index.
@@ -108,47 +125,6 @@ export async function getStoredHeadshotIds(league: string): Promise<Set<string>>
   } catch {
     return new Set()
   }
-}
-
-/**
- * Stored size variants.
- *
- * `sm` (160px) is what prop cards use, and they are the case that matters: a
- * props page renders up to 50 avatars at 36-40 CSS px, so the difference between
- * 4KB and 9.6KB apiece is ~280KB across a full scroll. `lg` (320px) exists for
- * PlayerHero on the player detail page, which renders at 116 CSS px — one image,
- * where sharpness is worth the bytes.
- *
- * Both are written by the same backfill pass. `sm` is uploaded FIRST, so the
- * presence of the `lg` object implies `sm` also exists; that lets the stored
- * index be keyed on `lg` alone without risking a 404 on the card path.
- */
-export type HeadshotVariant = "sm" | "lg"
-
-/** Object path within the bucket for a given player + variant. */
-export function headshotObjectPath(
-  league: string,
-  espnId: string,
-  variant: HeadshotVariant = "lg"
-): string {
-  const lg = league.toLowerCase()
-  return variant === "sm" ? `${lg}/sm/${espnId}.webp` : `${lg}/${espnId}.webp`
-}
-
-/** Public URL for a stored headshot. Bucket is public-read, so no signing. */
-export function storedHeadshotUrl(
-  league: string,
-  espnId: string,
-  variant: HeadshotVariant = "lg"
-): string | null {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  if (!base) return null
-  return `${base}/storage/v1/object/public/${HEADSHOT_BUCKET}/${headshotObjectPath(league, espnId, variant)}`
-}
-
-/** ESPN's conventional headshot path, used when we have no stored object. */
-export function espnHeadshotUrl(league: string, espnId: string): string {
-  return `https://a.espncdn.com/i/headshots/${league.toLowerCase()}/players/full/${espnId}.png`
 }
 
 /**

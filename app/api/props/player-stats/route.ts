@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -76,7 +77,17 @@ async function computeNHLPlayerStats(supabase: any, playerName: string): Promise
       .eq("league", "nhl")
       .limit(1)
     if (playerRow?.[0]) {
-      headshotUrl = playerRow[0].headshot_url || `https://a.espncdn.com/i/headshots/nhl/players/full/${playerRow[0].espn_id}.png`
+      // Stored copy first; NHL headshots were backfilled alongside NFL's, and
+      // this path was still hot-linking ESPN so they went unused.
+      headshotUrl = playerRow[0].espn_id
+        ? resolveHeadshotUrl(
+            "nhl",
+            String(playerRow[0].espn_id),
+            playerRow[0].headshot_url,
+            await getStoredHeadshotIds("nhl"),
+            "lg"
+          )
+        : playerRow[0].headshot_url
       position = playerRow[0].position
     }
   } catch {}
@@ -226,7 +237,7 @@ async function computeNFLPlayerStats(supabase: any, playerName: string): Promise
   const { data, error } = await supabase
     .from("nfl_player_stats")
     .select(
-      "player_name, team, opponent, position, game_date, " +
+      "player_name, athlete_id, team, opponent, position, game_date, " +
       "pass_yds, rush_yds, rec_yds, pass_td, rush_td, rec_td, " +
       "rec, rush_att, targets, pass_int, sacks, fumbles"
     )
@@ -242,6 +253,13 @@ async function computeNFLPlayerStats(supabase: any, playerName: string): Promise
 
   let headshotUrl: string | null = null
   try {
+    // Prefer the id on the stat rows over a name lookup. `athlete_id` IS the ESPN
+    // id, so it resolves a photo without needing an espn_players row at all —
+    // 584 of the players in this table have none — and it cannot be confused by
+    // the nine NFL names that belong to two different players.
+    const athleteId = (data.find((r: any) => r.athlete_id) as any)?.athlete_id
+    const espnId = athleteId ? String(athleteId) : null
+
     const { data: playerRow } = await supabase
       .from("espn_players")
       .select("headshot_url, position, espn_id")
@@ -249,8 +267,19 @@ async function computeNFLPlayerStats(supabase: any, playerName: string): Promise
       .eq("league", "nfl")
       .limit(1)
     if (playerRow?.[0]) {
-      headshotUrl = playerRow[0].headshot_url || `https://a.espncdn.com/i/headshots/nfl/players/full/${playerRow[0].espn_id}.png`
       position = position ?? playerRow[0].position
+    }
+
+    // Our stored ~15KB WebP ahead of ESPN's ~225KB press original.
+    const id = espnId ?? (playerRow?.[0]?.espn_id ? String(playerRow[0].espn_id) : null)
+    if (id) {
+      headshotUrl = resolveHeadshotUrl(
+        "nfl",
+        id,
+        playerRow?.[0]?.headshot_url,
+        await getStoredHeadshotIds("nfl"),
+        "lg"
+      )
     }
   } catch {}
 

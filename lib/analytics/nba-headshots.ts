@@ -16,6 +16,12 @@
 import { createHash } from "node:crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import {
+  NBA_CDN_NAMESPACE,
+  getStoredHeadshotIds,
+  storedHeadshotUrl,
+} from "@/lib/data/headshot-storage"
+import { nbaIdForName } from "@/lib/players/nba-id"
 
 /** Headshots are roster-stable; a day is a safe hold. */
 const HEADSHOT_TTL_MS = 24 * 60 * 60_000
@@ -63,7 +69,11 @@ export async function resolveNBAHeadshots(
 
   try {
     return await cached(
-      `nba-headshots:${fingerprint}`,
+      // v2: resolution now prefers our own stored copy and scopes the roster
+      // lookup to league='nba'. v1 entries hold hot-linked ESPN URLs — and some
+      // outright wrong ones from the cross-sport name match — for 24 hours, which
+      // is far longer than the stored index takes to notice the backfill.
+      `nba-headshots:v2:${fingerprint}`,
       () => resolveUncached(subjects, names),
       HEADSHOT_TTL_MS
     )
@@ -81,14 +91,50 @@ async function resolveUncached(
   try {
     const supabase = createAdminClient()
 
-    // Preferred source: our own roster table (indexed on name).
-    const { data: playerRows } = await supabase
-      .from("espn_players")
-      .select("name, espn_id, headshot_url")
-      .in("name", names)
+    // Best source: our own copy, keyed by NBA person id.
+    //
+    // This path is new. NBA cards had no stored option at all — the bucket held
+    // nothing for basketball, so every avatar hot-linked a third party even
+    // though NFL and NHL had been self-hosted for a while. 573 of the 578 players
+    // in the pool are now stored as ~16KB WebP, against ~200KB from cdn.nba.com.
+    //
+    // Tried before the DB and the roster API because it is the cheapest and the
+    // only one that does not leave a third party in the render path.
+    const storedNbaIds = await getStoredHeadshotIds(NBA_CDN_NAMESPACE)
+    if (storedNbaIds.size > 0) {
+      for (const name of names) {
+        const nbaId = nbaIdForName(name)
+        if (nbaId === null || !storedNbaIds.has(String(nbaId))) continue
+        const url = storedHeadshotUrl(NBA_CDN_NAMESPACE, String(nbaId), "sm")
+        if (url) out[name] = url
+      }
+    }
+
+    // Preferred source: our own roster table.
+    //
+    // SCOPED TO league='nba'. Without that filter this matched on name across
+    // every league in the table and then built an NBA headshot path out of
+    // whatever id it found — so an NBA player who shares a name with a player in
+    // another sport was served that other player's face. Four such collisions
+    // exist in the live table right now: Chris Paul, Tyler Smith and Jordan
+    // Miller all match NFL rows, and Curtis Jones matches a Premier League row.
+    //
+    // espn_players currently holds ZERO league='nba' rows, so in practice this
+    // lookup returns nothing and resolution falls through to the ESPN roster
+    // call below — which is the correct outcome, and strictly better than
+    // confidently wrong photos. The filter is what makes this path safe to keep
+    // once NBA rows are backfilled.
+    const unresolved = names.filter((n) => !out[n])
+    const { data: playerRows } = unresolved.length === 0
+      ? { data: [] }
+      : await supabase
+          .from("espn_players")
+          .select("name, espn_id, headshot_url")
+          .eq("league", "nba")
+          .in("name", unresolved)
 
     for (const row of (playerRows ?? []) as any[]) {
-      if (!row.name) continue
+      if (!row.name || out[row.name]) continue
       const url =
         row.headshot_url ||
         (row.espn_id

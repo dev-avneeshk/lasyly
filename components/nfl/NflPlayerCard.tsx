@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { motion } from "framer-motion"
 import type { NflPlayer, Position } from "@/lib/nfl/types"
-import { headshotUrl } from "@/lib/nfl/data"
+import { headshotSources } from "@/lib/nfl/data"
+import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn } from "@/lib/utils"
 
 function initials(name: string): string {
@@ -11,18 +11,18 @@ function initials(name: string): string {
 }
 
 function Headshot({ player }: { player: NflPlayer }) {
-  const url = headshotUrl(player)
-  const [failed, setFailed] = useState(false)
+  // Stored ~15KB WebP in preference to ESPN's ~225KB press original.
+  const { src: url, onError } = useHeadshotFallback(headshotSources(player))
   return (
     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/10 to-white/[0.02] ring-1 ring-white/10">
-      {url && !failed ? (
+      {url ? (
         // Plain <img> so we don't need next/image remotePatterns config.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
           alt={player.name}
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={onError}
           className="h-full w-full object-cover object-top"
         />
       ) : (

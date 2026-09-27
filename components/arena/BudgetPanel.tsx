@@ -1,26 +1,27 @@
 "use client"
 
-import { useState } from "react"
 import { motion } from "framer-motion"
 import { Cpu, Wallet } from "lucide-react"
 import type { BudgetSnapshot } from "@/lib/arena/budget"
 import type { RosterState, RosterSlot, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { ROSTER_SLOTS } from "@/lib/arena/types"
-import { headshotUrl } from "@/lib/arena/data"
+import { headshotSources } from "@/lib/arena/data"
+import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn, formatMoney } from "@/lib/utils"
 
 const SLOT_LABEL: Record<RosterSlot, string> = { PG: "PG", SG: "SG", SF: "SF", PF: "PF", C: "C", BENCH: "6TH" }
 
 function MiniHeadshot({ player }: { player: SeasonPlayer }) {
-  const url = headshotUrl(player)
-  const [failed, setFailed] = useState(false)
+  // A 20px avatar pulling a 200KB PNG was the worst offender of the lot; prefer
+  // the stored WebP and fall back only if it is missing.
+  const { src: url, onError } = useHeadshotFallback(headshotSources(player))
   const initials = player.name.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase()
 
   return (
     <span className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-md bg-white/10 ring-1 ring-white/10">
-      {url && !failed ? (
+      {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover object-top" />
+        <img src={url} alt="" loading="lazy" onError={onError} className="h-full w-full object-cover object-top" />
       ) : <span className="text-[7px] font-bold text-[#b5bfd3]">{initials}</span>}
     </span>
   )

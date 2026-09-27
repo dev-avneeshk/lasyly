@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 
 const CACHE_TTL_MS = 300_000
 
@@ -203,23 +204,38 @@ async function getNflPlayerDetail(decodedId: string, season: string) {
 
   const overall = (rows as any[]).find((r) => r.ranking_type === "overall") ?? rows[0]
 
-  // Resolve a headshot the same way the props engine does: look up espn_players
-  // by name, preferring the stored URL and falling back to the ESPN id pattern.
-  // The page also refreshes this live via the by-name headshot endpoint.
+  // Resolve a headshot from the ranking row's own ESPN athlete id, preferring
+  // the copy we host ourselves.
+  //
+  // Two things were wrong here. It looked espn_players up BY NAME with
+  // `maybeSingle()`, which returns an error rather than a row for any name held
+  // by two players — and nine NFL names are (Justin Jefferson, DeVonta Smith,
+  // Brandon Johnson, ...), so those players lost their photo entirely while
+  // others risked being handed a namesake's. And it hot-linked ESPN's
+  // full-resolution PNG (~225KB) even though all 2,908 NFL headshots are already
+  // in our own bucket as ~10KB WebP; the stored copies were simply never
+  // consulted on this path.
   let headshotUrl: string | null = null
   {
-    const { data: espnRow } = await supabase
-      .from("espn_players")
-      .select("espn_id, headshot_url")
-      .eq("name", overall.player_name)
-      .maybeSingle()
-    const row = espnRow as any
-    if (row) {
-      headshotUrl =
-        row.headshot_url ||
-        (row.espn_id ? `https://a.espncdn.com/i/headshots/nfl/players/full/${row.espn_id}.png` : null)
-    } else if (overall.athlete_id) {
-      headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${overall.athlete_id}.png`
+    const athleteId = overall.athlete_id ? String(overall.athlete_id) : null
+    if (athleteId) {
+      const [storedIds, espnRow] = await Promise.all([
+        getStoredHeadshotIds("nfl"),
+        supabase
+          .from("espn_players")
+          .select("headshot_url")
+          .eq("league", "nfl")
+          .eq("espn_id", athleteId)
+          .maybeSingle(),
+      ])
+      // "lg" (320px): this feeds the player detail hero, not a prop card.
+      headshotUrl = resolveHeadshotUrl(
+        "nfl",
+        athleteId,
+        (espnRow.data as any)?.headshot_url,
+        storedIds,
+        "lg"
+      )
     }
   }
 

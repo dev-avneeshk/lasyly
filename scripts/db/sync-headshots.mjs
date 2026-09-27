@@ -31,8 +31,9 @@
  *   and summarised, because a handful of players legitimately have no photo.
  *
  * USAGE
- *   node scripts/db/sync-headshots.mjs                    # nfl + nhl
+ *   node scripts/db/sync-headshots.mjs                    # nfl + nhl + nbacdn
  *   node scripts/db/sync-headshots.mjs --leagues nfl
+ *   node scripts/db/sync-headshots.mjs --leagues nbacdn    # arena + NBA cards
  *   node scripts/db/sync-headshots.mjs --limit 20         # smoke test
  *   node scripts/db/sync-headshots.mjs --force            # re-encode everything
  *   node scripts/db/sync-headshots.mjs --dry-run
@@ -75,8 +76,29 @@ const SOURCE_WIDTH = 350
 /** Parallel ESPN fetches. Deliberately modest: this is someone else's CDN. */
 const CONCURRENCY = 6
 
-/** Leagues we actually render headshots for. Soccer is ~6k rows and unused here. */
-const DEFAULT_LEAGUES = ["nfl", "nhl"]
+/**
+ * Leagues we actually render headshots for. Soccer is ~6k rows and unused here.
+ *
+ * `nbacdn` is not an ESPN league — it is the NBA's own CDN, keyed by NBA person
+ * id rather than ESPN athlete id. It gets its own namespace precisely because the
+ * two id spaces are unrelated: storing both under `nba/` would let an ESPN id
+ * collide with an NBA person id and serve one player another's face.
+ */
+const DEFAULT_LEAGUES = ["nfl", "nhl", "nbacdn"]
+
+/**
+ * Where each namespace gets its id list and its source image.
+ *
+ *  - `espn`  — ids from espn_players.espn_id, images from a.espncdn.com.
+ *  - `nbacdn` — ids from the arena's generated NBA person-id map, images from
+ *    cdn.nba.com. Used by the auction arena and by NBA prop cards, neither of
+ *    which has an ESPN id available.
+ */
+const SOURCES = {
+  nfl: "espn",
+  nhl: "espn",
+  nbacdn: "nbacdn",
+}
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
@@ -103,25 +125,92 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 }
 const AUTH = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
 
-/** Every player row for a league that has an espn_id (no id, no photo path). */
-async function fetchPlayers(league) {
+/** Page a REST select, honouring the 1000-row response cap. */
+async function pageAll(path) {
   const out = []
   const pageSize = 1000
   for (let from = 0; ; from += pageSize) {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/espn_players` +
-        `?select=espn_id,name,headshot_url&league=eq.${encodeURIComponent(league)}` +
-        `&espn_id=not.is.null&order=espn_id.asc`,
-      { headers: { ...AUTH, Range: `${from}-${from + pageSize - 1}` } }
-    )
-    if (!res.ok) throw new Error(`player fetch failed (${res.status}): ${await res.text()}`)
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { ...AUTH, Range: `${from}-${from + pageSize - 1}` },
+    })
+    if (!res.ok) throw new Error(`fetch failed (${res.status}): ${await res.text()}`)
     const rows = await res.json()
     out.push(...rows)
     if (rows.length < pageSize) break
   }
+  return out
+}
+
+/** Every player row for an ESPN league that has an espn_id. */
+async function fetchEspnPlayers(league) {
+  const rows = await pageAll(
+    `espn_players?select=espn_id,name,headshot_url&league=eq.${encodeURIComponent(league)}` +
+      `&espn_id=not.is.null&order=espn_id.asc`
+  )
+
   // One row per espn_id — the table has duplicates across team changes.
   const seen = new Set()
-  return out.filter((r) => (seen.has(r.espn_id) ? false : (seen.add(r.espn_id), true)))
+  const out = rows.filter((r) => (seen.has(r.espn_id) ? false : (seen.add(r.espn_id), true)))
+
+  // NFL ONLY: also take every athlete_id that appears in nfl_player_stats.
+  //
+  // The roster table is not a superset of the players we render. 584 of the 2,487
+  // players in nfl_player_stats have no espn_players row, so syncing only from
+  // espn_players left those ids unstored and the app hot-linking ESPN for them —
+  // measured at 48 of 458 players on a live slate. The stats table's athlete_id
+  // IS the ESPN id, so these need no roster row to resolve a photo.
+  if (league === "nfl") {
+    const statRows = await pageAll(
+      `nfl_player_stats?select=athlete_id,player_name&athlete_id=not.is.null&order=id.asc`
+    )
+    let added = 0
+    for (const r of statRows) {
+      const id = String(r.athlete_id)
+      if (seen.has(id)) continue
+      seen.add(id)
+      out.push({ espn_id: id, name: r.player_name ?? id, headshot_url: null })
+      added++
+    }
+    console.log(`  nfl: +${added} ids from nfl_player_stats not present in espn_players`)
+  }
+
+  return out
+}
+
+/**
+ * Arena NBA person ids, read from the generated map.
+ *
+ * Parsed rather than imported because this script is plain .mjs and the map is a
+ * TypeScript module. The shape is a flat `"slug": id` record, so a tight regex is
+ * sufficient and fails loudly (zero matches) if the generator ever changes it.
+ */
+async function fetchNbaCdnPlayers() {
+  const { readFileSync } = await import("node:fs")
+  const src = readFileSync(
+    new URL("../../lib/arena/data/nba-ids.ts", import.meta.url),
+    "utf8"
+  )
+  const out = []
+  const seen = new Set()
+  for (const m of src.matchAll(/"([a-z0-9.'-]+)":\s*(\d+)/g)) {
+    const id = m[2]
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push({ espn_id: id, name: m[1], headshot_url: null })
+  }
+  if (out.length === 0) {
+    throw new Error(
+      "no NBA person ids parsed from lib/arena/data/nba-ids.ts — has its shape changed?"
+    )
+  }
+  return out
+}
+
+/** Id list for a namespace. */
+async function fetchPlayers(league) {
+  return SOURCES[league] === "nbacdn"
+    ? fetchNbaCdnPlayers()
+    : fetchEspnPlayers(league)
 }
 
 /**
@@ -176,6 +265,11 @@ async function upload(path, buffer) {
  * 100% where headshot_url coverage is not, so the fallback matters.
  */
 function sourceUrlFor(row, league) {
+  // The NBA's CDN has no combiner; take the one size it publishes and downscale
+  // locally. It is ~200KB per player, which is why storing these matters at all.
+  if (SOURCES[league] === "nbacdn") {
+    return `https://cdn.nba.com/headshots/nba/latest/1040x760/${row.espn_id}.png`
+  }
   if (row.headshot_url) {
     try {
       const u = new URL(row.headshot_url)
@@ -237,6 +331,15 @@ async function mapLimit(items, limit, fn) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
+
+  const unknown = args.leagues.filter((l) => !SOURCES[l])
+  if (unknown.length > 0) {
+    console.error(
+      `Unknown league(s): ${unknown.join(", ")}. Known: ${Object.keys(SOURCES).join(", ")}`
+    )
+    process.exit(1)
+  }
+
   console.log(
     `Headshot sync -> ${SIZE}x${SIZE} webp q${QUALITY} | leagues=${args.leagues.join(",")}` +
       `${args.force ? " | FORCE" : ""}${args.dryRun ? " | DRY RUN" : ""}\n`

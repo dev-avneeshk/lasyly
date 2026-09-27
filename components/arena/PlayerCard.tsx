@@ -1,24 +1,24 @@
 "use client"
 
-import { useState } from "react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import type { SeasonPlayer } from "@/lib/arena/types"
-import { headshotUrl } from "@/lib/arena/data"
+import { headshotSources } from "@/lib/arena/data"
+import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 
 function initials(name: string): string {
   return name.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase()
 }
 
 function Headshot({ player }: { player: SeasonPlayer }) {
-  const url = headshotUrl(player)
-  const [failed, setFailed] = useState(false)
+  // Our stored ~16KB WebP first, cdn.nba.com's ~200KB PNG only if it is missing.
+  const { src: url, onError } = useHeadshotFallback(headshotSources(player))
 
   return (
     <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-[1.15rem] border border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(123,110,255,0.52),transparent_58%),linear-gradient(145deg,#202955,#0c1025)] sm:h-40 sm:w-40">
-      {url && !failed ? (
-        // next/image optimizes + edge-caches NBA CDN headshots (AVIF/WebP,
-        // 24h minimumCacheTTL). `priority` because this is the focal card of
+      {url ? (
+        // next/image optimizes + edge-caches these (AVIF/WebP, 24h
+        // minimumCacheTTL). `priority` because this is the focal card of
         // the active lot — it should never lazy-load.
         <Image
           src={url}
@@ -26,7 +26,7 @@ function Headshot({ player }: { player: SeasonPlayer }) {
           fill
           sizes="160px"
           priority
-          onError={() => setFailed(true)}
+          onError={onError}
           className="object-cover object-top [filter:contrast(1.06)_saturate(.92)]"
         />
       ) : (

@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
 import { motion } from "framer-motion"
 import type { BudgetSnapshot } from "@/lib/nfl/budget"
 import type { NflPlayer, RosterSlot, RosterState, TeamId } from "@/lib/nfl/types"
 import { OFFENSE_SLOTS, DEFENSE_SLOTS } from "@/lib/nfl/types"
-import { headshotUrl } from "@/lib/nfl/data"
+import { headshotSources } from "@/lib/nfl/data"
+import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn, formatMoney } from "@/lib/utils"
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
@@ -14,14 +14,14 @@ const SLOT_LABEL: Record<RosterSlot, string> = {
 }
 
 function MiniHeadshot({ player }: { player: NflPlayer }) {
-  const url = headshotUrl(player)
-  const [failed, setFailed] = useState(false)
+  // Stored ~15KB WebP in preference to ESPN's ~225KB press original.
+  const { src: url, onError } = useHeadshotFallback(headshotSources(player))
   const inits = player.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
   return (
     <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
-      {url && !failed ? (
+      {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover object-top" />
+        <img src={url} alt="" loading="lazy" onError={onError} className="h-full w-full object-cover object-top" />
       ) : (
         <span className="text-[8px] font-bold text-[var(--color-text-muted)]">{inits}</span>
       )}

@@ -6,6 +6,14 @@ import {
 } from "@/lib/players/headshotResolver"
 import { withSecurity } from "@/lib/security/routeHelpers"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
+import {
+  NBA_CDN_NAMESPACE,
+  getStoredHeadshotIds,
+  resolveHeadshotUrl,
+  storedHeadshotUrl,
+} from "@/lib/data/headshot-storage"
+import { nbaIdForName } from "@/lib/players/nba-id"
 
 /**
  * GET /api/players/headshots?name=Nikola+Jokic&name=Luka+Doncic&sport=NBA
@@ -147,49 +155,117 @@ async function resolveStoredHeadshots(
   const result: Record<string, string> = {}
   const supabase = createAdminClient()
 
+  // Best source for NBA: our own copy, keyed by NBA person id. Tried first
+  // because it needs no query at all — the name maps to an id locally — and it is
+  // the only option here that does not leave a third-party CDN in the render
+  // path. This endpoint previously had no stored path for any sport.
   if (sportKey === "nba") {
-    const { data, error } = await supabase
-      .from("nba_players")
-      .select("player_name, headshot_url")
-      .not("headshot_url", "is", null)
-      .limit(1000)
-
-    if (error) {
-      console.error("NBA headshot lookup failed:", error.message)
-    } else {
+    const storedNbaIds = await getStoredHeadshotIds(NBA_CDN_NAMESPACE)
+    if (storedNbaIds.size > 0) {
       for (const requested of names) {
-        const match = (data as NbaPlayerRow[] | null)?.find((player) =>
-          Boolean(player.headshot_url) && isHeadshotNameMatch(requested, player.player_name)
-        )
-        if (match?.headshot_url) result[requested] = match.headshot_url
+        const nbaId = nbaIdForName(requested)
+        if (nbaId === null || !storedNbaIds.has(String(nbaId))) continue
+        const url = storedHeadshotUrl(NBA_CDN_NAMESPACE, String(nbaId), "sm")
+        if (url) result[requested] = url
       }
+    }
+  }
+
+  if (sportKey === "nba" && names.some((n) => !result[n])) {
+    // Paged: `.limit(1000)` was capped at 1000 rows by PostgREST regardless, so
+    // any player past that point simply never matched.
+    const rows = await fetchPagedParallel<NbaPlayerRow>(
+      async () => {
+        const { count } = await supabase
+          .from("nba_players")
+          .select("id", { count: "exact", head: true })
+          .not("headshot_url", "is", null)
+        return count ?? null
+      },
+      async (from, to) => {
+        const { data, error } = await supabase
+          .from("nba_players")
+          .select("player_name, headshot_url")
+          .not("headshot_url", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to)
+        if (error) {
+          console.error("NBA headshot lookup failed:", error.message)
+          return []
+        }
+        return (data ?? []) as NbaPlayerRow[]
+      }
+    )
+
+    for (const requested of names) {
+      if (result[requested]) continue
+      const match = rows.find(
+        (player) =>
+          Boolean(player.headshot_url) && isHeadshotNameMatch(requested, player.player_name)
+      )
+      if (match?.headshot_url) result[requested] = match.headshot_url
     }
   }
 
   const unresolved = names.filter((name) => !result[name])
   if (unresolved.length === 0) return result
 
-  // Fetch the bounded provider index and match locally. This avoids building
-  // PostgREST filter expressions from public query-string input.
+  // Fetch the provider index and match locally. Matching in memory rather than
+  // filtering by name in the query is deliberate: it avoids building PostgREST
+  // filter expressions out of public query-string input.
+  //
+  // Paged for the same reason as above — NFL has 2,913 rows under
+  // sport="football", so the old `.limit(1000)` saw a third of them and the rest
+  // fell through to the ESPN search fallback below (an outbound call per name)
+  // even though they were sitting in the table.
   const providerSport = ESPN_SPORT_VALUES[sportKey] ?? sportKey
-  const { data, error } = await supabase
-    .from("espn_players")
-    .select("name, espn_id, headshot_url")
-    .eq("sport", providerSport)
-    .limit(1000)
+  const rows = await fetchPagedParallel<PlayerRow & { league: string | null }>(
+    async () => {
+      const { count } = await supabase
+        .from("espn_players")
+        .select("espn_id", { count: "exact", head: true })
+        .eq("sport", providerSport)
+      return count ?? null
+    },
+    async (from, to) => {
+      const { data, error } = await supabase
+        .from("espn_players")
+        .select("name, espn_id, headshot_url, league")
+        .eq("sport", providerSport)
+        .order("espn_id", { ascending: true })
+        .range(from, to)
+      if (error) {
+        console.error("Stored ESPN headshot lookup failed:", error.message)
+        return []
+      }
+      return (data ?? []) as (PlayerRow & { league: string | null })[]
+    }
+  )
 
-  if (error) {
-    console.error("Stored ESPN headshot lookup failed:", error.message)
-    return result
-  }
+  // Stored-object index per league present in the result set. `league` is the
+  // right key for both the bucket path and ESPN's URL path — `sport` is not
+  // (the scraper writes sport="hockey" but ESPN's segment is "nhl").
+  const leagues = [...new Set(rows.map((r) => String(r.league ?? "").toLowerCase()).filter(Boolean))]
+  const storedByLeague = new Map<string, Set<string>>()
+  await Promise.all(
+    leagues.map(async (lg) => storedByLeague.set(lg, await getStoredHeadshotIds(lg)))
+  )
 
-  const rows = (data ?? []) as PlayerRow[]
   for (const requested of unresolved) {
     const match = rows.find((row) => isHeadshotNameMatch(requested, row.name ?? ""))
     if (!match) continue
 
-    const url = match.headshot_url
-      || (match.espn_id ? buildHeadshotUrl(String(match.espn_id), sportKey) : null)
+    const league = String(match.league ?? "").toLowerCase()
+    const url = league
+      ? resolveHeadshotUrl(
+          league,
+          match.espn_id === null || match.espn_id === undefined ? null : String(match.espn_id),
+          match.headshot_url,
+          storedByLeague.get(league) ?? new Set<string>(),
+          "sm"
+        )
+      : match.headshot_url
+        || (match.espn_id ? buildHeadshotUrl(String(match.espn_id), sportKey) : null)
     if (url) result[requested] = url
   }
 
