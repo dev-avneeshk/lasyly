@@ -7,6 +7,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 
 // ─── Job Type Constants ─────────────────────────────────────────────────────
 
@@ -44,10 +45,32 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
   const results: Record<string, number> = {}
 
   if (sports.includes("NBA")) {
-    const { data } = await supabase
-      .from("nba_player_stats")
-      .select("player_name, game_id, pts, trb, ast, tp, stl, blk")
-      .limit(10000)
+    // Paged. `.limit(10000)` returned 1000 rows, because PostgREST caps a single
+    // response at 1000 and reports success. This handler needs at least 10 games
+    // per player to emit a correlation, and those 1000 rows spread across 409
+    // players left exactly ZERO qualifying — so this job could never have written
+    // an NBA row, which is consistent with correlations_cache being empty.
+    // Measured after paging: 28,712 rows, 582 players, 507 qualifying.
+    const data = await fetchPagedParallel<Record<string, any>>(
+      async () => {
+        const { count } = await supabase
+          .from("nba_player_stats")
+          .select("id", { count: "exact", head: true })
+        return count ?? null
+      },
+      async (from, to) => {
+        const { data, error } = await supabase
+          .from("nba_player_stats")
+          .select("player_name, game_id, pts, trb, ast, tp, stl, blk")
+          .order("id", { ascending: true })
+          .range(from, to)
+        if (error) {
+          console.error("[handlers] nba_player_stats scan failed:", error.message)
+          return []
+        }
+        return (data ?? []) as Record<string, any>[]
+      }
+    )
 
     if (data && data.length > 0) {
       const playerGames = new Map<string, typeof data>()
@@ -106,11 +129,32 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
   }
 
   if (sports.includes("Tennis")) {
-    const { data } = await supabase
-      .from("tennis_serve_stats")
-      .select("player_name, surface, stat_year, matches_played, first_serve_pct, aces_per_match")
-      .gte("matches_played", 10)
-      .limit(5000)
+    // Paged, same reason as the NBA branch above: `.limit(5000)` yielded 1000 of
+    // the 8,139 rows in tennis_serve_stats, and this handler needs 10+ rows per
+    // player before it will emit anything. Measured: 77 players and 47 qualifying
+    // before, 228 players and 189 qualifying after.
+    const data = await fetchPagedParallel<Record<string, any>>(
+      async () => {
+        const { count } = await supabase
+          .from("tennis_serve_stats")
+          .select("id", { count: "exact", head: true })
+          .gte("matches_played", 10)
+        return count ?? null
+      },
+      async (from, to) => {
+        const { data, error } = await supabase
+          .from("tennis_serve_stats")
+          .select("player_name, surface, stat_year, matches_played, first_serve_pct, aces_per_match")
+          .gte("matches_played", 10)
+          .order("id", { ascending: true })
+          .range(from, to)
+        if (error) {
+          console.error("[handlers] tennis_serve_stats scan failed:", error.message)
+          return []
+        }
+        return (data ?? []) as Record<string, any>[]
+      }
+    )
 
     if (data && data.length > 0) {
       const playerStats = new Map<string, typeof data>()

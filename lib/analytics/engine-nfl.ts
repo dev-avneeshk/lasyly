@@ -20,7 +20,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
-import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
+import { espnHeadshotUrl, getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 import { PropCardData, GameResult } from "@/lib/props/types"
 import {
   getNFLDefenseLeagueTable,
@@ -138,13 +138,31 @@ const HEADSHOT_TTL_MS = 24 * 60 * 60_000
 const YARD_COLUMNS = ["pass_yds", "rush_yds", "rec_yds"] as const
 const TD_COLUMNS = ["pass_td", "rush_td", "rec_td"] as const
 
-/** All numeric columns we need to fetch from nfl_player_stats. */
-const SELECT_COLUMNS = [
-  "player_name", "team", "opponent", "position", "game_date",
+/**
+ * All columns we need to fetch from nfl_player_stats.
+ *
+ * `athlete_id` is the ESPN player id and is what headshots are keyed on. It is
+ * fetched with the history rather than joined from espn_players by name, because
+ * names collide and disagree across the two tables — see fetchHeadshotMap.
+ */
+const SELECT_COLUMN_LIST = [
+  "player_name", "athlete_id", "team", "opponent", "position", "game_date",
   "pass_yds", "rush_yds", "rec_yds",
   "pass_td", "rush_td", "rec_td",
   "rec", "rush_att", "pass_int", "sacks",
-].join(", ")
+] as const
+
+const SELECT_COLUMNS = SELECT_COLUMN_LIST.join(", ")
+
+/**
+ * Columns stored on each packed history row.
+ *
+ * `player_name` is deliberately excluded: it is already the key of the map that
+ * holds the rows, so storing it per row repeats the longest string in the row
+ * ~20 times per player. Derived from SELECT_COLUMN_LIST rather than written out
+ * again so the query and the wire format cannot drift apart.
+ */
+const PACKED_COLUMNS: string[] = SELECT_COLUMN_LIST.filter((c) => c !== "player_name")
 
 /**
  * Given a UI stat key and a player's set of game rows, resolve the numeric
@@ -548,21 +566,37 @@ async function fetchUpcomingGames(today: string): Promise<NFLTodayGame[]> {
 // ─── Headshots ───────────────────────────────────────────────────────────────
 
 /**
- * NFL headshot URLs for every player we know about, keyed by name.
+ * NFL headshot URLs, keyed by ESPN athlete id.
  *
- * Previously each stat computation issued its own `.in("name", names)` lookup
- * with a different name list, so the four parallel calls could not share a cache
- * entry. Fetching the whole NFL roster once is a smaller query in aggregate and
- * gives every caller a hit.
+ * KEYED BY ID, NOT NAME — this is the whole point of the map's shape.
+ *
+ * It used to be `name -> url`, which is wrong three different ways, all measured
+ * against the live roster table:
+ *
+ *  - Names are not unique. Nine NFL names map to two different espn_ids
+ *    (Justin Jefferson 4262921/Vikings and 5150249/Browns, plus DeVonta Smith,
+ *    Brandon Johnson, Jaylon Jones, Christian Jones, Devin Neal, Byron Young,
+ *    Marcus Harris, Cam Miller). Building a name-keyed map means last-write-wins,
+ *    so one of each pair rendered wearing the other's face.
+ *  - Names are not stable across our own tables. 14 players are spelled
+ *    differently in nfl_player_stats than in espn_players ("Josh Uche" vs
+ *    "Joshua Uche", "Kenny Gainwell" vs "Kenneth Gainwell", "Beanie Bishop Jr."
+ *    vs "Beanie Bishop"), so a name join silently missed all of them.
+ *  - It made the roster table a hard dependency for a photo. 584 of the 2,487
+ *    players in nfl_player_stats have no espn_players row at all, so they fell
+ *    back to initials — even though every one of them carries an `athlete_id`,
+ *    and that id is exactly what ESPN's headshot path wants. Spot-checked
+ *    Deebo Samuel Sr. (3126486), Jonnu Smith (3054212), Raheem Mostert (2576414)
+ *    and Dare Ogunbowale (2983509): all four return a real photo.
+ *
+ * `nfl_player_stats.athlete_id` IS the ESPN id, so keying on it fixes all three
+ * at once and makes espn_players optional enrichment rather than a gate.
  */
 async function fetchHeadshotMap(): Promise<Record<string, string>> {
   return cached(
-    // v4: this map is held for 24 hours and bakes in whatever the stored-object
-    // index said at the moment it was built. v3 entries were built while the
-    // backfill was mid-flight, so they pinned 8 already-stored players to the
-    // ESPN fallback. Bumping evicts them; the index TTL is now an hour so the
-    // window cannot reopen anywhere near as wide.
-    "nfl-headshots:v4",
+    // v5: keyed by espn_id instead of name (see above). v4 entries are a
+    // different keyspace entirely and must not be read back.
+    "nfl-headshots:v5",
     async () => {
       const supabase = createAdminClient()
 
@@ -579,11 +613,11 @@ async function fetchHeadshotMap(): Promise<Record<string, string>> {
       // name-matching problem when it was truncation.
       const [storedIds, rows] = await Promise.all([
         getStoredHeadshotIds("nfl"),
-        fetchPagedParallel<{ name: string; espn_id: string | null; headshot_url: string | null }>(
+        fetchPagedParallel<{ espn_id: string | null; headshot_url: string | null }>(
           async () => {
             const { count } = await supabase
               .from("espn_players")
-              .select("name", { count: "exact", head: true })
+              .select("espn_id", { count: "exact", head: true })
               .eq("league", "nfl")
             return count ?? null
           },
@@ -594,7 +628,7 @@ async function fetchHeadshotMap(): Promise<Record<string, string>> {
             // `league` is also indexed.
             const { data, error } = await supabase
               .from("espn_players")
-              .select("name, espn_id, headshot_url")
+              .select("espn_id, headshot_url")
               .eq("league", "nfl")
               .order("espn_id", { ascending: true })
               .range(from, to)
@@ -602,20 +636,30 @@ async function fetchHeadshotMap(): Promise<Record<string, string>> {
               console.error("[engine-nfl] headshot page failed:", error.message)
               return []
             }
-            return (data ?? []) as { name: string; espn_id: string | null; headshot_url: string | null }[]
+            return (data ?? []) as { espn_id: string | null; headshot_url: string | null }[]
           },
           { maxRows: 8000 }
         ),
       ])
 
-      const map: Record<string, string> = {}
+      // espn_id -> the ESPN URL that row happens to carry. Only an enrichment
+      // input now: a player with no row here still resolves from their id.
+      const rowUrlById = new Map<string, string>()
       for (const row of rows) {
-        if (!row.name) continue
+        if (row.espn_id && row.headshot_url) rowUrlById.set(String(row.espn_id), row.headshot_url)
+      }
+
+      // Every id we can serve: those we store ourselves, plus those the roster
+      // table knows a URL for. Callers pass an athlete_id and get a hit if we can
+      // produce anything for it; an id in neither set still resolves through the
+      // synthesised ESPN path below.
+      const map: Record<string, string> = {}
+      for (const id of new Set<string>([...storedIds, ...rowUrlById.keys()])) {
         // Prefers our stored ~10KB WebP, then the row's ESPN URL, then a URL
-        // synthesised from espn_id — that last step stops a null headshot_url
+        // synthesised from the id — that last step stops a null headshot_url
         // from reaching the client as a missing photo.
-        const url = resolveHeadshotUrl("nfl", row.espn_id, row.headshot_url, storedIds)
-        if (url) map[row.name] = url
+        const url = resolveHeadshotUrl("nfl", id, rowUrlById.get(id), storedIds)
+        if (url) map[id] = url
       }
       return map
     },
@@ -623,16 +667,116 @@ async function fetchHeadshotMap(): Promise<Record<string, string>> {
   )
 }
 
+/**
+ * Photo URL for one player from their ESPN athlete id.
+ *
+ * The map covers ids we store ourselves plus ids the roster table knows a URL
+ * for. Anything else still gets ESPN's conventional path: 571 of the ids in
+ * nfl_player_stats have no espn_players row, and hot-linking a real photo for
+ * them beats rendering initials. Those are the ids the headshot backfill picks up
+ * (see scripts/db/sync-headshots.mjs), after which they arrive via the map.
+ */
+function resolveHeadshotFor(
+  athleteId: string | number | null,
+  map: Record<string, string>
+): string | null {
+  if (athleteId === null || athleteId === undefined || athleteId === "") return null
+  const id = String(athleteId)
+  return map[id] ?? espnHeadshotUrl("nfl", id)
+}
+
 // ─── Player Stats ─────────────────────────────────────────────────────────────
+
+/**
+ * Hard ceiling on the history scan.
+ *
+ * This was 8000, and it was quietly wrong rather than merely conservative. The
+ * real 400-day window across a full slate holds 20,479 rows, so the cap kept the
+ * newest 8,000 and silently dropped 12,479 — and because the scan is ordered
+ * `game_date DESC`, everything it dropped was the OLDEST history. Measured: the
+ * engine reached back only to 2025-12-01 instead of 2025-09-05, a median of 4
+ * games per player instead of 10.
+ *
+ * That is a correctness bug, not a performance tradeoff, because the UI labels
+ * these hit rates "L10". Measured across the four stats on a 16-game slate,
+ * raising the cap moved props computed from fewer than 10 games from 886 of 944
+ * down to 307 of 1298, and props with a full 10-game sample from 58 to 991. The
+ * remaining short samples are genuine — backups and practice-squad callups with
+ * only a few games on record.
+ *
+ * 26k leaves headroom over the current 20,479 without being unbounded.
+ */
+const HISTORY_MAX_ROWS = 26_000
+
+/**
+ * Games kept per player in the cache.
+ *
+ * The engine consumes at most the 15 most recent games (lastGames/graphData) and
+ * computes hit rate over the last 10, so anything beyond 20 is dead weight in a
+ * blob that crosses the network. This is a modest saving on its own — the median
+ * player has 10 games in the window, so only the handful with deep history get
+ * trimmed (4.81MB to 4.78MB measured). It is cheap insurance against a player
+ * with 38 games, not the reason the blob is affordable; see PackedPlayerRows.
+ */
+const HISTORY_GAMES_PER_PLAYER = 20
+
+/**
+ * Columnar wire format for the cached history blob.
+ *
+ * Stored as `{ c: [column names], p: { player: [[v0, v1, …], …] } }` rather than
+ * an array of objects, because the object form repeats all 15 JSON key names on
+ * every single row. This is what pays for the corrected scan: 4.78MB of trimmed
+ * object-per-row rows pack down to 1.52MB, a 68% cut.
+ *
+ * Net effect versus what shipped before, measured on the same slate: the cache
+ * blob went from 1.90MB to 1.52MB while the history behind it grew from 8,000
+ * rows to 20,479. Better data and a smaller cache, rather than a trade between
+ * the two.
+ */
+interface PackedPlayerRows {
+  /** Column order for every tuple in `p`. */
+  c: string[]
+  /** Player name → rows as positional tuples, most recent first. */
+  p: Record<string, unknown[][]>
+}
+
+/**
+ * Decoded-blob memo.
+ *
+ * `cached()` hands every concurrent caller the SAME packed object (it coalesces
+ * reads), so keying on that object's identity means the four parallel per-stat
+ * computations decode once between them instead of four times. Weak, so it
+ * cannot pin a superseded blob in memory.
+ */
+const unpackMemo = new WeakMap<PackedPlayerRows, NFLPlayerRows>()
+
+function unpackPlayerRows(packed: PackedPlayerRows): NFLPlayerRows {
+  const memo = unpackMemo.get(packed)
+  if (memo) return memo
+
+  const out: NFLPlayerRows = {}
+  const cols = packed.c
+  for (const [name, tuples] of Object.entries(packed.p ?? {})) {
+    const rows: NFLRawRow[] = []
+    for (const tuple of tuples) {
+      const row: NFLRawRow = {}
+      for (let i = 0; i < cols.length; i++) row[cols[i]] = tuple[i]
+      rows.push(row)
+    }
+    out[name] = rows
+  }
+  unpackMemo.set(packed, out)
+  return out
+}
 
 /**
  * Game history for every player on the given teams, grouped by player name and
  * ordered most-recent-first.
  *
- * This is the single most expensive query in the NFL path — up to 8000 rows
- * spanning a full season — and it does not depend on the stat being computed.
- * Caching it by team set means `stat=all` pays for it once instead of four
- * times, and the pages are now fetched in parallel instead of one at a time.
+ * This is the single most expensive query in the NFL path — ~20k rows spanning a
+ * full season — and it does not depend on the stat being computed. Caching it by
+ * team set means `stat=all` pays for it once instead of four times, and the pages
+ * are fetched in parallel rather than one at a time.
  */
 async function fetchPlayerStats(teams: string[]): Promise<NFLPlayerRows> {
   const cutoffDate = new Date()
@@ -643,8 +787,11 @@ async function fetchPlayerStats(teams: string[]): Promise<NFLPlayerRows> {
   // the teams came out of the games query.
   const teamsKey = [...teams].sort().join(",")
 
-  return cached(
-    `nfl-player-rows:${cutoff}:${teamsKey}`,
+  // v2: the cached value is now the columnar PackedPlayerRows shape, and it holds
+  // materially more history. Entries written by the previous version are a
+  // different type AND truncated data, so they must not be read back.
+  const packed = await cached<PackedPlayerRows>(
+    `nfl-player-rows:v2:${cutoff}:${teamsKey}`,
     async () => {
       const supabase = createAdminClient()
 
@@ -680,20 +827,32 @@ async function fetchPlayerStats(teams: string[]): Promise<NFLPlayerRows> {
           // row type for it and falls back to GenericStringError.
           return (data ?? []) as unknown as NFLRawRow[]
         },
-        { maxRows: 8000 }
+        { maxRows: HISTORY_MAX_ROWS }
       )
 
-      const out: NFLPlayerRows = {}
+      // Group by player, keeping only the most recent HISTORY_GAMES_PER_PLAYER
+      // games. The scan is ordered game_date DESC and fetchPagedParallel
+      // concatenates pages in range order, so rows for a given player already
+      // arrive most-recent-first — the length check is therefore a cheap way to
+      // keep the newest N without building the full array and slicing it.
+      const grouped: Record<string, NFLRawRow[]> = {}
       for (const row of rows) {
         const name = row.player_name as string
         if (!name) continue
-        if (!out[name]) out[name] = []
-        out[name].push(row)
+        const list = grouped[name] ?? (grouped[name] = [])
+        if (list.length < HISTORY_GAMES_PER_PLAYER) list.push(row)
       }
-      return out
+
+      const p: Record<string, unknown[][]> = {}
+      for (const [name, list] of Object.entries(grouped)) {
+        p[name] = list.map((row) => PACKED_COLUMNS.map((col) => row[col] ?? null))
+      }
+      return { c: [...PACKED_COLUMNS], p }
     },
     PLAYER_HISTORY_TTL_MS
   )
+
+  return unpackPlayerRows(packed)
 }
 
 // ─── Main Engine ────────────────────────────────────────────────────────────
@@ -752,6 +911,11 @@ export async function computeNFLProps(
 
     // Search filter (early)
     const team = (rawRows[0]?.team as string) ?? ""
+
+    // First non-null id across the player's rows. Scanning rather than taking
+    // row 0 because athlete_id is null on a small number of older box scores.
+    const athleteId =
+      (rawRows.find((r) => r.athlete_id)?.athlete_id as string | number | undefined) ?? null
     if (search.length >= 2) {
       const q = search.toLowerCase()
       if (!playerName.toLowerCase().includes(q) && !team.toLowerCase().includes(q)) continue
@@ -870,7 +1034,7 @@ export async function computeNFLProps(
       probability,
       direction: bestDirection,
       league: "NFL",
-      headshotUrl: headshotMap[playerName] ?? null,
+      headshotUrl: resolveHeadshotFor(athleteId, headshotMap),
       projectedValue,
       graphData,
       defensiveMatchup: null,

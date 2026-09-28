@@ -289,27 +289,61 @@ export async function fetchTodayGames(date: string): Promise<TodayGame[]> {
   }))
 }
 
+/** All 30 NBA teams; the point at which scanning further rows cannot help. */
+const NBA_TEAM_COUNT = 30
+
+/** Rows per page while collecting distinct teams. Supabase's response cap. */
+const TEAM_SCAN_PAGE = 1000
+
+/** Pages to try before giving up, so a sparse table cannot spin. */
+const TEAM_SCAN_MAX_PAGES = 30
+
 /**
- * Fallback: Fetches all distinct teams that have player stats in the database.
+ * Fallback: the teams that most recently recorded player stats.
  * Used when no games are scheduled today so we can still show props.
- * Returns up to 30 teams (all NBA teams).
+ *
+ * Two problems with the previous `.select("team").limit(1000)`:
+ *
+ *  - It had NO `order` clause, so "recent" was not true — Postgres returned
+ *    whatever 1000 rows it liked, and `.limit(1000)` was the cap PostgREST
+ *    imposes anyway. Since rows are appended per game, physical order clusters by
+ *    game and therefore by team, so an arbitrary 1000-row window could easily
+ *    miss teams entirely and silently drop them from the fallback slate.
+ *  - Paging the whole table to fix that would be worse: 28,712 rows read to learn
+ *    30 short strings.
+ *
+ * Instead: scan newest-first and stop as soon as all 30 teams have been seen,
+ * which normally means a single request (~500 rows covers a full night's slate).
+ * Correct without being wasteful, and now actually ordered.
  */
 async function fetchRecentActiveTeams(): Promise<string[]> {
   const supabase = createAdminClient()
+  const teams = new Set<string>()
 
-  const { data, error } = await supabase
-    .from("nba_player_stats")
-    .select("team")
-    .limit(1000)
+  for (let page = 0; page < TEAM_SCAN_MAX_PAGES; page++) {
+    const from = page * TEAM_SCAN_PAGE
+    const { data, error } = await supabase
+      .from("nba_player_stats")
+      .select("team")
+      .order("id", { ascending: false })
+      .range(from, from + TEAM_SCAN_PAGE - 1)
 
-  if (error || !data) {
-    console.error("[engine-v2] Failed to fetch active teams:", error?.message)
-    return []
+    if (error) {
+      console.error("[engine-v2] Failed to fetch active teams:", error.message)
+      break
+    }
+    if (!data || data.length === 0) break
+
+    for (const row of data as any[]) {
+      const team = row.team as string
+      if (team) teams.add(team)
+    }
+
+    // Every team accounted for, or the table is exhausted.
+    if (teams.size >= NBA_TEAM_COUNT || data.length < TEAM_SCAN_PAGE) break
   }
 
-  // Extract unique teams
-  const teams = [...new Set(data.map((row: any) => row.team as string).filter(Boolean))]
-  return teams.slice(0, 30)
+  return [...teams].slice(0, NBA_TEAM_COUNT)
 }
 
 /**

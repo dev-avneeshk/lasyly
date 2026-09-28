@@ -149,12 +149,34 @@ async function fetchDefenseRows(season: number | "all"): Promise<RawRow[]> {
   }
 
   // Home/away lookup for the offense team in each game.
+  //
+  // Paged. `.limit(2000)` was capped at 1000 rows by PostgREST without an error.
+  // nfl_games holds 857 rows today so nothing is currently lost, but this is a
+  // table that grows by ~285 rows a season: the first season that pushes it past
+  // 1000 would start silently dropping games from this map, and a game missing
+  // here is not a blank — it makes the offense team look like the away side, so
+  // home/away defensive splits would quietly invert for those games.
   const homeByGame = new Map<string, string>()
   {
-    let gq = supabase.from("nfl_games").select("id, home_abbr")
-    if (season !== "all") gq = gq.eq("season", season)
-    const { data: games } = await gq.limit(2000)
-    for (const gm of (games ?? []) as any[]) {
+    const games = await fetchPagedParallel<{ id: string; home_abbr: string }>(
+      async () => {
+        let cq = supabase.from("nfl_games").select("id", { count: "exact", head: true })
+        if (season !== "all") cq = cq.eq("season", season)
+        const { count } = await cq
+        return count ?? null
+      },
+      async (from, to) => {
+        let gq = supabase.from("nfl_games").select("id, home_abbr")
+        if (season !== "all") gq = gq.eq("season", season)
+        const { data, error } = await gq.order("id", { ascending: true }).range(from, to)
+        if (error) {
+          console.error("[nfl-defense] nfl_games scan failed:", error.message)
+          return []
+        }
+        return (data ?? []) as { id: string; home_abbr: string }[]
+      }
+    )
+    for (const gm of games) {
       if (gm.id && gm.home_abbr) homeByGame.set(gm.id, gm.home_abbr)
     }
   }

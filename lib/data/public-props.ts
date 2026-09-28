@@ -1,6 +1,7 @@
 import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { playerNameToSlug } from "@/lib/seo/player-slug"
 
 export interface PublicPropEntry {
@@ -113,11 +114,40 @@ export async function getTodaysPublicProps(): Promise<{
   // Fetch recent prop lines (recorded today or most recent for active players)
   // Get the most recent prop line for each player/stat combination
   const startOfDay = `${today}T00:00:00.000Z`
-  const { data: propLines } = await supabase
-    .from("prop_line_history")
-    .select("player_name, sport, stat_category, line_value, recorded_at")
-    .gte("recorded_at", startOfDay)
-    .order("recorded_at", { ascending: false })
+
+  // Paged. This query carried no `.limit()` at all, which does not mean
+  // "unlimited" — PostgREST caps a response at 1000 rows and reports success.
+  // Since the dedupe below keeps the most recent line per player+stat, any prop
+  // whose rows fell past row 1000 vanished from the page entirely.
+  const propLines = await fetchPagedParallel<{
+    player_name: string
+    sport: string
+    stat_category: string
+    line_value: number
+    recorded_at: string
+  }>(
+    async () => {
+      const { count } = await supabase
+        .from("prop_line_history")
+        .select("id", { count: "exact", head: true })
+        .gte("recorded_at", startOfDay)
+      return count ?? null
+    },
+    async (from, to) => {
+      const { data, error } = await supabase
+        .from("prop_line_history")
+        .select("player_name, sport, stat_category, line_value, recorded_at")
+        .gte("recorded_at", startOfDay)
+        .order("recorded_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+      if (error) {
+        console.error("[public-props] prop_line_history scan failed:", error.message)
+        return []
+      }
+      return (data ?? []) as any[]
+    }
+  )
 
   if (!propLines || propLines.length === 0) {
     return { props: [], totalCount: 0, sports: [] }
@@ -142,16 +172,41 @@ export async function getTodaysPublicProps(): Promise<{
   const playerTeamMap = new Map<string, string>()
 
   if (nbaPlayerNames.length > 0) {
-    // Fetch team info for NBA players from their most recent game
-    const { data: playerTeams } = await supabase
-      .from("nba_player_stats")
-      .select("player_name, team")
-      .in("player_name", nbaPlayerNames.slice(0, 200))
-      .limit(1000)
+    // Team as of the player's most recent game.
+    //
+    // Was `.in(names.slice(0, 200)).limit(1000)` with no `order` — so it dropped
+    // every player past the first 200, took whatever 1000 rows PostgREST
+    // returned, and then relied on "most recent due to ordering" that no clause
+    // established. Ordering by the primary key descending is the recency proxy
+    // the old comment assumed: nba_player_stats has no date column of its own,
+    // and rows are appended per scrape, so the highest id for a player is their
+    // latest game.
+    const uniqueNbaNames = [...new Set(nbaPlayerNames)]
+    for (const names of chunk(uniqueNbaNames, PLAYER_CHUNK)) {
+      const playerTeams = await fetchPagedParallel<{ player_name: string; team: string }>(
+        async () => {
+          const { count } = await supabase
+            .from("nba_player_stats")
+            .select("id", { count: "exact", head: true })
+            .in("player_name", names)
+          return count ?? null
+        },
+        async (from, to) => {
+          const { data, error } = await supabase
+            .from("nba_player_stats")
+            .select("player_name, team")
+            .in("player_name", names)
+            .order("id", { ascending: false })
+            .range(from, to)
+          if (error) {
+            console.error("[public-props] nba team lookup failed:", error.message)
+            return []
+          }
+          return (data ?? []) as { player_name: string; team: string }[]
+        }
+      )
 
-    if (playerTeams) {
       for (const row of playerTeams) {
-        // Keep the first (most recent due to ordering) team for each player
         if (!playerTeamMap.has(row.player_name)) {
           playerTeamMap.set(row.player_name, row.team)
         }
@@ -239,9 +294,41 @@ export async function getTodaysPublicProps(): Promise<{
   }
 }
 
+/** How many player names go into a single `.in(...)` filter. */
+const PLAYER_CHUNK = 100
+
+/** Split an array into fixed-size chunks. */
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
 /**
  * Compute L10 hit rates for a batch of props.
- * For NBA players, queries nba_player_stats to get last 10 game values.
+ *
+ * For NBA players, reads nba_player_stats (which has no date of its own — the
+ * date lives on nba_games) and takes each player's 10 most recent values.
+ *
+ * Three things were wrong with the previous implementation, all of which
+ * produced wrong percentages rather than missing ones:
+ *
+ *  - `.limit(2000)` was capped at 1000 rows by PostgREST with no error. Those
+ *    1000 rows were the most recent across the *whole batch*, not per player, so
+ *    a player low in the ordering could contribute zero games and a high-volume
+ *    player could absorb the entire budget.
+ *  - `playerNames.slice(0, 100)` discarded every player past the first 100 in
+ *    each stat group; they silently scored 0%.
+ *  - It ran one query per stat group over the same players, re-reading the same
+ *    rows up to six times to pick a different column each time.
+ *
+ * Measured over 100 real players: the old read returned 1000 rows and saw only
+ * 87 of them at all (the missing 13 scored 0%), with a median of 9 games each and
+ * just 43 reaching the 10 games the "L10" label claims. Paged, the same 100
+ * players return 6,482 rows — all 100 present, median 70 games, 99 with 10+.
+ *
+ * Now: one paged read of every column this batch needs, for every player in it,
+ * then each prop is scored from that single result.
  */
 async function computeL10HitRates(
   supabase: ReturnType<typeof createAdminClient>,
@@ -253,54 +340,74 @@ async function computeL10HitRates(
   const nbaProps = props.filter((p) => p.sport === "NBA")
   if (nbaProps.length === 0) return hitRateMap
 
-  // Group by stat category to batch queries
-  const statGroups = new Map<string, typeof nbaProps>()
-  for (const prop of nbaProps) {
-    const stat = prop.stat_category.toLowerCase()
-    if (!statGroups.has(stat)) {
-      statGroups.set(stat, [])
-    }
-    statGroups.get(stat)!.push(prop)
+  // NBA_STAT_COLUMNS doubles as an allowlist: the resolved value is interpolated
+  // into `select()`, and stat_category comes from scraped rows. An unmapped
+  // category is scored as "no data" rather than passed through to the query.
+  const columnFor = (statCategory: string): string | null =>
+    NBA_STAT_COLUMNS[statCategory.toLowerCase()] ?? null
+
+  const players = [...new Set(nbaProps.map((p) => p.player_name))]
+  const columns = [
+    ...new Set(nbaProps.map((p) => columnFor(p.stat_category)).filter((c): c is string => !!c)),
+  ]
+  if (players.length === 0 || columns.length === 0) return hitRateMap
+
+  const select = `id, player_name, ${columns.join(", ")}, nba_games!inner(game_date)`
+
+  // Most-recent-first, with the primary key as tiebreaker so the sort is total —
+  // parallel pages are separate queries, and a non-unique sort lets Postgres
+  // order equal dates differently per page, duplicating and dropping rows.
+  const rows: Record<string, any>[] = []
+  for (const names of chunk(players, PLAYER_CHUNK)) {
+    const part = await fetchPagedParallel<Record<string, any>>(
+      async () => {
+        const { count } = await supabase
+          .from("nba_player_stats")
+          .select("id, nba_games!inner(game_date)", { count: "exact", head: true })
+          .in("player_name", names)
+        return count ?? null
+      },
+      async (from, to) => {
+        const { data, error } = await supabase
+          .from("nba_player_stats")
+          .select(select)
+          .in("player_name", names)
+          .order("nba_games(game_date)", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+        if (error) {
+          console.error("[public-props] nba_player_stats scan failed:", error.message)
+          return []
+        }
+        return (data ?? []) as Record<string, any>[]
+      }
+    )
+    rows.push(...part)
   }
 
-  for (const [stat, groupProps] of statGroups) {
-    const column = NBA_STAT_COLUMNS[stat] ?? stat
-    const playerNames = groupProps.map((p) => p.player_name)
+  const byPlayer = new Map<string, Record<string, any>[]>()
+  for (const row of rows) {
+    const name = row.player_name as string
+    if (!name) continue
+    const list = byPlayer.get(name)
+    if (list) list.push(row)
+    else byPlayer.set(name, [row])
+  }
 
-    // Fetch last 10 games for these players
-    const { data: gameStats } = await supabase
-      .from("nba_player_stats")
-      .select(`player_name, ${column}, nba_games!inner(game_date)`)
-      .in("player_name", playerNames.slice(0, 100))
-      .order("nba_games(game_date)", { ascending: false })
-      .limit(2000)
+  for (const prop of nbaProps) {
+    const key = `${prop.player_name}::${prop.stat_category}`
+    const column = columnFor(prop.stat_category)
+    const games = column ? byPlayer.get(prop.player_name) : undefined
 
-    if (!gameStats) continue
-
-    // Group by player and compute hit rate
-    const playerGames = new Map<string, number[]>()
-    for (const row of gameStats as any[]) {
-      const name = row.player_name as string
-      const value = Number(row[column]) || 0
-      if (!playerGames.has(name)) {
-        playerGames.set(name, [])
-      }
-      playerGames.get(name)!.push(value)
+    if (!column || !games || games.length < 3) {
+      hitRateMap.set(key, 0)
+      continue
     }
 
-    // Compute L10 hit rate for each player in this stat group
-    for (const prop of groupProps) {
-      const games = playerGames.get(prop.player_name)
-      if (!games || games.length < 3) {
-        hitRateMap.set(`${prop.player_name}::${prop.stat_category}`, 0)
-        continue
-      }
-
-      const l10 = games.slice(0, 10)
-      const over = l10.filter((v) => v >= Number(prop.line_value)).length
-      const hitRate = Math.round((over / l10.length) * 100)
-      hitRateMap.set(`${prop.player_name}::${prop.stat_category}`, hitRate)
-    }
+    const l10 = games.slice(0, 10)
+    const line = Number(prop.line_value)
+    const over = l10.filter((g) => (Number(g[column]) || 0) >= line).length
+    hitRateMap.set(key, Math.round((over / l10.length) * 100))
   }
 
   return hitRateMap

@@ -9,7 +9,20 @@ export const metadata: Metadata = {
 
 export default async function RoomsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  return <RoomsClient isAuthenticated={!!user} />
+  // `getClaims()`, not `getUser()`: this only needs "real account or guest?", and
+  // getUser() spends a 195-395ms round-trip to Supabase Auth to answer it, with
+  // the whole page waiting. Local JWT verification (ES256 keys on this project)
+  // answers the same question for free. See the long note in
+  // app/(app)/analysis/page.tsx for why this is not a weaker check here — the
+  // proxy already gates this route on the same locally-verified claim.
+  let isAuthenticated = false
+  try {
+    const { data } = await supabase.auth.getClaims()
+    isAuthenticated = typeof data?.claims?.sub === "string"
+  } catch {
+    isAuthenticated = false
+  }
+
+  return <RoomsClient isAuthenticated={isAuthenticated} />
 }

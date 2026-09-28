@@ -2,6 +2,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { playerNameToSlug } from "@/lib/seo/player-slug"
 import { computeHitRates } from "@/lib/analytics/hit-rates"
 import { computeMatchupGrade, type MatchupGrade } from "@/lib/analytics/matchup-grades"
@@ -157,17 +158,29 @@ async function resolveSlug(
 ): Promise<{ playerName: string; sport: string } | null> {
   const supabase = createAdminClient()
 
-  const { data: recent, error } = await supabase
-    .from("prop_line_history")
-    .select("player_name, sport")
-    .order("recorded_at", { ascending: false })
-    .limit(SLUG_SCAN_LIMIT)
+  // Paged: `.limit(SLUG_SCAN_LIMIT)` alone returned 1000 rows, not 5000, because
+  // PostgREST silently caps a single response at 1000. The fast path was
+  // therefore a fifth as wide as this function's reasoning assumes, pushing
+  // players it should have resolved into the surname fallback below.
+  const recent = await fetchPagedParallel<{ player_name: string; sport: string }>(
+    async () => SLUG_SCAN_LIMIT,
+    async (from, to) => {
+      const { data, error } = await supabase
+        .from("prop_line_history")
+        .select("player_name, sport")
+        .order("recorded_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to)
+      if (error) {
+        console.error("[public-players] prop_line_history scan failed:", error.message)
+        return []
+      }
+      return (data ?? []) as { player_name: string; sport: string }[]
+    },
+    { maxRows: SLUG_SCAN_LIMIT }
+  )
 
-  if (error) {
-    console.error("[public-players] prop_line_history scan failed:", error.message)
-  }
-
-  const hit = (recent ?? []).find(
+  const hit = recent.find(
     (row: { player_name: string }) => playerNameToSlug(row.player_name) === slug
   )
   if (hit) return { playerName: hit.player_name, sport: hit.sport }
@@ -268,7 +281,14 @@ async function fetchGamesForSport(
  * this stat, relative to the rest of the league.
  *
  * Cached league-wide: the aggregate is identical for every player sharing a
- * stat, and it reads several thousand rows.
+ * stat, and it reads the whole stat table.
+ *
+ * The read is paged rather than a single `.limit(5000)`. PostgREST caps any one
+ * response at 1000 rows and reports no error when it does, so that limit was
+ * never honoured: nfl_player_stats holds 38,280 rows, and the aggregate was
+ * computed from the 1000 it happened to return — 2.6% of the league. Because
+ * every value feeds a mean and a league-wide ranking, that produced confidently
+ * wrong grades rather than merely coarse ones.
  */
 async function computeOpponentGrade(
   table: string,
@@ -276,16 +296,38 @@ async function computeOpponentGrade(
   opponent: string
 ): Promise<MatchupGrade | null> {
   const averages = await cached(
-    `public-defense:${table}:${statColumn}`,
+    `public-defense:v2:${table}:${statColumn}`,
     async () => {
       const supabase = createAdminClient()
-      const { data } = await supabase
-        .from(table)
-        .select(`opponent, ${statColumn}`)
-        .limit(5000)
+      const rows = await fetchPagedParallel<Record<string, unknown>>(
+        async () => {
+          const { count } = await supabase
+            .from(table)
+            .select("id", { count: "exact", head: true })
+          return count ?? null
+        },
+        async (from, to) => {
+          // Ordered by primary key so the sort is total. Paging in parallel
+          // means each page is its own query, and an unordered or non-unique
+          // sort lets Postgres return rows in a different order per page,
+          // which duplicates some and drops others.
+          const { data, error } = await supabase
+            .from(table)
+            .select(`opponent, ${statColumn}`)
+            .order("id", { ascending: true })
+            .range(from, to)
+          if (error) {
+            console.error(`[public-players] ${table} defence scan failed:`, error.message)
+            return []
+          }
+          // `table` and `statColumn` are runtime-built strings, so Supabase
+          // cannot infer a row type and falls back to GenericStringError.
+          return (data ?? []) as unknown as Record<string, unknown>[]
+        }
+      )
 
       const totals = new Map<string, { total: number; games: number }>()
-      for (const row of (data ?? []) as any[]) {
+      for (const row of rows as any[]) {
         const opp = row.opponent as string
         if (!opp) continue
         const existing = totals.get(opp) ?? { total: 0, games: 0 }

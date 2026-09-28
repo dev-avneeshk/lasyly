@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -273,12 +274,47 @@ async function computeNFLStats(supabase: any, team: string): Promise<TeamStatsRe
   if (!games || games.length === 0) return null
 
   // Fetch this team's player stats to aggregate team yards/TDs/turnovers.
-  const { data: playerStats } = await supabase
-    .from("nfl_player_stats")
-    .select("game_id, team, pass_yds, rush_yds, rec_yds, pass_td, rush_td, rec_td, pass_int, fumbles_lost, sacks")
-    .eq("team", team)
-    .order("game_date", { ascending: false })
-    .limit(1000)
+  //
+  // Scoped to the 20 games above rather than the team's entire history.
+  //
+  // The old query was `.eq(team).order(game_date desc).limit(1000)`, which
+  // PostgREST silently capped at 1000 rows (KC alone has 1,236). Unlike the other
+  // capped reads in this codebase, that one did NOT corrupt the output: the rows
+  // dropped were the oldest, and the 20 games this function aggregates are the
+  // newest, so all 20 were covered anyway — measured 20/20 for KC, SF and BUF.
+  //
+  // So this is a cost and robustness fix, not a numbers fix. It stops the route
+  // transferring ~1000 rows to use ~650 of them, and it removes a latent cap:
+  // at ~33 rows per team per game, 20 games sits close enough to 1000 that a
+  // deeper roster or a wider game window would start clipping for real.
+  const gameIds = games.map((g: any) => g.id)
+  const statColumns =
+    "game_id, team, pass_yds, rush_yds, rec_yds, pass_td, rush_td, rec_td, pass_int, fumbles_lost, sacks"
+
+  const playerStats = await fetchPagedParallel<Record<string, any>>(
+    async () => {
+      const { count } = await supabase
+        .from("nfl_player_stats")
+        .select("id", { count: "exact", head: true })
+        .eq("team", team)
+        .in("game_id", gameIds)
+      return count ?? null
+    },
+    async (from, to) => {
+      const { data, error } = await supabase
+        .from("nfl_player_stats")
+        .select(statColumns)
+        .eq("team", team)
+        .in("game_id", gameIds)
+        .order("id", { ascending: true })
+        .range(from, to)
+      if (error) {
+        console.error("[team-stats] nfl_player_stats scan failed:", error.message)
+        return []
+      }
+      return (data ?? []) as Record<string, any>[]
+    }
+  )
 
   // Aggregate per-game. Team yards = pass_yds + rush_yds (rec_yds would double
   // count with pass_yds); TDs = pass + rush + rec; turnovers = INT + fumbles lost.
