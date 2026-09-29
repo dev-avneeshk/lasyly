@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next"
 export default function robots(): MetadataRoute.Robots {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
 
-  const publicPaths = ["/", "/blog", "/features", "/tipsters", "/scores", "/scores/", "/news", "/explore", "/login", "/signup", "/terms", "/privacy", "/players/", "/props/"]
-  const privatePaths = ["/api/", "/wallet/", "/profile/", "/bets/", "/rooms/"]
+  const publicPaths = ["/", "/blog", "/features", "/tipsters", "/scores", "/scores/", "/news", "/explore", "/login", "/signup", "/terms", "/privacy", "/players/", "/props/", "/careers"]
+  const privatePaths = ["/api/", "/wallet/", "/profile/", "/bets/", "/rooms/", "/admin/"]
 
   return {
     rules: [

@@ -37,6 +37,9 @@ const PUBLIC_ROUTES = [
   "/props",
   // Public player comparison pages, also in the sitemap.
   "/compare",
+  // Careers listings + application forms. Applicants don't need an account.
+  // (Careers admin lives under /admin/careers, which is NOT public.)
+  "/careers",
 ]
 
 // Routes that need a REAL account — a signed guest cookie is not enough.
@@ -174,6 +177,7 @@ function buildCSPHeader(): string {
     font-src 'self' data:;
     connect-src 'self' https: wss:;
     worker-src 'self' blob:;
+    frame-src 'self' https://www.filexl.com;
     object-src 'none';
     base-uri 'self';
     frame-ancestors 'none';

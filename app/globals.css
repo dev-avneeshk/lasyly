@@ -459,3 +459,56 @@
     animation-duration: 1ms;
   }
 }
+
+/* ── Careers ─────────────────────────────────────────────────────────────── */
+
+/* Subtle entrance for the careers hero/sections. Opacity + small translate
+   only, so it stays on the compositor. */
+@keyframes careers-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.careers-rise {
+  animation: careers-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* "View Open Positions" is a plain #anchor; glide to it instead of jumping. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.careers-page) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* FileXL CV widget wrapper. The iframe is FileXL's own UI; this only makes it
+   fill the column without horizontal overflow on any viewport. */
+.filexl-upload-container {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.filexl-upload-container iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 500px;
+  height: 600px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+}
+
+@media (max-width: 480px) {
+  /* The widget's options stack vertically on narrow screens. */
+  .filexl-upload-container iframe {
+    height: 680px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .careers-rise {
+    animation: none;
+  }
+}

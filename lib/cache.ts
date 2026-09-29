@@ -512,4 +512,6 @@ export const CACHE_TTL = {
   props: 120_000,
   /** Player stats: 3 minutes */
   playerStats: 180_000,
+  /** Careers job listings: 5 minutes (invalidated on admin edits) */
+  careers: 300_000,
 } as const

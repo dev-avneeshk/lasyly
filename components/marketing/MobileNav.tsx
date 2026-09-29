@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/features", label: "Features" },
   { href: "/tipsters", label: "Tipsters" },
   { href: "/scores", label: "Live Scores" },
+  { href: "/careers", label: "Careers" },
 ]
 
 export function MobileNav() {
