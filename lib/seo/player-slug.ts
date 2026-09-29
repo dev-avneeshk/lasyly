@@ -41,6 +41,33 @@ function escapeLike(value: string): string {
 }
 
 /**
+ * `ilike` patterns (without the surrounding `%`) for finding a slug's player,
+ * narrowest first. Callers try each in turn and slug-match the candidates.
+ *
+ * - Every segment in order ("jaren%jackson%jr"). Surname alone is too loose for
+ *   short or common surnames: "li", "v" and "martin" each match 500+ rows,
+ *   pushing the real player past any sane limit.
+ * - The same with diacritic-prone letters as `_` (the single-character
+ *   wildcard). The slug strips diacritics and ilike can't see through them, so
+ *   "topic" never matches "Topić", but "n_k_l_%t_p__" does.
+ * - Surname alone, as a last resort.
+ *
+ * Slug segments are [a-z0-9] only, so the wildcard form needs no escaping.
+ * Verified against every distinct name in prop_line_history (805, all resolve).
+ */
+export function slugSearchPatterns(slug: string): string[] {
+  const segments = slug.split("-").filter(Boolean)
+  if (segments.length === 0) return []
+  return [
+    ...new Set([
+      segments.map(escapeLike).join("%"),
+      segments.map((s) => s.replace(/[aeiouycnszrgl]/g, "_")).join("%"),
+      escapeLike(segments[segments.length - 1]),
+    ]),
+  ]
+}
+
+/**
  * Resolve a player slug back to a player name by querying the database.
  * Returns the player_name if found, or null if no match exists.
  *
@@ -57,24 +84,8 @@ function escapeLike(value: string): string {
  * `playerNameToSlug` strips them and SQL would not.
  */
 export async function resolvePlayerSlug(slug: string): Promise<string | null> {
-  const segments = slug.split("-").filter(Boolean)
-  if (segments.length === 0) return null
-
-  // Narrowest pattern first: every segment in order ("%jaren%jackson%jr%").
-  // Surname alone is too loose for short or common surnames — "li", "v" and
-  // "martin" each match 500+ rows, pushing the real player past the limit.
-  //
-  // The second pattern handles diacritics, which the slug strips and ilike
-  // can't see through ("topic" never matches "Topić"). Letters that commonly
-  // carry one become `_`, the single-character wildcard, so "%n_k_l_%t_p__%"
-  // still finds "Nikola Topić". Surname alone is the last resort.
-  const patterns = [
-    ...new Set([
-      segments.map(escapeLike).join("%"),
-      segments.map((s) => s.replace(/[aeiouycnszrgl]/g, "_")).join("%"),
-      escapeLike(segments[segments.length - 1]),
-    ]),
-  ]
+  const patterns = slugSearchPatterns(slug)
+  if (patterns.length === 0) return null
 
   const supabase = createAdminClient()
 

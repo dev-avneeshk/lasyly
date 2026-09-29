@@ -3,7 +3,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
-import { playerNameToSlug } from "@/lib/seo/player-slug"
+import { playerNameToSlug, slugSearchPatterns } from "@/lib/seo/player-slug"
 import { computeHitRates } from "@/lib/analytics/hit-rates"
 import { computeMatchupGrade, type MatchupGrade } from "@/lib/analytics/matchup-grades"
 
@@ -134,11 +134,6 @@ interface NormalisedGame {
   value: number
 }
 
-/** Escape LIKE metacharacters so a player name can't act as a pattern. */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`)
-}
-
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
@@ -185,22 +180,26 @@ async function resolveSlug(
   )
   if (hit) return { playerName: hit.player_name, sport: hit.sport }
 
-  // Fallback: the last slug segment is the surname for essentially every name we
-  // store, so it narrows the table to a handful of candidates we can slug-match
-  // exactly.
-  const surname = slug.split("-").filter(Boolean).at(-1)
-  if (!surname) return null
-
-  const { data: candidates } = await supabase
-    .from("prop_line_history")
-    .select("player_name, sport")
-    .ilike("player_name", `%${escapeLike(surname)}%`)
-    .limit(500)
-
-  const match = (candidates ?? []).find(
-    (row: { player_name: string }) => playerNameToSlug(row.player_name) === slug
-  )
-  return match ? { playerName: match.player_name, sport: match.sport } : null
+  // Fallback: narrow the table with ilike and slug-match the candidates exactly.
+  // Shares its patterns with resolvePlayerSlug. A surname-only pattern missed
+  // names with diacritics (slug "schroder" never ilike-matches "Schröder") and
+  // common surnames whose rows crowd the real player past the limit.
+  for (const pattern of slugSearchPatterns(slug)) {
+    const { data: candidates, error } = await supabase
+      .from("prop_line_history")
+      .select("player_name, sport")
+      .ilike("player_name", `%${pattern}%`)
+      .limit(500)
+    if (error) {
+      console.error("[public-players] slug fallback failed:", error.message)
+      return null
+    }
+    const match = (candidates ?? []).find(
+      (row: { player_name: string }) => playerNameToSlug(row.player_name) === slug
+    )
+    if (match) return { playerName: match.player_name, sport: match.sport }
+  }
+  return null
 }
 
 /**
@@ -373,7 +372,9 @@ export async function getPublicPlayerBySlug(
   // for an unknown slug re-ran the full resolution — and this is a public,
   // unauthenticated route where the slug is attacker-controlled.
   const { player } = await cached(
-    `public-player:${slug}`,
+    // v2: v1 cached "not found" for players the old surname-only fallback
+    // couldn't resolve (diacritics, common surnames), for an hour each.
+    `public-player:v2:${slug}`,
     async () => ({ player: await loadPublicPlayer(slug) }),
     PLAYER_TTL_MS
   )
