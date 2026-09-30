@@ -4,7 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2, Briefcase } from "lucide-react"
+import { Compass, MessageSquare, User, Wallet, LogOut, BarChart2, Trophy, Target, Newspaper, ChevronsLeft, ChevronsRight, Medal, Store, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 // Lazy: the only Supabase call in this file is inside handleLogout. A static
 // import put 177 KB of supabase-js on the critical path of every route under
@@ -25,7 +25,6 @@ const navItems: NavLeaf[] = [
   { icon: Store, label: "Experts", href: "/marketplace", comingSoon: false },
   { icon: Wallet, label: "Wallet", href: "/wallet", comingSoon: false },
   { icon: User, label: "Profile", href: "/profile", comingSoon: false },
-  { icon: Briefcase, label: "Careers", href: "/careers", comingSoon: false },
 ]
 
 export default function Sidebar() {

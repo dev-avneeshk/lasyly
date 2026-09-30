@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, X, Medal, Gamepad2, Store, Briefcase } from "lucide-react"
+import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, X, Medal, Gamepad2, Store } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const primaryNav = [
@@ -21,7 +21,6 @@ const moreNav = [
   { icon: Store, href: "/marketplace", label: "Experts" },
   { icon: Wallet, href: "/wallet", label: "Wallet" },
   { icon: User, href: "/profile", label: "Profile" },
-  { icon: Briefcase, href: "/careers", label: "Careers" },
 ]
 
 /**

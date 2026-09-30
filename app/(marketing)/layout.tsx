@@ -30,7 +30,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/features" className="hover:text-white transition-colors">Features</Link>
             <Link href="/tipsters" className="hover:text-white transition-colors">Picks</Link>
             <Link href="/scores" className="hover:text-white transition-colors">Live Scores</Link>
-            <Link href="/careers" className="hover:text-white transition-colors">Careers</Link>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
