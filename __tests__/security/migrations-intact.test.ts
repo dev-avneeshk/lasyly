@@ -22,6 +22,25 @@ describe("supabase/migrations", () => {
     expect(last).toMatch(/FROM PUBLIC, anon, authenticated;/)
   })
 
+  it("columns added to profiles/betslips after the column-grant lockdown are granted explicitly", () => {
+    // 20261002_lock_down_profile_betslip_member_writes.sql replaced the table
+    // SELECT grant with a column list captured at migration time. A column
+    // added later is unreadable to anon/authenticated (42501 on any select
+    // naming it) unless its migration also runs `GRANT SELECT (col) ON ...`.
+    const later = all.filter((f) => f > "20261002_lock_down_profile_betslip_member_writes.sql")
+    for (const f of later) {
+      const text = readFileSync(path.join(dir, f), "utf8")
+      for (const table of ["profiles", "betslips"]) {
+        const added = [...text.matchAll(new RegExp(`ALTER TABLE (?:public\\.)?${table}\\s+ADD COLUMN(?: IF NOT EXISTS)?\\s+(\\w+)`, "gi"))]
+        for (const [, col] of added) {
+          expect(text, `${f}: grant SELECT on ${table}.${col} (or state why not)`).toMatch(
+            new RegExp(`GRANT SELECT \\([^)]*\\b${col}\\b[^)]*\\) ON (?:public\\.)?${table}|-- no select grant: ${col}`, "i")
+          )
+        }
+      }
+    }
+  })
+
   it("defines every RPC the retention cron calls", () => {
     for (const fn of ["cleanup_expired_data", "cleanup_old_chat_data"]) {
       expect(sql).toContain(`FUNCTION public.${fn}(`)
