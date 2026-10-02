@@ -63,4 +63,4 @@ export const GET = withSecurity(async (
   }
 
   return NextResponse.json({ subchannels: data ?? [], migrated: true })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

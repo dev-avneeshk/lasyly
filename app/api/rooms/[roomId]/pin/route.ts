@@ -56,7 +56,7 @@ export const GET = withSecurity(async (
   })
 
   return NextResponse.json({ pins: formatted })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 // PIN a message
 export const POST = withSecurity(async (

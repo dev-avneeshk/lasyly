@@ -94,4 +94,4 @@ export const GET = withSecurity(async (
   } catch {
     return NextResponse.json({ bet: null })
   }
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

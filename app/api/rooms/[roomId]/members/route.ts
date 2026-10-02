@@ -39,4 +39,4 @@ export const GET = withSecurity(async (
   formatted.sort((a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3))
 
   return NextResponse.json({ members: formatted })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })
