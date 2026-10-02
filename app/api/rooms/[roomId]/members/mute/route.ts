@@ -137,6 +137,20 @@ export const DELETE = withSecurity(async (
   const [data, validationError] = validateRequestBody(body, unmuteSchema)
   if (validationError) return validationError
 
+  // Same hierarchy as mute: a muted moderator can't lift their own or a fellow
+  // moderator's mute (only the owner can).
+  if (membership.role === "moderator") {
+    const { data: target } = await supabase
+      .from("room_members")
+      .select("role")
+      .eq("room_id", roomId)
+      .eq("user_id", data.user_id)
+      .maybeSingle()
+    if (data.user_id === user.id || target?.role === "moderator" || target?.role === "owner") {
+      return NextResponse.json({ error: "Only the room owner can unmute a moderator." }, { status: 403 })
+    }
+  }
+
   const { error: deleteErr } = await createAdminClient()
     .from("room_mutes")
     .delete()
