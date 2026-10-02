@@ -14,8 +14,9 @@
  *
  * SAFE TO RUN AGAINST PRODUCTION: every probe uses inputs that make the
  * function return before any write (amount 0, or a user id that doesn't exist),
- * so even a still-exposed function changes nothing. cleanup_old_chat_data is
- * deliberately NOT probed: it has no harmless input.
+ * so even a still-exposed function changes nothing. cleanup_old_chat_data and
+ * cleanup_expired_data are deliberately NOT probed: they have no harmless
+ * input (their grants are checked in __tests__/security/migrations-intact).
  *
  * Usage: node scripts/db/check-rpc-grants.mjs
  * Requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in

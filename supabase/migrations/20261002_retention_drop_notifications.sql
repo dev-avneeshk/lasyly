@@ -116,7 +116,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.cleanup_expired_data(int) FROM PUBLIC;
+-- anon/authenticated get EXECUTE from default privileges, not PUBLIC (see
+-- 20260927), and CREATE OR REPLACE keeps the old ACL: name them explicitly.
+REVOKE ALL ON FUNCTION public.cleanup_expired_data(int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.cleanup_expired_data(int) TO service_role;
 
 COMMIT;
