@@ -14,6 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FIX="${FIX:-$ROOT/supabase/migrations/20261002_lock_down_profile_betslip_member_writes.sql}"
+PARLAY_FIX="${PARLAY_FIX:-$ROOT/supabase/migrations/20261002_parlays_owner_writes.sql}"
 
 for bin in initdb pg_ctl psql; do
   command -v "$bin" >/dev/null || { echo "error: $bin not found on PATH" >&2; exit 1; }
@@ -36,6 +37,7 @@ OTHER=22222222-2222-2222-2222-222222222222
 PUB=aaaaaaaa-0000-0000-0000-000000000001
 PRIV=aaaaaaaa-0000-0000-0000-000000000002
 BANNED=aaaaaaaa-0000-0000-0000-000000000003
+PARLAY=bbbbbbbb-0000-0000-0000-000000000001
 
 "${PSQL[@]}" <<SQL
 CREATE ROLE anon NOLOGIN;
@@ -87,6 +89,28 @@ CREATE POLICY betslips_select_visible ON public.betslips FOR SELECT
 CREATE POLICY betslips_insert_own ON public.betslips FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY betslips_update_own ON public.betslips FOR UPDATE USING (user_id = auth.uid());
 
+CREATE TABLE public.parlays (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, status text NOT NULL DEFAULT 'pending',
+  visibility text NOT NULL, odds numeric, stake numeric, custom_note text, combined_hit_rate numeric,
+  is_logged boolean DEFAULT false, created_at timestamptz DEFAULT now(), resolved_at timestamptz
+);
+CREATE TABLE public.parlay_legs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), parlay_id uuid NOT NULL, player_name text NOT NULL,
+  stat_category text NOT NULL, prop_line numeric NOT NULL, direction text NOT NULL, l10_hit_rate numeric,
+  leg_order int NOT NULL, sport text NOT NULL, game_id text, result text NOT NULL DEFAULT 'pending'
+);
+ALTER TABLE public.parlays ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.parlay_legs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY select_own ON public.parlays FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY insert_own ON public.parlays FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY update_own ON public.parlays FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY delete_own_pending ON public.parlays FOR DELETE USING (user_id = auth.uid() AND status = 'pending');
+CREATE POLICY select_via_parlay ON public.parlay_legs FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.parlays p WHERE p.id = parlay_id AND p.user_id = auth.uid()));
+CREATE POLICY insert_via_parlay ON public.parlay_legs FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM public.parlays p WHERE p.id = parlay_id AND p.user_id = auth.uid()));
+INSERT INTO public.parlays (id, user_id, visibility) VALUES ('bbbbbbbb-0000-0000-0000-000000000001', '$ME', 'private');
+
 INSERT INTO public.profiles (id, username, wallet_balance) VALUES ('$ME', 'me', 100), ('$OTHER', 'other', 5000);
 INSERT INTO public.rooms VALUES ('$PUB', 'Public'), ('$PRIV', 'Private'), ('$BANNED', 'Public');
 INSERT INTO public.room_bans VALUES ('$BANNED', '$ME');
@@ -117,13 +141,18 @@ attacks() {
   check "anon reads paid pick content"    "$1" "$(as anon '' "SELECT 'allowed' FROM public.betslips WHERE matches IS NOT NULL;")"
   check "self-join private room"          "$1" "$(as authenticated "$ME" "INSERT INTO public.room_members (room_id, user_id, role) VALUES ('$PRIV', '$ME', 'member') RETURNING 'allowed';")"
   check "self-join room banned from"      "$1" "$(as authenticated "$ME" "INSERT INTO public.room_members (room_id, user_id, role) VALUES ('$BANNED', '$ME', 'member') RETURNING 'allowed';")"
+  check "owner self-settles parlay won"   "$1" "$(as authenticated "$ME" "UPDATE public.parlays SET status = 'won' WHERE id = '$PARLAY' RETURNING 'allowed';")"
+  check "owner inserts a won parlay"      "$1" "$(as authenticated "$ME" "INSERT INTO public.parlays (user_id, visibility, status) VALUES ('$ME', 'public', 'won') RETURNING 'allowed';")"
+  check "owner inserts a won leg"         "$1" "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, leg_order, sport, result) VALUES ('$PARLAY', 'X', 'pts', 1, 'over', 1, 'NBA', 'won') RETURNING 'allowed';")"
+  check "owner deletes a pending parlay"  "$1" "$(as authenticated "$ME" "DELETE FROM public.parlays WHERE id = '$PARLAY' RETURNING 'allowed';")"
 }
 
 echo "before the fix (attacks succeed)"
 attacks allowed
 
-"${PSQL[@]}" -f "$FIX" >/dev/null
-"${PSQL[@]}" -f "$FIX" >/dev/null
+for f in "$FIX" "$PARLAY_FIX" "$FIX" "$PARLAY_FIX"; do  # twice: must be re-runnable
+  PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
+done
 
 echo "after the fix (attacks fail)"
 attacks denied
@@ -138,6 +167,10 @@ check "betslip listing readable"  ok "$(as anon '' "SELECT 'ok' FROM public.bets
 check "post betslip with picks"   ok "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, matches) VALUES ('$ME', 2, '[]') RETURNING 'ok';")"
 check "settle own betslip"        ok "$(as authenticated "$OTHER" "UPDATE public.betslips SET status = 'Won' WHERE user_id = '$OTHER' AND status = 'Pending' RETURNING 'ok';")"
 check "service role reads picks"  ok "$(as service_role '' "SELECT 'ok' FROM public.betslips WHERE matches IS NOT NULL;")"
+check "create parlay as the API"  ok "$(as authenticated "$ME" "INSERT INTO public.parlays (user_id, visibility, odds, stake, custom_note, combined_hit_rate, is_logged) VALUES ('$ME', 'public', 2.5, 10, 'n', 60, false) RETURNING 'ok';")"
+check "add legs as the API"       ok "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport) VALUES ('$PARLAY', 'X', 'pts', 1, 'over', 50, 1, 'NBA') RETURNING 'ok';")"
+check "change parlay visibility"  ok "$(as authenticated "$ME" "UPDATE public.parlays SET visibility = 'public' WHERE id = '$PARLAY' RETURNING 'ok';")"
+check "settlement (service) runs" ok "$(as service_role '' "UPDATE public.parlays SET status = 'won', resolved_at = now() WHERE id = '$PARLAY' RETURNING 'ok';")"
 
 if [[ $fail -ne 0 ]]; then
   echo "FAILED"

@@ -126,43 +126,25 @@ export const POST = withSecurity(async (request: Request) => {
   const nbaPlayers = payload.legs.filter((l) => l.sport === "NBA").map((l) => l.player_name)
   const tennisPlayers = payload.legs.filter((l) => l.sport === "Tennis").map((l) => l.player_name)
 
-  const invalidPlayers: string[] = []
-
-  if (nbaPlayers.length > 0) {
-    const uniqueNba = [...new Set(nbaPlayers)]
-    const { data: foundNba } = await adminClient
-      .from("nba_player_stats")
-      .select("player_name")
-      .in("player_name", uniqueNba)
-      .limit(uniqueNba.length)
-
-    const foundNames = new Set((foundNba ?? []).map((r: { player_name: string }) => r.player_name))
-    for (const name of uniqueNba) {
-      if (!foundNames.has(name)) {
-        invalidPlayers.push(name)
-      }
-    }
+  // One existence probe per (table, column, name), at most 10 legs. A single
+  // `.in(names).limit(names.length)` on these per-game tables returned N rows of
+  // whichever player came first, rejecting the others; and the tennis check
+  // interpolated names into an `.or()` filter string (filter injection).
+  const exists = async (table: string, column: string, name: string) => {
+    const { data } = await adminClient.from(table).select(column).eq(column, name).limit(1)
+    return (data?.length ?? 0) > 0
   }
-
-  if (tennisPlayers.length > 0) {
-    const uniqueTennis = [...new Set(tennisPlayers)]
-    const { data: foundTennis } = await adminClient
-      .from("tennis_matches")
-      .select("player1_name, player2_name")
-      .or(uniqueTennis.map((n) => `player1_name.eq.${n},player2_name.eq.${n}`).join(","))
-      .limit(uniqueTennis.length * 2)
-
-    const foundTennisNames = new Set<string>()
-    for (const row of foundTennis ?? []) {
-      foundTennisNames.add((row as { player1_name: string; player2_name: string }).player1_name)
-      foundTennisNames.add((row as { player1_name: string; player2_name: string }).player2_name)
-    }
-    for (const name of uniqueTennis) {
-      if (!foundTennisNames.has(name)) {
-        invalidPlayers.push(name)
-      }
-    }
-  }
+  const checks = [
+    ...[...new Set(nbaPlayers)].map(async (n) => ((await exists("nba_player_stats", "player_name", n)) ? null : n)),
+    ...[...new Set(tennisPlayers)].map(async (n) => {
+      const [p1, p2] = await Promise.all([
+        exists("tennis_matches", "player1_name", n),
+        exists("tennis_matches", "player2_name", n),
+      ])
+      return p1 || p2 ? null : n
+    }),
+  ]
+  const invalidPlayers = (await Promise.all(checks)).filter((n): n is string => n !== null)
 
   if (invalidPlayers.length > 0) {
     return NextResponse.json(
@@ -189,7 +171,7 @@ export const POST = withSecurity(async (request: Request) => {
       custom_note: payload.custom_note ?? null,
       combined_hit_rate: payload.combined_hit_rate ?? null,
       is_logged: payload.is_logged ?? false,
-      status: "pending",
+      // status defaults to 'pending'; users have no INSERT grant on it.
     })
     .select()
     .single()
@@ -220,7 +202,9 @@ export const POST = withSecurity(async (request: Request) => {
 
   if (legsError || !legs) {
     // Clean up the parlay row if legs insertion fails
-    await supabase.from("parlays").delete().eq("id", parlay.id)
+    // Service role: users have no DELETE on parlays (deleting a losing pick
+    // before settlement was a way to game win rates).
+    await adminClient.from("parlays").delete().eq("id", parlay.id)
     return NextResponse.json(
       { error: "Failed to save parlay." },
       { status: 500 }
@@ -231,15 +215,6 @@ export const POST = withSecurity(async (request: Request) => {
   const createdParlay = {
     ...parlay,
     legs: legs.sort((a: { leg_order: number }, b: { leg_order: number }) => a.leg_order - b.leg_order),
-  }
-
-  // If visibility is public, broadcast to parlays-feed Realtime channel.
-  // httpSend() posts over REST explicitly (no socket) — the successor to the
-  // now-deprecated implicit "send() on a never-subscribed channel" fallback.
-  if (payload.visibility === "public") {
-    const channel = supabase.channel("parlays-feed")
-    await channel.httpSend("new_parlay", { parlay: createdParlay })
-    await supabase.removeChannel(channel)
   }
 
   return NextResponse.json(createdParlay, { status: 201 })
