@@ -125,8 +125,8 @@ const RATE_LIMIT_EXEMPT_PREFIXES = ["/api/webhooks/"]
  *
  * The cookie VALUE is signed by Supabase and cannot be forged into something
  * that also authenticates, so hashing it gives a bucket that is stable for a
- * real session and useless to rotate: a request with a made-up cookie gets its
- * own bucket but is rejected by the route with a 401 anyway.
+ * real session. A made-up cookie still gets its own bucket (public routes never
+ * check it), which is why the per-IP bucket is always applied as well.
  *
  * Supabase splits large tokens across `...auth-token.0` / `.1` chunks, so all
  * matching cookies are concatenated in name order.
@@ -301,13 +301,16 @@ export async function proxy(request: NextRequest) {
 
   if (isApiRoute && !isRateLimitExempt) {
     const tier = tierForPath(pathname, hasSupabaseSessionCookie)
-    // Authenticated traffic is keyed per session so users behind one NAT don't
-    // share a bucket; anonymous traffic falls back to IP, read from
-    // platform-set headers rather than the client-forgeable x-forwarded-for.
-    const rateLimitKey =
-      bucket !== null ? `${tier}:s:${bucket}` : `${tier}:i:${getClientIp(request)}`
-
-    const rateResult = await checkRateLimitDistributed(rateLimitKey, tier)
+    // Every request is counted per IP (read from platform-set headers rather
+    // than the client-forgeable x-forwarded-for). Session traffic is also
+    // counted per session so one user can't drain a shared NAT IP's budget.
+    // The IP bucket must always apply: the session cookie is unverified here,
+    // so a random `sb-x-auth-token` per request would otherwise mint a fresh
+    // bucket every time and bypass the limit on public routes.
+    const checks = [checkRateLimitDistributed(`${tier}:i:${getClientIp(request)}`, tier)]
+    if (bucket !== null) checks.push(checkRateLimitDistributed(`${tier}:s:${bucket}`, tier))
+    const results = await Promise.all(checks)
+    const rateResult = results.find((r) => !r.allowed) ?? results[results.length - 1]
 
     if (!rateResult.allowed) {
       const limitedResponse = NextResponse.json(

@@ -28,7 +28,8 @@ export const RATE_LIMIT_AUTH: RateLimitConfig = {
  *      before the whole population starts seeing 429s — indistinguishable from
  *      an outage.
  *
- * The ceiling is now per session (see proxy.ts), so NAT is irrelevant, and it
+ * Applied per session and per IP (see proxy.ts; the IP bucket stops forged
+ * session cookies from minting fresh buckets), and it
  * is high enough that a heavy real user with several tabs never reaches it. The
  * precise, per-action limits live in the routes themselves (RATE_LIMITS in
  * lib/rateLimit.ts) — this is only the coarse backstop.
