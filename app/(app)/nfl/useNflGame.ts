@@ -59,6 +59,8 @@ export function useNflGame() {
   }, [state])
 
   const resultsSeen = useRef(0)
+  // When the tab went hidden: the lot deadline is extended by that long on return.
+  const hiddenSince = useRef<number | null>(null)
   const soldTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (soldTimer.current) clearTimeout(soldTimer.current) }, [])
 
@@ -98,12 +100,35 @@ export function useNflGame() {
   )
 
   // ── Countdown timer ────────────────────────────────────────────────────
+  // This tab is the only clock. The auction pauses while it's hidden (same as
+  // the NBA hook): otherwise the wall-clock deadline ran out in the background
+  // and the CPU won lots the player never saw.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") {
+        hiddenSince.current = Date.now()
+        return
+      }
+      if (hiddenSince.current == null) return
+      const hiddenMs = Date.now() - hiddenSince.current
+      hiddenSince.current = null
+      const s = stateRef.current
+      if (hiddenMs <= 0 || !s || s.status !== "auction" || !s.lotDeadline) return
+      const next = clone(s)
+      next.lotDeadline = (next.lotDeadline ?? Date.now()) + hiddenMs
+      commit(next)
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => document.removeEventListener("visibilitychange", onVisibility)
+  }, [commit])
+
   useEffect(() => {
     if (!state || state.status !== "auction" || !state.lotDeadline) {
       setTimeLeft(0)
       return
     }
     const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return
       const s = stateRef.current
       if (!s || !s.lotDeadline) return
       const left = Math.max(0, s.lotDeadline - Date.now())
@@ -130,6 +155,7 @@ export function useNflGame() {
 
     const delay = 650 + Math.random() * 850
     const id = setTimeout(() => {
+      if (document.visibilityState !== "visible") return // acts again once the deadline shift re-renders
       const s = stateRef.current
       if (!s || s.status !== "auction" || !s.lot) return
       if (s.lot.highBidder === aiSeat) return
