@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Plus, Users, Lock, Zap, Search, Loader2, X, Hash } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 type Room = {
   id: string
@@ -34,47 +33,44 @@ export default function RoomsClient({ isAuthenticated }: Props) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
-  const fetchRooms = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (search.length >= 2) params.set("search", search)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
-      const res = await fetch(`/api/rooms/explore?${params.toString()}`)
-      if (res.ok) {
-        const data = await res.json()
-        setRooms(data.rooms ?? [])
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false)
-    }
-  }, [search])
-
-  const fetchJoinedRooms = useCallback(async () => {
-    try {
-      const res = await fetch("/api/rooms/joined")
-      if (res.ok) {
-        const data = await res.json()
-        setJoinedRooms(data.rooms ?? [])
-      }
-    } catch {
-      // silently fail
-    }
-  }, [])
-
+  // Joined rooms once, and only for real accounts (guests got a 401 per load,
+  // and it was refetched on every keystroke).
   useEffect(() => {
-    fetchRooms()
-    fetchJoinedRooms()
-  }, [fetchRooms, fetchJoinedRooms])
+    if (!isAuthenticated) return
+    const ctrl = new AbortController()
+    fetch("/api/rooms/joined", { signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setJoinedRooms(data.rooms ?? []))
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [isAuthenticated])
 
+  // One explore fetch per debounced query (was two on mount plus an undebounced
+  // one per keystroke); a newer query aborts the older so it can't overwrite it.
+  const query = search.length >= 2 ? search : ""
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchRooms()
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [search, fetchRooms])
+    const ctrl = new AbortController()
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      setError(false)
+      try {
+        const res = await fetch(`/api/rooms/explore${query ? `?search=${encodeURIComponent(query)}` : ""}`, { signal: ctrl.signal })
+        if (!res.ok) throw new Error(`explore ${res.status}`)
+        setRooms((await res.json()).rooms ?? [])
+      } catch {
+        if (!ctrl.signal.aborted) setError(true)
+      } finally {
+        if (!ctrl.signal.aborted) setLoading(false)
+      }
+    }, query ? 300 : 0)
+    return () => {
+      clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [query, reloadKey])
 
   const allRooms = [...joinedRooms, ...rooms.filter(r => !joinedRooms.some(jr => jr.id === r.id))]
   const joinedIds = new Set(joinedRooms.map(r => r.id))
@@ -155,7 +151,18 @@ export default function RoomsClient({ isAuthenticated }: Props) {
             </div>
           )}
 
-          {!loading && displayRooms.length === 0 && (
+          {!loading && error && (
+            <div role="alert" className="flex flex-col items-center justify-center py-16 text-center">
+              <h3 className="text-[15px] font-semibold text-white/80 mb-1">Couldn&apos;t load rooms</h3>
+              <button
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="mt-2 px-4 py-2 rounded-xl bg-white/[0.06] text-[13px] font-semibold text-white/80 hover:bg-white/[0.1] transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!loading && !error && displayRooms.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-[#1A1A1A] border border-white/[0.06] flex items-center justify-center mb-4">
                 <Hash className="w-7 h-7 text-white/25" />
