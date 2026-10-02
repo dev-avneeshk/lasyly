@@ -11,6 +11,7 @@ import { ChannelSidebar } from "@/components/room/ChannelSidebar"
 import ChannelManager from "@/components/room/ChannelManager"
 import { UpgradeModal } from "@/components/room/UpgradeModal"
 import { TopBetPanel } from "@/components/room/TopBetPanel"
+import { useToast } from "@/components/ui/Toast"
 import type { Subchannel } from "@/lib/types/channel"
 
 /**
@@ -99,6 +100,7 @@ type CurrentUser = {
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>()
   const router = useRouter()
+  const { toast } = useToast()
   const roomId = params.roomId
   const supabase = useMemo(() => createClient(), [])
 
@@ -417,8 +419,10 @@ export default function RoomPage() {
 
   // ─── Send Message ───────────────────────────────────────────────────────────
 
-  const handleSend = useCallback(async (content: string) => {
-    if (!content || !currentUser || sending) return
+  // Resolves false when the message wasn't sent, so the composer restores the
+  // draft (failures used to be silent and lose the text).
+  const handleSend = useCallback(async (content: string): Promise<boolean> => {
+    if (!content || !currentUser || sending) return false
     setSending(true)
 
     const tempId = `temp-${Date.now()}`
@@ -447,24 +451,31 @@ export default function RoomPage() {
             { ...optimistic, id: saved.id, created_at: saved.created_at, content: savedContent },
           ])
         })
-      } else {
-        setMessages(prev => prev.filter(m => m.id !== tempId))
+        return true
       }
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      const { error } = await res.json().catch(() => ({}))
+      toast(typeof error === "string" ? error : "Message not sent. Try again.", "error")
     } catch {
       setMessages(prev => prev.filter(m => m.id !== tempId))
+      toast("Message not sent. Check your connection.", "error")
     } finally {
       setSending(false)
     }
-  }, [currentUser, sending, roomId, activeSubchannelId])
+    return false
+  }, [currentUser, sending, roomId, activeSubchannelId, toast])
 
   const handleJoinLeave = async () => {
     if (!userId) return
     setJoining(true)
     try {
       const res = await fetch(`/api/rooms/${roomId}/join`, { method: "POST" })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok) { setIsMember(data.joined); setMemberCount(data.memberCount) }
-    } catch {} finally { setJoining(false) }
+      else toast(typeof data.error === "string" ? data.error : "Couldn't update membership. Try again.", "error")
+    } catch {
+      toast("Couldn't update membership. Check your connection.", "error")
+    } finally { setJoining(false) }
   }
 
   // The creator is always an owner/admin/member, even before the members list
