@@ -182,7 +182,12 @@ export const POST = withSecurity(async (request: Request) => {
   state.status = "lobby"
   state.econ = { mode: "pvp", amount: data.stake, settled: false }
 
-  await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  try {
+    await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  } catch (error) {
+    await refundArenaStake({ userId: user.id, gameId }) // fresh gameId: a retry can't reuse the charge
+    throw error
+  }
   await registerArenaChannelMember(gameId, user.id, "P1")
   await Promise.all([enqueueOpenGame(gameId), trackLobby(gameId, user.id)])
 

@@ -11,7 +11,7 @@ import { trackLobby } from "@/lib/arena/matchmaking"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
 import { CPU_ENTRY_COST, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
-import { chargeArenaStake } from "@/lib/economy/wallet"
+import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 
 const createSchema = z.object({
   season: z.enum(AVAILABLE_SEASONS as [string, ...string[]]).default(DEFAULT_CONFIG.season),
@@ -97,7 +97,14 @@ export const POST = withSecurity(async (request: Request) => {
     state.status = "lobby"
   }
 
-  await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  // Charged but not persisted (Redis down) → give the coins back. Safe: the
+  // gameId is fresh, so a retry is a new game, not a free re-charge "duplicate".
+  try {
+    await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  } catch (error) {
+    await refundArenaStake({ userId: user.id, gameId })
+    throw error
+  }
   // An invite lobby nobody joins is refunded by the jobs cron (sweepAbandonedLobbies).
   if (!vsAI) await trackLobby(gameId, user.id)
   // Before responding: the client subscribes as soon as it has `channel`, and
