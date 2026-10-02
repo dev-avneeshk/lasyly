@@ -171,6 +171,8 @@ check "create parlay as the API"  ok "$(as authenticated "$ME" "INSERT INTO publ
 check "add legs as the API"       ok "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport) VALUES ('$PARLAY', 'X', 'pts', 1, 'over', 50, 1, 'NBA') RETURNING 'ok';")"
 check "change parlay visibility"  ok "$(as authenticated "$ME" "UPDATE public.parlays SET visibility = 'public' WHERE id = '$PARLAY' RETURNING 'ok';")"
 check "settlement (service) runs" ok "$(as service_role '' "UPDATE public.parlays SET status = 'won', resolved_at = now() WHERE id = '$PARLAY' RETURNING 'ok';")"
+check "settlement can void"       ok "$(as service_role '' "UPDATE public.parlays SET status = 'void' WHERE id = '$PARLAY' RETURNING 'ok';")"
+check "unknown status rejected"   denied "$(as service_role '' "UPDATE public.parlays SET status = 'bogus' WHERE id = '$PARLAY' RETURNING 'ok';")"
 
 if [[ $fail -ne 0 ]]; then
   echo "FAILED"

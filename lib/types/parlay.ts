@@ -2,7 +2,7 @@
 
 // --- Enums / Union Types ---
 
-export type ParlayStatus = "pending" | "won" | "lost"
+export type ParlayStatus = "pending" | "won" | "lost" | "void"
 export type ParlayVisibility = "public" | "private"
 
 // --- Database Row Types ---

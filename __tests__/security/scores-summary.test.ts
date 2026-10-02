@@ -16,7 +16,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       chain[m] = (...a: unknown[]) => (db.calls.push([m, ...a]), chain)
     }
     chain.maybeSingle = async () => ({ data: db.stored })
-    chain.then = (res: (v: unknown) => unknown) => res({ error: null })
+    chain.then = ((res: (v: unknown) => unknown) => res({ error: null })) as (...a: unknown[]) => unknown
     return chain
   },
 }))

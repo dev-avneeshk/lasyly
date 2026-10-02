@@ -1,5 +1,6 @@
 -- =====================================================================
--- Migration: parlay outcomes are written by settlement only (audit L-02)
+-- Migration: parlay outcomes are written by settlement only (audit L-02),
+-- plus a 'void' status for parlays settlement can't decide (audit L-04)
 -- =====================================================================
 -- RLS let an owner UPDATE any column of their parlay and INSERT one with any
 -- status, straight through PostgREST, so `status = 'won'` (or a leg with
@@ -20,6 +21,13 @@ GRANT INSERT (user_id, visibility, odds, stake, custom_note, combined_hit_rate, 
   ON public.parlays TO authenticated;
 GRANT UPDATE (visibility) ON public.parlays TO authenticated;
 DROP POLICY IF EXISTS "delete_own_pending" ON public.parlays;
+
+-- L-04: settlement marks parlays it can never settle (all legs pushed, or
+-- unsettleable legs at expiry) as 'void' instead of 'won'. Widening the CHECK
+-- is non-destructive; win rates count won/lost only.
+ALTER TABLE public.parlays DROP CONSTRAINT IF EXISTS parlays_status_check;
+ALTER TABLE public.parlays ADD CONSTRAINT parlays_status_check
+  CHECK (status IN ('pending', 'won', 'lost', 'void'));
 
 REVOKE INSERT, UPDATE, DELETE ON public.parlay_legs FROM anon, authenticated;
 GRANT INSERT (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport)
