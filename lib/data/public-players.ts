@@ -3,7 +3,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
-import { playerNameToSlug, slugSearchPatterns } from "@/lib/seo/player-slug"
+import { playerNameToSlug } from "@/lib/seo/player-slug"
 import { computeHitRates } from "@/lib/analytics/hit-rates"
 import { computeMatchupGrade, type MatchupGrade } from "@/lib/analytics/matchup-grades"
 
@@ -123,8 +123,6 @@ function statLabelFor(statCategory: string): string {
 /** How long a resolved public player page is cached. Matches the page's ISR window. */
 const PLAYER_TTL_MS = 60 * 60_000
 
-/** Rows of recent line history scanned when resolving a slug the fast way. */
-const SLUG_SCAN_LIMIT = 5000
 
 /** One game row, normalised across the per-sport stat tables. */
 interface NormalisedGame {
@@ -136,70 +134,53 @@ interface NormalisedGame {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-/**
- * Resolve a slug to a player name + sport using `prop_line_history`.
- *
- * Two passes, because neither alone is both fast and correct:
- *
- *  - The bounded scan of recent rows is cheap and covers anyone with a current
- *    prop line, which is the overwhelming majority of traffic.
- *  - It also silently 404'd anyone whose most recent line fell outside that
- *    window. NBA, NFL and Tennis scrapers all append here, so a player can drop
- *    out of the newest 5000 rows within a day. The surname lookup is the
- *    fallback that makes those pages resolve.
- */
-async function resolveSlug(
+/** One entry per player slug in `prop_line_history`, from their newest row. */
+interface IndexedPlayer {
   slug: string
-): Promise<{ playerName: string; sport: string } | null> {
-  const supabase = createAdminClient()
+  playerName: string
+  sport: string
+  recordedAt: string
+}
 
-  // Paged: `.limit(SLUG_SCAN_LIMIT)` alone returned 1000 rows, not 5000, because
-  // PostgREST silently caps a single response at 1000. The fast path was
-  // therefore a fifth as wide as this function's reasoning assumes, pushing
-  // players it should have resolved into the surname fallback below.
-  const recent = await fetchPagedParallel<{ player_name: string; sport: string }>(
-    async () => SLUG_SCAN_LIMIT,
-    async (from, to) => {
-      const { data, error } = await supabase
-        .from("prop_line_history")
-        .select("player_name, sport")
-        .order("recorded_at", { ascending: false })
-        .order("id", { ascending: true })
-        .range(from, to)
-      if (error) {
-        console.error("[public-players] prop_line_history scan failed:", error.message)
-        return []
+/**
+ * Every player with a prop line, keyed by slug, shared via Redis for an hour
+ * (~800 entries). Slug resolution and the sitemap both read it: a random
+ * `/players/<slug>` used to scan 5k rows plus up to three unanchored ILIKEs on
+ * 50k rows, and the sitemap read one unpaged (1000-row) slice and so listed
+ * a fraction of players. A page failure throws so a partial index is never
+ * cached.
+ */
+async function playerIndex(): Promise<Map<string, IndexedPlayer>> {
+  const players = await cached(
+    "public-players:index:v1",
+    async () => {
+      const supabase = createAdminClient()
+      const rows = await fetchPagedParallel<{ player_name: string; sport: string; recorded_at: string }>(
+        async () => (await supabase.from("prop_line_history").select("id", { count: "exact", head: true })).count ?? null,
+        async (from, to) => {
+          const { data, error } = await supabase
+            .from("prop_line_history")
+            .select("player_name, sport, recorded_at")
+            .order("recorded_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to)
+          if (error) throw new Error(`prop_line_history scan failed: ${error.message}`)
+          return data ?? []
+        },
+        { maxRows: 500_000 }
+      )
+      const bySlug = new Map<string, IndexedPlayer>()
+      for (const r of rows) {
+        const slug = playerNameToSlug(r.player_name)
+        if (slug && !bySlug.has(slug)) {
+          bySlug.set(slug, { slug, playerName: r.player_name, sport: r.sport, recordedAt: r.recorded_at })
+        }
       }
-      return (data ?? []) as { player_name: string; sport: string }[]
+      return [...bySlug.values()]
     },
-    { maxRows: SLUG_SCAN_LIMIT }
+    PLAYER_TTL_MS
   )
-
-  const hit = recent.find(
-    (row: { player_name: string }) => playerNameToSlug(row.player_name) === slug
-  )
-  if (hit) return { playerName: hit.player_name, sport: hit.sport }
-
-  // Fallback: narrow the table with ilike and slug-match the candidates exactly.
-  // Shares its patterns with resolvePlayerSlug. A surname-only pattern missed
-  // names with diacritics (slug "schroder" never ilike-matches "Schröder") and
-  // common surnames whose rows crowd the real player past the limit.
-  for (const pattern of slugSearchPatterns(slug)) {
-    const { data: candidates, error } = await supabase
-      .from("prop_line_history")
-      .select("player_name, sport")
-      .ilike("player_name", `%${pattern}%`)
-      .limit(500)
-    if (error) {
-      console.error("[public-players] slug fallback failed:", error.message)
-      return null
-    }
-    const match = (candidates ?? []).find(
-      (row: { player_name: string }) => playerNameToSlug(row.player_name) === slug
-    )
-    if (match) return { playerName: match.player_name, sport: match.sport }
-  }
-  return null
+  return new Map(players.map((p) => [p.slug, p]))
 }
 
 /**
@@ -364,30 +345,26 @@ async function computeOpponentGrade(
 export async function getPublicPlayerBySlug(
   slug: string
 ): Promise<PublicPlayerData | null> {
+  // Unknown slugs (attacker-controlled, public route) stop here: no queries
+  // once the index is warm, and no per-slug cache key.
+  const resolved = (await playerIndex()).get(slug)
+  if (!resolved) return null
   // Cached because the page calls this twice per render — once in
   // generateMetadata, once in the component — and it is several queries deep.
-  //
-  // The result is wrapped in an envelope so that "no such player" is cacheable
-  // too. `cached()` treats a bare null as a miss, which would mean every request
-  // for an unknown slug re-ran the full resolution — and this is a public,
-  // unauthenticated route where the slug is attacker-controlled.
+  // Enveloped because `cached()` treats a bare null as a miss.
   const { player } = await cached(
-    // v2: v1 cached "not found" for players the old surname-only fallback
-    // couldn't resolve (diacritics, common surnames), for an hour each.
-    `public-player:v2:${slug}`,
-    async () => ({ player: await loadPublicPlayer(slug) }),
+    `public-player:v3:${slug}`,
+    async () => ({ player: await loadPublicPlayer(slug, resolved) }),
     PLAYER_TTL_MS
   )
   return player
 }
 
-async function loadPublicPlayer(slug: string): Promise<PublicPlayerData | null> {
+async function loadPublicPlayer(
+  slug: string,
+  { playerName, sport }: IndexedPlayer
+): Promise<PublicPlayerData | null> {
   const supabase = createAdminClient()
-
-  const resolved = await resolveSlug(slug)
-  if (!resolved) return null
-
-  const { playerName, sport } = resolved
 
   /** Identity-only result, used whenever analytics aren't available. */
   const minimal = (
@@ -490,69 +467,14 @@ async function loadPublicPlayer(slug: string): Promise<PublicPlayerData | null> 
 }
 
 /**
- * Fetch all player slugs for sitemap generation.
- * Returns distinct players with their most recent game date.
+ * Every player slug for the sitemap, with the date of their latest prop line
+ * (lines are recorded on game days).
  */
 export async function getAllPlayerSlugs(): Promise<{ slug: string; lastGameDate: string }[]> {
-  const supabase = createAdminClient()
-
-  // Get all distinct players from prop_line_history
-  const { data: propPlayers, error } = await supabase
-    .from("prop_line_history")
-    .select("player_name, recorded_at")
-    .order("recorded_at", { ascending: false })
-
-  if (error || !propPlayers) {
-    console.error("[public-players] Failed to fetch players for sitemap:", error?.message)
+  try {
+    return [...(await playerIndex()).values()].map((p) => ({ slug: p.slug, lastGameDate: p.recordedAt.split("T")[0] }))
+  } catch (error) {
+    console.error("[public-players] Failed to fetch players for sitemap:", error)
     return []
   }
-
-  // Deduplicate by player name, keeping the most recent recorded_at
-  const playerMap = new Map<string, string>()
-
-  for (const row of propPlayers) {
-    const name = row.player_name as string
-    const recordedAt = row.recorded_at as string
-
-    if (!playerMap.has(name)) {
-      playerMap.set(name, recordedAt)
-    }
-  }
-
-  // Try to get actual game dates from nba_player_stats for more accurate lastModified
-  const playerNames = [...playerMap.keys()]
-  const gameDataMap = new Map<string, string>()
-
-  // Fetch game dates in batches to avoid query limits
-  const batchSize = 100
-  for (let i = 0; i < playerNames.length; i += batchSize) {
-    const batch = playerNames.slice(i, i + batchSize)
-    const { data: gameData } = await supabase
-      .from("nba_player_stats")
-      .select("player_name, nba_games!inner(game_date)")
-      .in("player_name", batch)
-      .order("nba_games(game_date)", { ascending: false })
-      .limit(batch.length) // one row per player is enough (most recent)
-
-    if (gameData) {
-      for (const row of gameData as any[]) {
-        const name = row.player_name as string
-        const gameDate = row.nba_games?.game_date as string
-        if (gameDate && !gameDataMap.has(name)) {
-          gameDataMap.set(name, gameDate)
-        }
-      }
-    }
-  }
-
-  // Build result: use game date if available, fall back to prop recorded_at
-  const results: { slug: string; lastGameDate: string }[] = []
-
-  for (const [name, recordedAt] of playerMap) {
-    const slug = playerNameToSlug(name)
-    const lastGameDate = gameDataMap.get(name) ?? recordedAt.split("T")[0]
-    results.push({ slug, lastGameDate })
-  }
-
-  return results
 }
