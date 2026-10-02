@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { getClientIp } from "@/lib/security/clientIp"
 import { withSecurity } from "@/lib/security/routeHelpers"
@@ -8,12 +9,14 @@ import { MIN_FILL_TIME_MS } from "@/lib/careers/constants"
 import { getActiveJobById } from "@/lib/careers/server"
 
 /**
- * POST /api/careers/applications — public job / talent-pool application.
+ * POST /api/careers/applications — job / talent-pool application.
  *
- * Anonymous by design (applicants don't need an account), so everything is
- * validated here regardless of what the form already checked. Writes use the
- * service role; careers_applications has no RLS policies, so the anon key can
- * neither read nor write it.
+ * Requires a signed-in account (a real Supabase user; guest cookies and
+ * anonymous users are rejected). The listing and form pages stay public and
+ * static; this route is the enforcement point, the form's sign-in gate is only
+ * UX. Everything is still validated here regardless of what the form checked.
+ * Writes use the service role; careers_applications has no RLS policies, so the
+ * anon key can neither read nor write it.
  *
  * Anti-abuse: per-IP and per-email rate limits, a honeypot field, a minimum
  * fill time, and an idempotency key (submissionKey) so a double-click or a
@@ -35,6 +38,15 @@ export const POST = withSecurity(
     // Captured before any awaited I/O so slow rate-limit/Redis calls can't
     // inflate the measured fill time.
     const receivedAt = Date.now()
+
+    const authClient = await createClient()
+    const {
+      data: { user },
+    } = await authClient.auth.getUser()
+    if (!user || user.is_anonymous) {
+      return fail(401, "Please log in to submit an application.", { code: "AUTH_REQUIRED" })
+    }
+
     const ip = getClientIp(request)
     const ipCheck = await checkRateLimit(`careers:apply:ip:${ip}`, RATE_LIMITS.careersApplyIp)
     if (!ipCheck.allowed) {

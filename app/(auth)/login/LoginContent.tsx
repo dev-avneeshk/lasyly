@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseConfigured, supabaseConfigError } from "@/lib/supabase/config"
+import { safeRedirectPath } from "@/lib/security/safeRedirect"
 
 export function LoginContent() {
   const [isLoading, setIsLoading] = useState(false)
@@ -11,7 +12,7 @@ export function LoginContent() {
 
   function getRedirect() {
     if (typeof window === "undefined") return "/explore"
-    return new URLSearchParams(window.location.search).get("redirect") || "/explore"
+    return safeRedirectPath(new URLSearchParams(window.location.search).get("redirect"))
   }
 
   const handleGoogleLogin = async () => {

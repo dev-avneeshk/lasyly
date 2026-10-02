@@ -34,8 +34,8 @@ import type { NewsItem } from "@/types/news"
 // Snapshot revalidate windows (seconds). These match the page-level
 // `export const revalidate` and are intentionally generous: the client
 // components poll the live API for up-to-the-second data after hydration.
-const SCORES_SNAPSHOT_REVALIDATE = 300
-const NEWS_SNAPSHOT_REVALIDATE = 300
+const SCORES_SNAPSHOT_REVALIDATE = 900
+const NEWS_SNAPSHOT_REVALIDATE = 900
 
 /**
  * Cached initial scores snapshot for today, keyed by UTC calendar date so a
@@ -89,8 +89,8 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
 
 import { createAdminClient } from "@/lib/supabase/admin"
 
-const LEADERBOARD_SNAPSHOT_REVALIDATE = 300
-const FEED_SNAPSHOT_REVALIDATE = 30
+const LEADERBOARD_SNAPSHOT_REVALIDATE = 900
+const FEED_SNAPSHOT_REVALIDATE = 900
 
 export type LeaderboardSnapshotEntry = {
   user_id: string

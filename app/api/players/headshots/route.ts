@@ -139,7 +139,16 @@ async function resolveHeadshots(
     .filter((name) => !result[name])
     .slice(0, MAX_CORE_SEARCHES)
   const searched = await Promise.all(
-    fallbackNames.map(async (name) => [name, await searchEspnNbaAthlete(name)] as const)
+    fallbackNames.map(async (name) => {
+      // Wrapped so a miss (null) is cached too; cached() treats bare null as
+      // "no entry" and would hit ESPN again on every request.
+      const { url } = await cached(
+        `headshots:provider:nba-search:v1:${normalizeHeadshotName(name)}`,
+        async () => ({ url: await searchEspnNbaAthlete(name) }),
+        HEADSHOT_CACHE_TTL
+      )
+      return [name, url] as const
+    })
   )
   for (const [name, url] of searched) {
     if (url) result[name] = url
@@ -306,7 +315,7 @@ async function fetchNbaRosterAthletes(): Promise<EspnAthlete[]> {
         `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamSlug}/roster`,
         {
           signal: AbortSignal.timeout(5000),
-          next: { revalidate: 86400 },
+          cache: "no-store", // Redis (cached) holds this; Data Cache would bill an ISR write per URL
         }
       )
       if (!response.ok) throw new Error(`ESPN roster ${teamSlug}: ${response.status}`)
@@ -333,7 +342,7 @@ async function searchEspnNbaAthlete(playerName: string): Promise<string | null> 
       `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/athletes?limit=5&search=${query}`,
       {
         signal: AbortSignal.timeout(5000),
-        next: { revalidate: 86400 },
+        cache: "no-store", // Redis (cached) holds this; Data Cache would bill an ISR write per URL
       }
     )
     if (!response.ok) return null
@@ -347,7 +356,7 @@ async function searchEspnNbaAthlete(playerName: string): Promise<string | null> 
         `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/athletes/${espnId}`,
         {
           signal: AbortSignal.timeout(3000),
-          next: { revalidate: 86400 },
+          cache: "no-store", // Redis (cached) holds this; Data Cache would bill an ISR write per URL
         }
       )
       if (!detailResponse.ok) continue

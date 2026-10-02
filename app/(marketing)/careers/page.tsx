@@ -8,7 +8,7 @@ import { GENERAL_APPLICATION_SLUG } from "@/lib/careers/constants"
 // force-static (like /news): the data layer's no-store fetches would otherwise
 // opt this page into per-request rendering. It reads no cookies/headers.
 export const dynamic = "force-static"
-export const revalidate = 300
+export const revalidate = 86400
 
 const DESCRIPTION =
   "Explore career opportunities and join our team. View open positions and submit your application."

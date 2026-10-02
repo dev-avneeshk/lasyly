@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 // forced the shell HTML to regenerate constantly for data the client already
 // refreshes, so we relax it to 5 minutes. The initial paint is still recent
 // and the client hydrates fresh scores immediately after mount.
-export const revalidate = 300
+export const revalidate = 900
 
 // Pin the segment to static rendering.
 //

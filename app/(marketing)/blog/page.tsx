@@ -3,7 +3,7 @@ import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export const revalidate = 60
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Blog — Lasyly",
