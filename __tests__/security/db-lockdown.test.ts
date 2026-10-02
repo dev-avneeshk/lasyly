@@ -1,0 +1,16 @@
+import { describe, it, expect } from "vitest"
+import { execFileSync, spawnSync } from "node:child_process"
+import path from "node:path"
+
+// Runs the throwaway-Postgres SQL tests in scripts/db. Each script shows the
+// attack succeeding before its migration and failing after, plus the legit
+// calls the app makes still working. Skipped when Postgres binaries are absent.
+const hasPg = spawnSync("sh", ["-c", "command -v initdb && command -v pg_ctl && command -v psql"]).status === 0
+const run = (script: string) =>
+  execFileSync(path.resolve(__dirname, "../../scripts/db", script), { encoding: "utf8" })
+
+describe.skipIf(!hasPg)("DB privilege lockdown (local Postgres)", () => {
+  it("L-01 / AUTHZ-2 / AUTHZ-3: direct PostgREST writes and paid-pick reads are closed", () => {
+    expect(run("test-direct-write-lockdown.sh")).toContain("all checks passed")
+  })
+})

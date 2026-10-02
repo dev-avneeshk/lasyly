@@ -74,7 +74,7 @@ export const PATCH = withSecurity(async (
     .update(updatePayload)
     .eq("id", betslipId)
     .eq("status", betslip.status)
-    .select()
+    .select("id, user_id, odds, stake, payout, status")
 
   if (updateErr) {
     return NextResponse.json({ error: "Failed to update betslip." }, { status: 500 })

@@ -78,12 +78,13 @@ export const POST = withSecurity(async (request: Request) => {
       price: data.price ?? null,
       status: "Pending",
     })
-    .select()
+    // `matches` has no SELECT grant (paywall), so RETURNING * is refused; echo it back.
+    .select("id, room_id, user_id, sportsbook, bet_type, odds, stake, payout, description, status, is_for_sale, price, created_at")
     .single()
 
   if (insertError) {
     return NextResponse.json({ error: "Failed to create betslip." }, { status: 500 })
   }
 
-  return NextResponse.json(betslip, { status: 201 })
+  return NextResponse.json({ ...betslip, matches: data.matches }, { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
