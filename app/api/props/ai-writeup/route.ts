@@ -177,7 +177,8 @@ async function getMatchupGrade(
       const rows = await fetchPagedParallel<Record<string, unknown>>(
         async () => (await supabase.from("nba_player_stats").select("id", { count: "exact", head: true })).count ?? null,
         async (from, to) =>
-          (await supabase.from("nba_player_stats").select(`opponent, ${column}`).order("id").range(from, to)).data ?? []
+          ((await supabase.from("nba_player_stats").select(`opponent, ${column}`).order("id").range(from, to)).data ??
+            []) as unknown as Record<string, unknown>[]
       )
       const teamTotals = new Map<string, { total: number; count: number }>()
       for (const row of rows) {
