@@ -42,6 +42,7 @@ import * as server from "@/lib/arena/server"
 import * as store from "@/lib/arena/store"
 import * as wallet from "@/lib/economy/wallet"
 import { DEFAULT_CONFIG } from "@/lib/arena/types"
+import { hashSeed } from "@/lib/arena/rng"
 
 async function lineup1v1(gameId: string) {
   const s = auction.createGame({ gameId, config: { ...DEFAULT_CONFIG }, vsAI: false, seed: 11 })
@@ -91,6 +92,14 @@ describe("arena create (L-08)", () => {
     const res = await create(req("/api/arena", { method: "POST", body: JSON.stringify({ mode: "ai" }) }))
     expect(res.status).toBeGreaterThanOrEqual(500)
     expect(wallet.refundArenaStake).toHaveBeenCalledTimes(1)
+  })
+
+  it("seeds server games unpredictably, not from the public game id (L-10)", async () => {
+    const res = await create(req("/api/arena", { method: "POST", body: JSON.stringify({ mode: "ai" }) }))
+    const { gameId } = await res.json()
+    const stored = await store.loadGame(gameId)
+    expect(stored!.state.seed).not.toBe(hashSeed(gameId)) // was equal: lots and result precomputable
+    expect(JSON.stringify(await (await view(req(`/api/arena/${gameId}`), ctx(gameId))).json())).not.toContain('"seed"')
   })
 
   it("does not refund a game that saved", async () => {

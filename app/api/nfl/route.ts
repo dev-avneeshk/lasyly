@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/nfl/auction"
+import { randomSeed } from "@/lib/arena/rng"
 import { driveAI, serverView } from "@/lib/nfl/server"
 import { saveGame } from "@/lib/nfl/store"
 import { AVAILABLE_SEASONS } from "@/lib/nfl/data"
@@ -49,7 +50,7 @@ export const POST = withSecurity(async (request: Request) => {
 
   const gameId = crypto.randomUUID()
   const vsAI = data.mode === "ai"
-  const state = createGame({ gameId, config, vsAI })
+  const state = createGame({ gameId, seed: randomSeed(), config, vsAI })
 
   if (vsAI) {
     openNextLot(state)

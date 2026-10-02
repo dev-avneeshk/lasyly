@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
+import { randomSeed } from "@/lib/arena/rng"
 import { driveAI, serverView } from "@/lib/arena/server"
 import { saveGame } from "@/lib/arena/store"
 import { participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
@@ -79,7 +80,7 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json({ error: "Couldn't process the entry cost." }, { status: 500 })
   }
 
-  const state = createGame({ gameId, config, vsAI })
+  const state = createGame({ gameId, seed: randomSeed(), config, vsAI })
   state.econ = {
     mode: isPvp ? "pvp" : "cpu",
     amount,

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
+import { randomSeed } from "@/lib/arena/rng"
 import { serverView } from "@/lib/arena/server"
 import { saveGame, loadGame, mutateGame } from "@/lib/arena/store"
 import {
@@ -184,7 +185,7 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json({ error: "Couldn't process the stake." }, { status: 500 })
   }
 
-  const state = createGame({ gameId, config, vsAI: false })
+  const state = createGame({ gameId, seed: randomSeed(), config, vsAI: false })
   state.isAI.P2 = false
   state.status = "lobby"
   state.econ = { mode: "pvp", amount: data.stake, settled: false }

@@ -19,6 +19,14 @@ export function mulberry32(seed: number): RNG {
   }
 }
 
+/**
+ * Unpredictable 32-bit seed for server-run games. hashSeed(gameId) is public
+ * (the id is in every URL), and the sim ships to the client, so a hashed seed
+ * let anyone precompute the lot order and the result. Stays server-side
+ * (serverView omits it).
+ */
+export const randomSeed = (): number => crypto.getRandomValues(new Uint32Array(1))[0]
+
 /** Hash an arbitrary string to a 32-bit seed. */
 export function hashSeed(str: string): number {
   let h = 2166136261
