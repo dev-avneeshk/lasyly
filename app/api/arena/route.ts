@@ -7,6 +7,7 @@ import { createGame, openNextLot } from "@/lib/arena/auction"
 import { driveAI, serverView } from "@/lib/arena/server"
 import { saveGame } from "@/lib/arena/store"
 import { participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
+import { trackLobby } from "@/lib/arena/matchmaking"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
 import { CPU_ENTRY_COST, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
@@ -97,6 +98,8 @@ export const POST = withSecurity(async (request: Request) => {
   }
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  // An invite lobby nobody joins is refunded by the jobs cron (sweepAbandonedLobbies).
+  if (!vsAI) await trackLobby(gameId)
   // Before responding: the client subscribes as soon as it has `channel`, and
   // Realtime checks the seat at that moment.
   await registerArenaChannelMember(gameId, user.id, "P1")

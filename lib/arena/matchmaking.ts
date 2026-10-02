@@ -29,9 +29,22 @@
  */
 
 import { getRedisClient } from "@/lib/redis"
+import { deleteGame, mutateGame, GameNotFoundError } from "@/lib/arena/store"
+import { refundArenaStake } from "@/lib/economy/wallet"
 
 /** One shared queue key for all open public games. */
 const QUEUE_KEY = "arena:matchmaking:open"
+
+/** ZSET of human lobbies (public and invite-link) by creation time, for the refund sweep. */
+const LOBBIES_KEY = "arena:lobbies"
+
+/** Unjoined lobbies are closed and refunded after this; the store drops them at 3h anyway. */
+export const LOBBY_MAX_AGE_MS = 150 * 60_000
+
+/** Seat marker that closes a lobby under the game lock, so a racing join is refused. */
+const CLOSED_SEAT = "lobby-closed"
+
+const userLobbyKey = (userId: string) => `arena:matchmaking:user:${userId}`
 
 /**
  * Open lobbies expire on their own via the game TTL (3h). We also cap how many
@@ -63,25 +76,104 @@ export async function enqueueOpenGame(gameId: string): Promise<void> {
  * a fresh open game instead.
  */
 export async function dequeueOpenGame(
-  isJoinable: (gameId: string) => Promise<boolean>
+  check: (gameId: string) => Promise<"join" | "keep" | "drop">
 ): Promise<string | null> {
   const redis = getRedisClient()
   if (!redis) return null
 
-  for (let scan = 0; scan < MAX_DEQUEUE_SCANS; scan++) {
-    let gameId: string | null
-    try {
-      gameId = await redis.rpop<string>(QUEUE_KEY)
-    } catch (error) {
-      console.error("[arena/matchmaking] dequeue failed:", error)
-      return null
+  // "keep" = a live lobby that just isn't for this caller (their own, or a
+  // different stake). Those go back at the old end afterwards; dropping them
+  // (as before) stranded other players' paid lobbies outside the queue.
+  const kept: string[] = []
+  let found: string | null = null
+  try {
+    for (let scan = 0; scan < MAX_DEQUEUE_SCANS && !found; scan++) {
+      const gameId = await redis.rpop<string>(QUEUE_KEY)
+      if (!gameId) break // queue empty
+      const verdict = await check(gameId).catch(() => "keep" as const) // busy/unreadable: retry later
+      if (verdict === "join") found = gameId
+      else if (verdict === "keep") kept.push(gameId)
+      // "drop": expired/full/started — the RPOP above was the cleanup.
     }
-    if (!gameId) return null // queue empty
-    if (await isJoinable(gameId)) return gameId
-    // Not joinable → it's been dropped from the queue by the RPOP above, which
-    // is the cleanup we want. Keep scanning for a usable one.
+  } catch (error) {
+    console.error("[arena/matchmaking] dequeue failed:", error)
   }
-  return null
+  if (kept.length > 0) await redis.rpush(QUEUE_KEY, ...kept.reverse()).catch(() => {})
+  return found
+}
+
+/**
+ * The open public lobby this user already holds, if any. A repeat (or
+ * concurrent) matchmake returns it instead of charging a second stake.
+ */
+export async function getUserLobby(userId: string): Promise<string | null> {
+  const redis = getRedisClient()
+  if (!redis) return null
+  return redis.get<string>(userLobbyKey(userId)).catch(() => null)
+}
+
+/**
+ * Claim the user's single open-lobby slot for `gameId`. `staleId` is a slot
+ * value the caller verified is no longer an open lobby. Returns false when
+ * another request holds the slot (a concurrent matchmake).
+ */
+export async function holdUserLobby(userId: string, gameId: string, staleId: string | null): Promise<boolean> {
+  const redis = getRedisClient()
+  if (!redis) return true
+  try {
+    if (staleId) await redis.del(userLobbyKey(userId))
+    return (await redis.set(userLobbyKey(userId), gameId, { nx: true, ex: 3 * 60 * 60 })) === "OK"
+  } catch (error) {
+    console.error("[arena/matchmaking] hold failed:", error)
+    return true // fail open: the lobby itself is still valid
+  }
+}
+
+/** Track a human lobby so the sweep can refund it if nobody ever joins. */
+export async function trackLobby(gameId: string): Promise<void> {
+  const redis = getRedisClient()
+  if (!redis) return
+  await redis.zadd(LOBBIES_KEY, { score: Date.now(), member: gameId }).catch((error) => {
+    console.error("[arena/matchmaking] track failed:", error)
+  })
+}
+
+/**
+ * Close and refund human lobbies nobody joined within LOBBY_MAX_AGE_MS.
+ * Called by the jobs cron. Idempotent: the close happens under the game lock
+ * (a racing join sees the seat taken and refunds itself), and the refund RPC
+ * is idempotent per (user, game), so a failed pass just retries next time.
+ */
+export async function sweepAbandonedLobbies(now = Date.now()): Promise<number> {
+  const redis = getRedisClient()
+  if (!redis) return 0
+  const ids = await redis.zrange<string[]>(LOBBIES_KEY, 0, now - LOBBY_MAX_AGE_MS, {
+    byScore: true,
+    offset: 0,
+    count: 50,
+  })
+  let refunded = 0
+  for (const id of ids) {
+    let owner = null as string | null
+    try {
+      await mutateGame(id, (g) => {
+        if (g.state.status !== "lobby" || (g.guestUserId && g.guestUserId !== CLOSED_SEAT)) return
+        g.guestUserId = CLOSED_SEAT
+        owner = g.ownerUserId
+      })
+    } catch (error) {
+      if (!(error instanceof GameNotFoundError)) continue // busy: next sweep
+    }
+    if (owner) {
+      if ((await refundArenaStake({ userId: owner, gameId: id })) === "error") continue
+      refunded++
+      await deleteGame(id)
+      if ((await getUserLobby(owner)) === id) await redis.del(userLobbyKey(owner)).catch(() => {})
+    }
+    await removeOpenGame(id)
+    await redis.zrem(LOBBIES_KEY, id)
+  }
+  return refunded
 }
 
 /**

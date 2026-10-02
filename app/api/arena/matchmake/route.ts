@@ -6,7 +6,14 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
 import { saveGame, loadGame, mutateGame } from "@/lib/arena/store"
-import { enqueueOpenGame, dequeueOpenGame, removeOpenGame } from "@/lib/arena/matchmaking"
+import {
+  enqueueOpenGame,
+  dequeueOpenGame,
+  removeOpenGame,
+  getUserLobby,
+  holdUserLobby,
+  trackLobby,
+} from "@/lib/arena/matchmaking"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
@@ -64,18 +71,24 @@ export const POST = withSecurity(async (request: Request) => {
   const [data, err] = validateRequestBody(body, matchmakeSchema)
   if (err) return err
 
+  // ── 0. Already waiting in your own lobby? Return it; never charge twice ──
+  const heldId = await getUserLobby(user.id)
+  if (heldId) {
+    const held = await loadGame(heldId)
+    if (held && held.ownerUserId === user.id && held.state.status === "lobby" && !held.guestUserId) {
+      return NextResponse.json(participantView(serverView(held.state, "P1", held.rev)))
+    }
+  }
+
   // ── 1. Try to join a stranger who is already waiting ──────────────────────
   // Only match players who chose the SAME stake — an uneven pot isn't a fair
-  // winner-take-all 1v1.
+  // winner-take-all 1v1. A live lobby that isn't for us stays queued.
   const openGameId = await dequeueOpenGame(async (id) => {
     const g = await loadGame(id)
-    if (!g) return false // expired
-    if (g.ownerUserId === user.id) return false // don't match yourself
-    if (g.guestUserId) return false // already full
-    if (g.state.isAI.P2) return false // not a human game
-    if (g.state.status !== "lobby") return false // already started
-    if ((g.state.econ?.amount ?? 0) !== data.stake) return false // stake mismatch
-    return true
+    if (!g || g.guestUserId || g.state.isAI.P2 || g.state.status !== "lobby") return "drop"
+    if (g.ownerUserId === user.id) return "keep" // don't match yourself
+    if ((g.state.econ?.amount ?? 0) !== data.stake) return "keep" // stake mismatch
+    return "join"
   })
 
   if (openGameId) {
@@ -141,6 +154,11 @@ export const POST = withSecurity(async (request: Request) => {
 
   const gameId = crypto.randomUUID()
 
+  // One open lobby per user: a concurrent matchmake holds the slot → 409.
+  if (!(await holdUserLobby(user.id, gameId, heldId))) {
+    return NextResponse.json({ error: "You're already looking for a match." }, { status: 409 })
+  }
+
   // Charge the creator's stake before the lobby exists.
   const charge = await chargeArenaStake({
     userId: user.id,
@@ -165,7 +183,7 @@ export const POST = withSecurity(async (request: Request) => {
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
   await registerArenaChannelMember(gameId, user.id, "P1")
-  await enqueueOpenGame(gameId)
+  await Promise.all([enqueueOpenGame(gameId), trackLobby(gameId)])
 
   return NextResponse.json(participantView(serverView(state, "P1", 1)), { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
