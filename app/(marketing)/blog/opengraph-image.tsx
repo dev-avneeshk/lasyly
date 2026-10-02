@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og"
 
-export const runtime = "edge"
 export const alt = "Lasyly Blog — Sports Betting Guides & Prop Analytics"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
