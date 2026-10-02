@@ -4,6 +4,7 @@ import Image from "next/image"
 import { notFound } from "next/navigation"
 import { getComparisonBySlug, getAllComparisonSlugs, COMPARISONS } from "@/lib/data/comparisons"
 import { JsonLd } from "@/components/seo/JsonLd"
+import heroImage from "@/public/hero-optimized.png"
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -131,10 +132,9 @@ export default async function ComparisonPage({ params }: Props) {
                 </div>
                 <div className="rounded-xl overflow-hidden border border-[var(--color-lime)]/20 shadow-[0_0_30px_rgba(212,255,0,0.08)]">
                   <Image
-                    src="/hero.png"
+                    src={heroImage}
                     alt="Lasyly platform screenshot showing prop analytics dashboard"
-                    width={600}
-                    height={400}
+                    sizes="(min-width: 768px) 600px, 100vw"
                     className="w-full h-auto"
                   />
                 </div>
