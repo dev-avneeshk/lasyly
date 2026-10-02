@@ -153,9 +153,10 @@ export default function RootLayout({
             first paint hides it with no flash. Paired with the
             `.consent-given #cookie-consent` rule in globals.css. Kept tiny and
             wrapped in try/catch because localStorage throws in some
-            partitioned/private contexts. */}
+            partitioned/private contexts. The same script applies the saved
+            theme pre-paint so light-theme users don't get a dark flash. */}
         <InlineScript
-          html={`try{if(localStorage.getItem('lasyly_cookie_consent'))document.documentElement.classList.add('consent-given')}catch(e){}`}
+          html={`try{var d=document.documentElement,t=localStorage.getItem('lasyly-theme');if(localStorage.getItem('lasyly_cookie_consent'))d.classList.add('consent-given');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}`}
         />
         {/* Browser extensions (Bitdefender TrafficLight, Grammarly, etc.) inject
             attributes into the server HTML before React hydrates, causing
