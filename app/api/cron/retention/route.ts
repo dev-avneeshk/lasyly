@@ -1,7 +1,7 @@
 /**
  * POST /api/cron/retention
  *
- * Prunes the append-only tables (notifications, scraper time series, expired
+ * Prunes the append-only tables (scraper time series, expired
  * caches, decided join requests). Protected by CRON_SECRET.
  *
  * ── Why this loops instead of calling the RPC once ───────────────────────────
