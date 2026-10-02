@@ -7,6 +7,7 @@ const st = vi.hoisted(() => ({
   known: new Set<string>(),
   probes: [] as string[][],
   updates: [] as Record<string, unknown>[],
+  writers: [] as string[],
 }))
 
 // Chainable query stub: records filters, resolves like PostgREST.
@@ -28,10 +29,20 @@ function query(onResolve: (q: { table: string; filters: string[][]; update?: Rec
   return chain
 }
 
+// Writes resolve like PostgREST and are recorded with the client that made them.
+function write(client: string) {
+  return (q: { table: string; update?: Record<string, unknown> }) => {
+    st.updates.push(q.update!)
+    st.writers.push(`${client}:${q.table}`)
+    if (q.table === "parlay_legs") return { data: [{ leg_order: 1 }], error: null }
+    return { data: { id: "p1", ...q.update }, error: null }
+  }
+}
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (t: string) =>
       (query((q) => {
+        if (q.update) return write("admin")(q)
         const [col, name] = q.filters[0] ?? []
         st.probes.push([q.table, col, name])
         return { data: st.known.has(name) ? [{ [col]: name }] : [] }
@@ -42,11 +53,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "u1" } } }) },
     from: (t: string) =>
-      (query((q) => {
-        if (q.update) st.updates.push(q.update)
-        if (q.table === "parlay_legs") return { data: [{ leg_order: 1 }], error: null }
-        return { data: { id: "p1", ...q.update }, error: null }
-      }).from as (t: string) => unknown)(t),
+      (query((q) => (q.update ? write("user")(q) : { data: null, error: null })).from as (t: string) => unknown)(t),
   }),
 }))
 
@@ -76,6 +83,7 @@ beforeEach(() => {
   st.known = new Set()
   st.probes = []
   st.updates = []
+  st.writers = []
 })
 
 describe("POST /api/parlays player validation", () => {
@@ -97,6 +105,13 @@ describe("POST /api/parlays player validation", () => {
     st.known = new Set(["A", "B"])
     await post([leg("A"), leg("B")])
     expect(st.updates[0]).not.toHaveProperty("status")
+  })
+
+  it("writes parlay and legs together with the service role (users have no INSERT grant)", async () => {
+    st.known = new Set(["A", "B"])
+    expect((await post([leg("A"), leg("B")])).status).toBe(201)
+    expect(st.writers).toEqual(["admin:parlays", "admin:parlay_legs"])
+    expect(st.updates[0]).toMatchObject({ user_id: "u1" })
   })
 })
 

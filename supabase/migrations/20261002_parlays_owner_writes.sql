@@ -8,17 +8,17 @@
 -- DELETE a losing pick while it was still pending.
 --
 -- Now (idempotent, non-destructive; no data changes):
---   parlays      INSERT only the fields /api/parlays sets (status defaults to
---                'pending'); UPDATE only `visibility`; no DELETE.
---   parlay_legs  INSERT without `result` / `game_id`; no UPDATE / DELETE.
--- Settlement uses the service role and is unaffected. /api/parlays rolls back a
--- failed legs insert with the service role.
+--   parlays      UPDATE only `visibility`; no INSERT / DELETE.
+--   parlay_legs  no INSERT / UPDATE / DELETE.
+-- /api/parlays validates the legs and writes parlay + legs with the service
+-- role. A user INSERT on parlay_legs let an owner add legs to an old parlay
+-- after the games finished; settlement grades legs from the parlay's
+-- created_at, so those legs were past-posted wins. Settlement uses the
+-- service role and is unaffected.
 --
 -- Test: scripts/db/test-direct-write-lockdown.sh
 -- =====================================================================
 REVOKE INSERT, UPDATE, DELETE ON public.parlays FROM anon, authenticated;
-GRANT INSERT (user_id, visibility, odds, stake, custom_note, combined_hit_rate, is_logged)
-  ON public.parlays TO authenticated;
 GRANT UPDATE (visibility) ON public.parlays TO authenticated;
 DROP POLICY IF EXISTS "delete_own_pending" ON public.parlays;
 
@@ -30,5 +30,3 @@ ALTER TABLE public.parlays ADD CONSTRAINT parlays_status_check
   CHECK (status IN ('pending', 'won', 'lost', 'void'));
 
 REVOKE INSERT, UPDATE, DELETE ON public.parlay_legs FROM anon, authenticated;
-GRANT INSERT (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport)
-  ON public.parlay_legs TO authenticated;

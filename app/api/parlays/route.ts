@@ -160,8 +160,10 @@ export const POST = withSecurity(async (request: Request) => {
     )
   }
 
-  // Insert parlay row
-  const { data: parlay, error: parlayError } = await supabase
+  // Service role: users have no INSERT on parlays/parlay_legs, so legs can
+  // only come through this validation, together with their parlay (a leg added
+  // to an old parlay after the game would settle as a past-posted win).
+  const { data: parlay, error: parlayError } = await adminClient
     .from("parlays")
     .insert({
       user_id: user.id,
@@ -171,7 +173,7 @@ export const POST = withSecurity(async (request: Request) => {
       custom_note: payload.custom_note ?? null,
       combined_hit_rate: payload.combined_hit_rate ?? null,
       is_logged: payload.is_logged ?? false,
-      // status defaults to 'pending'; users have no INSERT grant on it.
+      // status defaults to 'pending'.
     })
     .select()
     .single()
@@ -195,15 +197,13 @@ export const POST = withSecurity(async (request: Request) => {
     leg_order: index + 1,
   }))
 
-  const { data: legs, error: legsError } = await supabase
+  const { data: legs, error: legsError } = await adminClient
     .from("parlay_legs")
     .insert(legsToInsert)
     .select()
 
   if (legsError || !legs) {
     // Clean up the parlay row if legs insertion fails
-    // Service role: users have no DELETE on parlays (deleting a losing pick
-    // before settlement was a way to game win rates).
     await adminClient.from("parlays").delete().eq("id", parlay.id)
     return NextResponse.json(
       { error: "Failed to save parlay." },

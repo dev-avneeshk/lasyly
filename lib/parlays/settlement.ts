@@ -152,7 +152,7 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
   }
 
   if (!pendingLegs || pendingLegs.length === 0) {
-    return result
+    return { ...result, parlaysExpired: await expireStaleParlays(supabase) }
   }
 
   // Reshape: extract parlay_created_at from the join
@@ -453,7 +453,7 @@ async function expireStaleParlays(
       .select("id, result")
       .eq("parlay_id", parlay.id)
 
-    if (legsError || !legs || legs.length === 0) continue
+    if (legsError || !legs) continue // no legs → void, never pending forever
 
     const pendingIds = legs.filter((l) => l.result === "pending").map((l) => l.id)
     if (pendingIds.length > 0) {

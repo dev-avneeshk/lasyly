@@ -8,6 +8,8 @@ const st = vi.hoisted(() => ({
   games: [] as Record<string, unknown>[],
   tipOffs: [] as { homeTeam: string; startTime: string }[],
   updates: [] as { table: string; values: Record<string, unknown>; filters: unknown[][] }[],
+  parlayLegs: [] as Record<string, unknown>[],
+  stale: [] as Record<string, unknown>[],
 }))
 
 vi.mock("@/lib/services/espn", () => ({ fetchESPNLeague: async () => st.tipOffs }))
@@ -23,7 +25,8 @@ vi.mock("@/lib/supabase/admin", () => ({
         }
         const f = Object.fromEntries(filters.map(([op, c, v]) => [`${op}:${c}`, v]))
         if (table === "parlay_legs" && f["eq:result"] === "pending") return { data: st.legs, error: null }
-        if (table === "parlay_legs") return { data: [{ result: "pending" }], error: null }
+        if (table === "parlay_legs") return { data: st.parlayLegs, error: null }
+        if (table === "parlays") return { data: st.stale, error: null }
         if (table === "nba_player_stats") {
           const rows = st.stats
             .filter((r) => r.player_name === f["eq:player_name"] && String(r.game_id) >= String(f["gte:game_id"]))
@@ -57,6 +60,8 @@ const settledLeg = () => st.updates.find((u) => u.table === "parlay_legs" && u.v
 
 beforeEach(() => {
   st.updates = []
+  st.parlayLegs = [{ result: "pending" }]
+  st.stale = []
   st.games = [{ game_url: "202601150LAL", home_team: "Los Angeles Lakers" }]
   st.tipOffs = [{ homeTeam: "Los Angeles Lakers", startTime: "2026-01-16T00:30:00Z" }] // 19:30 ET
 })
@@ -99,6 +104,19 @@ describe("NBA settlement never uses a game that started before the bet", () => {
     st.stats = [game("202601150LAL")]
     await settleParlayLegs()
     expect(settledLeg()?.values.result).toBe("won")
+  })
+})
+
+describe("stale parlay expiry", () => {
+  it("voids a stale zero-leg parlay even when no legs are pending anywhere (was: pending forever)", async () => {
+    st.legs = []
+    st.stale = [{ id: "p0" }]
+    st.parlayLegs = []
+    const res = await settleParlayLegs()
+    expect(res.parlaysExpired).toBe(1)
+    expect(st.updates).toContainEqual(expect.objectContaining({
+      table: "parlays", values: expect.objectContaining({ status: "void" }),
+    }))
   })
 })
 

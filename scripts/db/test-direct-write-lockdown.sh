@@ -144,6 +144,10 @@ attacks() {
   check "owner self-settles parlay won"   "$1" "$(as authenticated "$ME" "UPDATE public.parlays SET status = 'won' WHERE id = '$PARLAY' RETURNING 'allowed';")"
   check "owner inserts a won parlay"      "$1" "$(as authenticated "$ME" "INSERT INTO public.parlays (user_id, visibility, status) VALUES ('$ME', 'public', 'won') RETURNING 'allowed';")"
   check "owner inserts a won leg"         "$1" "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, leg_order, sport, result) VALUES ('$PARLAY', 'X', 'pts', 1, 'over', 1, 'NBA', 'won') RETURNING 'allowed';")"
+  # Past-posting: a pending leg added to an old parlay after the game finished
+  # is graded from the parlay's created_at, so it settles as a win.
+  check "owner adds a late leg to old parlay" "$1" "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, leg_order, sport) VALUES ('$PARLAY', 'X', 'pts', 0.5, 'over', 2, 'NBA') RETURNING 'allowed';")"
+  check "owner creates a parlay directly" "$1" "$(as authenticated "$ME" "INSERT INTO public.parlays (user_id, visibility) VALUES ('$ME', 'public') RETURNING 'allowed';")"
   check "owner deletes a pending parlay"  "$1" "$(as authenticated "$ME" "DELETE FROM public.parlays WHERE id = '$PARLAY' RETURNING 'allowed';")"
 }
 
@@ -167,8 +171,8 @@ check "betslip listing readable"  ok "$(as anon '' "SELECT 'ok' FROM public.bets
 check "post betslip with picks"   ok "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, matches) VALUES ('$ME', 2, '[]') RETURNING 'ok';")"
 check "settle own betslip"        ok "$(as authenticated "$OTHER" "UPDATE public.betslips SET status = 'Won' WHERE user_id = '$OTHER' AND status = 'Pending' RETURNING 'ok';")"
 check "service role reads picks"  ok "$(as service_role '' "SELECT 'ok' FROM public.betslips WHERE matches IS NOT NULL;")"
-check "create parlay as the API"  ok "$(as authenticated "$ME" "INSERT INTO public.parlays (user_id, visibility, odds, stake, custom_note, combined_hit_rate, is_logged) VALUES ('$ME', 'public', 2.5, 10, 'n', 60, false) RETURNING 'ok';")"
-check "add legs as the API"       ok "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport) VALUES ('$PARLAY', 'X', 'pts', 1, 'over', 50, 1, 'NBA') RETURNING 'ok';")"
+check "API creates parlay + legs" ok "$(as service_role '' "WITH p AS (INSERT INTO public.parlays (user_id, visibility, odds, stake, custom_note, combined_hit_rate, is_logged) VALUES ('$ME', 'public', 2.5, 10, 'n', 60, false) RETURNING id) INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport) SELECT id, 'X', 'pts', 1, 'over', 50, 1, 'NBA' FROM p RETURNING 'ok';")"
+check "owner reads own parlay"    ok "$(as authenticated "$ME" "SELECT 'ok' FROM public.parlays WHERE id = '$PARLAY';")"
 check "change parlay visibility"  ok "$(as authenticated "$ME" "UPDATE public.parlays SET visibility = 'public' WHERE id = '$PARLAY' RETURNING 'ok';")"
 check "settlement (service) runs" ok "$(as service_role '' "UPDATE public.parlays SET status = 'won', resolved_at = now() WHERE id = '$PARLAY' RETURNING 'ok';")"
 check "settlement can void"       ok "$(as service_role '' "UPDATE public.parlays SET status = 'void' WHERE id = '$PARLAY' RETURNING 'ok';")"
