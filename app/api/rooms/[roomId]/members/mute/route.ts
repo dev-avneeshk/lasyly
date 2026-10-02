@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
@@ -75,8 +76,11 @@ export const POST = withSecurity(async (
 
   const mutedUntil = new Date(Date.now() + data.duration_minutes * 60 * 1000).toISOString()
 
-  // Upsert mute
-  const { error: muteErr } = await supabase
+  // Service role: users have no write policies on room_mutes/room_audit_log
+  // (a moderator could mute the owner via PostgREST); the checks above are
+  // the hierarchy. The upsert also needs UPDATE, which RLS never allowed.
+  const admin = createAdminClient()
+  const { error: muteErr } = await admin
     .from("room_mutes")
     .upsert({
       room_id: roomId,
@@ -91,7 +95,7 @@ export const POST = withSecurity(async (
   }
 
   // Log the action
-  await supabase.from("room_audit_log").insert({
+  await admin.from("room_audit_log").insert({
     room_id: roomId,
     actor_id: user.id,
     action: "mute",
@@ -133,7 +137,7 @@ export const DELETE = withSecurity(async (
   const [data, validationError] = validateRequestBody(body, unmuteSchema)
   if (validationError) return validationError
 
-  const { error: deleteErr } = await supabase
+  const { error: deleteErr } = await createAdminClient()
     .from("room_mutes")
     .delete()
     .eq("room_id", roomId)

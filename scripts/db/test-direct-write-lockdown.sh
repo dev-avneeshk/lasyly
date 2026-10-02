@@ -18,6 +18,7 @@ FIX="${FIX:-$ROOT/supabase/migrations/20261002_lock_down_profile_betslip_member_
 PARLAY_FIX="${PARLAY_FIX:-$ROOT/supabase/migrations/20261002_parlays_owner_writes.sql}"
 BETSLIP_FIX="${BETSLIP_FIX:-$ROOT/supabase/migrations/20261003_betslip_grading_service_only.sql}"
 INVITE_FIX="${INVITE_FIX:-$ROOT/supabase/migrations/20261003_room_subchannel_invite_token_private.sql}"
+ROOM_FIX="${ROOM_FIX:-$ROOT/supabase/migrations/20261003_room_moderation_hierarchy.sql}"
 
 for bin in initdb pg_ctl psql; do
   command -v "$bin" >/dev/null || { echo "error: $bin not found on PATH" >&2; exit 1; }
@@ -40,6 +41,7 @@ OTHER=22222222-2222-2222-2222-222222222222
 PUB=aaaaaaaa-0000-0000-0000-000000000001
 PRIV=aaaaaaaa-0000-0000-0000-000000000002
 BANNED=aaaaaaaa-0000-0000-0000-000000000003
+MODROOM=aaaaaaaa-0000-0000-0000-000000000004  # OTHER owns it, ME moderates
 PARLAY=bbbbbbbb-0000-0000-0000-000000000001
 
 "${PSQL[@]}" <<SQL
@@ -68,7 +70,7 @@ CREATE POLICY profiles_update_self ON public.profiles FOR UPDATE USING (auth.uid
 -- What 20260522 / 20260921 did (column-level only, which the table grant overrides).
 REVOKE SELECT (wallet_balance), UPDATE (wallet_balance), INSERT (wallet_balance) ON public.profiles FROM anon, authenticated;
 
-CREATE TABLE public.rooms (id uuid PRIMARY KEY, type text NOT NULL);
+CREATE TABLE public.rooms (id uuid PRIMARY KEY, type text NOT NULL, creator_id uuid, name text);
 CREATE TABLE public.room_members (id bigserial PRIMARY KEY, room_id uuid, user_id uuid, role text, UNIQUE (room_id, user_id));
 CREATE TABLE public.room_bans (room_id uuid, user_id uuid);
 ALTER TABLE public.room_members ENABLE ROW LEVEL SECURITY;
@@ -78,6 +80,28 @@ CREATE POLICY room_members_insert_self ON public.room_members FOR INSERT
 CREATE FUNCTION public.room_is_public(p uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS \$\$
   SELECT EXISTS (SELECT 1 FROM public.rooms WHERE id = p AND type IN ('Public', 'Tipster'))
 \$\$;
+CREATE FUNCTION public.is_room_admin(r uuid, u uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS \$\$
+  SELECT EXISTS (SELECT 1 FROM public.room_members WHERE room_id = r AND user_id = u AND role IN ('owner', 'moderator'))
+\$\$;
+-- Room moderation policies as 20260904/20260905 left them (admin = any write).
+ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rooms_select_all ON public.rooms FOR SELECT USING (true);
+CREATE POLICY rooms_update_admin ON public.rooms FOR UPDATE
+  USING (creator_id = auth.uid() OR public.is_room_admin(id, auth.uid()))
+  WITH CHECK (creator_id = auth.uid() OR public.is_room_admin(id, auth.uid()));
+CREATE POLICY rooms_delete_creator ON public.rooms FOR DELETE USING (creator_id = auth.uid());
+CREATE POLICY room_members_delete_self_or_admin ON public.room_members FOR DELETE
+  USING (user_id = auth.uid() OR public.is_room_admin(room_id, auth.uid()));
+ALTER TABLE public.room_bans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY room_bans_insert_admin ON public.room_bans FOR INSERT WITH CHECK (public.is_room_admin(room_id, auth.uid()));
+CREATE POLICY room_bans_delete_admin ON public.room_bans FOR DELETE USING (public.is_room_admin(room_id, auth.uid()));
+CREATE TABLE public.room_mutes (room_id uuid, user_id uuid, muted_by uuid, muted_until timestamptz, UNIQUE (room_id, user_id));
+ALTER TABLE public.room_mutes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY room_mutes_insert_admin ON public.room_mutes FOR INSERT WITH CHECK (public.is_room_admin(room_id, auth.uid()));
+CREATE POLICY room_mutes_delete_admin ON public.room_mutes FOR DELETE USING (public.is_room_admin(room_id, auth.uid()));
+CREATE TABLE public.room_audit_log (room_id uuid, actor_id uuid, action text, target_id uuid);
+ALTER TABLE public.room_audit_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY room_audit_log_insert_admin ON public.room_audit_log FOR INSERT WITH CHECK (public.is_room_admin(room_id, auth.uid()));
 CREATE FUNCTION public.is_room_banned(r uuid, u uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS \$\$
   SELECT EXISTS (SELECT 1 FROM public.room_bans WHERE room_id = r AND user_id = u)
 \$\$;
@@ -126,6 +150,8 @@ INSERT INTO public.parlays (id, user_id, visibility) VALUES ('bbbbbbbb-0000-0000
 INSERT INTO public.profiles (id, username, wallet_balance) VALUES ('$ME', 'me', 100), ('$OTHER', 'other', 5000);
 INSERT INTO public.rooms VALUES ('$PUB', 'Public'), ('$PRIV', 'Private'), ('$BANNED', 'Public');
 INSERT INTO public.room_bans VALUES ('$BANNED', '$ME');
+INSERT INTO public.rooms (id, type, creator_id, name) VALUES ('$MODROOM', 'Public', '$OTHER', 'Mod room');
+INSERT INTO public.room_members (room_id, user_id, role) VALUES ('$MODROOM', '$OTHER', 'owner'), ('$MODROOM', '$ME', 'moderator');
 INSERT INTO public.room_subchannels (room_id, name, visibility, slug, invite_token) VALUES ('$PUB', 'VIP', 'private', 'vip', 'SECRET');
 INSERT INTO public.betslips (user_id, room_id, is_for_sale, price, matches)
   VALUES ('$OTHER', '$PUB', true, 50, '[{"pick":"PAID PICK CONTENT"}]');
@@ -168,6 +194,15 @@ attacks() {
   check "owner deletes a pending parlay"  "$1" "$(as authenticated "$ME" "DELETE FROM public.parlays WHERE id = '$PARLAY' RETURNING 'allowed';")"
   payout_attacks "$1"
   invite_attacks "$1"
+  moderator_attacks "$1"
+}
+# AUTHZ-5: a moderator acting on the owner through PostgREST.
+moderator_attacks() {
+  check "moderator hijacks creator_id"     "$1" "$(as authenticated "$ME" "UPDATE public.rooms SET creator_id = '$ME' WHERE id = '$MODROOM' RETURNING 'allowed';")"
+  check "moderator bans the owner"         "$1" "$(as authenticated "$ME" "INSERT INTO public.room_bans VALUES ('$MODROOM', '$OTHER') RETURNING 'allowed';")"
+  check "moderator removes the owner"      "$1" "$(as authenticated "$ME" "WITH d AS (DELETE FROM public.room_members WHERE room_id = '$MODROOM' AND user_id = '$OTHER' RETURNING 1) SELECT CASE WHEN count(*) > 0 THEN 'allowed' ELSE 'denied' END FROM d;")"
+  check "moderator mutes the owner"        "$1" "$(as authenticated "$ME" "INSERT INTO public.room_mutes (room_id, user_id, muted_by) VALUES ('$MODROOM', '$OTHER', '$ME') RETURNING 'allowed';")"
+  check "moderator forges an audit row"    "$1" "$(as authenticated "$ME" "INSERT INTO public.room_audit_log VALUES ('$MODROOM', '$OTHER', 'ban', '$ME') RETURNING 'allowed';")"
 }
 # AUTHZ-7: anyone who could see a public room's sub-channels read invite tokens.
 invite_attacks() {
@@ -186,10 +221,11 @@ attacks allowed
 for f in "$FIX" "$PARLAY_FIX" "$FIX" "$PARLAY_FIX"; do  # twice: must be re-runnable
   PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
 done
-echo "after 20261002 only (payout and invite tokens still exposed)"
+echo "after 20261002 only (payout, invite tokens, moderator writes still open)"
 payout_attacks allowed
 invite_attacks allowed
-for f in "$BETSLIP_FIX" "$INVITE_FIX" "$BETSLIP_FIX" "$INVITE_FIX"; do
+moderator_attacks allowed
+for f in "$BETSLIP_FIX" "$INVITE_FIX" "$ROOM_FIX" "$BETSLIP_FIX" "$INVITE_FIX" "$ROOM_FIX"; do
   PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
 done
 
@@ -205,6 +241,9 @@ check "join as owner refused"     denied "$(as authenticated "$ME" "INSERT INTO 
 check "betslip listing readable"  ok "$(as anon '' "SELECT 'ok' FROM public.betslips WHERE is_for_sale AND price = 50;")"
 check "post betslip with picks"   ok "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, matches) VALUES ('$ME', 2, '[]') RETURNING 'ok';")"
 check "API grades own betslip"    ok "$(as service_role '' "UPDATE public.betslips SET status = 'Won', payout = 4 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'ok';")"
+check "moderator leaves the room"  ok "$(as authenticated "$ME" "DELETE FROM public.room_members WHERE room_id = '$MODROOM' AND user_id = '$ME' RETURNING 'ok';")"
+check "creator deletes own room"   ok "$(as authenticated "$OTHER" "DELETE FROM public.rooms WHERE id = '$MODROOM' RETURNING 'ok';")"
+check "API mutes (service role)"   ok "$(as service_role '' "INSERT INTO public.room_mutes (room_id, user_id, muted_by) VALUES ('$MODROOM', '$ME', '$OTHER') ON CONFLICT (room_id, user_id) DO UPDATE SET muted_until = now() RETURNING 'ok';")"
 check "anon lists sub-channels"   ok "$(as anon '' "SELECT 'ok' FROM public.room_subchannels WHERE slug = 'vip' AND visibility = 'private' AND name = 'VIP';")"
 check "API reads invite token"    ok "$(as service_role '' "SELECT 'ok' FROM public.room_subchannels WHERE invite_token = 'SECRET';")"
 check "service role reads picks"  ok "$(as service_role '' "SELECT 'ok' FROM public.betslips WHERE matches IS NOT NULL;")"
