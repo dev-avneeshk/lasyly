@@ -41,6 +41,8 @@ export interface BroadcastChatMessage {
   user_id: string
   kind?: "text" | "betslip"
   betslip_id?: string | null
+  /** Sender's public profile, so viewers render name/avatar without a lookup. */
+  profile?: { username: string | null; display_name: string | null; avatar_url: string | null } | null
 }
 
 /** Channel name must match the client's `supabase.channel(...)` exactly. */
@@ -59,15 +61,18 @@ export async function broadcastChatMessage(
   subchannelId: string,
   message: BroadcastChatMessage
 ): Promise<void> {
+  // Private: only users who can view the sub-channel may join, and clients can't
+  // send (20261002_room_realtime_authorization.sql), so payloads are trusted.
+  const supabase = createAdminClient()
+  const channel = supabase.channel(chatChannelName(subchannelId), { config: { private: true } })
   try {
-    const supabase = createAdminClient()
-    const channel = supabase.channel(chatChannelName(subchannelId))
     const res = await channel.httpSend("new_message", message)
     if (!res.success) {
       console.error("[chat] server broadcast failed:", res.status, res.error)
     }
-    await supabase.removeChannel(channel)
   } catch (err) {
     console.error("[chat] server broadcast failed:", err)
+  } finally {
+    await supabase.removeChannel(channel).catch(() => {})
   }
 }

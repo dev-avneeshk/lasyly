@@ -26,6 +26,15 @@ const OLDER_PAGE_SIZE = 50
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
+ * Load the session JWT into the Realtime socket before a private join, so it
+ * isn't sent with only the anon key (members-only rooms would be refused).
+ * Failure is fine: public rooms admit anon, and history still loads over HTTP.
+ */
+function joinPrivate(supabase: ReturnType<typeof createClient>): Promise<void> {
+  return supabase.realtime.setAuth().catch(() => {})
+}
+
+/**
  * Insert/replace messages while keeping the array in strict chronological
  * order (created_at asc, id as a stable tie-break). Realtime broadcast,
  * postgres_changes, and optimistic sends can all arrive out of order — a naive
@@ -127,7 +136,6 @@ export default function RoomPage() {
 
   const feedRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null)
   // Cache of user_id -> profile so incoming realtime rows (which carry no join)
   // can render an avatar/name without an extra fetch per message.
   const profileCacheRef = useRef<Map<string, ChatProfile>>(new Map())
@@ -205,10 +213,11 @@ export default function RoomPage() {
       const data = await res.json()
       setMembers(data.members ?? [])
     }
+    // Private: Realtime checks room visibility at join (RLS on realtime.messages).
     const channel = supabase
-      .channel(`room-members-${roomId}`)
+      .channel(`room-members-${roomId}`, { config: { private: true } })
       .on("broadcast", { event: "members_changed" }, () => { void refetch() })
-      .subscribe()
+    void joinPrivate(supabase).then(() => { if (!ignore) channel.subscribe() })
     return () => { ignore = true; supabase.removeChannel(channel) }
   }, [supabase, roomId])
 
@@ -261,22 +270,20 @@ export default function RoomPage() {
       profile: msg.profile ?? profileCacheRef.current.get(msg.user_id) ?? null,
     })
 
-    // Delivery is now BROADCAST-ONLY, from two senders on the same channel:
-    //   1) the sender's own client — instant echo, carries their profile so the
-    //      name/avatar render without a lookup;
-    //   2) the messages API route — authoritative, fires in the same request as
-    //      the insert, so delivery no longer depends on the sender's tab
-    //      surviving (lib/realtime/chat.ts).
-    // Both dedupe by id via mergeMessages, so double delivery is harmless.
+    // Delivery is BROADCAST-ONLY, sent by the messages API route in the same
+    // request as the insert (with the sender's profile), so it doesn't depend on
+    // the sender's tab surviving (lib/realtime/chat.ts). The channel is PRIVATE:
+    // Realtime admits only users who can view the sub-channel, and clients can't
+    // send on it, so nobody outside the room can listen in or forge messages.
     //
-    // `postgres_changes` used to be the reliability backstop for (1). It is now
+    // `postgres_changes` used to be the reliability backstop. It is now
     // redundant and OFF by default, because Realtime evaluates the row filter and
     // the `messages` RLS policy (`can_view_subchannel`, 2-3 index lookups) once
     // PER SUBSCRIBER PER ROW — one message in a room with N viewers costs ~2-3N
     // lookups. Set NEXT_PUBLIC_CHAT_PG_CHANGES=true to re-enable it without a
     // code change if a delivery gap ever shows up in practice.
     let channelBuilder = supabase
-      .channel(`room-sub-${activeSubchannelId}`)
+      .channel(`room-sub-${activeSubchannelId}`, { config: { private: true } })
       .on("broadcast", { event: "new_message" }, (payload) => {
         const msg = payload.payload as ChatMessage
         setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
@@ -324,14 +331,16 @@ export default function RoomPage() {
     // strictly more robust than postgres_changes, which also delivered nothing
     // while disconnected.
     let subscribedOnce = false
-    const channel = channelBuilder.subscribe((status) => {
-      if (status !== "SUBSCRIBED") return
-      if (subscribedOnce) void fetchMessages("merge")
-      subscribedOnce = true
+    void joinPrivate(supabase).then(() => {
+      if (ignore) return
+      channelBuilder.subscribe((status) => {
+        if (status !== "SUBSCRIBED") return
+        if (subscribedOnce) void fetchMessages("merge")
+        subscribedOnce = true
+      })
     })
-    channelRef.current = channel
 
-    return () => { ignore = true; supabase.removeChannel(channel); channelRef.current = null }
+    return () => { ignore = true; supabase.removeChannel(channelBuilder) }
   }, [supabase, roomId, activeSubchannelId])
 
   // ─── Load older messages (cursor pagination) ─────────────────────────────────
@@ -437,19 +446,6 @@ export default function RoomPage() {
           return mergeMessages(withoutTemp, [
             { ...optimistic, id: saved.id, created_at: saved.created_at, content: savedContent },
           ])
-        })
-        // Fast local echo with the masked content and this user's profile, so
-        // other viewers get the name/avatar without a lookup. This is an
-        // OPTIMISATION, not the delivery mechanism — the API route broadcasts the
-        // same message server-side in the same request, so nothing is lost if
-        // this tab dies here.
-        channelRef.current?.send({
-          type: "broadcast",
-          event: "new_message",
-          payload: {
-            id: saved.id, content: savedContent, is_system: false,
-            created_at: saved.created_at, user_id: currentUser.id, profile: currentUser.profile,
-          },
         })
       } else {
         setMessages(prev => prev.filter(m => m.id !== tempId))

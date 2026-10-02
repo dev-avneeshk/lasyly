@@ -335,10 +335,13 @@ export const POST = withSecurity(async (
     if (isBetslip) insertPayload.betslip_id = data.betslipId
   }
 
+  // Embeds the sender's profile so the broadcast carries name/avatar (clients
+  // no longer relay their own echo; see lib/realtime/chat.ts).
+  const returning = "*, profiles:user_id (username, display_name, avatar_url)"
   let { data: message, error: insertErr } = await supabase
     .from("messages")
     .insert(insertPayload)
-    .select()
+    .select(returning)
     .single()
 
   // Backward-compat: columns not migrated yet → retry the legacy shape.
@@ -346,7 +349,7 @@ export const POST = withSecurity(async (
     const legacy = await supabase
       .from("messages")
       .insert({ room_id: roomId, user_id: user.id, content, is_system: false })
-      .select()
+      .select(returning)
       .single()
     message = legacy.data
     insertErr = legacy.error
@@ -382,6 +385,7 @@ export const POST = withSecurity(async (
       user_id: user.id,
       kind: data.kind,
       betslip_id: isBetslip ? data.betslipId : null,
+      profile: (Array.isArray(message.profiles) ? message.profiles[0] : message.profiles) ?? null,
     })
   }
 
