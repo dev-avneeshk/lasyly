@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 // AUTHZ-8: the public writeup route called OpenAI on every cache miss with no
 // limit (and propId variants always miss).
-const st = vi.hoisted(() => ({ allowed: true, cachedWriteup: null as unknown }))
+const st = vi.hoisted(() => ({ allowed: true, cachedWriteup: null as unknown, keys: [] as unknown[], tables: [] as string[] }))
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (t: string) => {
+      st.tables.push(t)
       const c: Record<string, unknown> = {}
-      for (const op of ["select", "eq", "gt", "gte", "order", "limit", "in", "upsert", "insert"]) c[op] = () => c
+      for (const op of ["select", "eq", "gt", "gte", "order", "limit", "in", "insert", "range"]) c[op] = () => c
+      c.eq = (k: string, v: unknown) => ((k === "prop_identifier" ? st.keys.push(v) : 0), c)
+      c.upsert = (v: { prop_identifier: unknown }) => (st.keys.push(v.prop_identifier), c)
       c.single = async () => ({ data: t === "ai_writeup_cache" ? st.cachedWriteup : null })
       c.maybeSingle = c.single
       c.then = (r: (v: unknown) => unknown) =>
@@ -25,11 +28,13 @@ vi.mock("@/lib/rateLimit", async (orig) => ({
 import { GET } from "@/app/api/props/ai-writeup/route"
 
 const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] })))
-const get = () => GET(new Request("http://localhost/api/props/ai-writeup?propId=LeBron%20James-pts"))
+const get = (propId = "LeBron%20James-pts") => GET(new Request(`http://localhost/api/props/ai-writeup?propId=${propId}`))
 
 beforeEach(() => {
   st.allowed = true
   st.cachedWriteup = null
+  st.keys = []
+  st.tables = []
   fetchSpy.mockClear()
   vi.stubGlobal("fetch", fetchSpy)
   vi.stubEnv("OPENAI_API_KEY", "test")
@@ -57,5 +62,19 @@ describe("GET /api/props/ai-writeup", () => {
   it("within the limit, a miss still generates", async () => {
     await get()
     expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  // AUTHZ-8 (rest): `-PTS` and `-pts` were separate cache rows (two paid
+  // calls), and any stat string went into the select() column list.
+  it("stat case variants share one cache row", async () => {
+    await get("LeBron%20James-PTS")
+    await get("LeBron%20James-pts")
+    expect(new Set(st.keys)).toEqual(new Set(["LeBron James-pts"]))
+  })
+  it("an unknown stat is rejected before any query or OpenAI call", async () => {
+    const res = await get("LeBron%20James-profiles(wallet_balance)")
+    expect(res.status).toBe(400)
+    expect(st.tables).toEqual([])
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

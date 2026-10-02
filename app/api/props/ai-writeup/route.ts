@@ -15,6 +15,8 @@ import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/ro
 import { computeHitRates } from "@/lib/analytics/hit-rates"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { getClientIp } from "@/lib/security/clientIp"
+import { cached } from "@/lib/cache"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -33,12 +35,14 @@ const LINE_CHANGE_THRESHOLD = 0.05
 /** Maximum writeup length in characters */
 const MAX_WRITEUP_CHARS = 500
 
-/** Maps user-facing stat categories to NBA database column names */
+/** Maps user-facing stat categories to NBA database column names (also the allowlist) */
 const NBA_STAT_COLUMNS: Record<string, string> = {
   pts: "pts",
   points: "pts",
   reb: "trb",
+  trb: "trb",
   rebounds: "trb",
+  tp: "tp",
   ast: "ast",
   assists: "ast",
   stl: "stl",
@@ -81,7 +85,7 @@ async function fetchPlayerGameStats(
   const supabase = createAdminClient()
 
   if (sport === "NBA") {
-    const column = NBA_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
+    const column = NBA_STAT_COLUMNS[stat.toLowerCase()]
 
     const { data, error } = await supabase
       .from("nba_player_stats")
@@ -150,7 +154,7 @@ async function getMatchupGrade(
 
   if (sport !== "NBA") return null
 
-  const column = NBA_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
+  const column = NBA_STAT_COLUMNS[stat.toLowerCase()]
 
   // Get the player's most recent opponent
   const { data: playerData } = await supabase
@@ -164,28 +168,32 @@ async function getMatchupGrade(
 
   const opponent = (playerData as any[])[0].opponent
 
-  // Get all teams' defensive stats (points allowed in this stat category)
-  const { data: allStats } = await supabase
-    .from("nba_player_stats")
-    .select(`opponent, ${column}`)
-
-  if (!allStats || allStats.length === 0) return null
-
-  // Aggregate by opponent team
-  const teamTotals = new Map<string, { total: number; count: number }>()
-  for (const row of allStats as any[]) {
-    const team = row.opponent as string
-    const value = Number(row[column]) || 0
-    const existing = teamTotals.get(team) || { total: 0, count: 0 }
-    existing.total += value
-    existing.count += 1
-    teamTotals.set(team, existing)
-  }
-
-  const teamAverages = Array.from(teamTotals.entries())
-    .filter(([, v]) => v.count >= 3)
-    .map(([team, v]) => ({ team, avg: v.total / v.count }))
-    .sort((a, b) => b.avg - a.avg) // Higher = more favorable
+  // Average allowed per opponent across every stats row. One unpaged select
+  // was capped at 1000 rows (an arbitrary subset); paged and shared via Redis
+  // since it's identical for every player.
+  const teamAverages = await cached(
+    `ai-writeup:opp-avg:v1:${column}`,
+    async () => {
+      const rows = await fetchPagedParallel<Record<string, unknown>>(
+        async () => (await supabase.from("nba_player_stats").select("id", { count: "exact", head: true })).count ?? null,
+        async (from, to) =>
+          (await supabase.from("nba_player_stats").select(`opponent, ${column}`).order("id").range(from, to)).data ?? []
+      )
+      const teamTotals = new Map<string, { total: number; count: number }>()
+      for (const row of rows) {
+        const team = row.opponent as string
+        const existing = teamTotals.get(team) || { total: 0, count: 0 }
+        existing.total += Number(row[column]) || 0
+        existing.count += 1
+        teamTotals.set(team, existing)
+      }
+      return Array.from(teamTotals.entries())
+        .filter(([, v]) => v.count >= 3)
+        .map(([team, v]) => ({ team, avg: v.total / v.count }))
+        .sort((a, b) => b.avg - a.avg) // Higher = more favorable
+    },
+    6 * 60 * 60 * 1000
+  )
 
   if (teamAverages.length < 5) return null
 
@@ -345,35 +353,31 @@ export const GET = withSecurity(async (request: Request) => {
     )
   }
 
-  const { player, stat } = parsed
+  const { player } = parsed
+  const stat = parsed.stat.toLowerCase()
+  // The stat becomes a select column: only known ones (was any string).
+  if (sport === "NBA" && !NBA_STAT_COLUMNS[stat]) {
+    return NextResponse.json({ error: "Unknown stat.", code: "INVALID_PARAM" }, { status: 400 })
+  }
+  // One cache row per prop: `-PTS` and `-pts` were two rows, two OpenAI calls.
+  const propKey = `${player}-${stat}`
   const supabase = createAdminClient()
 
-  // 2. Fetch player game stats to check minimum games requirement
-  const playerStats = await fetchPlayerGameStats(player, stat, sport)
-
-  // 7. If player has < 3 games: return insufficient data error
-  if (!playerStats || playerStats.values.length < MIN_GAMES_FOR_WRITEUP) {
-    return NextResponse.json({
-      writeup: null,
-      cached: false,
-      error: "Insufficient data for analysis",
-    })
-  }
-
-  // 3. Check ai_writeup_cache for valid cached writeup
+  // 2. Check ai_writeup_cache for a valid cached writeup (before any stats read)
   const now = new Date().toISOString()
   const { data: cachedWriteup } = await supabase
     .from("ai_writeup_cache")
     .select("writeup, prop_line_at_generation, expires_at")
-    .eq("prop_identifier", propId)
+    .eq("prop_identifier", propKey)
     .eq("sport", sport)
     .gt("expires_at", now)
     .limit(1)
     .single()
 
+  const currentPropLine = await getCurrentPropLine(player, stat, sport)
   if (cachedWriteup) {
     // Check if current prop line has changed > 5% from prop_line_at_generation
-    const currentLine = await getCurrentPropLine(player, stat, sport)
+    const currentLine = currentPropLine
     const lineAtGeneration = Number(cachedWriteup.prop_line_at_generation)
 
     if (currentLine !== null && lineAtGeneration > 0) {
@@ -395,6 +399,18 @@ export const GET = withSecurity(async (request: Request) => {
     }
   }
 
+  // 3. Fetch player game stats to check minimum games requirement
+  const playerStats = await fetchPlayerGameStats(player, stat, sport)
+
+  // If player has < 3 games: return insufficient data error
+  if (!playerStats || playerStats.values.length < MIN_GAMES_FOR_WRITEUP) {
+    return NextResponse.json({
+      writeup: null,
+      cached: false,
+      error: "Insufficient data for analysis",
+    })
+  }
+
   // 5. Cache miss or invalidated — generate new writeup. Public route: every
   // miss is a paid OpenAI call, and propId case/spelling variants all miss, so
   // generations are capped per IP (cache hits above are not).
@@ -408,8 +424,6 @@ export const GET = withSecurity(async (request: Request) => {
   const gameValues = playerStats.values
   const opponent = playerStats.opponent ?? "Unknown"
 
-  // Get current prop line
-  const currentPropLine = await getCurrentPropLine(player, stat, sport)
   // Fallback: compute median of last 10 games as prop line
   const propLine = currentPropLine ?? computeMedianLine(gameValues)
 
@@ -456,7 +470,7 @@ Be concise and actionable. No disclaimers.`
     .from("ai_writeup_cache")
     .upsert(
       {
-        prop_identifier: propId,
+        prop_identifier: propKey,
         sport,
         writeup,
         prop_line_at_generation: propLine,
