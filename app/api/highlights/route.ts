@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { cached } from "@/lib/cache"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/security/clientIp"
 
 /**
  * GET /api/highlights?q=Spurs+vs+OKC+highlights
@@ -49,13 +51,19 @@ async function scrapeYouTubeSearch(query: string): Promise<{ id: string; title: 
 
 async function handleGET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const query = searchParams.get("q")
+  // Normalized so case/spacing variants share one cache entry; bounded because
+  // every miss spends YouTube quota (or an outbound scrape).
+  const query = (searchParams.get("q") ?? "").trim().replace(/\s+/g, " ").toLowerCase()
 
-  if (!query || query.length < 3) {
+  if (query.length < 3 || query.length > 80) {
     return NextResponse.json(
-      { error: "Query parameter 'q' is required (min 3 chars)", success: false },
+      { error: "Query parameter 'q' is required (3-80 chars)", success: false },
       { status: 400 }
     )
+  }
+  const rate = await checkRateLimit(`highlights:${getClientIp(request)}`, RATE_LIMITS.expensiveRead)
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Too many requests.", success: false }, { status: 429 })
   }
 
   try {
