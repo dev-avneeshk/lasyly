@@ -720,7 +720,11 @@ export async function computeMatchupScopedProps(
   const filterSuffix = hasFilters
     ? `:f${minMinutes ?? 0}-${vsOpponent ? "1" : "0"}-${(withoutPlayer ?? "").toLowerCase().replace(/\s+/g, "_")}`
     : ""
-  const cacheKey = `matchup-props:${sport}:${stat}:${today}${filterSuffix}`
+  // matchup narrows the slate, so it must be part of the key: without it a
+  // two-team result was served (and precomputed) as the full slate. v2 drops
+  // entries written under the old key.
+  const matchupSuffix = matchup ? `:m${matchup.toUpperCase()}` : ""
+  const cacheKey = `matchup-props:v2:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
 
   // 3 minutes, matching PROPS_TTL.nba in /api/props.
   //
