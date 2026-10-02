@@ -8,6 +8,7 @@ const st = vi.hoisted(() => ({
   paid: new Set<string>(),
   kv: new Map<string, string>(),
   now: 0,
+  failOnce: new Set<string>(),
 }))
 
 vi.mock("@/lib/security/cronAuth", () => ({ isAuthorizedCron: () => true }))
@@ -21,6 +22,7 @@ vi.mock("@/lib/redis", () => ({
 vi.mock("@/lib/economy/wallet", () => ({
   grantWeeklyLevelBonus: async ({ userId }: { userId: string }) => {
     st.now += 50 // each grant costs 50 ms of the 45 s budget
+    if (st.failOnce.delete(userId)) return "error"
     if (st.paid.has(userId)) return "duplicate"
     st.paid.add(userId)
     return "completed"
@@ -57,6 +59,7 @@ beforeEach(() => {
   st.paid.clear()
   st.kv.clear()
   st.now = 0
+  st.failOnce.clear()
   vi.spyOn(Date, "now").mockImplementation(() => st.now)
 })
 
@@ -68,5 +71,17 @@ describe("weekly coins payout (L-15)", () => {
     expect(second).toMatchObject({ incomplete: false, granted: 200, skipped: 0 }) // was: re-walked the first 1000
     expect(st.paid.size).toBe(1200)
     expect(st.kv.size).toBe(0) // cursor cleared once complete
+  })
+  // REV-20: the cursor moved past a user whose grant RPC errored, so a DB blip
+  // left them unpaid for the week while the job reported success.
+  it("a transient grant error stops the cursor there and the next call pays that user", async () => {
+    st.ids = st.ids.slice(0, 300)
+    st.failOnce.add("u00123")
+    const first = await run()
+    expect(first).toMatchObject({ incomplete: true, failed: 1 }) // was: incomplete false, u00123 never paid
+    const second = await run()
+    expect(second).toMatchObject({ incomplete: false, failed: 0 })
+    expect(st.paid.has("u00123")).toBe(true)
+    expect(st.paid.size).toBe(300)
   })
 })

@@ -58,7 +58,13 @@ export const POST = withSecurity(async (request: Request) => {
   let incomplete = false
   const redis = getRedisClient()
   const cursorKey = `weekly-coins:cursor:${weekKey}`
-  let cursor = redis ? await redis.get<string>(cursorKey).catch(() => null) : null
+  // Without the cursor every call restarts at the first profile and the tail may go unpaid.
+  const warnCursor = (e: unknown) => {
+    console.warn("[weekly-coins] resume cursor unavailable, this call starts/stays at the first profile:", e)
+    return null
+  }
+  if (!redis) warnCursor("Redis not configured")
+  let cursor = redis ? await redis.get<string>(cursorKey).catch(warnCursor) : null
 
   try {
     for (;;) {
@@ -78,22 +84,34 @@ export const POST = withSecurity(async (request: Request) => {
 
       if (!rows || rows.length === 0) break
 
+      let firstError = -1
       for (let i = 0; i < rows.length; i += CONCURRENCY) {
         const results = await Promise.all(
           rows.slice(i, i + CONCURRENCY).map((row) =>
             grantWeeklyLevelBonus({ userId: row.id as string, weekKey, amount: weeklyLevelBonus(Number(row.level ?? 1)) })
           )
         )
-        for (const result of results) {
+        results.forEach((result, j) => {
           processed++
           if (result === "completed") granted++
           else if (result === "duplicate") skipped++
           else failed++
-        }
+          if (result === "error" && firstError < 0) firstError = i + j
+        })
       }
 
-      cursor = rows[rows.length - 1].id as string
-      await redis?.set(cursorKey, cursor, { ex: 8 * 24 * 60 * 60 }).catch(() => {})
+      // A transient RPC error must not move the cursor past that user (they'd
+      // go unpaid for the week): resume there on the next call. Users after it
+      // in this page are re-called and come back `duplicate`.
+      const last = firstError < 0 ? rows.length - 1 : firstError - 1
+      if (last >= 0) {
+        cursor = rows[last].id as string
+        await redis?.set(cursorKey, cursor, { ex: 8 * 24 * 60 * 60 }).catch(warnCursor)
+      }
+      if (firstError >= 0) {
+        incomplete = true
+        break
+      }
       if (rows.length < PAGE_SIZE) break
     }
 
@@ -113,8 +131,8 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json({
       success: true,
       week: weekKey,
-      // incomplete: true means the run hit its time budget; the next scheduled
-      // run continues (same week, idempotent, so already-paid users are skipped).
+      // incomplete: true means the run hit its time budget or a grant errored;
+      // the next call continues (same week, idempotent, so already-paid users are skipped).
       incomplete,
       processed,
       granted,
