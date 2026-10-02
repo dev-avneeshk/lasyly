@@ -729,7 +729,7 @@ function SocialFeed({ initialFeed }: { initialFeed: FeedSnapshot }) {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
           <h3 className="text-base font-bold flex items-center gap-2">
             <Users className="w-5 h-5 text-[var(--color-lime)]" /> COMMUNITY
           </h3>
