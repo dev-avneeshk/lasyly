@@ -91,12 +91,13 @@ async function storeSummaryInDB(eventId: string, summary: unknown): Promise<void
   const supabase = createAdminClient()
 
   // Only once the game is final: a live snapshot stored here used to be served
-  // DB-first forever, freezing the in-progress box score.
+  // DB-first forever, freezing the in-progress box score. The Python scraper
+  // writes "completed", the TS layer "Finished" (see matchStorage.normalizeStatus).
   await supabase
     .from("matches")
     .update({ raw_data: { ...(summary as object), storedFinal: true }, updated_at: new Date().toISOString() })
     .eq("event_id", eventId)
-    .eq("status", "Finished")
+    .in("status", ["Finished", "completed"])
 }
 
 export const GET = withSecurity(handleGET, {

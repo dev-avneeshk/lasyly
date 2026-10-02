@@ -12,7 +12,7 @@ vi.mock("@/lib/services/espn", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => {
     const chain: Record<string, (...a: unknown[]) => unknown> = {}
-    for (const m of ["from", "select", "eq", "like", "not", "limit", "update"]) {
+    for (const m of ["from", "select", "eq", "in", "like", "not", "limit", "update"]) {
       chain[m] = (...a: unknown[]) => (db.calls.push([m, ...a]), chain)
     }
     chain.maybeSingle = async () => ({ data: db.stored })
@@ -46,10 +46,10 @@ describe("GET /api/scores/[eventId]/summary", () => {
     expect(db.calls.some((c) => c[0] === "like")).toBe(false)
   })
 
-  it("stores the ESPN summary only for finished games", async () => {
+  it("stores the ESPN summary only for finished games, in both status vocabularies (REV-13)", async () => {
     const res = await call("401584721")
     expect((await res.json()).data.headline).toBe("fresh")
     await new Promise((r) => setTimeout(r, 0))
-    expect(db.calls).toContainEqual(["eq", "status", "Finished"])
+    expect(db.calls).toContainEqual(["in", "status", ["Finished", "completed"]])
   })
 })
