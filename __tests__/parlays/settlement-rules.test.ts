@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 // L-03: legs settled against games played before the parlay existed (past-
 // posting). L-04: unsettleable legs expired to `push` and the parlay to `won`.
+// REV-8: nba_player_stats.game_id is a UUID; dates come from nba_games.
+// REV-10: a bet placed after tonight's tip-off grades on the next game.
 const st = vi.hoisted(() => ({
   legs: [] as Record<string, unknown>[],
-  stats: [] as Record<string, unknown>[],
-  games: [] as Record<string, unknown>[],
+  stats: [] as { player_name: string; game_id: string; pts: number; nba_games: { game_date: string; home_team: string } }[],
   tipOffs: [] as { homeTeam: string; startTime: string }[],
   updates: [] as { table: string; values: Record<string, unknown>; filters: unknown[][] }[],
   parlayLegs: [] as Record<string, unknown>[],
@@ -29,11 +30,10 @@ vi.mock("@/lib/supabase/admin", () => ({
         if (table === "parlays") return { data: st.stale, error: null }
         if (table === "nba_player_stats") {
           const rows = st.stats
-            .filter((r) => r.player_name === f["eq:player_name"] && String(r.game_id) >= String(f["gte:game_id"]))
-            .sort((a, b) => String(a.game_id).localeCompare(String(b.game_id)))
-          return { data: rows.slice(0, 1), error: null }
+            .filter((r) => r.player_name === f["eq:player_name"] && r.nba_games.game_date >= String(f["gte:nba_games.game_date"]))
+            .sort((a, b) => a.nba_games.game_date.localeCompare(b.nba_games.game_date))
+          return { data: rows.slice(0, Number(filters.find(([op]) => op === "limit")?.[1])), error: null }
         }
-        if (table === "nba_games") return { data: st.games, error: null }
         return { data: [], error: null }
       }
       const chain: Record<string, unknown> = {
@@ -55,53 +55,63 @@ const leg = (created_at: string) => ({
   id: "leg1", parlay_id: "p1", player_name: "LeBron James", stat_category: "pts",
   prop_line: 0.5, direction: "over", sport: "NBA", result: "pending", parlays: { created_at },
 })
-const game = (game_id: string) => ({ player_name: "LeBron James", game_id, pts: 30 })
+// Lakers home games; game_id is the nba_games UUID, not a date slug.
+const game = (game_date: string) => ({
+  player_name: "LeBron James", game_id: `uuid-${game_date}`, pts: 30,
+  nba_games: { game_date, home_team: "Los Angeles Lakers" },
+})
 const settledLeg = () => st.updates.find((u) => u.table === "parlay_legs" && u.values.result !== "push")
 
 beforeEach(() => {
   st.updates = []
   st.parlayLegs = [{ result: "pending" }]
   st.stale = []
-  st.games = [{ game_url: "202601150LAL", home_team: "Los Angeles Lakers" }]
   st.tipOffs = [{ homeTeam: "Los Angeles Lakers", startTime: "2026-01-16T00:30:00Z" }] // 19:30 ET
 })
 
 describe("NBA settlement never uses a game that started before the bet", () => {
   it("only an earlier game exists → leg stays pending (was: settled won on it)", async () => {
     st.legs = [leg("2026-01-16T12:00:00Z")]
-    st.stats = [game("202601150LAL")]
+    st.stats = [game("2026-01-15")]
     await settleParlayLegs()
     expect(settledLeg()).toBeUndefined()
   })
 
-  it("same-day game that tipped off before the bet → pending", async () => {
+  it("same-day game that tipped off before the bet, no later game yet → pending", async () => {
     st.legs = [leg("2026-01-16T01:00:00Z")] // 20:00 ET, 30 min after tip-off
-    st.stats = [game("202601150LAL")]
+    st.stats = [game("2026-01-15")]
     await settleParlayLegs()
     expect(settledLeg()).toBeUndefined()
+  })
+
+  it("same-day game that tipped off before the bet → grades on the next game (was: void)", async () => {
+    st.legs = [leg("2026-01-16T01:00:00Z")]
+    st.stats = [game("2026-01-15"), { ...game("2026-01-17"), pts: 0 }]
+    await settleParlayLegs()
+    expect(settledLeg()?.values).toEqual({ result: "lost", game_id: "uuid-2026-01-17" })
   })
 
   it("same-day game when the tip-off is unknown → pending", async () => {
     st.tipOffs = []
     st.legs = [leg("2026-01-15T17:00:00Z")]
-    st.stats = [game("202601150LAL")]
+    st.stats = [game("2026-01-15")]
     await settleParlayLegs()
     expect(settledLeg()).toBeUndefined()
   })
 
   it("same-day game that tipped off after the bet → settles, guarded on pending", async () => {
     st.legs = [leg("2026-01-15T17:00:00Z")] // noon ET
-    st.stats = [game("202601130LAL"), game("202601150LAL")]
+    st.stats = [game("2026-01-13"), game("2026-01-15")]
     await settleParlayLegs()
     const u = settledLeg()
-    expect(u?.values).toEqual({ result: "won", game_id: "202601150LAL" })
+    expect(u?.values).toEqual({ result: "won", game_id: "uuid-2026-01-15" })
     expect(u?.filters).toContainEqual(["eq", "result", "pending"])
   })
 
   it("next-day game settles without a tip-off lookup", async () => {
     st.tipOffs = []
     st.legs = [leg("2026-01-14T23:00:00Z")]
-    st.stats = [game("202601150LAL")]
+    st.stats = [game("2026-01-15")]
     await settleParlayLegs()
     expect(settledLeg()?.values.result).toBe("won")
   })
@@ -137,7 +147,7 @@ describe("parlayOutcome", () => {
 
 describe("easternDay", () => {
   it("uses the US Eastern calendar day, not UTC", () => {
-    expect(easternDay("2026-01-16T03:00:00Z")).toBe("20260115")
-    expect(easternDay("2026-07-16T03:59:00Z")).toBe("20260715")
+    expect(easternDay("2026-01-16T03:00:00Z")).toBe("2026-01-15")
+    expect(easternDay("2026-07-16T03:59:00Z")).toBe("2026-07-15")
   })
 })

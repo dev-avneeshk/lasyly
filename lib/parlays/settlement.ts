@@ -205,13 +205,14 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
 
 // ─── NBA Settlement ─────────────────────────────────────────────────────────
 
-const NBA_STAT_COLUMNS = "player_name, game_id, pts, trb, ast, tp, stl, blk, tov, fg, fga, ft, fta"
+// nba_player_stats.game_id is a UUID FK; the date lives on nba_games.
+const NBA_STAT_COLUMNS =
+  "game_id, pts, trb, ast, tp, stl, blk, tov, fg, fga, ft, fta, nba_games!inner(game_date, home_team)"
+type NbaStatRow = Record<string, unknown> & { game_id: string; nba_games: { game_date: string; home_team: string } }
 
-/** YYYYMMDD of an instant in US Eastern time — the date basketball-reference game ids use. */
+/** YYYY-MM-DD of an instant in US Eastern time — the calendar nba_games.game_date uses. */
 export function easternDay(iso: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" })
-    .format(new Date(iso))
-    .replace(/-/g, "")
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(iso))
 }
 
 /** over/under against the line; equal is a push. */
@@ -220,38 +221,27 @@ export function legOutcome(actual: number, line: number, direction: "over" | "un
   return (direction === "over" ? actual > line : actual < line) ? "won" : "lost"
 }
 
-/**
- * Tip-off times (ms) for basketball-reference game ids, from ESPN's
- * scoreboard. Teams are matched by nickname ("Lakers"), which is unique in the
- * NBA and identical in both sources ("LA Clippers" vs "Los Angeles Clippers").
- */
-async function nbaTipOffs(
-  supabase: ReturnType<typeof createAdminClient>,
-  gameIds: string[]
-): Promise<Map<string, number>> {
+/** Team nickname ("Lakers"): unique in the NBA and identical in ESPN and nba_games. */
+const nick = (team: string) => team.trim().split(/\s+/).pop() ?? ""
+
+/** ESPN tip-off times (ms) keyed `YYYY-MM-DD|home nickname`, for the given days. */
+async function nbaTipOffs(days: string[]): Promise<Map<string, number>> {
   const tips = new Map<string, number>()
-  if (gameIds.length === 0) return tips
-  const nick = (team: string) => team.trim().split(/\s+/).pop() ?? ""
-  const { data: games } = await supabase.from("nba_games").select("game_url, home_team").in("game_url", gameIds)
-  const days = [...new Set(gameIds.map((id) => id.slice(0, 8)))]
-  const scoreboards = await Promise.all(days.map((d) => fetchESPNLeague("basketball/nba", d).catch(() => [])))
-  const byDayTeam = new Map<string, number>()
+  const boards = await Promise.all(
+    days.map((d) => fetchESPNLeague("basketball/nba", d.replace(/-/g, "")).catch(() => []))
+  )
   days.forEach((d, i) => {
-    for (const m of scoreboards[i]) if (m.startTime) byDayTeam.set(`${d}|${nick(m.homeTeam)}`, Date.parse(m.startTime))
+    for (const m of boards[i]) if (m.startTime) tips.set(`${d}|${nick(m.homeTeam)}`, Date.parse(m.startTime))
   })
-  for (const g of games ?? []) {
-    const tip = byDayTeam.get(`${String(g.game_url).slice(0, 8)}|${nick(String(g.home_team))}`)
-    if (tip !== undefined) tips.set(String(g.game_url), tip)
-  }
   return tips
 }
 
 /**
- * A leg settles against the player's FIRST game on or after the day the
- * parlay was created (US Eastern). A game on that same day only counts if it
- * tipped off after the parlay was created; otherwise (already started, or
- * tip-off unknown) the leg stays pending and eventually expires void. There is
- * no fallback to an earlier game: that let users bet on games already played.
+ * A leg settles against the player's FIRST game that tipped off after the
+ * parlay was created. A game on the creation day (US Eastern) counts only if
+ * it tipped off later; if it already started, the next game counts; if its
+ * tip-off is unknown the leg waits (and eventually expires void). There is no
+ * fallback to an earlier game: that let users bet on games already played.
  */
 async function settleNBALegs(
   supabase: ReturnType<typeof createAdminClient>,
@@ -260,11 +250,12 @@ async function settleNBALegs(
   let settled = 0
   let errors = 0
 
-  // First game per (player, creation day). One small indexed-range query each;
-  // a single `.in(players).limit(n)` truncated at PostgREST's row cap.
+  // First two games per (player, creation day): the second is used when the
+  // first tipped off before the bet. One small indexed-range query each; a
+  // single `.in(players).limit(n)` truncated at PostgREST's row cap.
   const keyOf = (l: PendingLeg) => `${l.player_name}|${easternDay(l.parlay_created_at)}`
   const keys = [...new Set(legs.filter((l) => l.parlay_created_at).map(keyOf))]
-  const firstGame = new Map<string, Record<string, unknown>>()
+  const nextGames = new Map<string, NbaStatRow[]>()
   for (let i = 0; i < keys.length; i += 20) {
     await Promise.all(
       keys.slice(i, i + 20).map(async (key) => {
@@ -273,39 +264,42 @@ async function settleNBALegs(
           .from("nba_player_stats")
           .select(NBA_STAT_COLUMNS)
           .eq("player_name", name)
-          .gte("game_id", day)
-          .order("game_id", { ascending: true })
-          .limit(1)
+          .gte("nba_games.game_date", day)
+          .order("nba_games(game_date)", { ascending: true })
+          .limit(2)
         if (error) errors++
-        else if (data?.[0]) firstGame.set(key, data[0] as Record<string, unknown>)
+        else if (data?.length) nextGames.set(key, data as unknown as NbaStatRow[])
       })
     )
   }
 
-  const sameDayIds = [...firstGame.entries()]
-    .filter(([key, g]) => String(g.game_id).slice(0, 8) === key.split("|")[1])
-    .map(([, g]) => String(g.game_id))
-  const tipOffs = await nbaTipOffs(supabase, [...new Set(sameDayIds)])
+  const sameDays = [...nextGames.entries()]
+    .filter(([key, rows]) => rows[0].nba_games.game_date === key.split("|")[1])
+    .map(([key]) => key.split("|")[1])
+  const tipOffs = await nbaTipOffs([...new Set(sameDays)])
 
   for (const leg of legs) {
     if (!leg.parlay_created_at) continue
-    const game = firstGame.get(keyOf(leg))
+    const rows = nextGames.get(keyOf(leg))
     const statKey = NBA_STAT_MAP[leg.stat_category.toLowerCase()]
-    if (!game || !statKey) continue
+    if (!rows || !statKey) continue
 
-    const gameId = String(game.game_id)
-    if (gameId.slice(0, 8) === easternDay(leg.parlay_created_at)) {
-      const tip = tipOffs.get(gameId)
-      if (tip === undefined || tip <= Date.parse(leg.parlay_created_at)) continue
+    let game: NbaStatRow | undefined = rows[0]
+    if (game.nba_games.game_date === easternDay(leg.parlay_created_at)) {
+      const tip = tipOffs.get(`${game.nba_games.game_date}|${nick(game.nba_games.home_team)}`)
+      if (tip === undefined) continue
+      if (tip <= Date.parse(leg.parlay_created_at)) game = rows[1] // already started: next game
+      if (!game) continue
     }
+    const stats: NbaStatRow = game
 
-    const v = (k: string) => Number(game[k]) || 0
+    const v = (k: string) => Number(stats[k]) || 0
     const combos: Record<string, string[]> = { pra: ["pts", "trb", "ast"], pa: ["pts", "ast"], pr: ["pts", "trb"], ra: ["trb", "ast"] }
     const actualValue = (combos[statKey] ?? [statKey]).reduce((sum, k) => sum + v(k), 0)
 
     const { error: updateError } = await supabase
       .from("parlay_legs")
-      .update({ result: legOutcome(actualValue, leg.prop_line, leg.direction), game_id: gameId })
+      .update({ result: legOutcome(actualValue, leg.prop_line, leg.direction), game_id: stats.game_id })
       .eq("id", leg.id)
       .eq("result", "pending") // the cron and the queue job can overlap
 
