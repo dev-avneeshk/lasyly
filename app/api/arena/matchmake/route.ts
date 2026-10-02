@@ -77,6 +77,13 @@ export const POST = withSecurity(async (request: Request) => {
   if (heldId) {
     const held = await loadGame(heldId)
     if (held && held.ownerUserId === user.id && held.state.status === "lobby" && !held.guestUserId) {
+      const heldStake = held.state.econ?.amount ?? 0
+      if (heldStake !== data.stake) {
+        return NextResponse.json(
+          { error: `You're already waiting in a ${heldStake}-coin match.`, gameId: heldId, stake: heldStake },
+          { status: 409 }
+        )
+      }
       return NextResponse.json(participantView(serverView(held.state, "P1", held.rev)))
     }
   }
