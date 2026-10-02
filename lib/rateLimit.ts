@@ -282,6 +282,8 @@ export const RATE_LIMITS = {
   jobEnqueue: { maxRequests: 20, windowMs: 60000 },
   /** Expensive unauthenticated analytics reads, keyed per IP: 30/min. */
   expensiveRead: { maxRequests: 30, windowMs: 60000 },
+  /** AI writeup generations (paid OpenAI call per cache miss), per IP: 10/hour. */
+  aiWriteup: { maxRequests: 10, windowMs: 3600000 },
   /** Careers applications, per IP: 10 per hour (room for shared NATs). */
   careersApplyIp: { maxRequests: 10, windowMs: 3600000 },
   /** Careers applications, per email: 3 per day. */

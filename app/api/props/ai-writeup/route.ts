@@ -13,6 +13,8 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { computeHitRates } from "@/lib/analytics/hit-rates"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/security/clientIp"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -393,7 +395,16 @@ export const GET = withSecurity(async (request: Request) => {
     }
   }
 
-  // 5. Cache miss or invalidated — generate new writeup
+  // 5. Cache miss or invalidated — generate new writeup. Public route: every
+  // miss is a paid OpenAI call, and propId case/spelling variants all miss, so
+  // generations are capped per IP (cache hits above are not).
+  const rate = await checkRateLimit(`ai-writeup:${getClientIp(request)}`, RATE_LIMITS.aiWriteup)
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { writeup: null, cached: false, error: "Too many analysis requests. Try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } }
+    )
+  }
   const gameValues = playerStats.values
   const opponent = playerStats.opponent ?? "Unknown"
 
