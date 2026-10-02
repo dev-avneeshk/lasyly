@@ -44,7 +44,7 @@ export function formatOdds(odds: number): string {
 /**
  * Compute streak information from a list of parlays.
  *
- * - Filters to resolved parlays only (status !== "pending")
+ * - Filters to graded parlays only (won/lost; void and pending are skipped)
  * - Sorts by resolved_at ascending
  * - best: longest consecutive "won" run
  * - current: count of consecutive same-status from most recent resolved backwards
@@ -54,7 +54,7 @@ export function computeStreak(parlays: ParlayWithLegs[]): {
   current: { count: number; type: "won" | "lost" | null }
 } {
   const resolved = parlays
-    .filter((p) => p.status !== "pending" && p.resolved_at !== null)
+    .filter((p) => (p.status === "won" || p.status === "lost") && p.resolved_at !== null)
     .sort(
       (a, b) =>
         new Date(a.resolved_at!).getTime() - new Date(b.resolved_at!).getTime()
@@ -217,8 +217,8 @@ function computeByLegCount(parlays: ParlayWithLegs[]): ParlayStats["by_leg_count
   }
 
   for (const p of parlays) {
-    // Only count resolved parlays for bucket stats
-    if (p.status === "pending") continue
+    // Only count graded parlays (void is not a loss)
+    if (p.status !== "won" && p.status !== "lost") continue
 
     const legCount = p.legs.length
     let bucket: "2-leg" | "3-leg" | "4+-leg"
