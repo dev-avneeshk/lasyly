@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { cached, CACHE_TTL } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
+import { decimalOdds } from "@/lib/parlays/computations"
 
 export interface LeaderboardEntry {
   user_id: string
@@ -66,7 +67,8 @@ export const GET = withSecurity(async (request: Request) => {
         existing.total += 1
         if (parlay.status === "won") existing.won += 1
       }
-      existing.totalOdds += Number(parlay.odds) || 0
+      // American (+150) and decimal (2.5) odds share the column; average as decimal.
+      existing.totalOdds += parlay.odds != null ? decimalOdds(Number(parlay.odds)) || 0 : 0
       userStats.set(parlay.user_id, existing)
     }
 

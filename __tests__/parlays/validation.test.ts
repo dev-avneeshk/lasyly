@@ -203,6 +203,11 @@ describe("validateCreateParlay", () => {
   })
 
   describe("odds validation", () => {
+    it("rejects odds that are neither American nor a decimal multiplier (L-13)", () => {
+      for (const odds of [0, 0.5, 1, -50]) expect(validateCreateParlay(validPayload({ odds })).valid).toBe(false)
+      for (const odds of [1.01, 2.5, 100, -100, -110]) expect(validateCreateParlay(validPayload({ odds })).valid).toBe(true)
+    })
+
     it("rejects odds below -10000", () => {
       const result = validateCreateParlay(validPayload({ odds: -10001 }))
       expect(result.valid).toBe(false)

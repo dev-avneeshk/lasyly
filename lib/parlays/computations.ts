@@ -24,6 +24,9 @@ export function computePayout(stake: number, odds: number): number {
   return stake * odds
 }
 
+/** Decimal multiplier for either convention (+150 → 2.5, -110 → 1.909, 2.5 → 2.5). */
+export const decimalOdds = (odds: number): number => computePayout(1, odds)
+
 /**
  * Format odds for display.
  *
@@ -100,7 +103,7 @@ export function computeStreak(parlays: ParlayWithLegs[]): {
  * Excludes parlays with is_logged=true from stats computation.
  *
  * - win_rate = (won / (won + lost)) × 100 rounded to 1 decimal. null when both are 0.
- * - net_profit_loss = sum of (stake × (odds - 1)) for won parlays minus sum of stake for lost parlays.
+ * - net_profit_loss = sum of (stake × (decimal odds - 1)) for won parlays minus sum of stake for lost parlays.
  *   Only parlays with both stake and odds defined. Rounded to 2 decimals.
  * - avg_legs = average number of legs across all parlays, rounded to 1 decimal. null if no parlays.
  * - most_common_sport = most frequent sport across all legs. If tied, use the one from the most recently resolved parlay.
@@ -129,7 +132,7 @@ export function computeParlayStats(parlays: ParlayWithLegs[]): ParlayStats {
   for (const p of statsParlays) {
     if (p.stake != null && p.odds != null) {
       if (p.status === "won") {
-        profit += p.stake * (p.odds - 1)
+        profit += p.stake * (decimalOdds(p.odds) - 1)
       } else if (p.status === "lost") {
         lossSum += p.stake
       }

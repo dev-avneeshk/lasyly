@@ -41,6 +41,8 @@ function validateFields(
       errors.odds = "Multiplier must be a valid number"
     } else if (oddsNum < ODDS_MIN || oddsNum > ODDS_MAX) {
       errors.odds = `Multiplier must be between ${ODDS_MIN} and ${ODDS_MAX}`
+    } else if (oddsNum > -100 && oddsNum < 1.01) {
+      errors.odds = "Multiplier must be at least 1.01 (or American odds like +150 / -110)"
     }
   }
 
