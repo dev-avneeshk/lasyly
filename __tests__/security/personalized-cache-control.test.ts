@@ -10,7 +10,6 @@ const API = path.resolve(__dirname, "../../app/api")
 // Cookie client used, but the cached response is provably viewer-independent.
 const ALLOW = new Set([
   "parlays/feed/route.ts", // `.eq("visibility","public")` only
-  "notifications/push/route.ts", // GET returns the VAPID public key
 ])
 
 const routes = (dir: string): string[] =>
