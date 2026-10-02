@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 // ─── PATCH /api/parlays/[id] ─────────────────────────────────────────────────
 //
@@ -28,6 +29,8 @@ export const PATCH = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`parlay-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
   let body: unknown
   try {

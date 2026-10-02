@@ -12,6 +12,8 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, validateRequestBody } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
+import { getClientIp } from "@/lib/security/clientIp"
 import {
   computeParlayStats,
   ParlayLeg,
@@ -98,6 +100,9 @@ function computeL10HitRate(values: number[], propLine: number): number {
 // ─── Route Handler ──────────────────────────────────────────────────────────
 
 export const POST = withSecurity(async (request: Request) => {
+  // Public and costly (two DB reads per leg): own per-IP limit on top of the proxy's.
+  const limited = await rateLimited(`props-parlay:${getClientIp(request)}`, RATE_LIMITS.expensiveRead)
+  if (limited) return limited
   let body: unknown
   try {
     body = await request.json()

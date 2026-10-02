@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const roleSchema = z.object({
   user_id: z.string().uuid(),
@@ -19,6 +20,8 @@ export const POST = withSecurity(async (
   if (!user) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, roleSchema)

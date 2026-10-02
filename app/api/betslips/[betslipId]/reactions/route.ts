@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const reactionSchema = z.object({
   emoji: z.string().min(1).max(32),
@@ -24,6 +25,8 @@ export const POST = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`reaction:${user.id}`, RATE_LIMITS.reaction)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, reactionSchema)

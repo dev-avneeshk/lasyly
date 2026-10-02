@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 /**
  * PATCH  — update a sub-channel (name/topic/icon/post_policy/join_policy). Admin.
@@ -26,6 +27,8 @@ export const PATCH = withSecurity(async (
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, updateSchema)
@@ -54,6 +57,8 @@ export const DELETE = withSecurity(async (
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const { data: result, error } = await supabase.rpc("room_delete_subchannel", {
     p_subchannel_id: subchannelId,

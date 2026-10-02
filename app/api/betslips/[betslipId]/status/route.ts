@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { handleConflict } from "@/lib/security/concurrency"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 // A betslip is graded once: Pending → one result. Re-grading let a tipster turn
 // old losses into wins (and keep a Won payout after moving off Won), which feeds
@@ -28,6 +29,8 @@ export const PATCH = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`betslip-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, updateStatusSchema)

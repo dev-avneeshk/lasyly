@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 /**
  * GET  — admin fetches the current invite link parts (slug + token) for a
@@ -54,6 +55,8 @@ export const POST = withSecurity(async (
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const { data: result, error } = await supabase.rpc("room_rotate_invite", {
     p_subchannel_id: subchannelId,

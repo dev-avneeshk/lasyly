@@ -9,6 +9,7 @@
  * Business-level rate limits (per-user, per-action) that complement the
  * global IP-based limits enforced in proxy.ts.
  */
+import { NextResponse } from "next/server"
 import { getRedisClient } from "./redis"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,20 @@ export async function checkRateLimit(
 
   // Fallback: in-memory for local development only
   return checkRateLimitMemory(key, config)
+}
+
+/**
+ * Per-user/per-route gate: a 429 response when `key` is over `config`, else
+ * null. The proxy's per-IP limit is only a coarse flood guard (its tier can be
+ * nudged with an unverified cookie, REV-6), so mutation routes add their own.
+ */
+export async function rateLimited(key: string, config: RateLimitConfig): Promise<NextResponse | null> {
+  const r = await checkRateLimit(key, config)
+  if (r.allowed) return null
+  return NextResponse.json(
+    { error: "Too many requests. Please slow down." },
+    { status: 429, headers: { "Retry-After": String(Math.ceil(r.retryAfterMs / 1000)) } }
+  )
 }
 
 /**

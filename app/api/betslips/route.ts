@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const VALID_BET_TYPES = ["Single", "Accumulator", "System", "Lucky"] as const
 
@@ -29,6 +30,8 @@ export const POST = withSecurity(async (request: Request) => {
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`betslip-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, createBetslipSchema)

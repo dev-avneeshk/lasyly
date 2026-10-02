@@ -4,6 +4,7 @@ import { invalidateCache } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { handleConflict } from "@/lib/security/concurrency"
 import { broadcastMembersChanged } from "@/lib/realtime/members"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 export const POST = withSecurity(async (
   _request: Request,
@@ -21,6 +22,8 @@ export const POST = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`room-join:${user.id}`, RATE_LIMITS.roomJoin)
+  if (limited) return limited
 
   const { data: room, error: roomError } = await supabase
     .from("rooms")

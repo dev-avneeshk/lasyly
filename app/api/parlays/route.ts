@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { validateCreateParlay } from "@/lib/parlays/validation"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 // ─── GET /api/parlays ────────────────────────────────────────────────────────
 
@@ -83,6 +84,8 @@ export const POST = withSecurity(async (request: Request) => {
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`parlay-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
   // Parse and validate request body
   let body: unknown
