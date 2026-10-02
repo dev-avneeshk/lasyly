@@ -63,6 +63,12 @@ export const RATE_LIMIT_SESSION_IP: RateLimitConfig = {
   maxRequests: RATE_LIMIT_STANDARD.maxRequests * 10,
   windowMs: 60_000,
 }
+/**
+ * Distinct session cookies one IP may present per minute before further new
+ * ones are treated as anonymous (RATE_LIMIT_UNAUTHENTICATED). Without it a
+ * random cookie per request reached the 2400/min session flood guard.
+ */
+export const SESSIONS_PER_IP = 50
 
 /** Multiplier for IP auto-block threshold (5× standard limit) */
 export const IP_BLOCK_THRESHOLD_MULTIPLIER = 5

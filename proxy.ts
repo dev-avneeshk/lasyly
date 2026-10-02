@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { applyRateLimitHeaders } from "@/lib/security/rateLimiter"
-import { checkRateLimitDistributed } from "@/lib/security/rateLimiterRedis"
+import { admitSessionBucket, checkRateLimitDistributed } from "@/lib/security/rateLimiterRedis"
 import { getClientIp } from "@/lib/security/clientIp"
 import {
   GUEST_COOKIE_NAME,
@@ -306,11 +306,18 @@ export async function proxy(request: NextRequest) {
     // unverified here, so a random `sb-x-auth-token` per request would mint a
     // fresh session bucket every time; the IP bucket bounds that. Session
     // traffic gets the per-session limit plus a much higher per-IP flood guard
-    // (many real users share one CGNAT/office IP).
+    // (many real users share one CGNAT/office IP). Past SESSIONS_PER_IP
+    // distinct cookies a minute, a new cookie is a flood, not a neighbour: it
+    // also draws from the anonymous per-IP budget.
+    const ip = getClientIp(request)
     const ipTier = tier === "standard" ? "sessionIp" : tier
-    const checks = [checkRateLimitDistributed(`${ipTier}:i:${getClientIp(request)}`, ipTier)]
+    const admitted = tier === "standard" ? admitSessionBucket(ip, bucket!) : true
+    const checks = [checkRateLimitDistributed(`${ipTier}:i:${ip}`, ipTier)]
     if (bucket !== null) checks.push(checkRateLimitDistributed(`${tier}:s:${bucket}`, tier))
     const results = await Promise.all(checks)
+    if (!(await admitted)) {
+      results.push(await checkRateLimitDistributed(`unauthenticated:i:${ip}`, "unauthenticated"))
+    }
     const rateResult = results.find((r) => !r.allowed) ?? results[results.length - 1]
 
     if (!rateResult.allowed) {
