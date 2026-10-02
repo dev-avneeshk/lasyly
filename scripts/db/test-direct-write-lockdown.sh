@@ -81,7 +81,8 @@ CREATE FUNCTION public.is_room_banned(r uuid, u uuid) RETURNS boolean LANGUAGE s
 
 CREATE TABLE public.betslips (
   id bigserial PRIMARY KEY, user_id uuid, room_id uuid, odds numeric, status text DEFAULT 'Pending',
-  is_for_sale boolean DEFAULT false, price numeric, matches jsonb, created_at timestamptz DEFAULT now()
+  is_for_sale boolean DEFAULT false, price numeric, matches jsonb, created_at timestamptz DEFAULT now(),
+  payout numeric
 );
 ALTER TABLE public.betslips ENABLE ROW LEVEL SECURITY;
 CREATE POLICY betslips_select_visible ON public.betslips FOR SELECT
@@ -116,6 +117,7 @@ INSERT INTO public.rooms VALUES ('$PUB', 'Public'), ('$PRIV', 'Private'), ('$BAN
 INSERT INTO public.room_bans VALUES ('$BANNED', '$ME');
 INSERT INTO public.betslips (user_id, room_id, is_for_sale, price, matches)
   VALUES ('$OTHER', '$PUB', true, 50, '[{"pick":"PAID PICK CONTENT"}]');
+INSERT INTO public.betslips (user_id, odds, status, matches) VALUES ('$ME', 2, 'Lost', '[]'), ('$ME', 2, 'Pending', '[]');
 SQL
 
 fail=0
@@ -148,6 +150,9 @@ attacks() {
   # is graded from the parlay's created_at, so it settles as a win.
   check "owner adds a late leg to old parlay" "$1" "$(as authenticated "$ME" "INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, leg_order, sport) VALUES ('$PARLAY', 'X', 'pts', 0.5, 'over', 2, 'NBA') RETURNING 'allowed';")"
   check "owner creates a parlay directly" "$1" "$(as authenticated "$ME" "INSERT INTO public.parlays (user_id, visibility) VALUES ('$ME', 'public') RETURNING 'allowed';")"
+  check "re-grade a lost betslip as won"  "$1" "$(as authenticated "$ME" "WITH u AS (UPDATE public.betslips SET status = 'Won' WHERE user_id = '$ME' AND status = 'Lost' RETURNING 1) SELECT CASE WHEN count(*) > 0 THEN 'allowed' ELSE 'denied' END FROM u;")"
+  check "rewrite picks of a posted slip"  "$1" "$(as authenticated "$ME" "UPDATE public.betslips SET matches = '[{\"pick\":\"late\"}]', odds = 9 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'allowed';")"
+  check "post a betslip already won"      "$1" "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, status, matches) VALUES ('$ME', 2, 'Won', '[]') RETURNING 'allowed';")"
   check "owner deletes a pending parlay"  "$1" "$(as authenticated "$ME" "DELETE FROM public.parlays WHERE id = '$PARLAY' RETURNING 'allowed';")"
 }
 

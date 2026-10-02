@@ -7,7 +7,6 @@
  * Body: { type: string, payload: object }
  *
  * Supported job types:
- * - "generate-ai-writeup" — generate and cache an AI prop analysis
  * - "export-bets" — generate CSV export of user's bet history
  *
  * ── Bounds ──────────────────────────────────────────────────────────────────
@@ -25,10 +24,9 @@ import { JOB_TYPES } from "@/lib/queue/handlers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
-const ALLOWED_USER_JOBS: Set<string> = new Set([
-  JOB_TYPES.GENERATE_AI_WRITEUP,
-  JOB_TYPES.EXPORT_BETS,
-])
+// Not generate-ai-writeup: nothing in the app enqueues it, and from here any
+// user could overwrite the public writeup for any prop and spend OpenAI quota.
+const ALLOWED_USER_JOBS: Set<string> = new Set([JOB_TYPES.EXPORT_BETS])
 
 /** 8KB of JSON is far more than any user-triggerable job payload needs. */
 const MAX_PAYLOAD_BYTES = 8 * 1024

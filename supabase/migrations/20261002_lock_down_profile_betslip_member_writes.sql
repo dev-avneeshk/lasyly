@@ -67,6 +67,20 @@ BEGIN
    WHERE table_schema = 'public' AND table_name = 'betslips'
      AND column_name <> 'matches';
   EXECUTE format('GRANT SELECT (%s) ON public.betslips TO anon, authenticated', v_cols);
+
+  -- L-12: a slip is graded once (Pending → result) and its picks/odds are
+  -- fixed after posting. Owners could UPDATE any column at any time (turn old
+  -- losses into wins, rewrite picks after the games) or INSERT a slip already
+  -- 'Won'. Only /api/betslips/[id]/status updates betslips.
+  REVOKE UPDATE ON public.betslips FROM anon, authenticated;
+  GRANT UPDATE (status, payout) ON public.betslips TO authenticated;
+  DROP POLICY IF EXISTS "betslips_update_own" ON public.betslips;
+  CREATE POLICY "betslips_update_own" ON public.betslips FOR UPDATE
+    USING ((SELECT auth.uid()) = user_id AND status = 'Pending')
+    WITH CHECK ((SELECT auth.uid()) = user_id);
+  DROP POLICY IF EXISTS "betslips_insert_own" ON public.betslips;
+  CREATE POLICY "betslips_insert_own" ON public.betslips FOR INSERT
+    WITH CHECK ((SELECT auth.uid()) = user_id AND status = 'Pending' AND payout IS NULL);
 END $$;
 
 -- 3. room_members ---------------------------------------------------------

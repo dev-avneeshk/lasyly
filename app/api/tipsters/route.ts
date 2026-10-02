@@ -19,7 +19,8 @@ type TipsterProfile = {
 
 export const GET = withSecurity(async (request: Request) => {
   const url = new URL(request.url)
-  const sort = url.searchParams.get("sort") || "followers"
+  // Enum, so arbitrary values can't mint new cache keys.
+  const sort = ["win_rate", "total_picks"].find((s) => s === url.searchParams.get("sort")) ?? "followers"
   const sport = url.searchParams.get("sport") || null
 
   // Check for injection patterns
@@ -58,11 +59,14 @@ export const GET = withSecurity(async (request: Request) => {
       .in("following_id", tipsterIds)
 
     // Aggregate stats
-    const statsMap = new Map<string, { total: number; won: number }>()
+    // Statuses are stored "Won"/"Lost" (comparing "won" made every win rate 0);
+    // the rate is over graded slips only, not Pending/Void/Partial.
+    const statsMap = new Map<string, { total: number; won: number; graded: number }>()
     for (const bet of betslips ?? []) {
-      const existing = statsMap.get(bet.user_id) ?? { total: 0, won: 0 }
+      const existing = statsMap.get(bet.user_id) ?? { total: 0, won: 0, graded: 0 }
       existing.total++
-      if (bet.status === "won") existing.won++
+      if (bet.status === "Won") existing.won++
+      if (bet.status === "Won" || bet.status === "Lost") existing.graded++
       statsMap.set(bet.user_id, existing)
     }
 
@@ -73,8 +77,8 @@ export const GET = withSecurity(async (request: Request) => {
 
     // Build tipster list
     let tipsters: TipsterProfile[] = profiles.map((p) => {
-      const stats = statsMap.get(p.id) ?? { total: 0, won: 0 }
-      const winRate = stats.total > 0 ? Math.round((stats.won / stats.total) * 100) : 0
+      const stats = statsMap.get(p.id) ?? { total: 0, won: 0, graded: 0 }
+      const winRate = stats.graded > 0 ? Math.round((stats.won / stats.graded) * 100) : 0
       return {
         id: p.id,
         username: p.username,
