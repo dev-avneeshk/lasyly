@@ -254,6 +254,21 @@ check "settlement (service) runs" ok "$(as service_role '' "UPDATE public.parlay
 check "settlement can void"       ok "$(as service_role '' "UPDATE public.parlays SET status = 'void' WHERE id = '$PARLAY' RETURNING 'ok';")"
 check "unknown status rejected"   denied "$(as service_role '' "UPDATE public.parlays SET status = 'bogus' WHERE id = '$PARLAY' RETURNING 'ok';")"
 
+# REV-21: member_count kept by a SECURITY INVOKER trigger on room_members. The
+# unconditional REVOKE made every join raise 42501; the migration now keeps the
+# grant then, and the dropped policy still stops moderator writes on rooms.
+"${PSQL[@]}" <<SQL
+ALTER TABLE public.rooms ADD COLUMN member_count int NOT NULL DEFAULT 0;
+CREATE FUNCTION public.bump_member_count() RETURNS trigger LANGUAGE plpgsql AS \$\$
+BEGIN UPDATE public.rooms SET member_count = member_count + 1 WHERE id = NEW.room_id; RETURN NEW; END \$\$;
+CREATE TRIGGER trg_member_count AFTER INSERT ON public.room_members FOR EACH ROW EXECUTE FUNCTION public.bump_member_count();
+GRANT UPDATE ON public.rooms TO anon, authenticated;
+SQL
+PGOPTIONS=--client-min-messages=error "${PSQL[@]}" -f "$ROOM_FIX" >/dev/null
+echo "with a SECURITY INVOKER member_count trigger"
+check "join public room"             ok "$(as authenticated "$ME" "INSERT INTO public.room_members (room_id, user_id, role) VALUES ('$PUB', '$ME', 'member') RETURNING 'ok';")"
+check "moderator hijacks creator_id" "" "$(as authenticated "$ME" "UPDATE public.rooms SET creator_id = '$ME' WHERE id = '$MODROOM' RETURNING 'allowed';")"
+
 if [[ $fail -ne 0 ]]; then
   echo "FAILED"
   exit 1
