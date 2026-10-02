@@ -6,7 +6,7 @@ import { MobileNav } from "@/components/marketing/MobileNav"
 export const metadata: Metadata = {
   alternates: {
     types: {
-      "application/rss+xml": "https://lasyly.me/blog/feed.xml",
+      "application/rss+xml": "/blog/feed.xml",
     },
   },
 }

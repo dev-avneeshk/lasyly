@@ -4,6 +4,7 @@ import { JsonLd } from "@/components/seo/JsonLd"
 import { getTodaysPublicProps, type PublicPropEntry } from "@/lib/data/public-props"
 import { generatePropsTitle, generatePropsDescription } from "@/lib/seo/metadata"
 import { LoadMoreProps } from "./LoadMoreProps"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const revalidate = 3600
 
@@ -50,13 +51,13 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     alternates: {
-      canonical: "https://lasyly.me/props/today",
+      canonical: "/props/today",
     },
     openGraph: {
       title,
       description,
       type: "website",
-      url: "https://lasyly.me/props/today",
+      url: "/props/today",
     },
   }
 }
@@ -91,7 +92,7 @@ export default async function TodaysPropsPage() {
       "@type": "ListItem",
       "position": index + 1,
       "name": `${prop.playerName} ${prop.statCategory} ${prop.propLine}`,
-      "url": `https://lasyly.me/players/${prop.playerSlug}`,
+      "url": `${SITE_URL}/players/${prop.playerSlug}`,
     })),
   }
 

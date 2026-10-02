@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: "Sports News — Lasyly Daily",
     description: "Curated sports news from ESPN — Football, NBA, NFL, UFC, Tennis, F1, and Cricket.",
   },
-  alternates: { canonical: "https://lasyly.me/news" },
+  alternates: { canonical: "/news" },
 }
 
 export const dynamic = "force-static"

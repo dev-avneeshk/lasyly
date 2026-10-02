@@ -3,6 +3,7 @@ import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 import BlogNewspaperWrapper from "@/components/blog/BlogNewspaperWrapper"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "Spurs Beat Thunder Game 4: Wembanyama 33 Pts, OKC Series Tied 2-2 — Lasyly",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-25",
   },
   alternates: {
-    canonical: "https://lasyly.me/blog/spurs-thunder-game-4-recap-2026",
+    canonical: "/blog/spurs-thunder-game-4-recap-2026",
   },
   keywords: [
     "Spurs Thunder Game 4",
@@ -53,7 +54,7 @@ const schedule = [
 ]
 
 export default function SpursThunderGame4Post() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   return (
     <BlogNewspaperWrapper>
       <JsonLd

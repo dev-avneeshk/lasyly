@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 import { getComparisonBySlug, getAllComparisonSlugs, COMPARISONS } from "@/lib/data/comparisons"
 import { JsonLd } from "@/components/seo/JsonLd"
 import heroImage from "@/public/hero-optimized.png"
+import { SITE_URL } from "@/lib/seo/site"
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -26,9 +27,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: comparison.metaTitle,
       description: comparison.metaDescription,
       type: "article",
-      url: `https://lasyly.me/compare/${slug}`,
+      url: `/compare/${slug}`,
     },
-    alternates: { canonical: `https://lasyly.me/compare/${slug}` },
+    alternates: { canonical: `/compare/${slug}` },
   }
 }
 
@@ -55,8 +56,8 @@ export default async function ComparisonPage({ params }: Props) {
           "@type": "Article",
           headline: comparison.heroHeadline,
           description: comparison.metaDescription,
-          url: `https://lasyly.me/compare/${slug}`,
-          publisher: { "@type": "Organization", name: "Lasyly", url: "https://lasyly.me" },
+          url: `${SITE_URL}/compare/${slug}`,
+          publisher: { "@type": "Organization", name: "Lasyly", url: SITE_URL },
           datePublished: "2026-05-27",
           dateModified: "2026-05-27",
         }}

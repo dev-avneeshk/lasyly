@@ -7,6 +7,7 @@ import "@/lib/env"; // Validate environment variables at startup
 import CookieConsent from "@/components/CookieConsent";
 import ThemeProvider from "@/components/ThemeProvider";
 import { InlineScript } from "@/components/InlineScript";
+import { SITE_URL } from "@/lib/seo/site";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -62,7 +63,7 @@ export const metadata: Metadata = {
     },
   },
   description: "Real-time sports rooms, prop analytics, live scores, curated news, and a pick marketplace. All in one place.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"),
+  metadataBase: new URL(SITE_URL),
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -99,7 +100,7 @@ export const metadata: Metadata = {
     title: "Lasyly — Sports Analytics & Community Platform",
     description: "Real-time sports rooms, prop analytics, live scores, curated news, and a pick marketplace.",
     locale: "en_US",
-    url: process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
+    url: SITE_URL,
   },
   twitter: {
     card: "summary_large_image",
@@ -119,11 +120,10 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  // No canonical here: every page without its own inherited the site root as
+  // its canonical (privacy, terms, login, app pages all "duplicates" of /).
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me",
-    types: {
-      "application/rss+xml": `${process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"}/blog/feed.xml`,
-    },
+    types: { "application/rss+xml": "/blog/feed.xml" },
   },
 };
 

@@ -116,10 +116,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: "website",
-      url: `https://lasyly.me/scores/${sportSlug}`,
+      url: `/scores/${sportSlug}`,
     },
     alternates: {
-      canonical: `https://lasyly.me/scores/${sportSlug}`,
+      canonical: `/scores/${sportSlug}`,
     },
   }
 }

@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next"
+import { SITE_URL } from "@/lib/seo/site"
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+  const baseUrl = SITE_URL
 
   const publicPaths = ["/", "/blog", "/features", "/tipsters", "/scores", "/scores/", "/news", "/explore", "/login", "/signup", "/terms", "/privacy", "/players/", "/props/", "/careers"]
   const privatePaths = ["/api/", "/wallet/", "/profile/", "/bets/", "/rooms/", "/admin/"]

@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         )
       : `${player.name} player prop analysis — hit rates, matchup grades, and trend data on Lasyly. Sign up for full access to daily picks and insights.`
 
-  const canonicalUrl = `https://lasyly.me/players/${playerSlug}`
+  const canonicalUrl = `/players/${playerSlug}`
 
   return {
     title,

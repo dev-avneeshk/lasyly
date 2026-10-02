@@ -3,6 +3,7 @@ import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 import BlogNewspaperWrapper from "@/components/blog/BlogNewspaperWrapper"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "How to Read Prop Analytics: Hit Rates, Matchup Grades & Confidence Scores — Lasyly Blog",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-22",
   },
   alternates: {
-    canonical: "https://lasyly.me/blog/how-to-read-prop-analytics",
+    canonical: "/blog/how-to-read-prop-analytics",
   },
 }
 
@@ -45,7 +46,7 @@ function ConfidenceTier({ stars, description }: { stars: string; description: st
 }
 
 export default function PropAnalyticsGuidePost() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   return (
     <BlogNewspaperWrapper>
       <JsonLd data={{

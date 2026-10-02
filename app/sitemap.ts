@@ -3,11 +3,12 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getAllPlayerSlugs } from "@/lib/data/public-players"
 import { SPORT_SLUG_MAP } from "@/lib/seo/player-slug"
 import { getAllComparisonSlugs } from "@/lib/data/comparisons"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const revalidate = 3600 // regenerate sitemap every hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+  const baseUrl = SITE_URL
 
   // Fetch all published blog posts from DB for dynamic sitemap entries
   const supabase = createAdminClient()
