@@ -22,7 +22,7 @@ describe("supabase/migrations", () => {
     expect(last).toMatch(/FROM PUBLIC, anon, authenticated;/)
   })
 
-  it("columns added to profiles/betslips after the column-grant lockdown are granted explicitly", () => {
+  it("columns added to column-granted tables (profiles, betslips, room_subchannels) after the column-grant lockdown are granted explicitly", () => {
     // 20261002_lock_down_profile_betslip_member_writes.sql replaced the table
     // SELECT grant with a column list captured at migration time. A column
     // added later is unreadable to anon/authenticated (42501 on any select
@@ -30,7 +30,7 @@ describe("supabase/migrations", () => {
     const later = all.filter((f) => f > "20261002_lock_down_profile_betslip_member_writes.sql")
     for (const f of later) {
       const text = readFileSync(path.join(dir, f), "utf8")
-      for (const table of ["profiles", "betslips"]) {
+      for (const table of ["profiles", "betslips", "room_subchannels"]) {
         const added = [...text.matchAll(new RegExp(`ALTER TABLE (?:public\\.)?${table}\\s+ADD COLUMN(?: IF NOT EXISTS)?\\s+(\\w+)`, "gi"))]
         for (const [, col] of added) {
           expect(text, `${f}: grant SELECT on ${table}.${col} (or state why not)`).toMatch(

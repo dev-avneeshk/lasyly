@@ -10,7 +10,7 @@ const run = (script: string) =>
   execFileSync(path.resolve(__dirname, "../../scripts/db", script), { encoding: "utf8" })
 
 describe.skipIf(!hasPg)("DB privilege lockdown (local Postgres)", () => {
-  it("L-01 / L-02 / AUTHZ-2 / AUTHZ-3: direct PostgREST writes and paid-pick reads are closed", () => {
+  it("L-01 / L-02 / AUTHZ-2 / AUTHZ-3 / AUTHZ-7 / REV-16: direct PostgREST writes, paid-pick and invite-token reads are closed", () => {
     expect(run("test-direct-write-lockdown.sh")).toContain("all checks passed")
   })
 

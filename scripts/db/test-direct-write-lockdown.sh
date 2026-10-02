@@ -17,6 +17,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FIX="${FIX:-$ROOT/supabase/migrations/20261002_lock_down_profile_betslip_member_writes.sql}"
 PARLAY_FIX="${PARLAY_FIX:-$ROOT/supabase/migrations/20261002_parlays_owner_writes.sql}"
 BETSLIP_FIX="${BETSLIP_FIX:-$ROOT/supabase/migrations/20261003_betslip_grading_service_only.sql}"
+INVITE_FIX="${INVITE_FIX:-$ROOT/supabase/migrations/20261003_room_subchannel_invite_token_private.sql}"
 
 for bin in initdb pg_ctl psql; do
   command -v "$bin" >/dev/null || { echo "error: $bin not found on PATH" >&2; exit 1; }
@@ -81,6 +82,14 @@ CREATE FUNCTION public.is_room_banned(r uuid, u uuid) RETURNS boolean LANGUAGE s
   SELECT EXISTS (SELECT 1 FROM public.room_bans WHERE room_id = r AND user_id = u)
 \$\$;
 
+-- Sub-channels as 20260902 left them: every column visible to room viewers.
+CREATE TABLE public.room_subchannels (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), room_id uuid NOT NULL, name text NOT NULL,
+  visibility text NOT NULL DEFAULT 'public', slug text NOT NULL UNIQUE, invite_token text
+);
+ALTER TABLE public.room_subchannels ENABLE ROW LEVEL SECURITY;
+CREATE POLICY subchannels_select_visible ON public.room_subchannels FOR SELECT USING (public.room_is_public(room_id));
+
 CREATE TABLE public.betslips (
   id bigserial PRIMARY KEY, user_id uuid, room_id uuid, odds numeric, status text DEFAULT 'Pending',
   is_for_sale boolean DEFAULT false, price numeric, matches jsonb, created_at timestamptz DEFAULT now(),
@@ -117,6 +126,7 @@ INSERT INTO public.parlays (id, user_id, visibility) VALUES ('bbbbbbbb-0000-0000
 INSERT INTO public.profiles (id, username, wallet_balance) VALUES ('$ME', 'me', 100), ('$OTHER', 'other', 5000);
 INSERT INTO public.rooms VALUES ('$PUB', 'Public'), ('$PRIV', 'Private'), ('$BANNED', 'Public');
 INSERT INTO public.room_bans VALUES ('$BANNED', '$ME');
+INSERT INTO public.room_subchannels (room_id, name, visibility, slug, invite_token) VALUES ('$PUB', 'VIP', 'private', 'vip', 'SECRET');
 INSERT INTO public.betslips (user_id, room_id, is_for_sale, price, matches)
   VALUES ('$OTHER', '$PUB', true, 50, '[{"pick":"PAID PICK CONTENT"}]');
 INSERT INTO public.betslips (user_id, odds, status, matches) VALUES ('$ME', 2, 'Lost', '[]'), ('$ME', 2, 'Pending', '[]');
@@ -157,6 +167,12 @@ attacks() {
   check "post a betslip already won"      "$1" "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, status, matches) VALUES ('$ME', 2, 'Won', '[]') RETURNING 'allowed';")"
   check "owner deletes a pending parlay"  "$1" "$(as authenticated "$ME" "DELETE FROM public.parlays WHERE id = '$PARLAY' RETURNING 'allowed';")"
   payout_attacks "$1"
+  invite_attacks "$1"
+}
+# AUTHZ-7: anyone who could see a public room's sub-channels read invite tokens.
+invite_attacks() {
+  check "anon reads a private invite token"   "$1" "$(as anon '' "SELECT 'allowed' FROM public.room_subchannels WHERE invite_token = 'SECRET';")"
+  check "member reads a private invite token" "$1" "$(as authenticated "$ME" "SELECT 'allowed' FROM public.room_subchannels WHERE invite_token IS NOT NULL;")"
 }
 # REV-16: owners could write any payout (still open after the 20261002 fix).
 payout_attacks() {
@@ -170,9 +186,10 @@ attacks allowed
 for f in "$FIX" "$PARLAY_FIX" "$FIX" "$PARLAY_FIX"; do  # twice: must be re-runnable
   PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
 done
-echo "after 20261002 only (payout still writable)"
+echo "after 20261002 only (payout and invite tokens still exposed)"
 payout_attacks allowed
-for f in "$BETSLIP_FIX" "$BETSLIP_FIX"; do
+invite_attacks allowed
+for f in "$BETSLIP_FIX" "$INVITE_FIX" "$BETSLIP_FIX" "$INVITE_FIX"; do
   PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
 done
 
@@ -188,6 +205,8 @@ check "join as owner refused"     denied "$(as authenticated "$ME" "INSERT INTO 
 check "betslip listing readable"  ok "$(as anon '' "SELECT 'ok' FROM public.betslips WHERE is_for_sale AND price = 50;")"
 check "post betslip with picks"   ok "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, matches) VALUES ('$ME', 2, '[]') RETURNING 'ok';")"
 check "API grades own betslip"    ok "$(as service_role '' "UPDATE public.betslips SET status = 'Won', payout = 4 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'ok';")"
+check "anon lists sub-channels"   ok "$(as anon '' "SELECT 'ok' FROM public.room_subchannels WHERE slug = 'vip' AND visibility = 'private' AND name = 'VIP';")"
+check "API reads invite token"    ok "$(as service_role '' "SELECT 'ok' FROM public.room_subchannels WHERE invite_token = 'SECRET';")"
 check "service role reads picks"  ok "$(as service_role '' "SELECT 'ok' FROM public.betslips WHERE matches IS NOT NULL;")"
 check "API creates parlay + legs" ok "$(as service_role '' "WITH p AS (INSERT INTO public.parlays (user_id, visibility, odds, stake, custom_note, combined_hit_rate, is_logged) VALUES ('$ME', 'public', 2.5, 10, 'n', 60, false) RETURNING id) INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport) SELECT id, 'X', 'pts', 1, 'over', 50, 1, 'NBA' FROM p RETURNING 'ok';")"
 check "owner reads own parlay"    ok "$(as authenticated "$ME" "SELECT 'ok' FROM public.parlays WHERE id = '$PARLAY';")"
