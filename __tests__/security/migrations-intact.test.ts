@@ -8,7 +8,17 @@ const dir = path.resolve(__dirname, "../../supabase/migrations")
 const all = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()
 const sql = all.map((f) => readFileSync(path.join(dir, f), "utf8")).join("\n")
 
+/** Every `ADD COLUMN x` inside an `ALTER TABLE <table> ...;` statement (all of them, not just the first). */
+const addedColumns = (text: string, table: string) =>
+  [...text.matchAll(new RegExp(`ALTER TABLE (?:IF EXISTS )?(?:ONLY )?(?:public\\.)?${table}\\b([^;]*);`, "gi"))].flatMap(([, body]) =>
+    [...body.matchAll(/ADD COLUMN(?: IF NOT EXISTS)?\s+(\w+)/gi)].map((m) => m[1])
+  )
+
 describe("supabase/migrations", () => {
+  it("the column-grant guard sees every column of a multi-column ALTER (REV-25: missed `b`)", () => {
+    expect(addedColumns("ALTER TABLE public.profiles ADD COLUMN a int, ADD COLUMN IF NOT EXISTS b int;", "profiles")).toEqual(["a", "b"])
+  })
+
   it("has no empty migration files", () => {
     expect(all.filter((f) => readFileSync(path.join(dir, f), "utf8").trim() === "")).toEqual([])
   })
@@ -31,8 +41,7 @@ describe("supabase/migrations", () => {
     for (const f of later) {
       const text = readFileSync(path.join(dir, f), "utf8")
       for (const table of ["profiles", "betslips", "room_subchannels"]) {
-        const added = [...text.matchAll(new RegExp(`ALTER TABLE (?:public\\.)?${table}\\s+ADD COLUMN(?: IF NOT EXISTS)?\\s+(\\w+)`, "gi"))]
-        for (const [, col] of added) {
+        for (const col of addedColumns(text, table)) {
           expect(text, `${f}: grant SELECT on ${table}.${col} (or state why not)`).toMatch(
             new RegExp(`GRANT SELECT \\([^)]*\\b${col}\\b[^)]*\\) ON (?:public\\.)?${table}|-- no select grant: ${col}`, "i")
           )
