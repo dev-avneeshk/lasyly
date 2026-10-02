@@ -100,7 +100,7 @@ function computeL10HitRate(values: number[], propLine: number): number {
 // ─── Route Handler ──────────────────────────────────────────────────────────
 
 export const POST = withSecurity(async (request: Request) => {
-  // Public and costly (two DB reads per leg): own per-IP limit on top of the proxy's.
+  // Public and costly (a DB read per leg): own per-IP limit on top of the proxy's.
   const limited = await rateLimited(`props-parlay:${getClientIp(request)}`, RATE_LIMITS.expensiveRead)
   if (limited) return limited
   let body: unknown
@@ -179,10 +179,13 @@ export const POST = withSecurity(async (request: Request) => {
       })
     } else {
       // NBA: fetch player game stats with game dates
+      // The 20 most recent games, dated in the same query. Without the order
+      // these were arbitrary rows, so "L10" wasn't the last ten games.
       const { data: playerStats } = await supabase
         .from("nba_player_stats")
-        .select("pts, trb, ast, tp, stl, blk, game_id")
-        .ilike("player_name", playerName)
+        .select("pts, trb, ast, tp, stl, blk, nba_games!inner(game_date)")
+        .ilike("player_name", playerName.replace(/[\\%_]/g, "\\$&")) // literal, not a pattern
+        .order("nba_games(game_date)", { ascending: false })
         .limit(20)
 
       if (!playerStats || playerStats.length === 0) {
@@ -199,26 +202,11 @@ export const POST = withSecurity(async (request: Request) => {
         continue
       }
 
-      // Fetch game dates for these stats
-      const gameIds = Array.from(new Set(playerStats.map((r) => r.game_id)))
-      const { data: gamesData } = await supabase
-        .from("nba_games")
-        .select("id, game_date")
-        .in("id", gameIds.slice(0, 100))
-
-      const gameDateMap = new Map<string, string>()
-      for (const g of gamesData ?? []) {
-        gameDateMap.set(g.id, g.game_date)
-      }
-
-      // Build game data sorted by date descending
-      const gameData: { date: string; value: number }[] = playerStats
-        .filter((row) => gameDateMap.has(row.game_id))
-        .map((row) => ({
-          date: gameDateMap.get(row.game_id)!,
-          value: getStatValue(row, stat),
-        }))
-        .sort((a, b) => b.date.localeCompare(a.date))
+      // Most recent first (ordered by the query)
+      const gameData: { date: string; value: number }[] = playerStats.map((row) => ({
+        date: (row.nba_games as unknown as { game_date: string }).game_date,
+        value: getStatValue(row, stat),
+      }))
 
       // Compute prop line from median of values
       const values = gameData.map((g) => g.value)
