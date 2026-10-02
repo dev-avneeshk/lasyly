@@ -11,17 +11,23 @@ jobs:
     steps:
       - name: Grant weekly level-based coin bonus
         run: |
-          response=$(curl -s --location-trusted -w "\n%{http_code}" -X POST \
-            "${{ secrets.SITE_URL }}/api/cron/weekly-coins" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
+          # The route stops at a time budget and resumes from a cursor, so call
+          # again while it reports incomplete (bounded).
+          for attempt in $(seq 1 10); do
+            response=$(curl -s --location-trusted -w "\n%{http_code}" -X POST \
+              "${{ secrets.SITE_URL }}/api/cron/weekly-coins" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              -H "Content-Type: application/json")
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
 
-          echo "Status: $http_code"
-          echo "Response: $body"
+            echo "Run $attempt status: $http_code"
+            echo "Response: $body"
 
-          if [ "$http_code" != "200" ]; then
-            echo "::warning::Weekly coins payout returned status $http_code"
-          fi
+            if [ "$http_code" != "200" ]; then
+              echo "::warning::Weekly coins payout returned status $http_code"
+              break
+            fi
+            echo "$body" | grep -q '"incomplete":true' || break
+          done
