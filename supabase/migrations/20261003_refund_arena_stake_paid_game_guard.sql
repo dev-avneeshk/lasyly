@@ -10,10 +10,9 @@
 -- CREATE OR REPLACE + IF NOT EXISTS. Non-destructive. Files only; apply through
 -- the normal migration process.
 
--- Lookup for the per-game check (credits are keyed (user_id, reference_id)).
-CREATE INDEX IF NOT EXISTS idx_transactions_arena_payout_ref
-  ON public.transactions (reference_id)
-  WHERE type IN ('ARENA_REWARD', 'ARENA_WINNINGS');
+-- The per-game lookup's index is built CONCURRENTLY in
+-- 20261003_transactions_arena_payout_ref_index.sql (a plain build here would
+-- block every coin write on `transactions` for its duration).
 
 CREATE OR REPLACE FUNCTION public.refund_arena_stake(
   p_user_id uuid,
