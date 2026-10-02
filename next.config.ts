@@ -63,6 +63,13 @@ const nextConfig: NextConfig = {
         hostname: "*.espncdn.com",
       },
       {
+        // ESPN news photos now come from this CDN; unlisted, next/image threw
+        // and /explore fell back to client rendering. Path-scoped: shared host.
+        protocol: "https",
+        hostname: "espnmedia-cdn.akamaized.net",
+        pathname: "/espn/**",
+      },
+      {
         protocol: "https",
         hostname: "img.youtube.com",
       },
