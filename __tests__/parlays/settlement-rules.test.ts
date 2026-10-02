@@ -11,6 +11,7 @@ const st = vi.hoisted(() => ({
   updates: [] as { table: string; values: Record<string, unknown>; filters: unknown[][] }[],
   parlayLegs: [] as Record<string, unknown>[],
   stale: [] as Record<string, unknown>[],
+  legReads: 0,
 }))
 
 vi.mock("@/lib/services/espn", () => ({ fetchESPNLeague: async () => st.tipOffs }))
@@ -26,7 +27,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         }
         const f = Object.fromEntries(filters.map(([op, c, v]) => [`${op}:${c}`, v]))
         if (table === "parlay_legs" && f["eq:result"] === "pending") return { data: st.legs, error: null }
-        if (table === "parlay_legs") return { data: st.parlayLegs, error: null }
+        if (table === "parlay_legs") return st.legReads++, { data: st.parlayLegs, error: null }
         if (table === "parlays") return { data: st.stale, error: null }
         if (table === "nba_player_stats") {
           const rows = st.stats
@@ -66,6 +67,7 @@ beforeEach(() => {
   st.updates = []
   st.parlayLegs = [{ result: "pending" }]
   st.stale = []
+  st.legReads = 0
   st.tipOffs = [{ homeTeam: "Los Angeles Lakers", startTime: "2026-01-16T00:30:00Z" }] // 19:30 ET
 })
 
@@ -138,6 +140,28 @@ describe("stale parlay expiry", () => {
     expect(st.updates).toContainEqual(expect.objectContaining({
       table: "parlays", values: expect.objectContaining({ status: "void" }),
     }))
+  })
+})
+
+// L-05: expiry read each stale parlay's legs and wrote its outcome one by one.
+describe("stale parlay expiry is batched", () => {
+  it("one leg read, one push update and one update per outcome for many parlays", async () => {
+    st.legs = []
+    st.stale = [{ id: "p1" }, { id: "p2" }, { id: "p3" }, { id: "p4" }]
+    st.parlayLegs = [
+      { id: "a", parlay_id: "p1", result: "won" },
+      { id: "b", parlay_id: "p2", result: "pending" },
+      { id: "c", parlay_id: "p3", result: "lost" },
+      { id: "d", parlay_id: "p4", result: "pending" },
+    ]
+    const res = await settleParlayLegs()
+    expect(res.parlaysExpired).toBe(4)
+    expect(st.legReads).toBe(1) // was 4
+    const pushes = st.updates.filter((u) => u.table === "parlay_legs")
+    expect(pushes).toHaveLength(1)
+    expect(pushes[0].filters).toContainEqual(["in", "id", ["b", "d"]])
+    const finishes = st.updates.filter((u) => u.table === "parlays").map((u) => u.values.status)
+    expect(finishes).toEqual(["won", "lost", "void"]) // was 4 updates
   })
 })
 

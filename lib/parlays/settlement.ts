@@ -134,6 +134,9 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
     // Only sports we can settle; unsettleable legs (left to expire) must not
     // fill the batch and starve these.
     .in("sport", ["NBA", "Tennis"])
+    // Oldest bets first: each run settles or expires the front of the queue,
+    // so newer legs can't sit behind an arbitrary unordered 500.
+    .order("parlays(created_at)", { ascending: true })
     .limit(500)
 
   if (legsError) {
@@ -385,17 +388,41 @@ export function parlayOutcome(results: string[], expired = false): "won" | "lost
   return results.includes("won") ? "won" : "void"
 }
 
-async function finishParlay(
+/** Results of every leg of the given parlays, by parlay id (chunked `.in()`). */
+async function legResultsByParlay(
   supabase: ReturnType<typeof createAdminClient>,
-  parlayId: string,
-  status: "won" | "lost" | "void"
-): Promise<boolean> {
-  const { error } = await supabase
-    .from("parlays")
-    .update({ status, resolved_at: new Date().toISOString() })
-    .eq("id", parlayId)
-    .eq("status", "pending") // Only update if still pending (idempotent)
-  return !error
+  parlayIds: string[]
+): Promise<Map<string, { id: string; result: string }[]> | null> {
+  const byParlay = new Map<string, { id: string; result: string }[]>()
+  for (let i = 0; i < parlayIds.length; i += 100) {
+    const { data, error } = await supabase
+      .from("parlay_legs")
+      .select("id, parlay_id, result")
+      .in("parlay_id", parlayIds.slice(i, i + 100))
+    if (error || !data) return null
+    for (const l of data) byParlay.set(l.parlay_id, [...(byParlay.get(l.parlay_id) ?? []), l])
+  }
+  return byParlay
+}
+
+/** Sets each parlay's outcome, one guarded update per outcome; returns how many. */
+async function finishParlays(
+  supabase: ReturnType<typeof createAdminClient>,
+  outcomes: Map<string, "won" | "lost" | "void" | null>
+): Promise<number> {
+  let finished = 0
+  for (const status of ["won", "lost", "void"] as const) {
+    const ids = [...outcomes].filter(([, o]) => o === status).map(([id]) => id)
+    for (let i = 0; i < ids.length; i += 100) {
+      const { error } = await supabase
+        .from("parlays")
+        .update({ status, resolved_at: new Date().toISOString() })
+        .in("id", ids.slice(i, i + 100))
+        .eq("status", "pending") // Only update if still pending (idempotent)
+      if (!error) finished += ids.slice(i, i + 100).length
+    }
+  }
+  return finished
 }
 
 /** Resolves the given parlays whose legs are all settled. */
@@ -403,21 +430,10 @@ async function resolveParlays(
   supabase: ReturnType<typeof createAdminClient>,
   parlayIds: string[]
 ): Promise<number> {
-  let resolved = 0
-
-  for (const parlayId of parlayIds) {
-    const { data: legs, error } = await supabase
-      .from("parlay_legs")
-      .select("result")
-      .eq("parlay_id", parlayId)
-
-    if (error || !legs || legs.length === 0) continue
-
-    const outcome = parlayOutcome(legs.map((l) => l.result))
-    if (outcome && (await finishParlay(supabase, parlayId, outcome))) resolved++
-  }
-
-  return resolved
+  const byParlay = await legResultsByParlay(supabase, parlayIds)
+  if (!byParlay) return 0
+  const outcomes = new Map([...byParlay].map(([id, legs]) => [id, parlayOutcome(legs.map((l) => l.result))]))
+  return finishParlays(supabase, outcomes)
 }
 
 // ─── Stale Parlay Expiry ────────────────────────────────────────────────────
@@ -440,29 +456,19 @@ async function expireStaleParlays(
     .limit(100)
 
   if (error || !staleParlays || staleParlays.length === 0) return 0
-
-  let expired = 0
-
-  for (const parlay of staleParlays) {
-    const { data: legs, error: legsError } = await supabase
+  const ids = staleParlays.map((p) => p.id as string)
+  const byParlay = await legResultsByParlay(supabase, ids)
+  if (!byParlay) return 0
+  const pendingIds = [...byParlay.values()].flat().filter((l) => l.result === "pending").map((l) => l.id)
+  for (let i = 0; i < pendingIds.length; i += 100) {
+    const { error: pushError } = await supabase
       .from("parlay_legs")
-      .select("id, result")
-      .eq("parlay_id", parlay.id)
-
-    if (legsError || !legs) continue // no legs → void, never pending forever
-
-    const pendingIds = legs.filter((l) => l.result === "pending").map((l) => l.id)
-    if (pendingIds.length > 0) {
-      await supabase
-        .from("parlay_legs")
-        .update({ result: "push" })
-        .in("id", pendingIds)
-        .eq("result", "pending")
-    }
-
-    const outcome = parlayOutcome(legs.map((l) => l.result), true)
-    if (outcome && (await finishParlay(supabase, parlay.id, outcome))) expired++
+      .update({ result: "push" })
+      .in("id", pendingIds.slice(i, i + 100))
+      .eq("result", "pending")
+    if (pushError) return 0
   }
-
-  return expired
+  // No legs → void, never pending forever.
+  const outcomes = new Map(ids.map((id) => [id, parlayOutcome((byParlay.get(id) ?? []).map((l) => l.result), true)]))
+  return finishParlays(supabase, outcomes)
 }
