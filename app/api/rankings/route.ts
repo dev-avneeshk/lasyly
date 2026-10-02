@@ -36,8 +36,13 @@ const CACHE_TTL_MS = 300_000  // 5 minutes
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = request.nextUrl
   const sport = (searchParams.get("sport") ?? "NBA").toUpperCase()
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? `${DEFAULT_LIMIT}`), MAX_LIMIT)
-  const offset = parseInt(searchParams.get("offset") ?? "0")
+  // Clamped: NaN/negative values reached `.range()` and minted cache keys.
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "") || DEFAULT_LIMIT, 1), MAX_LIMIT)
+  const offset = Math.min(Math.max(parseInt(searchParams.get("offset") ?? "") || 0, 0), 5000)
+  const seasonParam = searchParams.get("season")
+  if (seasonParam !== null && !/^\d{4}(-\d{2})?$/.test(seasonParam)) {
+    return NextResponse.json({ error: "Invalid season." }, { status: 400 })
+  }
 
   // ─── NFL branch ─────────────────────────────────────────────────────────────
   // NFL rankings live in their own table (nfl_player_rankings), are regenerated
@@ -66,7 +71,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // ─── NBA (default) ────────────────────────────────────────────────────────
   const season = searchParams.get("season") ?? "2026-27"
-  const mode = (searchParams.get("mode") ?? "projected") as "historical" | "projected"
+  const mode = searchParams.get("mode") === "historical" ? "historical" : "projected"
   const type = (searchParams.get("type") ?? "overall") as RankingType
   const publishedOnly = searchParams.get("published") !== "false"
 
