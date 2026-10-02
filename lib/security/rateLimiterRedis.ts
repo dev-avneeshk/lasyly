@@ -16,6 +16,7 @@
 import type { RateLimitConfig, RateLimitResult } from "./types"
 import {
   RATE_LIMIT_AUTH,
+  RATE_LIMIT_SESSION_IP,
   RATE_LIMIT_STANDARD,
   RATE_LIMIT_UNAUTHENTICATED,
 } from "./constants"
@@ -35,11 +36,18 @@ interface RedisRateLimiter {
   }>
 }
 
+export type RateLimitTier = "auth" | "standard" | "unauthenticated" | "sessionIp"
+
+const TIERS: Record<RateLimitTier, { config: RateLimitConfig; prefix: string }> = {
+  auth: { config: RATE_LIMIT_AUTH, prefix: "rl:auth" },
+  standard: { config: RATE_LIMIT_STANDARD, prefix: "rl:standard" },
+  unauthenticated: { config: RATE_LIMIT_UNAUTHENTICATED, prefix: "rl:unauth" },
+  sessionIp: { config: RATE_LIMIT_SESSION_IP, prefix: "rl:sessip" },
+}
+
 // ─── Lazy Redis Initialization ───────────────────────────────────────────────
 
-let _authLimiter: RedisRateLimiter | null = null
-let _standardLimiter: RedisRateLimiter | null = null
-let _unauthLimiter: RedisRateLimiter | null = null
+let _limiters: Partial<Record<RateLimitTier, RedisRateLimiter>> = {}
 let _initialized = false
 let _useRedis = false
 
@@ -66,33 +74,16 @@ async function initRedis(): Promise<boolean> {
     const { Ratelimit } = await import("@upstash/ratelimit")
 
     const redis = new Redis({ url, token })
-
-    _authLimiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(
-        RATE_LIMIT_AUTH.maxRequests,
-        `${RATE_LIMIT_AUTH.windowMs}ms`
-      ),
-      prefix: "rl:auth",
-    })
-
-    _standardLimiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(
-        RATE_LIMIT_STANDARD.maxRequests,
-        `${RATE_LIMIT_STANDARD.windowMs}ms`
-      ),
-      prefix: "rl:standard",
-    })
-
-    _unauthLimiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(
-        RATE_LIMIT_UNAUTHENTICATED.maxRequests,
-        `${RATE_LIMIT_UNAUTHENTICATED.windowMs}ms`
-      ),
-      prefix: "rl:unauth",
-    })
+    _limiters = Object.fromEntries(
+      Object.entries(TIERS).map(([tier, { config, prefix }]) => [
+        tier,
+        new Ratelimit({
+          redis,
+          limiter: Ratelimit.slidingWindow(config.maxRequests, `${config.windowMs}ms`),
+          prefix,
+        }),
+      ])
+    )
 
     _useRedis = true
     return true
@@ -105,8 +96,6 @@ async function initRedis(): Promise<boolean> {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-export type RateLimitTier = "auth" | "standard" | "unauthenticated"
-
 /**
  * Check rate limit using Redis (production) or in-memory (development/fallback).
  *
@@ -118,22 +107,10 @@ export async function checkRateLimitDistributed(
   identifier: string,
   tier: RateLimitTier = "standard"
 ): Promise<RateLimitResult> {
-  const redisAvailable = await initRedis()
-
-  if (!redisAvailable) {
-    // Fallback to in-memory
-    const config = getTierConfig(tier)
-    return checkRateLimitMemory(identifier, config)
-  }
-
-  const limiter = getLimiterForTier(tier)
-  if (!limiter) {
-    const config = getTierConfig(tier)
-    return checkRateLimitMemory(identifier, config)
-  }
+  const limiter = (await initRedis()) ? _limiters[tier] : undefined
+  if (!limiter) return checkRateLimitMemory(identifier, TIERS[tier].config)
 
   const result = await limiter.limit(identifier)
-  const config = getTierConfig(tier)
   const resetAtSeconds = Math.ceil((result.reset - Date.now()) / 1000)
 
   return {
@@ -142,32 +119,6 @@ export async function checkRateLimitDistributed(
     limit: result.limit,
     retryAfterSeconds: result.success ? 0 : Math.max(resetAtSeconds, 1),
     resetAtSeconds: Math.max(resetAtSeconds, 0),
-  }
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getTierConfig(tier: RateLimitTier): RateLimitConfig {
-  switch (tier) {
-    case "auth":
-      return RATE_LIMIT_AUTH
-    case "unauthenticated":
-      return RATE_LIMIT_UNAUTHENTICATED
-    case "standard":
-    default:
-      return RATE_LIMIT_STANDARD
-  }
-}
-
-function getLimiterForTier(tier: RateLimitTier): RedisRateLimiter | null {
-  switch (tier) {
-    case "auth":
-      return _authLimiter
-    case "unauthenticated":
-      return _unauthLimiter
-    case "standard":
-    default:
-      return _standardLimiter
   }
 }
 

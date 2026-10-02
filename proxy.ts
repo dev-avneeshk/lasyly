@@ -302,12 +302,13 @@ export async function proxy(request: NextRequest) {
   if (isApiRoute && !isRateLimitExempt) {
     const tier = tierForPath(pathname, hasSupabaseSessionCookie)
     // Every request is counted per IP (read from platform-set headers rather
-    // than the client-forgeable x-forwarded-for). Session traffic is also
-    // counted per session so one user can't drain a shared NAT IP's budget.
-    // The IP bucket must always apply: the session cookie is unverified here,
-    // so a random `sb-x-auth-token` per request would otherwise mint a fresh
-    // bucket every time and bypass the limit on public routes.
-    const checks = [checkRateLimitDistributed(`${tier}:i:${getClientIp(request)}`, tier)]
+    // than the client-forgeable x-forwarded-for). The session cookie is
+    // unverified here, so a random `sb-x-auth-token` per request would mint a
+    // fresh session bucket every time; the IP bucket bounds that. Session
+    // traffic gets the per-session limit plus a much higher per-IP flood guard
+    // (many real users share one CGNAT/office IP).
+    const ipTier = tier === "standard" ? "sessionIp" : tier
+    const checks = [checkRateLimitDistributed(`${ipTier}:i:${getClientIp(request)}`, ipTier)]
     if (bucket !== null) checks.push(checkRateLimitDistributed(`${tier}:s:${bucket}`, tier))
     const results = await Promise.all(checks)
     const rateResult = results.find((r) => !r.allowed) ?? results[results.length - 1]

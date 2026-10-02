@@ -22,10 +22,20 @@ const count429 = async (n: number, make: (i: number) => Promise<Response>) => {
   return limited
 }
 
+// REV-9: the AUTHZ-4 fix capped every signed-in user on one IP at the
+// per-user 240/min, so a few users behind one CGNAT/office IP locked it out.
 describe("proxy API rate limit", () => {
   it("rotating forged session cookies cannot escape the per-IP cap", async () => {
-    const limited = await count429(300, (i) => call("203.0.113.7", `sb-x-auth-token=forged-${i}`))
+    const limited = await count429(2500, (i) => call("203.0.113.7", `sb-x-auth-token=forged-${i}`))
     expect(limited).toBeGreaterThan(0)
+  })
+  it("many real sessions behind one NAT IP are not limited by each other (was: 429 after 240)", async () => {
+    const limited = await count429(1000, (i) => call("203.0.113.9", `sb-x-auth-token=session-${i % 10}`))
+    expect(limited).toBe(0)
+  })
+  it("one session still hits its own per-user cap", async () => {
+    const limited = await count429(300, () => call("203.0.113.10", "sb-x-auth-token=busy-session"))
+    expect(limited).toBe(60)
   })
 
   it("a single session under the cap is never limited", async () => {

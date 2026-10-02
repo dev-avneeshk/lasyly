@@ -28,9 +28,8 @@ export const RATE_LIMIT_AUTH: RateLimitConfig = {
  *      before the whole population starts seeing 429s — indistinguishable from
  *      an outage.
  *
- * Applied per session and per IP (see proxy.ts; the IP bucket stops forged
- * session cookies from minting fresh buckets), and it
- * is high enough that a heavy real user with several tabs never reaches it. The
+ * Applied per session, and it is high enough that a heavy real user with
+ * several tabs never reaches it. The
  * precise, per-action limits live in the routes themselves (RATE_LIMITS in
  * lib/rateLimit.ts) — this is only the coarse backstop.
  */
@@ -50,6 +49,18 @@ export const RATE_LIMIT_STANDARD: RateLimitConfig = {
  */
 export const RATE_LIMIT_UNAUTHENTICATED: RateLimitConfig = {
   maxRequests: 120,
+  windowMs: 60_000,
+}
+
+/**
+ * Per-IP flood guard for requests carrying a session cookie: 2400/min (10×
+ * standard). The proxy can't verify the cookie, so without an IP cap a fresh
+ * forged cookie per request would mint a fresh session bucket every time. It
+ * must not be the per-user 240/min: everyone behind one CGNAT/office IP shares
+ * it, and ~4 arena players would lock the whole address out.
+ */
+export const RATE_LIMIT_SESSION_IP: RateLimitConfig = {
+  maxRequests: RATE_LIMIT_STANDARD.maxRequests * 10,
   windowMs: 60_000,
 }
 
