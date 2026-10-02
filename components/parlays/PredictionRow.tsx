@@ -51,6 +51,11 @@ const STATUS_CONFIG = {
     label: "PENDING",
     className: "bg-white/5 text-zinc-300 border-white/15",
   },
+  // Couldn't be settled (no stats / unsupported leg): no win, no loss.
+  void: {
+    label: "VOID",
+    className: "bg-white/5 text-zinc-400 border-white/15",
+  },
 } as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

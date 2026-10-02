@@ -69,6 +69,10 @@ const STATUS_CONFIG = {
     label: "Pending",
     className: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   },
+  void: {
+    label: "Void",
+    className: "bg-white/5 text-zinc-400 border-white/15",
+  },
 } as const
 
 // --- Date formatting ---
