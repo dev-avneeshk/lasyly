@@ -5,6 +5,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame, needsServerTick } from "@/lib/arena/store"
 import { serverTick, serverView, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 
 /**
  * GET /api/arena/[gameId] — the current authoritative view.
@@ -79,7 +80,7 @@ export const GET = withSecurity(async (
   // it resolved) pushes that transition to the other so they don't wait for
   // their own poll to notice it. View included so the other client applies it in
   // one hop rather than answering the nudge with its own GET.
-  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev))
+  if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev)), "arena broadcast")
 
   return NextResponse.json(participantView(serverView(game.state, viewer, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

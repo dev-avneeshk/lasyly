@@ -5,6 +5,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { startSimulation, serverView, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 import { awardCpuReward, settle1v1 } from "@/lib/economy/wallet"
 import { XP_REWARDS, stakePayout } from "@/lib/economy/arena"
 import type { TeamId } from "@/lib/arena/types"
@@ -74,7 +75,7 @@ export const POST = withSecurity(async (
   }
 
   // Push the final result to the opponent so both flip to the summary together.
-  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
+  if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev)), "arena broadcast")
 
   return NextResponse.json(participantView(serverView(game.state, seat, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

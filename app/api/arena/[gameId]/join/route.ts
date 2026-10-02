@@ -6,6 +6,7 @@ import { loadGame, mutateGame } from "@/lib/arena/store"
 import { openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 import type { TeamId } from "@/lib/arena/types"
 
@@ -118,7 +119,7 @@ export const POST = withSecurity(async (
   // them wait for their lobby poll to notice the join. Ship the view so their
   // client transitions in one hop.
   const seat: TeamId = "P2"
-  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
+  if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev)), "arena broadcast")
 
   // The caller now holds seat P2: allow them on the private channel before
   // handing them its name (Realtime checks the seat when they subscribe).

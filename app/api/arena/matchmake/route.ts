@@ -8,6 +8,7 @@ import { serverView } from "@/lib/arena/server"
 import { saveGame, loadGame, mutateGame } from "@/lib/arena/store"
 import { enqueueOpenGame, dequeueOpenGame, removeOpenGame } from "@/lib/arena/matchmaking"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import {
   DEFAULT_CONFIG,
@@ -114,7 +115,7 @@ export const POST = withSecurity(async (request: Request) => {
         // Flip the waiting creator straight into the auction (they've been
         // sitting on "Finding an opponent…" polling their lobby). Ship the view
         // so they transition in one hop.
-        void broadcastArenaUpdate(openGameId, serverView(game.state, "P2", game.rev))
+        afterResponse(() => broadcastArenaUpdate(openGameId, serverView(game.state, "P2", game.rev)), "arena broadcast")
         return NextResponse.json(participantView(serverView(game.state, "P2", game.rev)))
       } catch {
         // The game filled or vanished between the pop and the lock. Refund the
