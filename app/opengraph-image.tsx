@@ -68,6 +68,8 @@ export default function OGImage() {
 
         {/* Headline */}
         <div style={{
+          display: "flex",
+          flexDirection: "column",
           color: "#ffffff",
           fontSize: 72,
           fontWeight: 900,
@@ -76,7 +78,7 @@ export default function OGImage() {
           marginBottom: 28,
           maxWidth: 780,
         }}>
-          Where bettors<br />
+          <span>Where bettors</span>
           <span style={{ color: "#D4FF00" }}>win together.</span>
         </div>
 
