@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Prove supabase/migrations/20261002_lock_down_profile_betslip_member_writes.sql
+# (+ 20261002_parlays_owner_writes.sql, 20261003_betslip_grading_service_only.sql)
 # closes the direct-PostgREST bypasses L-01, AUTHZ-2 and AUTHZ-3, against a
 # THROWAWAY local Postgres. Never touches a real database.
 #
@@ -15,6 +16,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FIX="${FIX:-$ROOT/supabase/migrations/20261002_lock_down_profile_betslip_member_writes.sql}"
 PARLAY_FIX="${PARLAY_FIX:-$ROOT/supabase/migrations/20261002_parlays_owner_writes.sql}"
+BETSLIP_FIX="${BETSLIP_FIX:-$ROOT/supabase/migrations/20261003_betslip_grading_service_only.sql}"
 
 for bin in initdb pg_ctl psql; do
   command -v "$bin" >/dev/null || { echo "error: $bin not found on PATH" >&2; exit 1; }
@@ -154,12 +156,23 @@ attacks() {
   check "rewrite picks of a posted slip"  "$1" "$(as authenticated "$ME" "UPDATE public.betslips SET matches = '[{\"pick\":\"late\"}]', odds = 9 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'allowed';")"
   check "post a betslip already won"      "$1" "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, status, matches) VALUES ('$ME', 2, 'Won', '[]') RETURNING 'allowed';")"
   check "owner deletes a pending parlay"  "$1" "$(as authenticated "$ME" "DELETE FROM public.parlays WHERE id = '$PARLAY' RETURNING 'allowed';")"
+  payout_attacks "$1"
+}
+# REV-16: owners could write any payout (still open after the 20261002 fix).
+payout_attacks() {
+  check "owner writes payout on a pending slip" "$1" "$(as authenticated "$ME" "UPDATE public.betslips SET payout = 1e9 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'allowed';")"
+  check "owner self-grades Won with any payout" "$1" "$(as authenticated "$ME" "UPDATE public.betslips SET status = 'Won', payout = 1e9 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'allowed';")"
 }
 
 echo "before the fix (attacks succeed)"
 attacks allowed
 
 for f in "$FIX" "$PARLAY_FIX" "$FIX" "$PARLAY_FIX"; do  # twice: must be re-runnable
+  PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
+done
+echo "after 20261002 only (payout still writable)"
+payout_attacks allowed
+for f in "$BETSLIP_FIX" "$BETSLIP_FIX"; do
   PGOPTIONS=--client-min-messages=warning "${PSQL[@]}" -f "$f" >/dev/null
 done
 
@@ -174,7 +187,7 @@ check "join public room"          ok "$(as authenticated "$ME" "INSERT INTO publ
 check "join as owner refused"     denied "$(as authenticated "$ME" "INSERT INTO public.room_members (room_id, user_id, role) VALUES ('$PUB', '$ME', 'owner') RETURNING 'ok';")"
 check "betslip listing readable"  ok "$(as anon '' "SELECT 'ok' FROM public.betslips WHERE is_for_sale AND price = 50;")"
 check "post betslip with picks"   ok "$(as authenticated "$ME" "INSERT INTO public.betslips (user_id, odds, matches) VALUES ('$ME', 2, '[]') RETURNING 'ok';")"
-check "settle own betslip"        ok "$(as authenticated "$OTHER" "UPDATE public.betslips SET status = 'Won' WHERE user_id = '$OTHER' AND status = 'Pending' RETURNING 'ok';")"
+check "API grades own betslip"    ok "$(as service_role '' "UPDATE public.betslips SET status = 'Won', payout = 4 WHERE user_id = '$ME' AND status = 'Pending' RETURNING 'ok';")"
 check "service role reads picks"  ok "$(as service_role '' "SELECT 'ok' FROM public.betslips WHERE matches IS NOT NULL;")"
 check "API creates parlay + legs" ok "$(as service_role '' "WITH p AS (INSERT INTO public.parlays (user_id, visibility, odds, stake, custom_note, combined_hit_rate, is_logged) VALUES ('$ME', 'public', 2.5, 10, 'n', 60, false) RETURNING id) INSERT INTO public.parlay_legs (parlay_id, player_name, stat_category, prop_line, direction, l10_hit_rate, leg_order, sport) SELECT id, 'X', 'pts', 1, 'over', 50, 1, 'NBA' FROM p RETURNING 'ok';")"
 check "owner reads own parlay"    ok "$(as authenticated "$ME" "SELECT 'ok' FROM public.parlays WHERE id = '$PARLAY';")"

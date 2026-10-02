@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { handleConflict } from "@/lib/security/concurrency"
 import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
@@ -74,11 +75,13 @@ export const PATCH = withSecurity(async (
     updatePayload.payout = Math.round(betslip.stake * betslip.odds * 100) / 100
   }
 
-  // Only while still Pending (concurrency guard: a racing grade gets 409).
-  const { data: updated, error: updateErr, count } = await supabase
+  // Service role: users have no UPDATE on betslips, so payout is always the
+  // value computed here. Only while still Pending (a racing grade gets 409).
+  const { data: updated, error: updateErr, count } = await createAdminClient()
     .from("betslips")
     .update(updatePayload)
     .eq("id", betslipId)
+    .eq("user_id", user.id)
     .eq("status", "Pending")
     .select("id, user_id, odds, stake, payout, status")
 
