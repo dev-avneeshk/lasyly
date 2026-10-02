@@ -91,6 +91,17 @@ describe("NBA settlement never uses a game that started before the bet", () => {
     expect(settledLeg()?.values).toEqual({ result: "lost", game_id: "uuid-2026-01-17" })
   })
 
+  // REV-23: a duplicated stats row for tonight's game was taken as "next game".
+  it("duplicated row for tonight's started game is not the next game", async () => {
+    st.legs = [leg("2026-01-16T01:00:00Z")]
+    st.stats = [game("2026-01-15"), game("2026-01-15")]
+    await settleParlayLegs()
+    expect(settledLeg()).toBeUndefined() // was: settled won on the game already in progress
+    st.stats.push({ ...game("2026-01-17"), pts: 0 })
+    await settleParlayLegs()
+    expect(settledLeg()?.values).toEqual({ result: "lost", game_id: "uuid-2026-01-17" })
+  })
+
   it("same-day game when the tip-off is unknown → pending", async () => {
     st.tipOffs = []
     st.legs = [leg("2026-01-15T17:00:00Z")]

@@ -250,8 +250,8 @@ async function settleNBALegs(
   let settled = 0
   let errors = 0
 
-  // First two games per (player, creation day): the second is used when the
-  // first tipped off before the bet. One small indexed-range query each; a
+  // First games per (player, creation day): a later one is used when the first
+  // tipped off before the bet (4 rows tolerate duplicated stats rows). One small indexed-range query each; a
   // single `.in(players).limit(n)` truncated at PostgREST's row cap.
   const keyOf = (l: PendingLeg) => `${l.player_name}|${easternDay(l.parlay_created_at)}`
   const keys = [...new Set(legs.filter((l) => l.parlay_created_at).map(keyOf))]
@@ -266,7 +266,7 @@ async function settleNBALegs(
           .eq("player_name", name)
           .gte("nba_games.game_date", day)
           .order("nba_games(game_date)", { ascending: true })
-          .limit(2)
+          .limit(4)
         if (error) errors++
         else if (data?.length) nextGames.set(key, data as unknown as NbaStatRow[])
       })
@@ -288,7 +288,9 @@ async function settleNBALegs(
     if (game.nba_games.game_date === easternDay(leg.parlay_created_at)) {
       const tip = tipOffs.get(`${game.nba_games.game_date}|${nick(game.nba_games.home_team)}`)
       if (tip === undefined) continue
-      if (tip <= Date.parse(leg.parlay_created_at)) game = rows[1] // already started: next game
+      // Already started: the next game on a LATER day (duplicate stats rows for
+      // tonight's game must not count as "next").
+      if (tip <= Date.parse(leg.parlay_created_at)) game = rows.find((r) => r.nba_games.game_date > game!.nba_games.game_date)
       if (!game) continue
     }
     const stats: NbaStatRow = game
