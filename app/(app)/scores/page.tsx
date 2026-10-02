@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 // This server component only provides the initial server-rendered snapshot;
 // live freshness is handled entirely by ScoresClient, which polls the
-// CDN-cached /api/scores endpoint every ~15s on the client. A 10s ISR window
+// CDN-cached /api/scores endpoint every 60 s (today, tab visible). A 10s ISR window
 // forced the shell HTML to regenerate constantly for data the client already
 // refreshes, so we relax it to 5 minutes. The initial paint is still recent
 // and the client hydrates fresh scores immediately after mount.
