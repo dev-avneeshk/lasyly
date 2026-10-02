@@ -13,6 +13,7 @@ import {
   getUserLobby,
   holdUserLobby,
   trackLobby,
+  untrackLobby,
 } from "@/lib/arena/matchmaking"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
@@ -121,8 +122,8 @@ export const POST = withSecurity(async (request: Request) => {
             openNextLot(g.state)
           }
         })
-        // Make sure a claimed game never lingers in the queue.
-        await removeOpenGame(openGameId)
+        // Make sure a claimed game never lingers in the queue or the refund sweep.
+        await Promise.all([removeOpenGame(openGameId), untrackLobby(openGameId, game.ownerUserId)])
         // Let the new P2 join the private channel before they learn its name.
         await registerArenaChannelMember(openGameId, user.id, "P2")
         // Flip the waiting creator straight into the auction (they've been
@@ -183,7 +184,7 @@ export const POST = withSecurity(async (request: Request) => {
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
   await registerArenaChannelMember(gameId, user.id, "P1")
-  await Promise.all([enqueueOpenGame(gameId), trackLobby(gameId)])
+  await Promise.all([enqueueOpenGame(gameId), trackLobby(gameId, user.id)])
 
   return NextResponse.json(participantView(serverView(state, "P1", 1)), { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

@@ -30,6 +30,7 @@
 
 import { getRedisClient } from "@/lib/redis"
 import { deleteGame, mutateGame, GameNotFoundError } from "@/lib/arena/store"
+import { RELEASE_LOCK_LUA } from "@/lib/games/store"
 import { refundArenaStake } from "@/lib/economy/wallet"
 
 /** One shared queue key for all open public games. */
@@ -121,7 +122,9 @@ export async function holdUserLobby(userId: string, gameId: string, staleId: str
   const redis = getRedisClient()
   if (!redis) return true
   try {
-    if (staleId) await redis.del(userLobbyKey(userId))
+    // Compare-and-delete: an unconditional DEL could remove a fresh slot a
+    // concurrent matchmake (that saw the same stale id) just took.
+    if (staleId) await redis.eval(RELEASE_LOCK_LUA, [userLobbyKey(userId)], [staleId])
     return (await redis.set(userLobbyKey(userId), gameId, { nx: true, ex: 3 * 60 * 60 })) === "OK"
   } catch (error) {
     console.error("[arena/matchmaking] hold failed:", error)
@@ -129,12 +132,22 @@ export async function holdUserLobby(userId: string, gameId: string, staleId: str
   }
 }
 
-/** Track a human lobby so the sweep can refund it if nobody ever joins. */
-export async function trackLobby(gameId: string): Promise<void> {
+/**
+ * Track a human lobby so the sweep can refund it if nobody ever joins. The
+ * owner rides along so the refund survives the game key expiring first; a
+ * joined lobby is untracked, so an entry always means "never joined".
+ */
+const lobbyMember = (gameId: string, ownerId: string) => `${gameId} ${ownerId}`
+export async function trackLobby(gameId: string, ownerId: string): Promise<void> {
   const redis = getRedisClient()
   if (!redis) return
-  await redis.zadd(LOBBIES_KEY, { score: Date.now(), member: gameId }).catch((error) => {
+  await redis.zadd(LOBBIES_KEY, { score: Date.now(), member: lobbyMember(gameId, ownerId) }).catch((error) => {
     console.error("[arena/matchmaking] track failed:", error)
+  })
+}
+export async function untrackLobby(gameId: string, ownerId: string): Promise<void> {
+  await getRedisClient()?.zrem(LOBBIES_KEY, lobbyMember(gameId, ownerId)).catch((error) => {
+    console.error("[arena/matchmaking] untrack failed:", error)
   })
 }
 
@@ -147,13 +160,14 @@ export async function trackLobby(gameId: string): Promise<void> {
 export async function sweepAbandonedLobbies(now = Date.now()): Promise<number> {
   const redis = getRedisClient()
   if (!redis) return 0
-  const ids = await redis.zrange<string[]>(LOBBIES_KEY, 0, now - LOBBY_MAX_AGE_MS, {
+  const members = await redis.zrange<string[]>(LOBBIES_KEY, 0, now - LOBBY_MAX_AGE_MS, {
     byScore: true,
     offset: 0,
     count: 50,
   })
   let refunded = 0
-  for (const id of ids) {
+  for (const member of members) {
+    const [id, trackedOwner] = member.split(" ")
     let owner = null as string | null
     try {
       await mutateGame(id, (g) => {
@@ -163,15 +177,16 @@ export async function sweepAbandonedLobbies(now = Date.now()): Promise<number> {
       })
     } catch (error) {
       if (!(error instanceof GameNotFoundError)) continue // busy: next sweep
+      owner = trackedOwner ?? null // expired before we got to it: still never joined
     }
     if (owner) {
       if ((await refundArenaStake({ userId: owner, gameId: id })) === "error") continue
       refunded++
       await deleteGame(id)
-      if ((await getUserLobby(owner)) === id) await redis.del(userLobbyKey(owner)).catch(() => {})
+      await redis.eval(RELEASE_LOCK_LUA, [userLobbyKey(owner)], [id]).catch(() => {})
     }
     await removeOpenGame(id)
-    await redis.zrem(LOBBIES_KEY, id)
+    await redis.zrem(LOBBIES_KEY, member)
   }
   return refunded
 }

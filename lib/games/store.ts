@@ -160,8 +160,8 @@ async function withLocalLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
 
 // ─── Lua: atomic release + compare-and-swap write ───────────────────────────
 
-/** Delete the lock only if we still own it (GET-then-DEL is racy). */
-const RELEASE_LOCK_LUA = `
+/** Delete KEYS[1] only if it still holds ARGV[1] (GET-then-DEL is racy). */
+export const RELEASE_LOCK_LUA = `
 if redis.call('GET', KEYS[1]) == ARGV[1] then
   return redis.call('DEL', KEYS[1])
 end

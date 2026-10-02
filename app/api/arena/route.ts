@@ -99,7 +99,7 @@ export const POST = withSecurity(async (request: Request) => {
 
   await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
   // An invite lobby nobody joins is refunded by the jobs cron (sweepAbandonedLobbies).
-  if (!vsAI) await trackLobby(gameId)
+  if (!vsAI) await trackLobby(gameId, user.id)
   // Before responding: the client subscribes as soon as it has `channel`, and
   // Realtime checks the seat at that moment.
   await registerArenaChannelMember(gameId, user.id, "P1")

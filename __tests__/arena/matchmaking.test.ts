@@ -24,6 +24,8 @@ vi.mock("@/lib/redis", () => ({
     zadd: async (_k: string, { score, member }: { score: number; member: string }) => st.zset.set(member, score),
     zrange: async (_k: string, _min: number, max: number) => [...st.zset].filter(([, s]) => s <= max).map(([m]) => m),
     zrem: async (_k: string, m: string) => st.zset.delete(m),
+    // Only the compare-and-delete script is used here.
+    eval: async (_s: string, [k]: string[], [v]: string[]) => (st.kv.get(k) === v ? Number(st.kv.delete(k)) : 0),
   }),
 }))
 vi.mock("@/lib/arena/store", () => {
@@ -46,7 +48,7 @@ vi.mock("@/lib/economy/wallet", () => ({
   },
 }))
 
-import { dequeueOpenGame, holdUserLobby, sweepAbandonedLobbies, trackLobby, LOBBY_MAX_AGE_MS } from "@/lib/arena/matchmaking"
+import { dequeueOpenGame, holdUserLobby, sweepAbandonedLobbies, trackLobby, untrackLobby, LOBBY_MAX_AGE_MS } from "@/lib/arena/matchmaking"
 
 beforeEach(() => {
   st.list = []
@@ -70,6 +72,13 @@ describe("holdUserLobby", () => {
     const [a, b] = await Promise.all([holdUserLobby("u1", "g1", null), holdUserLobby("u1", "g2", null)])
     expect([a, b].filter(Boolean)).toHaveLength(1)
   })
+
+  it("a second request that saw the same stale slot can't delete the fresh one (was: both charged)", async () => {
+    st.kv.set("arena:matchmaking:user:u1", "stale")
+    expect(await holdUserLobby("u1", "g1", "stale")).toBe(true)
+    expect(await holdUserLobby("u1", "g2", "stale")).toBe(false)
+    expect(st.kv.get("arena:matchmaking:user:u1")).toBe("g1")
+  })
 })
 
 describe("sweepAbandonedLobbies", () => {
@@ -77,8 +86,8 @@ describe("sweepAbandonedLobbies", () => {
     st.games.set("lonely", { ownerUserId: "u1", guestUserId: null, state: { status: "lobby" } })
     st.games.set("joined", { ownerUserId: "u2", guestUserId: "u3", state: { status: "auction" } })
     st.list = ["lonely"]
-    await trackLobby("lonely")
-    await trackLobby("joined")
+    await trackLobby("lonely", "u1")
+    await trackLobby("joined", "u2")
     const later = Date.now() + LOBBY_MAX_AGE_MS + 1
 
     expect(await sweepAbandonedLobbies(later)).toBe(1)
@@ -91,8 +100,19 @@ describe("sweepAbandonedLobbies", () => {
 
   it("ignores lobbies younger than the cutoff", async () => {
     st.games.set("fresh", { ownerUserId: "u1", guestUserId: null, state: { status: "lobby" } })
-    await trackLobby("fresh")
+    await trackLobby("fresh", "u1")
     expect(await sweepAbandonedLobbies(Date.now())).toBe(0)
     expect(st.refunds).toEqual([])
+  })
+
+  it("still refunds an unjoined lobby whose game key expired first (was: refund lost); joined ones are untracked", async () => {
+    st.kv.set("arena:matchmaking:user:u1", "gone")
+    await trackLobby("gone", "u1") // no game record: the 3h TTL already dropped it
+    await trackLobby("played", "u2")
+    await untrackLobby("played", "u2") // a join untracks, so a later expiry can't refund a played game
+    expect(await sweepAbandonedLobbies(Date.now() + LOBBY_MAX_AGE_MS + 1)).toBe(1)
+    expect(st.refunds).toEqual(["u1:gone"])
+    expect(st.zset.size).toBe(0)
+    expect(st.kv.has("arena:matchmaking:user:u1")).toBe(false)
   })
 })
