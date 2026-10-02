@@ -79,9 +79,8 @@ export const GET = withSecurity(async (
 
   const allBetslips = betslips ?? []
   const totalPicks = allBetslips.length
-  const resolvedBetslips = allBetslips.filter(
-    (b) => b.status === "Won" || b.status === "Lost" || b.status === "Void"
-  )
+  // Void is a refund, not a loss: win rate is over Won + Lost only.
+  const resolvedBetslips = allBetslips.filter((b) => b.status === "Won" || b.status === "Lost")
   const wonCount = allBetslips.filter((b) => b.status === "Won").length
 
   let winRate = 0

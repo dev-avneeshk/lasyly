@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached, CACHE_TTL } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { fetchPagedParallel } from "@/lib/supabase/paged"
 
 export interface LeaderboardEntry {
   user_id: string
@@ -17,25 +18,39 @@ export interface LeaderboardEntry {
 
 export const GET = withSecurity(async (request: Request) => {
   const url = new URL(request.url)
-  const sortBy = url.searchParams.get("sort") || "win_rate"
+  // Enum, so arbitrary values can't mint cache keys.
+  const sortBy = url.searchParams.get("sort") === "total_picks" ? "total_picks" : "win_rate"
 
   const result = await cached(`leaderboard:${sortBy}`, async () => {
     const supabase = createAdminClient()
 
-    // Fetch all resolved parlays (won/lost) to compute leaderboard stats
-    const { data: parlays, error: parlaysError } = await supabase
-      .from("parlays")
-      .select("user_id, status, odds")
-      .in("status", ["won", "lost", "pending"])
-
-    if (parlaysError) {
-      if (parlaysError.code === "42P01" || parlaysError.message?.includes("relation")) {
+    // Every won/lost/pending parlay, paged in id order: one unordered select
+    // stopped at PostgREST's 1000-row cap and ranked users on a partial set.
+    const parlaysQuery = () => supabase.from("parlays")
+    let parlays: { user_id: string; status: string; odds: number | null }[]
+    try {
+      parlays = await fetchPagedParallel(
+        async () =>
+          (await parlaysQuery().select("id", { count: "exact", head: true }).in("status", ["won", "lost", "pending"])).count,
+        async (from, to) => {
+          const { data, error } = await parlaysQuery()
+            .select("user_id, status, odds")
+            .in("status", ["won", "lost", "pending"])
+            .order("id")
+            .range(from, to)
+          if (error) throw error
+          return data ?? []
+        }
+      )
+    } catch (error) {
+      const e = error as { code?: string; message?: string }
+      if (e.code === "42P01" || e.message?.includes("relation")) {
         return { leaderboard: [] as LeaderboardEntry[] }
       }
       throw new Error("Failed to fetch leaderboard data.")
     }
 
-    if (!parlays || parlays.length === 0) {
+    if (parlays.length === 0) {
       return { leaderboard: [] as LeaderboardEntry[] }
     }
 
