@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 
 import { fetchWithRetry } from "@/lib/supabase/fetch-with-retry"
 import { cached } from "@/lib/cache"
+import { sanitizeArticleHtml } from "@/lib/sanitize"
 
 const ARTICLE_CACHE_TTL = 600_000 // 10 minutes
 
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
         id: data.id,
         headline: data.headline,
         description: data.description,
-        story: data.story,
+        story: sanitizeArticleHtml(data.story), // third-party HTML, rendered as HTML
         published: data.published_at,
         source: data.source,
         image: data.image_url,
@@ -87,7 +88,7 @@ async function fetchFromESPN(articleId: string) {
       id: article.id,
       headline: article.headline ?? "",
       description: article.description ?? "",
-      story: article.story ?? null,
+      story: article.story ? sanitizeArticleHtml(article.story) : null,
       published: article.published ?? "",
       source: article.section ?? article.root ?? "ESPN",
       image,

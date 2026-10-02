@@ -23,6 +23,30 @@ export function sanitizeText(input: string, maxLength?: number): string {
   return clean
 }
 
+const ARTICLE_TAGS = /^<(\/?)(p|br|strong|b|em|i|h2|h3|h4|ul|ol|li|blockquote)\b[^>]*>$/i
+const ARTICLE_LINK = /^<a\b[^>]*?\bhref\s*=\s*["']?(https?:\/\/[^"'\s>]+)/i
+const escapeAttr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
+
+/**
+ * Allowlist sanitizer for third-party article HTML (ESPN stories) rendered
+ * with dangerouslySetInnerHTML. Keeps basic formatting tags with no
+ * attributes and http(s) links; drops every other tag (script, img, iframe,
+ * event handlers, javascript: URLs) and escapes stray `<` in text.
+ */
+export function sanitizeArticleHtml(html: string): string {
+  return html
+    .split(/(<[^>]*>)/)
+    .map((part, i) => {
+      if (i % 2 === 0) return part.replace(/</g, "&lt;")
+      const tag = ARTICLE_TAGS.exec(part)
+      if (tag) return `<${tag[1]}${tag[2].toLowerCase()}>`
+      if (/^<\/a\s*>$/i.test(part)) return "</a>"
+      const link = ARTICLE_LINK.exec(part)
+      return link ? `<a href="${escapeAttr(link[1])}" rel="noopener noreferrer nofollow" target="_blank">` : ""
+    })
+    .join("")
+}
+
 /**
  * Sanitize a username: lowercase, only alphanumeric + underscore.
  */
