@@ -74,6 +74,15 @@ describe("arena payout (L-09)", () => {
     await view(req("/api/arena/g1"), ctx("g1"))
     expect(wallet.settle1v1).toHaveBeenCalledTimes(2) // failed try + one successful payout
   })
+
+  it("no_profile is terminal: polls stop re-calling the payout RPC (REV-15)", async () => {
+    await lineup1v1("g2")
+    st.settleResults = ["no_profile", "no_profile", "no_profile"]
+    await simulate(req("/api/arena/g2/simulate", { method: "POST" }), ctx("g2"))
+    await view(req("/api/arena/g2"), ctx("g2"))
+    await view(req("/api/arena/g2"), ctx("g2"))
+    expect(wallet.settle1v1).toHaveBeenCalledTimes(1) // was: once per poll
+  })
 })
 
 describe("arena create (L-08)", () => {

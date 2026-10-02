@@ -13,6 +13,8 @@ import { XP_REWARDS, stakePayout } from "@/lib/economy/arena"
  * simulate lock) lost the payout for good when the RPC failed. The RPCs are
  * idempotent per game, so concurrent or repeated calls pay once. Called by
  * simulate and by the GET view, so a failed payout retries on the next load.
+ * `no_profile` (winner deleted, or no human winner) can never succeed, so it
+ * is terminal too: otherwise every 1-2 s poll re-ran the RPC for the game's TTL.
  */
 export async function settleArenaGame(game: StoredGame): Promise<void> {
   const { state } = game
@@ -38,9 +40,10 @@ export async function settleArenaGame(game: StoredGame): Promise<void> {
             winnerXp: XP_REWARDS.play + XP_REWARDS.pvpWin,
             loserXp: XP_REWARDS.play,
           })
-        : "error"
+        : "no_profile"
 
-  if (res === "completed" || res === "duplicate") {
+  if (res === "no_profile") console.warn(`[arena] game ${state.gameId}: no winner profile, nothing paid`)
+  if (res !== "error") {
     await mutateGame(state.gameId, (g) => {
       if (g.state.econ) g.state.econ.settled = true
     }).catch(() => {}) // flag is an optimisation; the RPC already holds the truth
