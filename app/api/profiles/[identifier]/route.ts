@@ -74,7 +74,9 @@ export const GET = withSecurity(async (
 
   // Compute betting statistics
   // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
+  // A failed stats read returns empty stats, not a 500 (this route isn't cached).
   const allBetslips = await fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id])
+    .catch((e) => (console.error("profile stats read failed:", e?.message ?? e), []))
   const totalPicks = allBetslips.length
   // Void is a refund, not a loss: win rate is over Won + Lost only.
   const resolvedBetslips = allBetslips.filter((b) => b.status === "Won" || b.status === "Lost")

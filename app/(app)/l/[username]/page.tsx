@@ -42,7 +42,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
       .select("*", { count: "exact", head: true })
       .eq("follower_id", profile.id),
     // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
-    fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id]),
+    // A failed stats read shows empty stats, not the error page (nothing cached).
+    fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id])
+      .catch((e) => (console.error("profile stats read failed:", e?.message ?? e), [])),
     supabase.auth.getUser(),
   ])
 
