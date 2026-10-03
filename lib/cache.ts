@@ -52,7 +52,7 @@ if (typeof setInterval !== "undefined") {
         invalidationEpochs.delete(key)
       }
     }
-  }, 30_000)
+  }, 30_000).unref?.() // don't keep a Node process (scripts, tests) alive
 }
 
 // ─── Redis Cache Helpers ─────────────────────────────────────────────────────
