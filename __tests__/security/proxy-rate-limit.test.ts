@@ -22,33 +22,37 @@ const count429 = async (n: number, make: (i: number) => Promise<Response>) => {
   return limited
 }
 
-// REV-9: the AUTHZ-4 fix capped every signed-in user on one IP at the
-// per-user 240/min, so a few users behind one CGNAT/office IP locked it out.
 describe("proxy API rate limit", () => {
-  // REV-19: rotating cookies reached the 2400/min session flood guard (20x the
-  // 120/min anonymous budget); before the fix 300 such requests saw 0 x 429.
-  // Now the first 50 distinct cookies are admitted, later ones share the
-  // anonymous per-IP 120/min: 300 - 50 - 120 = 130 limited.
-  it("rotating forged session cookies get the anonymous budget past 50 sessions", async () => {
-    const limited = await count429(300, (i) => call("203.0.113.7", `sb-x-auth-token=forged-${i}`))
-    expect(limited).toBe(130)
+  // REV-19: 10 reused forged cookies from one IP were admitted 2400 times a
+  // minute (each cookie its own 240 bucket under a 2400 per-IP flood guard).
+  // Now one counter keyed only by IP caps every request at 600/min.
+  it("10 stable forged cookies from one IP cannot exceed the 600/min IP ceiling (was 2400)", async () => {
+    const limited = await count429(2500, (i) => call("203.0.113.7", `sb-x-auth-token=forged-${i % 10}`))
+    expect(2500 - limited).toBe(600)
   })
-  it("rotating forged cookies drain the same budget as cookie-less traffic from that IP", async () => {
-    await count429(50, (i) => call("203.0.113.11", `sb-x-auth-token=warm-${i}`))
-    expect(await count429(120, () => call("203.0.113.11"))).toBe(0)
-    expect((await call("203.0.113.11", "sb-x-auth-token=new-forged")).status).toBe(429)
+  it("rotating forged cookies hit the same ceiling", async () => {
+    const limited = await count429(700, (i) => call("203.0.113.12", `sb-x-auth-token=rotate-${i}`))
+    expect(limited).toBe(100)
   })
-  it("many real sessions behind one NAT IP are not limited by each other (was: 429 after 240)", async () => {
-    const limited = await count429(1000, (i) => call("203.0.113.9", `sb-x-auth-token=session-${i % 10}`))
+  it("cookie-bearing and cookie-less requests share the IP ceiling", async () => {
+    await count429(600, (i) => call("203.0.113.11", `sb-x-auth-token=warm-${i}`))
+    expect((await call("203.0.113.11")).status).toBe(429)
+  })
+  // REV-9: the AUTHZ-4 fix capped every signed-in user on one IP at the
+  // per-user 240/min, so a few users behind one CGNAT/office IP locked it out.
+  it("many real sessions behind one NAT IP under the ceiling are not limited (was: 429 after 240)", async () => {
+    const limited = await count429(500, (i) => call("203.0.113.9", `sb-x-auth-token=session-${i % 10}`))
     expect(limited).toBe(0)
   })
   it("one session still hits its own per-user cap", async () => {
     const limited = await count429(300, () => call("203.0.113.10", "sb-x-auth-token=busy-session"))
     expect(limited).toBe(60)
   })
-
-  it("a single session under the cap is never limited", async () => {
-    const limited = await count429(100, () => call("203.0.113.8", "sb-x-auth-token=real-session"))
+  it("anonymous traffic keeps the 120/min per-IP budget", async () => {
+    expect(await count429(150, () => call("203.0.113.13"))).toBe(30)
+  })
+  it("a signed-in user under the caps is never limited", async () => {
+    const limited = await count429(200, () => call("203.0.113.8", "sb-x-auth-token=real-session"))
     expect(limited).toBe(0)
   })
 })

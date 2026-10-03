@@ -53,22 +53,17 @@ export const RATE_LIMIT_UNAUTHENTICATED: RateLimitConfig = {
 }
 
 /**
- * Per-IP flood guard for requests carrying a session cookie: 2400/min (10×
- * standard). The proxy can't verify the cookie, so without an IP cap a fresh
- * forged cookie per request would mint a fresh session bucket every time. It
- * must not be the per-user 240/min: everyone behind one CGNAT/office IP shares
- * it, and ~4 arena players would lock the whole address out.
+ * Per-IP ceiling on ALL API requests from one address, whatever cookies they
+ * carry: 600/min. The proxy can't verify a session cookie, so any per-session
+ * allowance is attacker-mintable; this one counter keyed only by IP bounds
+ * forged cookies at a fixed 5× the anonymous budget, however many are used.
+ * Sized for NAT: the busiest real client (arena, 5 s poll) is ~12 req/min, so
+ * dozens of active users can share one CGNAT/office IP.
  */
-export const RATE_LIMIT_SESSION_IP: RateLimitConfig = {
-  maxRequests: RATE_LIMIT_STANDARD.maxRequests * 10,
+export const RATE_LIMIT_IP: RateLimitConfig = {
+  maxRequests: 600,
   windowMs: 60_000,
 }
-/**
- * Distinct session cookies one IP may present per minute before further new
- * ones are treated as anonymous (RATE_LIMIT_UNAUTHENTICATED). Without it a
- * random cookie per request reached the 2400/min session flood guard.
- */
-export const SESSIONS_PER_IP = 50
 
 /** Multiplier for IP auto-block threshold (5× standard limit) */
 export const IP_BLOCK_THRESHOLD_MULTIPLIER = 5

@@ -16,10 +16,9 @@
 import type { RateLimitConfig, RateLimitResult } from "./types"
 import {
   RATE_LIMIT_AUTH,
-  RATE_LIMIT_SESSION_IP,
+  RATE_LIMIT_IP,
   RATE_LIMIT_STANDARD,
   RATE_LIMIT_UNAUTHENTICATED,
-  SESSIONS_PER_IP,
 } from "./constants"
 import {
   checkRateLimit as checkRateLimitMemory,
@@ -37,19 +36,18 @@ interface RedisRateLimiter {
   }>
 }
 
-export type RateLimitTier = "auth" | "standard" | "unauthenticated" | "sessionIp"
+export type RateLimitTier = "auth" | "standard" | "unauthenticated" | "ip"
 
 const TIERS: Record<RateLimitTier, { config: RateLimitConfig; prefix: string }> = {
   auth: { config: RATE_LIMIT_AUTH, prefix: "rl:auth" },
   standard: { config: RATE_LIMIT_STANDARD, prefix: "rl:standard" },
   unauthenticated: { config: RATE_LIMIT_UNAUTHENTICATED, prefix: "rl:unauth" },
-  sessionIp: { config: RATE_LIMIT_SESSION_IP, prefix: "rl:sessip" },
+  ip: { config: RATE_LIMIT_IP, prefix: "rl:ip" },
 }
 
 // ─── Lazy Redis Initialization ───────────────────────────────────────────────
 
 let _limiters: Partial<Record<RateLimitTier, RedisRateLimiter>> = {}
-let _redis: import("@upstash/redis").Redis | null = null
 let _initialized = false
 let _useRedis = false
 
@@ -76,7 +74,6 @@ async function initRedis(): Promise<boolean> {
     const { Ratelimit } = await import("@upstash/ratelimit")
 
     const redis = new Redis({ url, token })
-    _redis = redis
     _limiters = Object.fromEntries(
       Object.entries(TIERS).map(([tier, { config, prefix }]) => [
         tier,
@@ -123,41 +120,6 @@ export async function checkRateLimitDistributed(
     retryAfterSeconds: result.success ? 0 : Math.max(resetAtSeconds, 1),
     resetAtSeconds: Math.max(resetAtSeconds, 0),
   }
-}
-
-// Atomic: admit a session already in this IP's set for the minute, or a new one
-// while the set is under the cap. The set never grows past the cap.
-const ADMIT_SESSION_LUA = `
-if redis.call('SISMEMBER', KEYS[1], ARGV[1]) == 1 then return 1 end
-if redis.call('SCARD', KEYS[1]) >= tonumber(ARGV[2]) then return 0 end
-redis.call('SADD', KEYS[1], ARGV[1])
-redis.call('EXPIRE', KEYS[1], 120)
-return 1`
-const memorySessionSets = new Map<string, Set<string>>()
-
-/**
- * Whether this session bucket is one of the first SESSIONS_PER_IP distinct
- * sessions seen from `ip` this minute. The proxy can't verify the cookie, so a
- * forged-cookie flood is told apart from a NAT/office IP by count: real users
- * behind one address are a handful, a flood is thousands. Fails open (the
- * per-IP flood guard still applies).
- */
-export async function admitSessionBucket(ip: string, bucket: string): Promise<boolean> {
-  const key = `rl:sessset:${ip}:${Math.floor(Date.now() / 60_000)}`
-  if (await initRedis()) {
-    try {
-      return (await _redis!.eval(ADMIT_SESSION_LUA, [key], [bucket, SESSIONS_PER_IP])) === 1
-    } catch {
-      return true
-    }
-  }
-  if (memorySessionSets.size > 10_000) memorySessionSets.clear()
-  const set = memorySessionSets.get(key) ?? new Set<string>()
-  memorySessionSets.set(key, set)
-  if (set.has(bucket)) return true
-  if (set.size >= SESSIONS_PER_IP) return false
-  set.add(bucket)
-  return true
 }
 
 // Re-export for convenience

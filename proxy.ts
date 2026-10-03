@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { applyRateLimitHeaders } from "@/lib/security/rateLimiter"
-import { admitSessionBucket, checkRateLimitDistributed } from "@/lib/security/rateLimiterRedis"
+import { checkRateLimitDistributed } from "@/lib/security/rateLimiterRedis"
 import { getClientIp } from "@/lib/security/clientIp"
 import {
   GUEST_COOKIE_NAME,
@@ -301,24 +301,20 @@ export async function proxy(request: NextRequest) {
 
   if (isApiRoute && !isRateLimitExempt) {
     const tier = tierForPath(pathname, hasSupabaseSessionCookie)
-    // Every request is counted per IP (read from platform-set headers rather
-    // than the client-forgeable x-forwarded-for). The session cookie is
-    // unverified here, so a random `sb-x-auth-token` per request would mint a
-    // fresh session bucket every time; the IP bucket bounds that. Session
-    // traffic gets the per-session limit plus a much higher per-IP flood guard
-    // (many real users share one CGNAT/office IP). Past SESSIONS_PER_IP
-    // distinct cookies a minute, a new cookie is a flood, not a neighbour: it
-    // also draws from the anonymous per-IP budget.
+    // Two checks per request. The tier bucket: per session for cookie-bearing
+    // traffic, per IP otherwise (IP read from platform-set headers rather than
+    // the client-forgeable x-forwarded-for). And one ceiling keyed only by IP
+    // that every request counts against, whatever cookies it carries. The
+    // session cookie is unverified here, so forged cookies each mint their own
+    // session bucket; the IP ceiling (RATE_LIMIT_IP) caps the total they can
+    // reach at a fixed figure instead of N x cookies.
     const ip = getClientIp(request)
-    const ipTier = tier === "standard" ? "sessionIp" : tier
-    const admitted = tier === "standard" ? admitSessionBucket(ip, bucket!) : true
-    const checks = [checkRateLimitDistributed(`${ipTier}:i:${ip}`, ipTier)]
-    if (bucket !== null) checks.push(checkRateLimitDistributed(`${tier}:s:${bucket}`, tier))
-    const results = await Promise.all(checks)
-    if (!(await admitted)) {
-      results.push(await checkRateLimitDistributed(`unauthenticated:i:${ip}`, "unauthenticated"))
-    }
-    const rateResult = results.find((r) => !r.allowed) ?? results[results.length - 1]
+    const tierKey = tier === "standard" ? `standard:s:${bucket}` : `${tier}:i:${ip}`
+    const results = await Promise.all([
+      checkRateLimitDistributed(`ip:i:${ip}`, "ip"),
+      checkRateLimitDistributed(tierKey, tier),
+    ])
+    const rateResult = results.find((r) => !r.allowed) ?? results[1]
 
     if (!rateResult.allowed) {
       const limitedResponse = NextResponse.json(
