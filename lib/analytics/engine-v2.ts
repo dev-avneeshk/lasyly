@@ -346,34 +346,20 @@ async function fetchRecentActiveTeams(): Promise<string[]> {
   return [...teams].slice(0, NBA_TEAM_COUNT)
 }
 
+/** Every stat column fetchBatchPlayerStats can project from one slate read. */
+const SLATE_STAT_COLUMNS = [...new Set(Object.values(NBA_STAT_COLUMNS))]
+const slateRowsInFlight = new Map<string, Promise<Record<string, unknown>[]>>()
+
 /**
- * Fetches player stats for all players on the given teams for a specific stat.
- * Single batch query with `.in('team', teams)` filter.
- * Only includes players with at least 3 games of data.
+ * 90-day player-game rows (all stat columns) for a set of teams. Concurrent
+ * callers for the same slate share one read: a cold stat=all computes six
+ * stats at once and used to page the same ~16k rows six times. The entry is
+ * dropped when the read settles, so nothing is held past the request.
  */
-export async function fetchBatchPlayerStats(
-  teams: string[],
-  stat: string
-): Promise<Map<string, BatchPlayerGameRow[]>> {
-  const supabase = createAdminClient()
-  const column = NBA_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
-
-  // Only fetch games from the last 90 days to get enough history for L30 charts
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - 90)
-  const cutoff = cutoffDate.toISOString().split("T")[0]
-
-  const select = `
-      id,
-      player_name,
-      team,
-      opponent,
-      position,
-      minutes,
-      ${column},
-      nba_games!inner(game_date, home_team, away_team)
-    `
-
+function fetchSlateRows(teams: string[], cutoff: string): Promise<Record<string, unknown>[]> {
+  const key = `${cutoff}|${[...teams].sort().join(",")}`
+  const pending = slateRowsInFlight.get(key)
+  if (pending) return pending
   // PAGED, because `.limit(5000)` did not do what it looked like it did:
   // PostgREST caps a response at 1000 rows regardless of the requested limit,
   // silently. Combined with `ORDER BY game_date DESC` that meant this returned
@@ -388,7 +374,8 @@ export async function fetchBatchPlayerStats(
   // return equal-dated rows in a different order per page, which silently
   // duplicates some rows and drops others. Ordering by the primary key last
   // makes the sort total.
-  const data = await fetchPagedParallel<Record<string, unknown>>(
+  const supabase = createAdminClient()
+  const promise = fetchPagedParallel<Record<string, unknown>>(
     async () => {
       const { count } = await supabase
         .from("nba_player_stats")
@@ -400,7 +387,7 @@ export async function fetchBatchPlayerStats(
     async (from, to) => {
       const { data, error } = await supabase
         .from("nba_player_stats")
-        .select(select)
+        .select(`id, player_name, team, opponent, position, minutes, ${SLATE_STAT_COLUMNS.join(", ")}, nba_games!inner(game_date, home_team, away_team)`)
         .in("team", teams)
         .gte("nba_games.game_date", cutoff)
         .order("nba_games(game_date)", { ascending: false })
@@ -416,7 +403,30 @@ export async function fetchBatchPlayerStats(
     // Generous enough for a full 90-day window across the league, while still
     // bounding the worst case.
     { maxRows: 20_000 }
-  )
+  ).finally(() => slateRowsInFlight.delete(key))
+  slateRowsInFlight.set(key, promise)
+  return promise
+}
+
+/**
+ * Fetches player stats for all players on the given teams for a specific stat.
+ * Single batch query with `.in('team', teams)` filter.
+ * Only includes players with at least 3 games of data.
+ */
+export async function fetchBatchPlayerStats(
+  teams: string[],
+  stat: string
+): Promise<Map<string, BatchPlayerGameRow[]>> {
+  const column = NBA_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
+  // Unknown columns used to fail the query (no props); keep that, not zeros.
+  if (!SLATE_STAT_COLUMNS.includes(column)) return new Map()
+
+  // Only fetch games from the last 90 days to get enough history for L30 charts
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - 90)
+  const cutoff = cutoffDate.toISOString().split("T")[0]
+  const data = await fetchSlateRows(teams, cutoff)
+
 
   if (data.length === 0) {
     return new Map()
