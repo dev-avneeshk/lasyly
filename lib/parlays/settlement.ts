@@ -16,6 +16,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchESPNLeague } from "@/lib/services/espn"
+import { fetchAllIn } from "@/lib/supabase/paged"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -395,11 +396,14 @@ async function legResultsByParlay(
 ): Promise<Map<string, { id: string; result: string }[]> | null> {
   const byParlay = new Map<string, { id: string; result: string }[]>()
   for (let i = 0; i < parlayIds.length; i += 100) {
-    const { data, error } = await supabase
-      .from("parlay_legs")
-      .select("id, parlay_id, result")
-      .in("parlay_id", parlayIds.slice(i, i + 100))
-    if (error || !data) return null
+    // Paged: a plain .in() stops at 1000 rows, and a dropped `lost` leg (legacy
+    // parlays can exceed the 10-leg cap) would resolve its parlay `won`.
+    let data: { id: string; parlay_id: string; result: string }[]
+    try {
+      data = await fetchAllIn(supabase, "parlay_legs", "id, parlay_id, result", "parlay_id", parlayIds.slice(i, i + 100))
+    } catch {
+      return null
+    }
     for (const l of data) byParlay.set(l.parlay_id, [...(byParlay.get(l.parlay_id) ?? []), l])
   }
   return byParlay
@@ -414,12 +418,13 @@ async function finishParlays(
   for (const status of ["won", "lost", "void"] as const) {
     const ids = [...outcomes].filter(([, o]) => o === status).map(([id]) => id)
     for (let i = 0; i < ids.length; i += 100) {
-      const { error } = await supabase
+      const { data } = await supabase
         .from("parlays")
         .update({ status, resolved_at: new Date().toISOString() })
         .in("id", ids.slice(i, i + 100))
         .eq("status", "pending") // Only update if still pending (idempotent)
-      if (!error) finished += ids.slice(i, i + 100).length
+        .select("id")
+      finished += data?.length ?? 0 // rows the pending guard actually matched
     }
   }
   return finished

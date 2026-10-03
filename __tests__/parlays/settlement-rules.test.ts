@@ -23,11 +23,17 @@ vi.mock("@/lib/supabase/admin", () => ({
       const run = () => {
         if (values) {
           st.updates.push({ table, values, filters })
-          return { error: null }
+          const ids = (filters.find(([op, c]) => op === "in" && c === "id")?.[2] ?? []) as string[]
+          return { data: ids.map((id) => ({ id })), error: null }
         }
         const f = Object.fromEntries(filters.map(([op, c, v]) => [`${op}:${c}`, v]))
         if (table === "parlay_legs" && f["eq:result"] === "pending") return { data: st.legs, error: null }
-        if (table === "parlay_legs") return st.legReads++, { data: st.parlayLegs, error: null }
+        if (table === "parlay_legs") {
+          if ((filters.find(([op]) => op === "select")?.[2] as { head?: boolean })?.head) return { count: st.parlayLegs.length, error: null }
+          const range = filters.find(([op]) => op === "range") as [string, number, number] | undefined
+          st.legReads++ // PostgREST returns at most 1000 rows per read
+          return { data: range ? st.parlayLegs.slice(range[1], range[2] + 1) : st.parlayLegs.slice(0, 1000), error: null }
+        }
         if (table === "parlays") return { data: st.stale, error: null }
         if (table === "nba_player_stats") {
           const rows = st.stats
@@ -40,7 +46,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       const chain: Record<string, unknown> = {
         then: (res: (v: unknown) => unknown) => res(run()),
       }
-      for (const op of ["select", "eq", "gte", "lt", "in", "order", "limit"]) {
+      for (const op of ["select", "eq", "gte", "lt", "in", "order", "limit", "range"]) {
         chain[op] = (c?: unknown, v?: unknown) => (filters.push([op, c, v]), chain)
       }
       chain.update = (v: Record<string, unknown>) => ((values = v), chain)
@@ -162,6 +168,20 @@ describe("stale parlay expiry is batched", () => {
     expect(pushes[0].filters).toContainEqual(["in", "id", ["b", "d"]])
     const finishes = st.updates.filter((u) => u.table === "parlays").map((u) => u.values.status)
     expect(finishes).toEqual(["won", "lost", "void"]) // was 4 updates
+  })
+})
+
+// REV-37: legs were read 100 parlays per unpaged .in(); past 1000 rows the
+// rest of the chunk was dropped, so a legacy parlay's `lost` leg went missing.
+describe("expiry reads every leg past the 1000-row cap", () => {
+  it("a lost leg at row 1001 still resolves its parlay lost (was: won)", async () => {
+    st.legs = []
+    st.stale = Array.from({ length: 100 }, (_, i) => ({ id: `p${i}` }))
+    st.parlayLegs = st.stale.flatMap(({ id }, i) =>
+      Array.from({ length: i === 99 ? 11 : 10 }, (_, j) => ({ id: `${id}-${j}`, parlay_id: id, result: i === 99 && j === 10 ? "lost" : "won" })))
+    await settleParlayLegs()
+    const lost = st.updates.find((u) => u.table === "parlays" && u.values.status === "lost")
+    expect(lost?.filters).toContainEqual(["in", "id", ["p99"]])
   })
 })
 
