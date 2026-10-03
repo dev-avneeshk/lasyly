@@ -71,30 +71,29 @@ export function getLeaderboard(sortBy: "win_rate" | "total_picks"): Promise<{ le
       userStats.set(parlay.user_id, existing)
     }
 
-    // Filter users with minimum 10 resolved picks
-    const qualifiedUserIds = Array.from(userStats.entries())
+    // Rank users with 10+ resolved picks first, then fetch profiles for the top
+    // 50 only: one `.in()` over every qualified id outgrew the URL limit and
+    // the 1000-row cap. Users with no profile are skipped and the next batch fills in.
+    const winRate = (s: { total: number; won: number }) => (s.total > 0 ? Math.round((s.won / s.total) * 1000) / 10 : 0)
+    const ranked = Array.from(userStats.entries())
       .filter(([, s]) => s.total >= 10)
-      .map(([userId]) => userId)
+      .sort(([, a], [, b]) => (sortBy === "total_picks" ? b.totalPicks - a.totalPicks : winRate(b) - winRate(a)))
 
-    if (qualifiedUserIds.length === 0) {
-      return { leaderboard: [] as LeaderboardEntry[] }
-    }
-
-    // Fetch profiles for qualified users
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, username, display_name, avatar_url, is_verified")
-      .in("id", qualifiedUserIds)
-
-    if (profilesError || !profiles) {
-      throw new Error("Failed to fetch profile data.")
-    }
-
-    // Build leaderboard entries
-    const leaderboard: LeaderboardEntry[] = profiles
-      .map((p) => {
-        const s = userStats.get(p.id)!
-        return {
+    const leaderboard: LeaderboardEntry[] = []
+    for (let i = 0; i < ranked.length && leaderboard.length < 50; i += 50) {
+      const batch = ranked.slice(i, i + 50)
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, is_verified")
+        .in("id", batch.map(([id]) => id))
+      if (profilesError || !profiles) {
+        throw new Error("Failed to fetch profile data.")
+      }
+      const byId = new Map(profiles.map((p) => [p.id, p]))
+      for (const [id, s] of batch) {
+        const p = byId.get(id)
+        if (!p || leaderboard.length >= 50) continue
+        leaderboard.push({
           user_id: p.id,
           username: p.username,
           display_name: p.display_name,
@@ -102,20 +101,14 @@ export function getLeaderboard(sortBy: "win_rate" | "total_picks"): Promise<{ le
           is_verified: p.is_verified,
           total_picks: s.totalPicks,
           won_count: s.won,
-          win_rate: s.total > 0 ? Math.round((s.won / s.total) * 1000) / 10 : 0,
+          win_rate: winRate(s),
           average_odds: s.totalPicks > 0
             ? Math.round((s.totalOdds / s.totalPicks) * 100) / 100
             : 0,
-        }
-      })
-
-    // Sort based on query param
-    if (sortBy === "total_picks") {
-      leaderboard.sort((a, b) => b.total_picks - a.total_picks)
-    } else {
-      leaderboard.sort((a, b) => b.win_rate - a.win_rate)
+        })
+      }
     }
 
-    return { leaderboard: leaderboard.slice(0, 50) }
+    return { leaderboard }
   }, CACHE_TTL.leaderboard)
 }
