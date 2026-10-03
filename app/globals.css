@@ -375,6 +375,11 @@
 [data-theme="light"] textarea {
   color: #1a1a1a !important;
 }
+/* The forced dark text above needs a light field; tiles keep their dark bg. */
+[data-theme="light"] input.bg-\[\#1e1f22\],
+[data-theme="light"] textarea.bg-\[\#1e1f22\] {
+  background-color: var(--color-surface) !important;
+}
 
 /* Light mode: the app layout background blur */
 [data-theme="light"] .bg-\[\#333\] {
