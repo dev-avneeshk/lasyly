@@ -289,11 +289,11 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
 
   return (
     // Radix: dialog role/labels, focus trap and restore, Escape, scroll lock.
-    // Outside clicks still don't close it (as before; it holds unsaved edits).
+    // Outside clicks and Escape don't close it (as before; it holds unsaved edits).
     <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
     <Dialog.Portal>
     <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <Dialog.Content {...openerFocus} aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} className="bg-[#151515] rounded-2xl border border-white/[0.08] w-full max-w-lg max-h-[82vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="bg-[#151515] rounded-2xl border border-white/[0.08] w-full max-w-lg max-h-[82vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
