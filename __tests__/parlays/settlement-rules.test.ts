@@ -12,6 +12,7 @@ const st = vi.hoisted(() => ({
   parlayLegs: [] as Record<string, unknown>[],
   stale: [] as Record<string, unknown>[],
   legReads: 0,
+  parlaysUpdateFails: false,
 }))
 
 vi.mock("@/lib/services/espn", () => ({ fetchESPNLeague: async () => st.tipOffs }))
@@ -23,6 +24,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       const run = () => {
         if (values) {
           st.updates.push({ table, values, filters })
+          if (table === "parlays" && st.parlaysUpdateFails) return { data: null, error: { message: "deadlock" } }
           const ids = (filters.find(([op, c]) => op === "in" && c === "id")?.[2] ?? []) as string[]
           return { data: ids.map((id) => ({ id })), error: null }
         }
@@ -74,6 +76,7 @@ beforeEach(() => {
   st.parlayLegs = [{ result: "pending" }]
   st.stale = []
   st.legReads = 0
+  st.parlaysUpdateFails = false
   st.tipOffs = [{ homeTeam: "Los Angeles Lakers", startTime: "2026-01-16T00:30:00Z" }] // 19:30 ET
 })
 
@@ -182,6 +185,21 @@ describe("expiry reads every leg past the 1000-row cap", () => {
     await settleParlayLegs()
     const lost = st.updates.find((u) => u.table === "parlays" && u.values.status === "lost")
     expect(lost?.filters).toContainEqual(["in", "id", ["p99"]])
+  })
+})
+
+// REV-46: a failing guarded parlays update counted 0 and left no log line.
+describe("a failed parlays outcome update", () => {
+  it("is logged and not counted as expired", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    st.legs = []
+    st.stale = [{ id: "p1" }]
+    st.parlayLegs = [{ id: "a", parlay_id: "p1", result: "won" }]
+    st.parlaysUpdateFails = true
+    const res = await settleParlayLegs()
+    expect(res.parlaysExpired).toBe(0)
+    expect(log.mock.calls.some((c) => String(c[0]).includes("parlays won update failed"))).toBe(true)
+    log.mockRestore()
   })
 })
 

@@ -418,12 +418,13 @@ async function finishParlays(
   for (const status of ["won", "lost", "void"] as const) {
     const ids = [...outcomes].filter(([, o]) => o === status).map(([id]) => id)
     for (let i = 0; i < ids.length; i += 100) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("parlays")
         .update({ status, resolved_at: new Date().toISOString() })
         .in("id", ids.slice(i, i + 100))
         .eq("status", "pending") // Only update if still pending (idempotent)
         .select("id")
+      if (error) console.error(`[settlement] parlays ${status} update failed:`, error.message)
       finished += data?.length ?? 0 // rows the pending guard actually matched
     }
   }
