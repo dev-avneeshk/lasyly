@@ -3,15 +3,17 @@
 import { useState } from "react"
 import { AlertTriangle, Gavel } from "lucide-react"
 import type { ArenaState } from "@/lib/arena/auction"
-import type { TeamId } from "@/lib/arena/types"
+import type { SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { bidIncrementForBudget } from "@/lib/arena/types"
 import { maxAffordable } from "@/lib/arena/budget"
 import { canAddPlayer, openStarterSlots, eligiblePositions } from "@/lib/arena/roster"
-import { getSeasonPlayers } from "@/lib/arena/data"
 import { cn, formatMoney } from "@/lib/utils"
 
-export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass }: {
+// `upcoming` (players still in the queue) comes from the caller: importing the
+// season dataset here shipped it to the PvP page, whose queue is empty anyway.
+export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass, upcoming = [] }: {
   state: ArenaState
+  upcoming?: SeasonPlayer[]
   humanSeat: TeamId
   minRaise: number | null
   onBid: (amount: number) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>
@@ -35,9 +37,7 @@ export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass }
       : "No roster slot is open for this player."
     : null
 
-  const pool = getSeasonPlayers(state.season)
-  const upcoming = state.queue.filter((id) => id !== lot.player.id).map((id) => pool.find((player) => player.id === id)).filter((player): player is NonNullable<typeof player> => Boolean(player))
-  const lastAtPositions = openStarters.filter((position) => eligiblePositions(lot.player).includes(position) && !upcoming.some((player) => eligiblePositions(player).includes(position)))
+  const lastAtPositions = openStarters.filter((position) => eligiblePositions(lot.player).includes(position) && !upcoming.some((player) => player.id !== lot.player.id && eligiblePositions(player).includes(position)))
   const scarcityWarning = canRoster && lastAtPositions.length > 0 ? `Last ${lastAtPositions.join(" / ")} available on the board.` : null
   const next = minRaise ?? null
   const canBid = next !== null && next <= max

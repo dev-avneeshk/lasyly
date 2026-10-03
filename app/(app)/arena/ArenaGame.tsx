@@ -16,10 +16,18 @@ import { useArenaGame } from "./useArenaGame"
 import { useArenaServer } from "./useArenaServer"
 import { ServerArena } from "./ServerArena"
 import type { ArenaLaunch } from "./ArenaSetup"
-import type { TeamId } from "@/lib/arena/types"
+import type { Season, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { getSeasonPlayers } from "@/lib/arena/data"
 import { cn } from "@/lib/utils"
 import { Hourglass } from "lucide-react"
+
+// id → player per season, built once (lookups ran pool.find per queued id per render).
+const playerIndex = new Map<Season, Map<string, SeasonPlayer>>()
+function playersById(season: Season): Map<string, SeasonPlayer> {
+  let byId = playerIndex.get(season)
+  if (!byId) playerIndex.set(season, (byId = new Map(getSeasonPlayers(season).map((p) => [p.id, p]))))
+  return byId
+}
 
 /**
  * Everything expensive about /arena/nba: the auction engine, the AI, the
@@ -160,7 +168,7 @@ export default function ArenaGame({
           {/* Bid controls flow inline like the mockup — no fixed overlay that
               clips the card or hides the queue bar. On lg+ this sits inside the
               center column. */}
-          {lot && <div className="w-full"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div>}
+          {lot && <div className="w-full"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} upcoming={state.queue.flatMap((id) => playersById(state.season).get(id) ?? [])} /></div>}
           {lot && <NextInQueue season={state.season} queue={state.queue} currentId={lot.player.id} />}
         </main>
         <div className="hidden lg:order-3 lg:block lg:pt-1">{game.budgets && <BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P2"} isAI />}</div>
@@ -177,13 +185,12 @@ export default function ArenaGame({
  * progress bar shows how far through the board we are. Hidden on lg+ where the
  * side rails already carry roster/budget context.
  */
-function NextInQueue({ season, queue, currentId }: { season: Parameters<typeof getSeasonPlayers>[0]; queue: string[]; currentId: string }) {
+function NextInQueue({ season, queue, currentId }: { season: Season; queue: string[]; currentId: string }) {
   const remainingIds = queue.filter((id) => id !== currentId)
   const remaining = remainingIds.length
   if (remaining === 0) return null
 
-  const pool = getSeasonPlayers(season)
-  const next = pool.find((p) => p.id === remainingIds[0])
+  const next = playersById(season).get(remainingIds[0])
   if (!next) return null
 
   const positions = [next.primaryPosition, ...next.secondaryPositions].join(" / ")

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import type { NflPlayer, Position } from "@/lib/nfl/types"
-import { headshotSources } from "@/lib/nfl/data"
+import { nflHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
 import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn } from "@/lib/utils"
 

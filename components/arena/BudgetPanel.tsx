@@ -5,7 +5,7 @@ import { Cpu, Wallet } from "lucide-react"
 import type { BudgetSnapshot } from "@/lib/arena/budget"
 import type { RosterState, RosterSlot, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { ROSTER_SLOTS } from "@/lib/arena/types"
-import { headshotSources } from "@/lib/arena/data"
+import { arenaHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
 import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn, formatMoney } from "@/lib/utils"
 

@@ -3,11 +3,19 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Search, X } from "lucide-react"
-import type { NflPlayer, Position } from "@/lib/nfl/types"
-import { headshotUrl } from "@/lib/nfl/data"
-import { playerValue } from "@/lib/nfl/value"
-import { estimatedPrice } from "@/lib/nfl/grades"
+import type { Position } from "@/lib/nfl/types"
 import { cn } from "@/lib/utils"
+
+export type PlayerRow = {
+  id: string
+  name: string
+  team: string
+  position: Position
+  overall: number
+  value: number
+  estimate: number
+  headshot: string | null
+}
 
 type SortKey = "overall" | "value" | "estimate" | "name"
 
@@ -21,17 +29,15 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Name" },
 ]
 
-// A representative budget/roster so the "est. price" column is meaningful on the
-// browse page (matches the default league). The engine owns the math.
-const REF_BUDGET = 50
-const REF_ROSTER = 9
+/** Rows rendered per "Show more" step (rendering all ~1,500 at once was slow). */
+const PAGE = 100
 
 function initials(name: string): string {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
 }
 
-function Avatar({ player }: { player: NflPlayer }) {
-  const url = headshotUrl(player)
+function Avatar({ player }: { player: PlayerRow }) {
+  const url = player.headshot
   const [failed, setFailed] = useState(false)
   return (
     <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
@@ -50,7 +56,8 @@ const POS_TONE: Record<string, string> = {
   EDGE: "text-[var(--color-primary)]", LB: "text-[var(--color-primary)]", CB: "text-[var(--color-primary)]", S: "text-[var(--color-primary)]",
 }
 
-export default function PlayersClient({ players, season }: { players: NflPlayer[]; season: string }) {
+export default function PlayersClient({ players, season }: { players: PlayerRow[]; season: string }) {
+  const [shown, setShown] = useState(PAGE)
   const [query, setQuery] = useState("")
   const [pos, setPos] = useState<(typeof POSITION_FILTERS)[number]>("ALL")
   const [sort, setSort] = useState<SortKey>("overall")
@@ -68,21 +75,15 @@ export default function PlayersClient({ players, season }: { players: NflPlayer[
         (p) => p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q) || p.position.toLowerCase().includes(q)
       )
     }
-    const withValue = list.map((p) => ({
-      p,
-      value: playerValue(p),
-      estimate: estimatedPrice(p, REF_BUDGET, REF_ROSTER),
-    }))
-    withValue.sort((a, b) => {
+    return [...list].sort((a, b) => {
       switch (sort) {
-        case "name": return a.p.name.localeCompare(b.p.name)
+        case "name": return a.name.localeCompare(b.name)
         case "value": return b.value - a.value
         case "estimate": return b.estimate - a.estimate
         case "overall":
-        default: return b.p.overall - a.p.overall
+        default: return b.overall - a.overall
       }
     })
-    return withValue
   }, [players, query, pos, sort])
 
   return (
@@ -151,7 +152,7 @@ export default function PlayersClient({ players, season }: { players: NflPlayer[
         </div>
       ) : (
         <div className="space-y-1.5">
-          {filtered.map(({ p, value, estimate }) => (
+          {filtered.slice(0, shown).map((p) => (
             <Link
               key={p.id}
               href={`/nfl/players/${p.id}`}
@@ -166,11 +167,11 @@ export default function PlayersClient({ players, season }: { players: NflPlayer[
               </div>
               <div className="hidden text-right sm:block">
                 <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)]">Value</p>
-                <p className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">{value}</p>
+                <p className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">{p.value}</p>
               </div>
               <div className="text-right">
                 <p className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)]">Est.</p>
-                <p className="text-sm font-bold tabular-nums text-[var(--color-lime)]">${estimate}</p>
+                <p className="text-sm font-bold tabular-nums text-[var(--color-lime)]">${p.estimate}</p>
               </div>
               <div className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg bg-black/30">
                 <span className="text-[7px] uppercase tracking-widest text-[var(--color-text-muted)]">OVR</span>
@@ -178,6 +179,14 @@ export default function PlayersClient({ players, season }: { players: NflPlayer[
               </div>
             </Link>
           ))}
+          {filtered.length > shown && (
+            <button
+              onClick={() => setShown((n) => n + PAGE)}
+              className="w-full rounded-xl border border-[var(--color-border)] py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+            >
+              Show more ({filtered.length - shown} left)
+            </button>
+          )}
         </div>
       )}
     </div>
