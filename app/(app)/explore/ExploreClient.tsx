@@ -288,10 +288,11 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
                   <Zap className="w-3 h-3" /> TOP STORY
                 </div>
                 <div className="relative p-4 z-10">
-                  <h2 className="text-sm font-extrabold uppercase leading-tight mb-1 line-clamp-2">
+                  {/* Always over the dark photo gradient: fixed light text in both themes. */}
+                  <h2 className="text-sm font-extrabold uppercase leading-tight mb-1 line-clamp-2 text-[#fff]">
                     {initialArticle.title}
                   </h2>
-                  <p className="text-[11px] text-[var(--color-text-muted)]">
+                  <p className="text-[11px] text-[#9CA3AF]">
                     {initialArticle.source} • {initialArticle.category}
                   </p>
                 </div>
@@ -333,9 +334,14 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
   return (
     <div
       className="relative overflow-hidden rounded-3xl border border-[var(--color-border)]"
+      // A dark tile in both themes: pin the dark-theme tokens and use #fff
+      // (not text-white, which the light theme remaps to near-black).
       style={{
         background:
           "radial-gradient(120% 140% at 100% 0%, rgba(212,255,0,0.10) 0%, rgba(20,26,16,0.6) 35%, #0d0f0c 70%, #0a0b09 100%)",
+        // @ts-expect-error -- CSS custom properties
+        "--color-lime": "#D4FF00",
+        "--color-text-muted": "#9CA3AF",
       }}
     >
       {/* Diagonal lime energy streak, echoing the mockup's "vs" bolt */}
@@ -355,10 +361,10 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
             <Zap className="w-3.5 h-3.5" /> Featured Matchup
           </div>
           <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-[1.05] mb-4">
-            <span className="block text-white">{hotMatch.homeTeam}</span>
+            <span className="block text-[#fff]">{hotMatch.homeTeam}</span>
             <span className="block">
               <span className="text-[var(--color-lime)]">vs </span>
-              <span className="text-white">{hotMatch.awayTeam}</span>
+              <span className="text-[#fff]">{hotMatch.awayTeam}</span>
             </span>
           </h2>
           <p className="text-sm text-[var(--color-text-muted)] mb-1 truncate" suppressHydrationWarning>
@@ -391,9 +397,9 @@ function FeaturedGame({ scores }: { scores: LiveMatch[] }) {
             )}
           </div>
           <div className="hidden lg:block text-right leading-relaxed">
-            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/70">Play.</p>
-            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/70">Analyze.</p>
-            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/70">Discuss.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#fff]/70">Play.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#fff]/70">Analyze.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#fff]/70">Discuss.</p>
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[var(--color-lime)]">Belong.</p>
           </div>
         </div>

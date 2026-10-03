@@ -407,10 +407,6 @@
   box-shadow: 0 0 8px rgba(77, 124, 15, 0.15) !important;
 }
 
-/* Light mode: gradient backgrounds in featured game */
-[data-theme="light"] [style*="linear-gradient(135deg, #1a2e1a"] {
-  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 30%, #f5f5f5 60%, var(--color-surface) 100%) !important;
-}
 
 /* Light mode: text-sm text-white in sidebar logo */
 [data-theme="light"] .text-black {
