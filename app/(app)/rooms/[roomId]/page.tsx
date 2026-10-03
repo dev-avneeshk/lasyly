@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Hash, Settings, Menu, LogOut, X } from "lucide-react"
+import * as Dialog from "@radix-ui/react-dialog"
 import { createClient } from "@/lib/supabase/client"
 import AdminPanel from "@/components/room/AdminPanel"
 import { MessageRow, getUserColor, getInitials, type ChatMessage } from "@/components/room/MessageRow"
@@ -820,13 +821,14 @@ export default function RoomPage() {
       </div>
 
       {/* ─── Mobile Drawer ─── */}
-      {drawerOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setDrawerOpen(false)} />
-          <div className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
+      {/* Radix: dialog role/label, focus trap and restore, Escape, scroll lock. */}
+      <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 z-40 md:hidden" />
+          <Dialog.Content aria-describedby={undefined} className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
             <div className="px-5 pt-6 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
-              <h2 className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</h2>
-              <button onClick={() => setDrawerOpen(false)} className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
+              <Dialog.Title className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</Dialog.Title>
+              <button onClick={() => setDrawerOpen(false)} aria-label="Close" className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <ChannelSidebar
               subchannels={subchannels}
@@ -837,9 +839,9 @@ export default function RoomPage() {
               onAddSubchannel={() => { setDrawerOpen(false); setManagerMode({ kind: "new-subchannel" }) }}
               onManageSubchannel={(sub) => { setDrawerOpen(false); setManagerMode({ kind: "manage-subchannel", sub }) }}
             />
-          </div>
-        </>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* ─── Message Context Menu ─── */}
       {contextMenu && (

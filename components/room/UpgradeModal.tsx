@@ -2,6 +2,7 @@
 
 import { memo } from "react"
 import { X, Sparkles, Check } from "lucide-react"
+import * as Dialog from "@radix-ui/react-dialog"
 
 type UpgradeModalProps = {
   open: boolean
@@ -33,9 +34,12 @@ function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
         : "Upgrade to Pro"
 
   return (
+    // Radix: dialog role/labels, focus trap and restore, Escape, scroll lock.
+    <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
+    <Dialog.Portal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-[360px] rounded-2xl bg-[#141414] border border-white/[0.08] shadow-2xl overflow-hidden">
+      <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <Dialog.Content aria-describedby={undefined} className="relative w-full max-w-[360px] rounded-2xl bg-[#141414] border border-white/[0.08] shadow-2xl overflow-hidden">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 w-7 h-7 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/[0.06] flex items-center justify-center transition-colors"
@@ -48,7 +52,7 @@ function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
           <div className="w-11 h-11 rounded-xl bg-[#B8FF4F]/15 flex items-center justify-center mb-4">
             <Sparkles className="w-5 h-5 text-[#B8FF4F]" />
           </div>
-          <h3 className="text-[17px] font-semibold text-white/90 leading-tight">{headline}</h3>
+          <Dialog.Title className="text-[17px] font-semibold text-white/90 leading-tight">{headline}</Dialog.Title>
           <p className="text-[13px] text-white/40 mt-1.5 leading-relaxed">
             Free accounts can create 2 rooms, each with a main channel plus 2 extra
             sub-channels. Go Pro to unlock more.
@@ -79,8 +83,10 @@ function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
             Maybe later
           </button>
         </div>
-      </div>
+      </Dialog.Content>
     </div>
+    </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 

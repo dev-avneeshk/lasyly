@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
+import * as Dialog from "@radix-ui/react-dialog"
 import { motion, AnimatePresence } from "framer-motion"
 import { Globe, Lock, X, Loader2, Coins, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -133,18 +134,23 @@ export function SaveParlayDialog({
   const hasMinLegs = legs.length >= 2
 
   return (
-    <>
+    // Radix: dialog role/labels, focus trap and restore, Escape, scroll lock;
+    // the motion elements keep the enter/exit animations (asChild).
+    <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
+    <Dialog.Portal>
       {/* Backdrop */}
+      <Dialog.Overlay asChild>
       <motion.div
         className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        onClick={onClose}
       />
+      </Dialog.Overlay>
 
       {/* Dialog */}
+      <Dialog.Content asChild aria-describedby={undefined}>
       <motion.div
         className="fixed inset-x-0 bottom-0 z-[60] sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:mx-auto"
         initial={{ opacity: 0, y: 100 }}
@@ -155,7 +161,7 @@ export function SaveParlayDialog({
         <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[80vh] sm:max-h-[85vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]/50 shrink-0">
-            <h2 className="text-base font-semibold text-white">Save Prediction</h2>
+            <Dialog.Title className="text-base font-semibold text-white">Save Prediction</Dialog.Title>
             <button
               type="button"
               onClick={onClose}
@@ -414,6 +420,8 @@ export function SaveParlayDialog({
           </div>
         </div>
       </motion.div>
-    </>
+      </Dialog.Content>
+    </Dialog.Portal>
+    </Dialog.Root>
   )
 }

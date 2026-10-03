@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import * as Dialog from "@radix-ui/react-dialog"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, X, Medal, Gamepad2, Store } from "lucide-react"
@@ -69,20 +70,23 @@ export default function BottomNav() {
   return (
     <div className="md:hidden">
       {/* More menu overlay */}
+      {/* Radix: dialog role/label, focus trap and restore, Escape, scroll lock.
+          Stays open through the exit animation; closeMore unmounts it after. */}
       {showMore && (
-        <>
-          <div
+        <Dialog.Root open onOpenChange={(next) => !next && closeMore()}>
+        <Dialog.Portal>
+          <Dialog.Overlay
             data-closing={closing}
             className="bottom-sheet-scrim fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
-            onClick={closeMore}
           />
-          <div
+          <Dialog.Content
+            aria-describedby={undefined}
             data-closing={closing}
             className="bottom-sheet-panel fixed bottom-0 left-0 right-0 z-[101]"
           >
             <div className="mx-4 mb-[max(1.25rem,env(safe-area-inset-bottom))] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
               <div className="flex items-center justify-between mb-4 px-2">
-                <span className="text-sm font-semibold text-[var(--color-text-muted)]">More</span>
+                <Dialog.Title className="text-sm font-semibold text-[var(--color-text-muted)]">More</Dialog.Title>
                 <button
                   onClick={closeMore}
                   aria-label="Close menu"
@@ -113,8 +117,9 @@ export default function BottomNav() {
                 })}
               </div>
             </div>
-          </div>
-        </>
+          </Dialog.Content>
+        </Dialog.Portal>
+        </Dialog.Root>
       )}
 
       {/* Bottom nav bar — docked edge-to-edge, flush against the bottom */}
