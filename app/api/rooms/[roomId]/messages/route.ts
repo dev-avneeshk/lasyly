@@ -50,9 +50,10 @@ export const GET = withSecurity(async (
       .order("created_at", { ascending: false })
       .limit(limit)
 
-    // Scope to a sub-channel when provided; otherwise the whole room.
+    // Always this room (the access check below is for roomId); narrowed to a
+    // sub-channel when provided.
+    query = query.eq("room_id", roomId)
     if (subchannelId) query = query.eq("subchannel_id", subchannelId)
-    else query = query.eq("room_id", roomId)
 
     if (cursor) query = query.lt("created_at", cursor)
     return query
@@ -245,8 +246,9 @@ export const POST = withSecurity(async (
   const content = isBetslip ? sanitized : maskProfanity(sanitized)
 
   // Independent checks in one round trip: betslip ownership, membership, an
-  // active mute, and the room's default sub-channel.
-  const [parlayRes, memberRes, muteRes, defRes] = await Promise.all([
+  // active mute, and the target sub-channel (the one given, else the default),
+  // always scoped to this room so a post can't land in another room's channel.
+  const [parlayRes, memberRes, muteRes, subRes] = await Promise.all([
     isBetslip
       ? supabase.from("parlays").select("id, user_id").eq("id", data.betslipId!).maybeSingle()
       : null,
@@ -258,9 +260,12 @@ export const POST = withSecurity(async (
       .eq("user_id", user.id)
       .gt("muted_until", new Date().toISOString())
       .maybeSingle(),
-    data.subchannelId
-      ? null
-      : supabase.from("room_subchannels").select("id").eq("room_id", roomId).eq("is_default", true).maybeSingle(),
+    supabase
+      .from("room_subchannels")
+      .select("id")
+      .eq("room_id", roomId)
+      .match(data.subchannelId ? { id: data.subchannelId } : { is_default: true })
+      .maybeSingle(),
   ])
 
   // For betslip shares, verify the parlay belongs to the sender.
@@ -291,7 +296,12 @@ export const POST = withSecurity(async (
   // Resolve the target sub-channel: the one provided, else the room's default.
   // If the channels schema isn't migrated, this resolves to null and we insert
   // a room-scoped message (legacy behavior).
-  let subchannelId: string | null = data.subchannelId ?? defRes?.data?.id ?? null
+  if (data.subchannelId && !subRes.data) {
+    return subRes.error
+      ? NextResponse.json({ error: "Failed to send message." }, { status: 500 })
+      : NextResponse.json({ error: "Channel not found in this room." }, { status: 400 })
+  }
+  let subchannelId: string | null = subRes.data?.id ?? null
   if (!subchannelId) {
     // No default channel yet (room predates the AFTER INSERT trigger added in
     // 20260904_repair_room_features.sql). Create it rather than inserting a

@@ -17,6 +17,9 @@ describe.skipIf(!hasPg)("DB privilege lockdown (local Postgres)", () => {
   it("RT-03: only room viewers may join chat/membership channels; clients can't send", () => {
     expect(run("test-room-realtime-auth.sh")).toContain("all checks passed")
   })
+  it("RA-1: a message's room_id must be its sub-channel's room; normal posts still work", () => {
+    expect(run("test-message-room-match.sh")).toContain("all checks passed")
+  })
   it("REV-17: arena refunds are refused once anyone was paid for the game; money paths still work", () => {
     expect(run("test-reference-id-text.sh")).toContain("all checks passed")
   })
