@@ -2,6 +2,7 @@
 
 import { LogIn } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 
 /**
  * Full-page auth gate — renders when a page requires login but user is a guest.
@@ -40,13 +41,14 @@ export function AuthGatePage({ title = "Sign in to continue" }: { title?: string
  * tries to perform an action that requires login.
  */
 export function AuthRequiredDialog({ onClose }: { onClose: () => void }) {
+  const openerFocus = useOpenerFocus()
   return (
     // Radix: dialog role/labels, focus trap and restore, Escape, scroll lock.
     <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
     <Dialog.Portal>
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
       <Dialog.Overlay className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <Dialog.Content aria-describedby={undefined} className="relative flex flex-col items-center gap-4 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-2xl px-8 py-8 shadow-2xl max-w-sm mx-4 text-center">
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} className="relative flex flex-col items-center gap-4 bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-2xl px-8 py-8 shadow-2xl max-w-sm mx-4 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
           <LogIn className="h-7 w-7 text-[var(--color-lime)]" />
         </div>

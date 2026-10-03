@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { X, Trash2, AlertTriangle, TrendingUp, Link2, ChevronDown, Check } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { cn } from "@/lib/utils"
 import { SaveParlayDialog } from "@/components/parlays/SaveParlayDialog"
 import type { SaveParlayPayload, ParlayLeg as ParlayLegType } from "@/lib/types/parlay"
@@ -45,6 +46,7 @@ const MAX_LEGS = 10
 export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, isAuthenticated }: ParlayBuilderProps) {
   const { legs, combinedHitRate, overlappingDates, isVisible } = state
   const [isOpen, setIsOpen] = useState(false)
+  const openerFocus = useOpenerFocus()
 
   // Save dialog state (Task 8.1)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
@@ -178,7 +180,7 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
       <Dialog.Overlay className="bottom-sheet-scrim fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
 
       {/* Slide-up panel */}
-      <Dialog.Content aria-describedby={undefined} className="bottom-sheet-panel fixed bottom-0 left-0 right-0 z-50">
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} className="bottom-sheet-panel fixed bottom-0 left-0 right-0 z-50">
         <div className="bg-[var(--color-surface-elevated)] border-t border-[var(--color-border)] rounded-t-2xl shadow-2xl max-h-[70vh] flex flex-col mx-auto max-w-lg">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]/50">

@@ -3,6 +3,7 @@
 import { memo } from "react"
 import { X, Sparkles, Check } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 
 type UpgradeModalProps = {
   open: boolean
@@ -24,6 +25,7 @@ const PERKS = [
  * ("coming soon"). Kept small so it never dominates the layout.
  */
 function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
+  const openerFocus = useOpenerFocus()
   if (!open) return null
 
   const headline =
@@ -39,7 +41,7 @@ function UpgradeModalBase({ open, limit, onClose }: UpgradeModalProps) {
     <Dialog.Portal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <Dialog.Content aria-describedby={undefined} className="relative w-full max-w-[360px] rounded-2xl bg-[#141414] border border-white/[0.08] shadow-2xl overflow-hidden">
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} className="relative w-full max-w-[360px] rounded-2xl bg-[#141414] border border-white/[0.08] shadow-2xl overflow-hidden">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 w-7 h-7 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/[0.06] flex items-center justify-center transition-colors"

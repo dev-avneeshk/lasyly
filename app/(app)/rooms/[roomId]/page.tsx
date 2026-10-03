@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Hash, Settings, Menu, LogOut, X } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { createClient } from "@/lib/supabase/client"
 import AdminPanel from "@/components/room/AdminPanel"
 import { MessageRow, getUserColor, getInitials, type ChatMessage } from "@/components/room/MessageRow"
@@ -144,6 +145,7 @@ export default function RoomPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [sending, setSending] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const drawerFocus = useOpenerFocus()
   const [adminOpen, setAdminOpen] = useState(false)
   const [userRole, setUserRole] = useState<"owner" | "moderator" | "member">("member")
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; messageId: string; isOwnMessage: boolean } | null>(null)
@@ -825,7 +827,7 @@ export default function RoomPage() {
       <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/60 z-40 md:hidden" />
-          <Dialog.Content aria-describedby={undefined} className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
+          <Dialog.Content {...drawerFocus} aria-describedby={undefined} className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
             <div className="px-5 pt-6 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
               <Dialog.Title className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</Dialog.Title>
               <button onClick={() => setDrawerOpen(false)} aria-label="Close" className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { X, Shield, Crown, UserMinus, Ban, Pin, Trash2, RotateCcw, VolumeX, UserPlus, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ConfirmDialog, type ConfirmField } from "@/components/ui/ConfirmDialog"
@@ -76,6 +77,7 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [pending, setPending] = useState<PendingAction>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+  const openerFocus = useOpenerFocus()
 
   const fetchMembers = useCallback(async () => {
     const res = await fetch(`/api/rooms/${roomId}/members`)
@@ -291,7 +293,7 @@ export default function AdminPanel({ roomId, currentUserId, userRole, onClose, o
     <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
     <Dialog.Portal>
     <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <Dialog.Content aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} className="bg-[#151515] rounded-2xl border border-white/[0.08] w-full max-w-lg max-h-[82vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} onInteractOutside={(e) => e.preventDefault()} className="bg-[#151515] rounded-2xl border border-white/[0.08] w-full max-w-lg max-h-[82vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Compass, Trophy, Target, Newspaper, MoreHorizontal, MessageSquare, User, BarChart2, Wallet, X, Medal, Gamepad2, Store } from "lucide-react"
@@ -37,6 +38,7 @@ export default function BottomNav() {
   const [showMore, setShowMore] = useState(false)
   const [closing, setClosing] = useState(false)
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const openerFocus = useOpenerFocus()
 
   const closeMore = useCallback(() => {
     setClosing(true)
@@ -79,7 +81,7 @@ export default function BottomNav() {
             data-closing={closing}
             className="bottom-sheet-scrim fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
           />
-          <Dialog.Content
+          <Dialog.Content {...openerFocus}
             aria-describedby={undefined}
             data-closing={closing}
             className="bottom-sheet-panel fixed bottom-0 left-0 right-0 z-[101]"

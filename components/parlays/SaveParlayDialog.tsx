@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { motion, AnimatePresence } from "framer-motion"
 import { Globe, Lock, X, Loader2, Coins, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -77,6 +78,7 @@ export function SaveParlayDialog({
   const [odds, setOdds] = useState("")
   const [stake, setStake] = useState("")
   const [note, setNote] = useState("")
+  const openerFocus = useOpenerFocus()
   const [isLogged, setIsLogged] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
 
@@ -150,7 +152,7 @@ export function SaveParlayDialog({
       </Dialog.Overlay>
 
       {/* Dialog */}
-      <Dialog.Content asChild aria-describedby={undefined}>
+      <Dialog.Content {...openerFocus} asChild aria-describedby={undefined}>
       <motion.div
         className="fixed inset-x-0 bottom-0 z-[60] sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:mx-auto"
         initial={{ opacity: 0, y: 100 }}
