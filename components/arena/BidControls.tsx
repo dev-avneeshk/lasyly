@@ -81,7 +81,7 @@ export function BidControls({ state, humanSeat, minRaise, onBid, onMax, onPass, 
         <div className="mt-3 rounded-xl border border-[#bbec0b]/20 bg-[#253014] px-3 py-3 text-center text-sm font-bold text-[#d4ff00]">You lead at ${formatMoney(current)}. Waiting for opponent.</div>
       ) : (
         <div className="mt-3 grid grid-cols-[1.8fr_1fr] gap-2">
-          <button type="button" onClick={() => next !== null && doBid(next)} disabled={!canBid} className={cn("flex h-11 items-center justify-center gap-2 rounded-xl bg-[#635bff] text-sm font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition hover:bg-[#736cff] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45", !canBid && "bg-[#30334a]")}>
+          <button type="button" onClick={() => next !== null && doBid(next)} disabled={!canBid} className={cn("flex h-11 items-center justify-center gap-2 rounded-xl bg-[#635bff] text-sm font-black text-[#f4f6fb] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition hover:bg-[#736cff] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45", !canBid && "bg-[#30334a]")}>
             <Gavel className="h-4 w-4" strokeWidth={2.25} />
             {canBid ? `Bid $${formatMoney(next)}` : "Cannot outbid"}
           </button>
