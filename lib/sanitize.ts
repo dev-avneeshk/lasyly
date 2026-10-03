@@ -71,6 +71,13 @@ export function escapePostgrestFilter(input: string): string {
 }
 
 /**
+ * Quote a value for a PostgREST `.or()` / `in` filter string, so `,` `.` `(`
+ * `)` in user input stay part of the value instead of adding conditions.
+ */
+export function quotePostgrestValue(input: string): string {
+  return `"${input.replace(/["\\]/g, "\\$&")}"`
+}
+/**
  * Validate a URL is a safe image URL (https only, no data URIs).
  */
 export function isValidImageUrl(url: string): boolean {
