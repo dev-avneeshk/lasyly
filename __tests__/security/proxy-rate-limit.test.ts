@@ -40,9 +40,11 @@ describe("proxy API rate limit", () => {
   })
   // REV-9: the AUTHZ-4 fix capped every signed-in user on one IP at the
   // per-user 240/min, so a few users behind one CGNAT/office IP locked it out.
-  it("many real sessions behind one NAT IP under the ceiling are not limited (was: 429 after 240)", async () => {
-    const limited = await count429(500, (i) => call("203.0.113.9", `sb-x-auth-token=session-${i % 10}`))
-    expect(limited).toBe(0)
+  // REV-31: since REV-19 the NAT budget is the 600/min IP ceiling, shared by
+  // every client on the IP (anonymous included): 10 sessions x 100 = 400 x 429.
+  it("sessions behind one NAT IP share 600/min (was: 429 after 240)", async () => {
+    expect(await count429(600, (i) => call("203.0.113.9", `sb-x-auth-token=session-${i % 10}`))).toBe(0)
+    expect(await count429(400, (i) => call("203.0.113.9", `sb-x-auth-token=session-${i % 10}`))).toBe(400)
   })
   it("one session still hits its own per-user cap", async () => {
     const limited = await count429(300, () => call("203.0.113.10", "sb-x-auth-token=busy-session"))
