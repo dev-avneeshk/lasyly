@@ -71,7 +71,7 @@ export function PlayerDashboardSkeleton() {
               <div
                 key={i}
                 className="flex-1 rounded-t bg-white/5"
-                style={{ height: `${30 + Math.random() * 60}%` }}
+                style={{ height: `${30 + ((i * 37) % 60)}%` }}
               />
             ))}
           </div>
