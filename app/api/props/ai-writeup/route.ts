@@ -439,8 +439,13 @@ export const GET = withSecurity(async (request: Request) => {
   const l10HitRate = l10Window?.available ? l10Window.hitRate : 0
 
   // Get matchup grade
-  // A failed opponent scan just drops the grade ("N/A"); nothing is cached.
-  const grade = await getMatchupGrade(player, stat, sport).catch(() => null)
+  // A failed opponent scan drops the grade ("N/A"); that writeup is cached only briefly.
+  let gradeFailed = false
+  const grade = await getMatchupGrade(player, stat, sport).catch((e) => {
+    console.error("matchup grade failed:", e)
+    gradeFailed = true
+    return null
+  })
 
   // Get line movement description
   const movement = await getLineMovementDescription(player, stat, sport)
@@ -468,8 +473,8 @@ Be concise and actionable. No disclaimers.`
     })
   }
 
-  // Store result in ai_writeup_cache with 6h expiry
-  const expiresAt = new Date(Date.now() + CACHE_EXPIRY_MS).toISOString()
+  // Store result in ai_writeup_cache with 6h expiry (5 min when the grade failed)
+  const expiresAt = new Date(Date.now() + (gradeFailed ? 5 * 60 * 1000 : CACHE_EXPIRY_MS)).toISOString()
 
   await supabase
     .from("ai_writeup_cache")

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 // AUTHZ-8: the public writeup route called OpenAI on every cache miss with no
 // limit (and propId variants always miss).
-const st = vi.hoisted(() => ({ allowed: true, cachedWriteup: null as unknown, keys: [] as unknown[], tables: [] as string[], pageError: false, scans: 0 }))
+const st = vi.hoisted(() => ({ allowed: true, cachedWriteup: null as unknown, keys: [] as unknown[], tables: [] as string[], pageError: false, scans: 0, expires: [] as string[] }))
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
@@ -11,7 +11,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       const c: Record<string, unknown> = {}
       for (const op of ["select", "eq", "gt", "gte", "order", "limit", "in", "insert", "range"]) c[op] = () => c
       c.eq = (k: string, v: unknown) => ((k === "prop_identifier" ? st.keys.push(v) : 0), c)
-      c.upsert = (v: { prop_identifier: unknown }) => (st.keys.push(v.prop_identifier), c)
+      c.upsert = (v: { prop_identifier: unknown; expires_at: string }) => (st.keys.push(v.prop_identifier), st.expires.push(v.expires_at), c)
       c.single = async () => ({ data: t === "ai_writeup_cache" ? st.cachedWriteup : null })
       c.maybeSingle = c.single
       let paged = false
@@ -40,6 +40,7 @@ beforeEach(() => {
   st.keys = []
   st.tables = []
   st.pageError = false
+  st.expires = []
   fetchSpy.mockClear()
   vi.stubGlobal("fetch", fetchSpy)
   vi.stubEnv("OPENAI_API_KEY", "test")
@@ -86,6 +87,16 @@ describe("GET /api/props/ai-writeup", () => {
     const scans = st.scans
     await get("LeBron%20James-ast")
     expect(st.scans).toBeGreaterThan(scans) // was: partial result served from cache
+  })
+  // REV-44: the gradeless writeup was cached for the full 6 h.
+  it("a writeup built after a failed grade expires in minutes, a normal one in 6 h", async () => {
+    const ttl = (i: number) => Date.parse(st.expires[i]) - Date.now()
+    st.pageError = true
+    await get("LeBron%20James-reb")
+    expect(ttl(0)).toBeLessThanOrEqual(5 * 60 * 1000)
+    st.pageError = false
+    await get("LeBron%20James-reb")
+    expect(ttl(1)).toBeGreaterThan(5 * 60 * 60 * 1000)
   })
   it("an unknown stat is rejected before any query or OpenAI call", async () => {
     const res = await get("LeBron%20James-profiles(wallet_balance)")
