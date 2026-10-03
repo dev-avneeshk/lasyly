@@ -109,6 +109,14 @@ describe("Economy — XP + levels", () => {
     expect(levelForXp(299)).toBe(2)
     expect(levelForXp(300)).toBe(3)
     expect(levelForXp(-50)).toBe(1) // clamps negatives
+    // L-21: every boundary of the first 2000 levels, and junk input returns instead of hanging.
+    for (let n = 2; n <= 2000; n++) {
+      expect(levelForXp(xpToReachLevel(n))).toBe(n)
+      expect(levelForXp(xpToReachLevel(n) - 1)).toBe(n - 1)
+    }
+    expect(levelForXp(Infinity)).toBe(1)
+    expect(levelForXp(NaN)).toBe(1)
+    expect(levelForXp(1e15)).toBe(4472136)
   })
 
   it("levelProgress reports how far into the current level a total is", () => {

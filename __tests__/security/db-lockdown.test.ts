@@ -20,6 +20,9 @@ describe.skipIf(!hasPg)("DB privilege lockdown (local Postgres)", () => {
   it("RA-1: a message's room_id must be its sub-channel's room; normal posts still work", () => {
     expect(run("test-message-room-match.sh")).toContain("all checks passed")
   })
+  it("L-21: level_for_xp is O(1) (anon can't burn DB CPU) and matches the old loop", () => {
+    expect(run("test-level-for-xp.sh")).toContain("all checks passed")
+  })
   it("REV-17: arena refunds are refused once anyone was paid for the game; money paths still work", () => {
     expect(run("test-reference-id-text.sh")).toContain("all checks passed")
   })
