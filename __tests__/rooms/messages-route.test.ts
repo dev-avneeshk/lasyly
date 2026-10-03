@@ -8,6 +8,7 @@ const st = vi.hoisted(() => ({
   inFlight: 0,
   maxInFlight: 0,
   member: true as boolean,
+  roomType: "Public",
   muted: false,
   inserted: null as Record<string, unknown> | null,
 }))
@@ -21,7 +22,7 @@ vi.mock("@/lib/supabase/server", () => ({
       let insert: Record<string, unknown> | null = null
       const result = () => {
         if (insert) return { data: { id: "m1", content: insert.content, created_at: "now", profiles: null }, error: null }
-        if (t === "rooms") return { data: { id: "r1", type: "Public" } }
+        if (t === "rooms") return { data: { id: "r1", type: st.roomType } }
         if (t === "room_members") return { data: st.member ? { id: 1 } : null, error: null }
         if (t === "room_mutes") return { data: st.muted ? { muted_until: "2999-01-01T00:00:00Z" } : null }
         if (t === "room_subchannels") return { data: { id: "11111111-1111-4111-8111-111111111111" } }
@@ -55,7 +56,7 @@ const send = (content = "hello there") =>
   POST(new Request("http://localhost/api/rooms/r1/messages", { method: "POST", body: JSON.stringify({ content }) }), params)
 
 beforeEach(() => {
-  Object.assign(st, { ticks: 0, inFlight: 0, maxInFlight: 0, member: true, muted: false, inserted: null })
+  Object.assign(st, { ticks: 0, inFlight: 0, maxInFlight: 0, member: true, roomType: "Public", muted: false, inserted: null })
 })
 
 describe("chat messages route round trips (DB-13)", () => {
@@ -78,5 +79,16 @@ describe("chat messages route round trips (DB-13)", () => {
     const res = await GET(new Request("http://localhost/api/rooms/r1/messages"), params)
     expect((await res.json()).messages).toHaveLength(1)
     expect(st.ticks).toBe(2)
+  })
+  // The messages read now runs alongside the room check; a non-member of a
+  // private room must still get 403 and none of the rows.
+  it("GET on a private room refuses a non-member without returning messages", async () => {
+    st.roomType = "Private"
+    st.member = false
+    const res = await GET(new Request("http://localhost/api/rooms/r1/messages"), params)
+    expect(res.status).toBe(403)
+    expect(await res.json()).not.toHaveProperty("messages")
+    st.member = true
+    expect((await (await GET(new Request("http://localhost/api/rooms/r1/messages"), params)).json()).messages).toHaveLength(1)
   })
 })

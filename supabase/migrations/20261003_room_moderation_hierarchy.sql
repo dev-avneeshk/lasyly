@@ -21,12 +21,14 @@ BEGIN
     -- rooms.member_count/is_live are maintained outside the repo. A SECURITY
     -- INVOKER trigger on room_members updating rooms would raise 42501 on every
     -- join/leave once the grant is gone, so keep the grant then: with the
-    -- policy dropped, user UPDATEs on rooms still match no rows.
+    -- policy dropped, user UPDATEs on rooms still match no rows. That includes
+    -- the INVOKER trigger's own UPDATE, so member_count would stop moving:
+    -- make that trigger function SECURITY DEFINER before deploying.
     IF to_regclass('public.room_members') IS NOT NULL AND EXISTS (
       SELECT 1 FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
       WHERE t.tgrelid = 'public.room_members'::regclass AND NOT t.tgisinternal AND NOT p.prosecdef
     ) THEN
-      RAISE WARNING 'rooms UPDATE grant kept: room_members has SECURITY INVOKER trigger(s)';
+      RAISE WARNING 'rooms UPDATE grant kept: room_members has SECURITY INVOKER trigger(s); their UPDATE on rooms now matches no rows (member_count stops moving) until they are made SECURITY DEFINER';
     ELSE
       REVOKE UPDATE ON public.rooms FROM anon, authenticated;
     END IF;
