@@ -2,6 +2,7 @@ import "server-only"
 import { unstable_cache } from "next/cache"
 import { getScoresForDate, getTodayYYYYMMDD, type ScoresResult } from "@/lib/data/scores"
 import { getNews } from "@/lib/data/news"
+import { getLeaderboard } from "@/lib/data/leaderboard"
 import type { NewsItem } from "@/types/news"
 
 /**
@@ -102,61 +103,17 @@ export type LeaderboardSnapshotEntry = {
 }
 
 /**
- * Top-5 win-rate leaderboard for the explore sidebar. Mirrors the aggregation
- * in /api/leaderboard but returns only the five fields MiniLeaderboard renders.
+ * Top-5 win-rate leaderboard for the explore sidebar: the /api/leaderboard
+ * result trimmed to the fields MiniLeaderboard renders.
  */
 export async function getLeaderboardSnapshot(): Promise<LeaderboardSnapshotEntry[]> {
   const load = unstable_cache(
-    async () => {
-      const supabase = createAdminClient()
-
-      const { data: parlays, error } = await supabase
-        .from("parlays")
-        .select("user_id, status")
-        .in("status", ["won", "lost", "pending"])
-
-      if (error || !parlays || parlays.length === 0) return []
-
-      const userStats = new Map<string, { total: number; won: number; totalPicks: number }>()
-      for (const parlay of parlays) {
-        if (!parlay.user_id) continue
-        const s = userStats.get(parlay.user_id) || { total: 0, won: 0, totalPicks: 0 }
-        s.totalPicks += 1
-        if (parlay.status === "won" || parlay.status === "lost") {
-          s.total += 1
-          if (parlay.status === "won") s.won += 1
-        }
-        userStats.set(parlay.user_id, s)
-      }
-
-      const qualified = Array.from(userStats.entries())
-        .filter(([, s]) => s.total >= 10)
-        .map(([userId]) => userId)
-
-      if (qualified.length === 0) return []
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url")
-        .in("id", qualified)
-
-      if (!profiles) return []
-
-      return profiles
-        .map((p) => {
-          const s = userStats.get(p.id)!
-          return {
-            user_id: p.id,
-            username: p.username,
-            display_name: p.display_name,
-            avatar_url: p.avatar_url,
-            win_rate: s.total > 0 ? Math.round((s.won / s.total) * 1000) / 10 : 0,
-            total_picks: s.totalPicks,
-          }
-        })
-        .sort((a, b) => b.win_rate - a.win_rate)
+    async () =>
+      (await getLeaderboard("win_rate")).leaderboard
         .slice(0, 5)
-    },
+        .map(({ user_id, username, display_name, avatar_url, win_rate, total_picks }) => ({
+          user_id, username, display_name, avatar_url, win_rate, total_picks,
+        })),
     ["isr-leaderboard-snapshot"],
     { revalidate: LEADERBOARD_SNAPSHOT_REVALIDATE, tags: ["leaderboard-snapshot"] }
   )
