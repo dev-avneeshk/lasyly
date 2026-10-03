@@ -66,9 +66,8 @@ export const POST = withSecurity(async (
   // The joiner must match the creator's stake. Charge BEFORE claiming the seat
   // so a player who can't cover the stake never gets seated (and never blocks
   // the game). The debit is idempotent per (user, game): a retry after a
-  // successful charge is a no-op, and if the seat claim below then fails
-  // (someone beat them to it) we refund. We only need the refund path for that
-  // narrow race, handled by the abandonment/refund flow.
+  // successful charge is a no-op, and if the seat claim below then fails for
+  // any reason we refund.
   const stake = existing.state.econ?.amount ?? 0
   if (stake > 0) {
     const charge = await chargeArenaStake({
@@ -106,11 +105,15 @@ export const POST = withSecurity(async (
       }
     }))
   } catch (e) {
-    // Lost the race for the seat after we already charged the stake — give it
-    // back. refund is idempotent, so this is safe even if the charge above hit
-    // the 'duplicate' path.
-    if (stake > 0 && e instanceof Error && e.message === "This game is already full.") {
-      await refundArenaStake({ userId: user.id, gameId })
+    // The seat wasn't committed (lost the race, the game was swept, or the lock
+    // stayed busy) after we already charged the stake: give it back, as the
+    // matchmake join does. refund is idempotent per (user, game). Re-read first:
+    // a concurrent join by the same user may have seated them on this charge.
+    if (stake > 0) {
+      const now = await loadGame(gameId).catch(() => undefined)
+      if (now !== undefined && now?.guestUserId !== user.id) await refundArenaStake({ userId: user.id, gameId })
+    }
+    if (e instanceof Error && e.message === "This game is already full.") {
       return NextResponse.json({ error: "This game is already full." }, { status: 409 })
     }
     throw e
