@@ -51,7 +51,8 @@ export function chatChannelName(subchannelId: string): string {
 }
 
 /**
- * Broadcast a newly inserted message to everyone in the sub-channel.
+ * Broadcast a newly inserted message (or, with `message_deleted`, a deleted
+ * message's id) to everyone in the sub-channel.
  *
  * Best-effort by design: the message is already committed, so a Realtime hiccup
  * must not turn a successful send into an error for the sender. Clients also
@@ -59,14 +60,15 @@ export function chatChannelName(subchannelId: string): string {
  */
 export async function broadcastChatMessage(
   subchannelId: string,
-  message: BroadcastChatMessage
+  message: BroadcastChatMessage | { id: string },
+  event: "new_message" | "message_deleted" = "new_message"
 ): Promise<void> {
   // Private: only users who can view the sub-channel may join, and clients can't
   // send (20261002_room_realtime_authorization.sql), so payloads are trusted.
   const supabase = createAdminClient()
   const channel = supabase.channel(chatChannelName(subchannelId), { config: { private: true } })
   try {
-    const res = await channel.httpSend("new_message", message)
+    const res = await channel.httpSend(event, message)
     if (!res.success) {
       console.error("[chat] server broadcast failed:", res.status, res.error)
     }

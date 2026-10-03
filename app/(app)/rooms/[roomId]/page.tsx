@@ -30,9 +30,17 @@ const OLDER_PAGE_SIZE = 50
  * Load the session JWT into the Realtime socket before a private join, so it
  * isn't sent with only the anon key (members-only rooms would be refused).
  * Failure is fine: public rooms admit anon, and history still loads over HTTP.
+ *
+ * Also waits out a still-leaving channel on the same topic: supabase.channel()
+ * hands that instance back, and subscribing it is a no-op, so a quick A→B→A
+ * switch left the chat dead. Create the channel only after this resolves.
  */
-function joinPrivate(supabase: ReturnType<typeof createClient>): Promise<void> {
-  return supabase.realtime.setAuth().catch(() => {})
+function joinPrivate(supabase: ReturnType<typeof createClient>, topic: string): Promise<void> {
+  const stale = supabase.getChannels().find((c) => c.topic === `realtime:${topic}`)
+  return Promise.all([stale && supabase.removeChannel(stale), supabase.realtime.setAuth()]).then(
+    () => {},
+    () => {}
+  )
 }
 
 /**
@@ -44,7 +52,7 @@ function joinPrivate(supabase: ReturnType<typeof createClient>): Promise<void> {
  * Dedupes by id, so it's safe to call with a message already present (the
  * incoming copy wins, which lets us reconcile optimistic rows in place).
  */
-function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[], keepAll = false): ChatMessage[] {
   if (incoming.length === 0) return prev
   const byId = new Map<string, ChatMessage>()
   for (const m of prev) byId.set(m.id, m)
@@ -55,8 +63,12 @@ function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessag
     if (ta !== tb) return ta - tb
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
-  // Cap from the OLD end so we always keep the most recent messages.
-  return merged.length > MAX_MESSAGES ? merged.slice(-MAX_MESSAGES) : merged
+  // Cap from the OLD end so we always keep the most recent messages, but never
+  // below what's already shown (older pages the user loaded stay) and never
+  // when merging an older page itself (keepAll), which the cap used to slice
+  // straight back off.
+  const cap = keepAll ? Infinity : Math.max(MAX_MESSAGES, prev.length)
+  return merged.length > cap ? merged.slice(-cap) : merged
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -162,36 +174,40 @@ export default function RoomPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const res = await fetch(`/api/rooms/${roomId}`)
+      // Independent reads run together (were 5 serial steps plus a second
+      // getUser): room + user + channels, then the user's members/pins/profile.
+      const [res, u] = await Promise.all([
+        fetch(`/api/rooms/${roomId}`),
+        supabase.auth.getUser(),
+        loadChannels(true), // picks the first sub-channel as active
+      ])
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Failed to load room."); setLoading(false); return }
       setRoom(data)
       setMemberCount(data.member_count ?? 0)
       setIsMember(data.is_member ?? false)
-      const u = await supabase.auth.getUser()
       const uid = u.data.user?.id ?? null
       setUserId(uid)
       setIsOwner(uid === data.creator_id)
 
-      // Fetch user role in this room
       if (uid) {
-        const memberRes = await fetch(`/api/rooms/${roomId}/members`)
+        const [memberRes, pinRes, { data: profile }] = await Promise.all([
+          fetch(`/api/rooms/${roomId}/members`),
+          fetch(`/api/rooms/${roomId}/pin`),
+          supabase.from("profiles").select("username, display_name, avatar_url").eq("id", uid).single(),
+        ])
+        setCurrentUser({ id: uid, profile })
         if (memberRes.ok) {
           const memberData = await memberRes.json()
           const me = (memberData.members ?? []).find((m: { id: string }) => m.id === uid)
           if (me) setUserRole(me.role)
           setMembers(memberData.members ?? [])
         }
-        // Fetch pinned messages
-        const pinRes = await fetch(`/api/rooms/${roomId}/pin`)
         if (pinRes.ok) {
           const pinData = await pinRes.json()
           setPinnedMessages(new Set((pinData.pins ?? []).map((p: { message_id: string }) => p.message_id)))
         }
       }
-
-      // Load channels and pick the first sub-channel as active.
-      await loadChannels(true)
 
       setLoading(false)
     }
@@ -209,33 +225,34 @@ export default function RoomPage() {
   // on demand instead of once per subscriber per row inside Realtime.
   useEffect(() => {
     let ignore = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     const refetch = async () => {
+      timer = undefined
       const res = await fetch(`/api/rooms/${roomId}/members`)
       if (ignore || !res.ok) return
       const data = await res.json()
       setMembers(data.members ?? [])
     }
+    // A burst of joins/leaves/moderation nudges costs one refetch per second.
+    const nudge = () => { timer ??= setTimeout(() => void refetch(), 1000) }
     // Private: Realtime checks room visibility at join (RLS on realtime.messages).
-    const channel = supabase
-      .channel(`room-members-${roomId}`, { config: { private: true } })
-      .on("broadcast", { event: "members_changed" }, () => { void refetch() })
-    void joinPrivate(supabase).then(() => { if (!ignore) channel.subscribe() })
-    return () => { ignore = true; supabase.removeChannel(channel) }
+    const topic = `room-members-${roomId}`
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    void joinPrivate(supabase, topic).then(() => {
+      if (ignore) return
+      channel = supabase
+        .channel(topic, { config: { private: true } })
+        .on("broadcast", { event: "members_changed" }, nudge)
+        .subscribe()
+    })
+    return () => {
+      ignore = true
+      clearTimeout(timer)
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [supabase, roomId])
 
   // ─── Load Messages + Realtime ───────────────────────────────────────────────
-
-  // Resolve current user's profile once.
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
-        setCurrentUser({ id: user.id, profile })
-      }
-    }
-    getUser()
-  }, [supabase])
 
   // Fetch messages + subscribe to realtime for the ACTIVE sub-channel.
   useEffect(() => {
@@ -284,46 +301,54 @@ export default function RoomPage() {
     // PER SUBSCRIBER PER ROW — one message in a room with N viewers costs ~2-3N
     // lookups. Set NEXT_PUBLIC_CHAT_PG_CHANGES=true to re-enable it without a
     // code change if a delivery gap ever shows up in practice.
-    let channelBuilder = supabase
-      .channel(`room-sub-${activeSubchannelId}`, { config: { private: true } })
-      .on("broadcast", { event: "new_message" }, (payload) => {
-        const msg = payload.payload as ChatMessage
-        setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
-      })
+    const topic = `room-sub-${activeSubchannelId}`
+    const build = () => {
+      let channelBuilder = supabase
+        .channel(topic, { config: { private: true } })
+        .on("broadcast", { event: "new_message" }, (payload) => {
+          const msg = payload.payload as ChatMessage
+          setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
+        })
+        .on("broadcast", { event: "message_deleted" }, (payload) => {
+          const { id } = payload.payload as { id: string }
+          setMessages((prev) => prev.filter((m) => m.id !== id))
+        })
 
-    if (process.env.NEXT_PUBLIC_CHAT_PG_CHANGES === "true") {
-      channelBuilder = channelBuilder.on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `subchannel_id=eq.${activeSubchannelId}`,
-        },
-        (payload) => {
-          const row = payload.new as {
-            id: string
-            content: string
-            is_system: boolean
-            created_at: string
-            user_id: string
-            kind?: "text" | "betslip"
+      if (process.env.NEXT_PUBLIC_CHAT_PG_CHANGES === "true") {
+        channelBuilder = channelBuilder.on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `subchannel_id=eq.${activeSubchannelId}`,
+          },
+          (payload) => {
+            const row = payload.new as {
+              id: string
+              content: string
+              is_system: boolean
+              created_at: string
+              user_id: string
+              kind?: "text" | "betslip"
+            }
+            setMessages((prev) =>
+              mergeMessages(prev, [
+                hydrate({
+                  id: row.id,
+                  content: row.content,
+                  is_system: row.is_system,
+                  created_at: row.created_at,
+                  user_id: row.user_id,
+                  kind: row.kind ?? "text",
+                  profile: null,
+                }),
+              ])
+            )
           }
-          setMessages((prev) =>
-            mergeMessages(prev, [
-              hydrate({
-                id: row.id,
-                content: row.content,
-                is_system: row.is_system,
-                created_at: row.created_at,
-                user_id: row.user_id,
-                kind: row.kind ?? "text",
-                profile: null,
-              }),
-            ])
-          )
-        }
-      )
+        )
+      }
+      return channelBuilder
     }
 
     // Catch-up on (re)subscribe. This is what actually makes delivery reliable:
@@ -333,16 +358,17 @@ export default function RoomPage() {
     // strictly more robust than postgres_changes, which also delivered nothing
     // while disconnected.
     let subscribedOnce = false
-    void joinPrivate(supabase).then(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    void joinPrivate(supabase, topic).then(() => {
       if (ignore) return
-      channelBuilder.subscribe((status) => {
+      channel = build().subscribe((status) => {
         if (status !== "SUBSCRIBED") return
         if (subscribedOnce) void fetchMessages("merge")
         subscribedOnce = true
       })
     })
 
-    return () => { ignore = true; supabase.removeChannel(channelBuilder) }
+    return () => { ignore = true; if (channel) supabase.removeChannel(channel) }
   }, [supabase, roomId, activeSubchannelId])
 
   // ─── Load older messages (cursor pagination) ─────────────────────────────────
@@ -363,7 +389,7 @@ export default function RoomPage() {
       )
       const data = await res.json()
       if (res.ok && data.messages) {
-        setMessages((prev) => mergeMessages(prev, data.messages))
+        setMessages((prev) => mergeMessages(prev, data.messages, true))
         setHasMoreOlder(Boolean(data.hasMore))
         setOlderCursor(data.nextCursor ?? null)
         // Restore scroll offset once the DOM has grown.
