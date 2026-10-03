@@ -17,6 +17,8 @@ function chain(resolve: (filters: string[][], values?: Record<string, unknown>) 
     update: (v: Record<string, unknown>) => ((values = v), c),
     eq: (k: string, v: string) => (filters.push([k, v]), c),
     in: () => c,
+    order: () => c,
+    range: () => c,
     maybeSingle: async () => resolve(filters, values),
     then: (r: (v: unknown) => unknown) => r(resolve(filters, values)),
   }

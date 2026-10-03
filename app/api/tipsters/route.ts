@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached, CACHE_TTL } from "@/lib/cache"
+import { fetchAllIn } from "@/lib/supabase/paged"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 type TipsterProfile = {
@@ -46,23 +47,17 @@ export const GET = withSecurity(async (request: Request) => {
 
     const tipsterIds = profiles.map((p) => p.id)
 
-    // Fetch betslip stats for each tipster
-    const { data: betslips } = await supabase
-      .from("betslips")
-      .select("user_id, status")
-      .in("user_id", tipsterIds)
-
-    // Fetch follower counts
-    const { data: follows } = await supabase
-      .from("follows")
-      .select("following_id")
-      .in("following_id", tipsterIds)
+    // Betslips and follower rows for every tipster, together and past the 1000-row cap.
+    const [betslips, follows] = await Promise.all([
+      fetchAllIn<{ user_id: string; status: string }>(supabase, "betslips", "user_id, status", "user_id", tipsterIds),
+      fetchAllIn<{ following_id: string }>(supabase, "follows", "following_id", "following_id", tipsterIds),
+    ])
 
     // Aggregate stats
     // Statuses are stored "Won"/"Lost" (comparing "won" made every win rate 0);
     // the rate is over graded slips only, not Pending/Void/Partial.
     const statsMap = new Map<string, { total: number; won: number; graded: number }>()
-    for (const bet of betslips ?? []) {
+    for (const bet of betslips) {
       const existing = statsMap.get(bet.user_id) ?? { total: 0, won: 0, graded: 0 }
       existing.total++
       if (bet.status === "Won") existing.won++
@@ -71,7 +66,7 @@ export const GET = withSecurity(async (request: Request) => {
     }
 
     const followerMap = new Map<string, number>()
-    for (const follow of follows ?? []) {
+    for (const follow of follows) {
       followerMap.set(follow.following_id, (followerMap.get(follow.following_id) ?? 0) + 1)
     }
 
