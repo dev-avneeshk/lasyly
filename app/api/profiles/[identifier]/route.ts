@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { fetchAllIn } from "@/lib/supabase/paged"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { rejectInjectionPatterns } from "@/lib/security/inputValidator"
 
@@ -72,12 +73,8 @@ export const GET = withSecurity(async (
   ])
 
   // Compute betting statistics
-  const { data: betslips } = await supabase
-    .from("betslips")
-    .select("status, odds")
-    .eq("user_id", profile.id)
-
-  const allBetslips = betslips ?? []
+  // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
+  const allBetslips = await fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id])
   const totalPicks = allBetslips.length
   // Void is a refund, not a loss: win rate is over Won + Lost only.
   const resolvedBetslips = allBetslips.filter((b) => b.status === "Won" || b.status === "Lost")

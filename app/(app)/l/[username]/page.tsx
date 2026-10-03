@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { fetchAllIn } from "@/lib/supabase/paged"
 import { notFound } from "next/navigation"
 import PublicProfileClient from "./PublicProfileClient"
 import type { Metadata } from "next"
@@ -40,10 +41,8 @@ export default async function PublicProfilePage({ params }: PageProps) {
       .from("follows")
       .select("*", { count: "exact", head: true })
       .eq("follower_id", profile.id),
-    supabase
-      .from("betslips")
-      .select("status, odds")
-      .eq("user_id", profile.id),
+    // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
+    fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id]),
     supabase.auth.getUser(),
   ])
 
@@ -51,7 +50,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const followingCount = followingResult.count ?? 0
 
   // Compute betting stats
-  const betslips = betslipsResult.data ?? []
+  const betslips = betslipsResult
   const totalPicks = betslips.length
   // Void is a refund, not a loss: win rate is over Won + Lost only (as the profile API).
   const resolved = betslips.filter((b) => b.status === "Won" || b.status === "Lost")
