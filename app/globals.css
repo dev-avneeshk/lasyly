@@ -260,10 +260,7 @@
 [data-theme="light"] .bg-\[\#151515\],
 [data-theme="light"] .bg-\[\#161616\],
 [data-theme="light"] .bg-\[\#1A1A1A\],
-[data-theme="light"] .bg-\[\#1a1a1a\],
-[data-theme="light"] .bg-\[\#1e1f22\],
-[data-theme="light"] .bg-\[\#11141e\]\/90,
-[data-theme="light"] .bg-\[\#11141e\]\/95 {
+[data-theme="light"] .bg-\[\#1a1a1a\] {
   background-color: var(--color-surface) !important;
 }
 [data-theme="light"] .hover\:bg-\[\#1A1A1A\]:hover {
