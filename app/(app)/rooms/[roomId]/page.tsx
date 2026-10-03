@@ -146,6 +146,16 @@ export default function RoomPage() {
   const [sending, setSending] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const drawerFocus = useOpenerFocus()
+  // The drawer is md:hidden but modal: close it once the viewport reaches md
+  // (rotate to landscape) so an invisible dialog can't lock the page.
+  useEffect(() => {
+    if (!drawerOpen) return
+    const md = window.matchMedia("(min-width: 768px)")
+    const close = () => { if (md.matches) setDrawerOpen(false) }
+    close()
+    md.addEventListener("change", close)
+    return () => md.removeEventListener("change", close)
+  }, [drawerOpen])
   const [adminOpen, setAdminOpen] = useState(false)
   const [userRole, setUserRole] = useState<"owner" | "moderator" | "member">("member")
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; messageId: string; isOwnMessage: boolean } | null>(null)
