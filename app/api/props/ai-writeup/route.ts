@@ -176,9 +176,12 @@ async function getMatchupGrade(
     async () => {
       const rows = await fetchPagedParallel<Record<string, unknown>>(
         async () => (await supabase.from("nba_player_stats").select("id", { count: "exact", head: true })).count ?? null,
-        async (from, to) =>
-          ((await supabase.from("nba_player_stats").select(`opponent, ${column}`).order("id").range(from, to)).data ??
-            []) as unknown as Record<string, unknown>[]
+        async (from, to) => {
+          // Throw, never cache averages built from a partial scan.
+          const { data, error } = await supabase.from("nba_player_stats").select(`opponent, ${column}`).order("id").range(from, to)
+          if (error) throw new Error(error.message)
+          return (data ?? []) as unknown as Record<string, unknown>[]
+        }
       )
       const teamTotals = new Map<string, { total: number; count: number }>()
       for (const row of rows) {
@@ -436,7 +439,8 @@ export const GET = withSecurity(async (request: Request) => {
   const l10HitRate = l10Window?.available ? l10Window.hitRate : 0
 
   // Get matchup grade
-  const grade = await getMatchupGrade(player, stat, sport)
+  // A failed opponent scan just drops the grade ("N/A"); nothing is cached.
+  const grade = await getMatchupGrade(player, stat, sport).catch(() => null)
 
   // Get line movement description
   const movement = await getLineMovementDescription(player, stat, sport)

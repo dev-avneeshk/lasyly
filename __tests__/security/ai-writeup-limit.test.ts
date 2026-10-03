@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 // AUTHZ-8: the public writeup route called OpenAI on every cache miss with no
 // limit (and propId variants always miss).
-const st = vi.hoisted(() => ({ allowed: true, cachedWriteup: null as unknown, keys: [] as unknown[], tables: [] as string[] }))
+const st = vi.hoisted(() => ({ allowed: true, cachedWriteup: null as unknown, keys: [] as unknown[], tables: [] as string[], pageError: false, scans: 0 }))
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
@@ -14,8 +14,12 @@ vi.mock("@/lib/supabase/admin", () => ({
       c.upsert = (v: { prop_identifier: unknown }) => (st.keys.push(v.prop_identifier), c)
       c.single = async () => ({ data: t === "ai_writeup_cache" ? st.cachedWriteup : null })
       c.maybeSingle = c.single
+      let paged = false
+      c.range = () => ((paged = true), st.scans++, c)
       c.then = (r: (v: unknown) => unknown) =>
-        r({ data: t === "nba_player_stats" ? [1, 2, 3, 4].map((pts) => ({ pts, opponent: "BOS" })) : [], error: null })
+        paged && st.pageError
+          ? r({ data: null, error: { message: "timeout" } })
+          : r({ data: t === "nba_player_stats" ? [1, 2, 3, 4].map((pts) => ({ pts, ast: pts, opponent: "BOS" })) : [], error: null })
       return c
     },
   }),
@@ -35,6 +39,7 @@ beforeEach(() => {
   st.cachedWriteup = null
   st.keys = []
   st.tables = []
+  st.pageError = false
   fetchSpy.mockClear()
   vi.stubGlobal("fetch", fetchSpy)
   vi.stubEnv("OPENAI_API_KEY", "test")
@@ -70,6 +75,17 @@ describe("GET /api/props/ai-writeup", () => {
     await get("LeBron%20James-PTS")
     await get("LeBron%20James-pts")
     expect(new Set(st.keys)).toEqual(new Set(["LeBron James-pts"]))
+  })
+  // REV-38: a failed page of the opponent-average scan was read as no rows and
+  // the shrunken averages were cached for 6 h.
+  it("a failed opponent-average page is not cached; the writeup still generates", async () => {
+    st.pageError = true
+    expect((await get("LeBron%20James-ast")).status).toBe(200)
+    expect(fetchSpy).toHaveBeenCalled()
+    st.pageError = false
+    const scans = st.scans
+    await get("LeBron%20James-ast")
+    expect(st.scans).toBeGreaterThan(scans) // was: partial result served from cache
   })
   it("an unknown stat is rejected before any query or OpenAI call", async () => {
     const res = await get("LeBron%20James-profiles(wallet_balance)")
