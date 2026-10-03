@@ -451,12 +451,17 @@
   animation: bottom-sheet-out 200ms cubic-bezier(0.55, 0, 1, 0.45) both;
 }
 
+/* One reduced-motion policy for every CSS animation/transition (framer-motion
+   is covered by MotionConfig in ThemeProvider). 1ms, not none, so animationend
+   handlers (bottom sheet close) still fire. */
 @media (prefers-reduced-motion: reduce) {
-  .bottom-sheet-scrim,
-  .bottom-sheet-scrim[data-closing="true"],
-  .bottom-sheet-panel,
-  .bottom-sheet-panel[data-closing="true"] {
-    animation-duration: 1ms;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -504,11 +509,5 @@
   /* The widget's options stack vertically on narrow screens. */
   .filexl-upload-container iframe {
     height: 680px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .careers-rise {
-    animation: none;
   }
 }
