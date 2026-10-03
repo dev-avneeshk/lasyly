@@ -234,6 +234,41 @@
   color: #1a1a1a !important;
 }
 
+/* The in-between opacities had no override and stayed near-white on light. */
+[data-theme="light"] .text-white\/25,
+[data-theme="light"] .text-white\/35,
+[data-theme="light"] .placeholder\:text-white\/25::placeholder {
+  color: rgba(26, 26, 26, 0.4) !important;
+}
+[data-theme="light"] .text-white\/45,
+[data-theme="light"] .text-white\/55 {
+  color: rgba(26, 26, 26, 0.55) !important;
+}
+[data-theme="light"] .text-white\/75,
+[data-theme="light"] .text-white\/85 {
+  color: rgba(26, 26, 26, 0.8) !important;
+}
+/* Light mode: hardcoded dark surfaces (rooms, chat, panels) follow the theme;
+   their text already flips above, so they rendered dark-on-dark. */
+[data-theme="light"] .bg-\[\#0A0A0A\],
+[data-theme="light"] .bg-\[\#050607\] {
+  background-color: var(--color-background) !important;
+}
+[data-theme="light"] .bg-\[\#0E0E0E\],
+[data-theme="light"] .bg-\[\#111111\],
+[data-theme="light"] .bg-\[\#141414\],
+[data-theme="light"] .bg-\[\#151515\],
+[data-theme="light"] .bg-\[\#161616\],
+[data-theme="light"] .bg-\[\#1A1A1A\],
+[data-theme="light"] .bg-\[\#1a1a1a\],
+[data-theme="light"] .bg-\[\#1e1f22\],
+[data-theme="light"] .bg-\[\#11141e\]\/90,
+[data-theme="light"] .bg-\[\#11141e\]\/95 {
+  background-color: var(--color-surface) !important;
+}
+[data-theme="light"] .hover\:bg-\[\#1A1A1A\]:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
 /* Light mode: background overrides */
 [data-theme="light"] .bg-white\/5,
 [data-theme="light"] .bg-white\/\[0\.05\],
