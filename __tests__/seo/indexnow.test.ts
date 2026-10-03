@@ -18,4 +18,14 @@ describe("POST /api/indexnow", () => {
     expect(body.urlList.every((u: string) => u.startsWith("https://www.lasyly.me"))).toBe(true)
     vi.unstubAllGlobals()
   })
+  // AUTHZ-18: the bearer check was a plain string compare; it now uses the
+  // shared constant-time cron check (wrong or missing secret → 401, no fetch).
+  it.each([["Bearer x"], ["Bearer ss"], [""]])("rejects authorization %j", async (authorization) => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal("fetch", fetchSpy)
+    const res = await POST(new NextRequest("http://localhost/api/indexnow", { method: "POST", headers: { authorization } }))
+    expect(res.status).toBe(401)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
 })
