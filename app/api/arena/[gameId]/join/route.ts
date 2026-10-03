@@ -66,8 +66,8 @@ export const POST = withSecurity(async (
   // The joiner must match the creator's stake. Charge BEFORE claiming the seat
   // so a player who can't cover the stake never gets seated (and never blocks
   // the game). The debit is idempotent per (user, game): a retry after a
-  // successful charge is a no-op, and if the seat claim below then fails for
-  // any reason we refund.
+  // successful charge is a no-op, and if the seat claim below fails in a way a
+  // retry can't recover from, we refund.
   const stake = existing.state.econ?.amount ?? 0
   if (stake > 0) {
     const charge = await chargeArenaStake({
@@ -105,13 +105,16 @@ export const POST = withSecurity(async (
       }
     }))
   } catch (e) {
-    // The seat wasn't committed (lost the race, the game was swept, or the lock
-    // stayed busy) after we already charged the stake: give it back, as the
-    // matchmake join does. refund is idempotent per (user, game). Re-read first:
-    // a concurrent join by the same user may have seated them on this charge.
+    // The seat wasn't committed after we already charged the stake. Refund only
+    // when no retry can win the seat (the game was swept, or someone else holds
+    // P2): the ARENA_STAKE row survives a refund, so a retry would read it as
+    // "duplicate" and be seated for free. A busy/conflict failure with the seat
+    // still open keeps the charge so the client's retry is backed by it.
     if (stake > 0) {
       const now = await loadGame(gameId).catch(() => undefined)
-      if (now !== undefined && now?.guestUserId !== user.id) await refundArenaStake({ userId: user.id, gameId })
+      if (now === null || (now?.guestUserId && now.guestUserId !== user.id)) {
+        await refundArenaStake({ userId: user.id, gameId })
+      }
     }
     if (e instanceof Error && e.message === "This game is already full.") {
       return NextResponse.json({ error: "This game is already full." }, { status: 409 })
