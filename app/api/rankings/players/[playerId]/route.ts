@@ -43,8 +43,12 @@ export async function GET(
   }
 
   const season = request.nextUrl.searchParams.get("season") ?? "2026-27"
-  // Same mode default as the list (/api/rankings).
-  const mode = request.nextUrl.searchParams.get("mode") === "historical" ? "historical" : "projected"
+  // Without ?mode, derive it from the season: only 2026-27 is projected, past
+  // seasons are only generated as historical (links and bookmarks omit mode).
+  const modeParam = request.nextUrl.searchParams.get("mode")
+  const mode = modeParam === "historical" || modeParam === "projected"
+    ? modeParam
+    : season === "2026-27" ? "projected" : "historical"
 
   const cacheKey = `rankings:player:v3:${decodedId}:${season}:${mode}`
 

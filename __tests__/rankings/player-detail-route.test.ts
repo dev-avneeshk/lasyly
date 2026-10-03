@@ -16,7 +16,8 @@ vi.mock("@/lib/supabase/admin", () => ({
       const f: Record<string, unknown> = {}
       const result = () => {
         if (t === "nba_ranking_versions") {
-          return { data: f.status === "published" && f.ranking_mode === "projected" ? { ranking_version: "v2" } : null }
+          const v = f.status === "published" && ({ projected: "v2", historical: "h1" } as Record<string, string>)[f.ranking_mode as string]
+          return { data: v ? { ranking_version: v } : null }
         }
         if (t === "nba_player_rankings") return { data: rankingRows.filter((r) => !f.ranking_mode || r.ranking_mode === f.ranking_mode), error: null }
         return { data: t === "nba_players" ? null : [] }
@@ -43,5 +44,10 @@ describe("GET /api/rankings/players/[playerId] (NBA)", () => {
     const body = await get()
     expect(body.overall_rank).toBe(3)
     expect(body.rankings_by_type.overall.rank).toBe(3)
+  })
+  it("REV-34: a past season without ?mode reads the historical row (was: projected default → 404)", async () => {
+    const body = await get("?season=2025-26")
+    expect(body.overall_rank).toBe(12)
+    expect((await get("?season=2025-26&mode=projected")).overall_rank).toBe(3)
   })
 })
