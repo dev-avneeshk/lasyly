@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { getSeasonPlayers, DEFAULT_SEASON } from "@/lib/nfl/data"
-import { espnHeadshotUrl } from "@/lib/data/headshot-paths"
 import { playerValue } from "@/lib/nfl/value"
 import { estimatedPrice } from "@/lib/nfl/grades"
 import PlayersClient from "./PlayersClient"
@@ -27,7 +26,7 @@ export default function NflPlayersPage() {
     overall: p.overall,
     value: playerValue(p),
     estimate: estimatedPrice(p, REF_BUDGET, REF_ROSTER),
-    headshot: p.espnId ? espnHeadshotUrl("nfl", String(p.espnId)) : null,
+    espnId: p.espnId,
   }))
   return <PlayersClient players={players} season={DEFAULT_SEASON} />
 }

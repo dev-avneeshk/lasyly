@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Search, X } from "lucide-react"
 import type { Position } from "@/lib/nfl/types"
 import { cn } from "@/lib/utils"
+import { espnHeadshotUrl } from "@/lib/data/headshot-paths"
 
 export type PlayerRow = {
   id: string
@@ -14,7 +15,7 @@ export type PlayerRow = {
   overall: number
   value: number
   estimate: number
-  headshot: string | null
+  espnId?: number
 }
 
 type SortKey = "overall" | "value" | "estimate" | "name"
@@ -37,7 +38,7 @@ function initials(name: string): string {
 }
 
 function Avatar({ player }: { player: PlayerRow }) {
-  const url = player.headshot
+  const url = player.espnId ? espnHeadshotUrl("nfl", String(player.espnId)) : null
   const [failed, setFailed] = useState(false)
   return (
     <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
