@@ -65,6 +65,10 @@ export const POST = withSecurity(async (request: Request) => {
   }
   if (!redis) warnCursor("Redis not configured")
   let cursor = redis ? await redis.get<string>(cursorKey).catch(warnCursor) : null
+  // The user the previous call stopped at. If they fail again the error isn't
+  // transient: skip them (logged) instead of blocking everyone after them.
+  const retryKey = `weekly-coins:retry:${weekKey}`
+  const retried = redis ? await redis.get<string>(retryKey).catch(() => null) : null
 
   try {
     for (;;) {
@@ -96,19 +100,23 @@ export const POST = withSecurity(async (request: Request) => {
           if (result === "completed") granted++
           else if (result === "duplicate") skipped++
           else failed++
-          if (result === "error" && firstError < 0) firstError = i + j
+          if (result !== "error") return
+          const id = rows[i + j].id as string
+          if (id === retried) console.error("[weekly-coins] grant failed twice, skipping user for this run:", id)
+          else if (firstError < 0) firstError = i + j
         })
       }
 
       // A transient RPC error must not move the cursor past that user (they'd
-      // go unpaid for the week): resume there on the next call. Users after it
-      // in this page are re-called and come back `duplicate`.
+      // go unpaid for the week): resume there on the next call, once. Users
+      // after it in this page are re-called and come back `duplicate`.
       const last = firstError < 0 ? rows.length - 1 : firstError - 1
       if (last >= 0) {
         cursor = rows[last].id as string
         await redis?.set(cursorKey, cursor, { ex: 8 * 24 * 60 * 60 }).catch(warnCursor)
       }
       if (firstError >= 0) {
+        await redis?.set(retryKey, rows[firstError].id as string, { ex: 8 * 24 * 60 * 60 }).catch(() => {})
         incomplete = true
         break
       }
@@ -116,7 +124,7 @@ export const POST = withSecurity(async (request: Request) => {
     }
 
     // Done: drop the cursor so a later manual run re-walks everyone (paid users skip).
-    if (!incomplete) await redis?.del(cursorKey).catch(() => {})
+    if (!incomplete) await redis?.del(cursorKey, retryKey).catch(() => {})
 
     // Invalidate the cached leaderboard so the next read reflects new balances.
     if (redis) {

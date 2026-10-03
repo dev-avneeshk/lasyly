@@ -9,6 +9,7 @@ const st = vi.hoisted(() => ({
   kv: new Map<string, string>(),
   now: 0,
   failOnce: new Set<string>(),
+  failAlways: new Set<string>(),
 }))
 
 vi.mock("@/lib/security/cronAuth", () => ({ isAuthorizedCron: () => true }))
@@ -16,13 +17,13 @@ vi.mock("@/lib/redis", () => ({
   getRedisClient: () => ({
     get: async (k: string) => st.kv.get(k) ?? null,
     set: async (k: string, v: string) => (st.kv.set(k, v), "OK"),
-    del: async (k: string) => Number(st.kv.delete(k)),
+    del: async (...ks: string[]) => ks.filter((k) => st.kv.delete(k)).length,
   }),
 }))
 vi.mock("@/lib/economy/wallet", () => ({
   grantWeeklyLevelBonus: async ({ userId }: { userId: string }) => {
     st.now += 50 // each grant costs 50 ms of the 45 s budget
-    if (st.failOnce.delete(userId)) return "error"
+    if (st.failOnce.delete(userId) || st.failAlways.has(userId)) return "error"
     if (st.paid.has(userId)) return "duplicate"
     st.paid.add(userId)
     return "completed"
@@ -60,6 +61,7 @@ beforeEach(() => {
   st.kv.clear()
   st.now = 0
   st.failOnce.clear()
+  st.failAlways.clear()
   vi.spyOn(Date, "now").mockImplementation(() => st.now)
 })
 
@@ -83,5 +85,17 @@ describe("weekly coins payout (L-15)", () => {
     expect(second).toMatchObject({ incomplete: false, failed: 0 })
     expect(st.paid.has("u00123")).toBe(true)
     expect(st.paid.size).toBe(300)
+  })
+  // A user whose grant always errors pinned the cursor, so every user after
+  // them went unpaid and the workflow gave up silently after 10 calls.
+  it("a user who fails twice is skipped so the rest still get paid", async () => {
+    st.ids = st.ids.slice(0, 300)
+    st.failAlways.add("u00123")
+    expect(await run()).toMatchObject({ incomplete: true, failed: 1 })
+    const second = await run()
+    expect(second).toMatchObject({ incomplete: false, failed: 1 }) // was: incomplete true on every call
+    expect(st.paid.size).toBe(299)
+    expect(st.paid.has("u00299")).toBe(true)
+    expect(st.kv.size).toBe(0)
   })
 })

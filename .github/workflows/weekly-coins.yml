@@ -30,4 +30,5 @@ jobs:
               break
             fi
             echo "$body" | grep -q '"incomplete":true' || break
+            if [ "$attempt" = 10 ]; then echo "::warning::Weekly coins payout still incomplete after 10 calls"; fi
           done
