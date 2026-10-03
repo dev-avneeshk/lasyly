@@ -132,7 +132,9 @@ export function useNflGame() {
       const s = stateRef.current
       if (!s || !s.lotDeadline) return
       const left = Math.max(0, s.lotDeadline - Date.now())
-      setTimeLeft(left)
+      // Whole seconds: the UI only shows ceil(seconds), and an equal value makes
+      // React skip the render, so the auction tree renders 1x/s instead of 10x/s.
+      setTimeLeft(Math.ceil(left / 1000) * 1000)
       if (left <= 0) {
         const next = clone(s)
         resolveLot(next)
