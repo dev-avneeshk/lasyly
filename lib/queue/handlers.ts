@@ -8,6 +8,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
+import { SITE_URL } from "@/lib/seo/site"
 
 // ─── Job Type Constants ─────────────────────────────────────────────────────
 
@@ -333,7 +334,7 @@ Be concise and actionable. No disclaimers.`
 // ─── Handler: Submit IndexNow ───────────────────────────────────────────────
 
 async function handleSubmitIndexNow(payload: { urls?: string[] }) {
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+  const BASE_URL = SITE_URL
   const INDEXNOW_KEY = process.env.INDEXNOW_KEY
 
   if (!INDEXNOW_KEY) {

@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+import { SITE_URL as BASE_URL } from "@/lib/seo/site"
 const INDEXNOW_KEY = process.env.INDEXNOW_KEY
 
 // All public URLs to submit when doing a bulk ping
