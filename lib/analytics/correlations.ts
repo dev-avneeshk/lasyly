@@ -102,17 +102,20 @@ export function computePearsonCorrelation(
  * Computes pairwise Pearson correlations for all prop pairs with sufficient
  * overlapping data.
  *
- * @param props - Array of props with their game values (id is the player-stat identifier)
+ * @param props - Array of props with their game values (id is the player-stat
+ *   identifier). With `keys` (one game id per value) a pair is correlated on
+ *   the games both players have; without, values are aligned by index.
  * @param maxProps - Maximum number of props to process (default 500, per requirement 5.9)
  * @returns Array of correlation results for all valid pairs
  */
 export function computeAllCorrelations(
-  props: { id: string; values: number[] }[],
+  props: { id: string; values: number[]; keys?: string[] }[],
   maxProps: number = DEFAULT_MAX_PROPS
 ): CorrelationResult[] {
   // Cap at maxProps unique player-stat combinations per sport per cycle
   const capped = props.slice(0, maxProps)
   const results: CorrelationResult[] = []
+  const keyIndex = capped.map((p) => p.keys && new Map(p.keys.map((k, i) => [k, i])))
 
   // Compute pairwise correlations
   for (let i = 0; i < capped.length; i++) {
@@ -120,17 +123,32 @@ export function computeAllCorrelations(
       const propA = capped[i]
       const propB = capped[j]
 
-      // Determine overlapping games (use the shorter length as the overlap)
-      const overlapLength = Math.min(propA.values.length, propB.values.length)
+      // Pair values game by game when both carry game keys (index alignment
+      // paired unrelated games); otherwise the first min(length) of each.
+      let valuesA = propA.values
+      let valuesB = propB.values
+      const indexB = keyIndex[j]
+      if (propA.keys && indexB) {
+        valuesA = []
+        valuesB = []
+        propA.keys.forEach((k, ia) => {
+          const ib = indexB.get(k)
+          if (ib !== undefined) {
+            valuesA.push(propA.values[ia])
+            valuesB.push(propB.values[ib])
+          }
+        })
+      } else {
+        const n = Math.min(valuesA.length, valuesB.length)
+        valuesA = valuesA.slice(0, n)
+        valuesB = valuesB.slice(0, n)
+      }
+      const overlapLength = valuesA.length
 
       // Skip if insufficient overlap
       if (overlapLength < MIN_OVERLAPPING_GAMES) {
         continue
       }
-
-      // Use the first `overlapLength` values from each (aligned by game index)
-      const valuesA = propA.values.slice(0, overlapLength)
-      const valuesB = propB.values.slice(0, overlapLength)
 
       const coefficient = computePearsonCorrelation(valuesA, valuesB)
 
