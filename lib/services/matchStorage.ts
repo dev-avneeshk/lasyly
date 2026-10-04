@@ -210,7 +210,11 @@ export async function getMatchesWithFreshnessRange(
 
   let query = supabase
     .from("matches")
-    .select("*")
+    // Only what mapRowToLiveMatch, the center-day filter and getLatestUpdate
+    // read. `*` also pulled raw_data (the full ESPN JSONB) for every row.
+    .select(
+      "id, event_id, home_team, away_team, home_score, away_score, clock, start_time, status, league, sport, home_logo, away_logo, home_color, away_color, venue, match_date, updated_at"
+    )
     .gte("match_date", start)
     .lte("match_date", end)
 
