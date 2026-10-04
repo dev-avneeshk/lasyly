@@ -50,14 +50,19 @@ export const GET = withSecurity(async (
       .order("pinned_at", { ascending: false })
       .limit(10)
 
-    for (const p of pins ?? []) {
-      const msg = Array.isArray(p.messages) ? p.messages[0] : p.messages
-      if (msg?.kind === "betslip" && msg.betslip_id) {
-        const { data: parlay } = await supabase
-          .from("parlays")
-          .select("id, odds, stake, status, combined_hit_rate, custom_note")
-          .eq("id", msg.betslip_id)
-          .maybeSingle()
+    // One lookup for all pinned betslips (was one query per pin); newest pin wins.
+    const pinned = (pins ?? []).flatMap((p) => {
+      const m = Array.isArray(p.messages) ? p.messages[0] : p.messages
+      return m?.kind === "betslip" && m.betslip_id ? [m] : []
+    })
+    if (pinned.length > 0) {
+      const { data: pinnedParlays } = await supabase
+        .from("parlays")
+        .select("id, odds, stake, status, combined_hit_rate, custom_note")
+        .in("id", pinned.map((m) => m.betslip_id))
+      const byId = new Map((pinnedParlays ?? []).map((row) => [row.id, row]))
+      for (const msg of pinned) {
+        const parlay = byId.get(msg.betslip_id)
         if (parlay) {
           const prof = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles
           return NextResponse.json({ bet: shape(parlay, prof?.display_name || prof?.username || null, true) })
@@ -72,6 +77,7 @@ export const GET = withSecurity(async (
       .eq("room_id", roomId)
       .eq("kind", "betslip")
       .not("betslip_id", "is", null)
+      .order("created_at", { ascending: false }) // the latest 100, not an arbitrary 100
       .limit(100)
 
     const ids = (betMsgs ?? []).map((m) => m.betslip_id).filter(Boolean) as string[]
@@ -94,4 +100,4 @@ export const GET = withSecurity(async (
   } catch {
     return NextResponse.json({ bet: null })
   }
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

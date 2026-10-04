@@ -1,7 +1,6 @@
 "use client"
 
 import { Suspense } from "react"
-import NotificationBell from "@/components/notifications/NotificationBell"
 import ThemeToggle from "@/components/ThemeToggle"
 import CoinBalance from "@/components/layout/CoinBalance"
 import TopBarSearch from "@/components/layout/TopBarSearch"
@@ -22,7 +21,6 @@ export default function TopBar() {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <NotificationBell collapsed />
         <CoinBalance />
         <ThemeToggle collapsed />
         <TopBarAvatar />

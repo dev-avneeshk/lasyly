@@ -132,7 +132,7 @@ export default function PlayerDetailClient({ player, season }: { player: NflPlay
         <span className="text-[var(--color-text-primary)]">{player.name}</span>
       </nav>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2">
         {/* Card */}
         <div className="flex justify-center">
           <NflPlayerCard player={player} />

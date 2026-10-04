@@ -12,7 +12,7 @@ import {
   Trophy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { formatOdds } from "@/lib/parlays/computations"
+import { decimalOdds, formatOdds } from "@/lib/parlays/computations"
 import type { ParlayWithLegs, ParlayLegRow } from "@/lib/types/parlay"
 
 // ─── Sport badge styling ─────────────────────────────────────────────────────
@@ -51,6 +51,11 @@ const STATUS_CONFIG = {
     label: "PENDING",
     className: "bg-white/5 text-zinc-300 border-white/15",
   },
+  // Couldn't be settled (no stats / unsupported leg): no win, no loss.
+  void: {
+    label: "VOID",
+    className: "bg-white/5 text-zinc-400 border-white/15",
+  },
 } as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -73,12 +78,12 @@ function legLabel(leg: ParlayLegRow): string {
 
 /**
  * Net profit/loss in units for a single parlay, using the same convention as
- * computeParlayStats: won → stake × (odds − 1), lost → −stake. Returns null
+ * computeParlayStats: won → stake × (decimal odds − 1), lost → −stake. Returns null
  * when stake/odds are missing or the parlay is still pending.
  */
 function unitResult(parlay: ParlayWithLegs): number | null {
   if (parlay.stake == null || parlay.odds == null) return null
-  if (parlay.status === "won") return parlay.stake * (parlay.odds - 1)
+  if (parlay.status === "won") return parlay.stake * (decimalOdds(parlay.odds) - 1)
   if (parlay.status === "lost") return -parlay.stake
   return null
 }

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 // ─── PATCH /api/parlays/[id] ─────────────────────────────────────────────────
+//
+// Owners may only change `visibility`. Outcomes (status / resolved_at / leg
+// results) are written by the settlement cron alone: letting the owner PATCH
+// `status: "won"` made every leaderboard win rate self-reported. The DB enforces
+// the same rule (column-level UPDATE grant, 20261002_parlays_owner_writes.sql).
 
-const VALID_STATUSES = ["pending", "won", "lost"] as const
 const VALID_VISIBILITIES = ["public", "private"] as const
 
 export const PATCH = withSecurity(async (
@@ -13,6 +18,7 @@ export const PATCH = withSecurity(async (
 ) => {
   const { id } = await context!.params
   const supabase = await createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -23,8 +29,9 @@ export const PATCH = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`parlay-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
-  // Parse request body
   let body: unknown
   try {
     body = await request.json()
@@ -35,62 +42,26 @@ export const PATCH = withSecurity(async (
     )
   }
 
-  if (!body || typeof body !== "object") {
+  const { status, visibility } = (body ?? {}) as { status?: unknown; visibility?: unknown }
+
+  if (status !== undefined) {
+    return NextResponse.json(
+      { error: "Parlay results are settled automatically and can't be set manually." },
+      { status: 400 }
+    )
+  }
+
+  if (!VALID_VISIBILITIES.includes(visibility as typeof VALID_VISIBILITIES[number])) {
     return NextResponse.json(
       { error: "Invalid request body." },
       { status: 400 }
     )
   }
 
-  const { status, visibility } = body as {
-    status?: string
-    visibility?: string
-  }
-
-  // At least one field must be provided
-  if (!status && !visibility) {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    )
-  }
-
-  // Validate status value if provided
-  if (status && !VALID_STATUSES.includes(status as typeof VALID_STATUSES[number])) {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    )
-  }
-
-  // Validate visibility value if provided
-  if (visibility && !VALID_VISIBILITIES.includes(visibility as typeof VALID_VISIBILITIES[number])) {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    )
-  }
-
-  // Build the update object
-  const updateData: Record<string, string | null> = {}
-
-  if (status) {
-    updateData.status = status
-    if (status === "won" || status === "lost") {
-      updateData.resolved_at = new Date().toISOString()
-    } else if (status === "pending") {
-      updateData.resolved_at = null
-    }
-  }
-
-  if (visibility) {
-    updateData.visibility = visibility
-  }
-
-  // Perform the update — RLS ensures only the owner can update
+  // RLS ensures only the owner can update
   const { data: updatedParlay, error: updateError } = await supabase
     .from("parlays")
-    .update(updateData)
+    .update({ visibility })
     .eq("id", id)
     .select()
     .single()
@@ -107,42 +78,6 @@ export const PATCH = withSecurity(async (
       { error: "Failed to update parlay." },
       { status: 500 }
     )
-  }
-
-  // When manually settling a parlay (won/lost), also update all pending leg results
-  // so the UI can show per-leg hit/miss status correctly
-  if (status === "won" || status === "lost") {
-    const legResult = status === "won" ? "won" : "lost"
-    await supabase
-      .from("parlay_legs")
-      .update({ result: legResult })
-      .eq("parlay_id", id)
-      .eq("result", "pending")
-  } else if (status === "pending") {
-    // If reverting to pending, reset leg results too
-    await supabase
-      .from("parlay_legs")
-      .update({ result: "pending" })
-      .eq("parlay_id", id)
-      .neq("result", "pending")
-  }
-
-  // Handle Realtime broadcasts for visibility changes
-  if (visibility === "public") {
-    // Fetch legs to include in the broadcast payload
-    const { data: legs } = await supabase
-      .from("parlay_legs")
-      .select("*")
-      .eq("parlay_id", id)
-      .order("leg_order", { ascending: true })
-
-    const channel = supabase.channel("parlays-feed")
-    await channel.httpSend("new_parlay", { parlay: { ...updatedParlay, legs: legs || [] } })
-    await supabase.removeChannel(channel)
-  } else if (visibility === "private") {
-    const channel = supabase.channel("parlays-feed")
-    await channel.httpSend("remove_parlay", { parlayId: id })
-    await supabase.removeChannel(channel)
   }
 
   return NextResponse.json(updatedParlay, { status: 200 })

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
+import { activeNbaRankingVersion } from "@/lib/rankings/nba/read"
 import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 
 const CACHE_TTL_MS = 300_000
@@ -42,8 +43,14 @@ export async function GET(
   }
 
   const season = request.nextUrl.searchParams.get("season") ?? "2026-27"
+  // Without ?mode, derive it from the season: only 2026-27 is projected, past
+  // seasons are only generated as historical (links and bookmarks omit mode).
+  const modeParam = request.nextUrl.searchParams.get("mode")
+  const mode = modeParam === "historical" || modeParam === "projected"
+    ? modeParam
+    : season === "2026-27" ? "projected" : "historical"
 
-  const cacheKey = `rankings:player:v2:${decodedId}:${season}`
+  const cacheKey = `rankings:player:v3:${decodedId}:${season}:${mode}`
 
   const result = await cached(
     cacheKey,
@@ -57,14 +64,19 @@ export async function GET(
         .from("nba_player_rankings")
         .select("*")
         .eq("season", season)
+        .eq("ranking_mode", mode)
         .order("rank", { ascending: true })
 
-      const { data: rows, error } = isUUID
-        ? await query.eq("player_id", decodedId)
-        : await query.eq("player_name", decodedId)
+      // Only the version the list shows: rows of other versions/modes (drafts,
+      // the other mode) used to overwrite each other per ranking type.
+      const [version, { data: allRows, error }] = await Promise.all([
+        activeNbaRankingVersion(supabase, season, mode),
+        isUUID ? query.eq("player_id", decodedId) : query.eq("player_name", decodedId),
+      ])
 
       if (error) throw new Error(error.message)
-      if (!rows || rows.length === 0) return null
+      const rows = (allRows ?? []).filter((r) => r.ranking_version === version)
+      if (rows.length === 0) return null
 
       // Group rankings by type
       const rankingsByType: Record<string, any> = {}
@@ -80,29 +92,27 @@ export async function GET(
 
       const overallRow = rows.find((r: any) => r.ranking_type === "overall") ?? rows[0]
 
-      // Load historical ranking movement across seasons
-      const { data: historyRows } = await supabase
-        .from("nba_ranking_history")
-        .select("season, ranking_type, rank, score, rank_change")
-        .eq("entity_name", overallRow.player_name)
-        .eq("ranking_type", "overall")
-        .order("season", { ascending: true })
-
-      // Load team history for this player
-      const { data: teamHistoryRows } = await supabase
-        .from("nba_player_team_history")
-        .select("season, team, team_full_name, effective_from, effective_to")
-        .eq("player_name", overallRow.player_name)
-        .order("season", { ascending: true })
-
-      // Load bio and a persisted headshot from the stable player identity row.
-      // Prefer the UUID relation; retain canonical-name lookup for legacy rows.
+      // History, team history and bio (stable identity row; UUID relation
+      // preferred, canonical name for legacy rows) in one round trip.
       const bioQuery = supabase
         .from("nba_players")
         .select("height, weight, birth_date, headshot_url")
-      const { data: bioRow } = overallRow.player_id
-        ? await bioQuery.eq("id", overallRow.player_id).maybeSingle()
-        : await bioQuery.eq("player_name", overallRow.player_name).maybeSingle()
+      const [{ data: historyRows }, { data: teamHistoryRows }, { data: bioRow }] = await Promise.all([
+        supabase
+          .from("nba_ranking_history")
+          .select("season, ranking_type, rank, score, rank_change")
+          .eq("entity_name", overallRow.player_name)
+          .eq("ranking_type", "overall")
+          .order("season", { ascending: true }),
+        supabase
+          .from("nba_player_team_history")
+          .select("season, team, team_full_name, effective_from, effective_to")
+          .eq("player_name", overallRow.player_name)
+          .order("season", { ascending: true }),
+        overallRow.player_id
+          ? bioQuery.eq("id", overallRow.player_id).maybeSingle()
+          : bioQuery.eq("player_name", overallRow.player_name).maybeSingle(),
+      ])
 
       return {
         player_name: overallRow.player_name,

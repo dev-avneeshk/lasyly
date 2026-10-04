@@ -14,7 +14,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+import { SITE_URL as BASE_URL } from "@/lib/seo/site"
+import { isAuthorizedCron } from "@/lib/security/cronAuth"
 const INDEXNOW_KEY = process.env.INDEXNOW_KEY
 
 // All public URLs to submit when doing a bulk ping
@@ -54,9 +55,8 @@ function isOwnOrigin(candidate: string): boolean {
 export async function POST(request: NextRequest) {
   // Search-engine pings are an operational task, not a user-facing one. This
   // endpoint was entirely unauthenticated while making outbound requests on our
-  // behalf; it is now gated on the same secret as the other scheduled jobs.
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+  // behalf; it is now gated on the same secret (constant-time) as the other jobs.
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

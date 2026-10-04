@@ -3,11 +3,16 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getAllPlayerSlugs } from "@/lib/data/public-players"
 import { SPORT_SLUG_MAP } from "@/lib/seo/player-slug"
 import { getAllComparisonSlugs } from "@/lib/data/comparisons"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const revalidate = 3600 // regenerate sitemap every hour
+// The player index is read through Upstash Redis, whose client fetches with
+// `cache: "no-store"`; without this the route bails to per-request rendering.
+// Nothing here reads cookies or headers, so forcing static keeps hourly ISR.
+export const dynamic = "force-static"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+  const baseUrl = SITE_URL
 
   // Fetch all published blog posts from DB for dynamic sitemap entries
   const supabase = createAdminClient()

@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server"
 import { processJobs } from "@/lib/queue"
 import { jobHandlers } from "@/lib/queue/handlers"
+import { sweepAbandonedLobbies } from "@/lib/arena/matchmaking"
 import { isAuthorizedCron } from "@/lib/security/cronAuth"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
@@ -23,10 +24,18 @@ export const POST = withSecurity(async (request: Request) => {
   const startTime = Date.now()
 
   try {
-    const summary = await processJobs(jobHandlers)
+    const [summary, lobbiesRefunded] = await Promise.all([
+      processJobs(jobHandlers),
+      // Refund 1v1 stakes for lobbies nobody joined (they were lost before).
+      sweepAbandonedLobbies().catch((err) => {
+        console.error("[jobs/process] lobby sweep failed:", err)
+        return 0
+      }),
+    ])
     return NextResponse.json({
       success: true,
       ...summary,
+      lobbiesRefunded,
       durationMs: Date.now() - startTime,
     })
   } catch (err: unknown) {

@@ -11,6 +11,7 @@
  * This helper trades one cheap `HEAD` count query for the ability to fan every
  * page out at once, turning N round trips into roughly two.
  */
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 /** Supabase's hard per-request row cap. */
 const DEFAULT_PAGE_SIZE = 1000
@@ -104,4 +105,25 @@ async function fetchPagedSerial<T>(
   }
 
   return out
+}
+
+/**
+ * Every row of `table` whose `key` is one of `ids`, paged past the 1000-row
+ * cap in id order (a plain `.in()` read silently truncated at 1000).
+ */
+export function fetchAllIn<T>(
+  supabase: SupabaseClient,
+  table: string,
+  columns: string,
+  key: string,
+  ids: string[]
+): Promise<T[]> {
+  return fetchPagedParallel<T>(
+    async () => (await supabase.from(table).select("id", { count: "exact", head: true }).in(key, ids)).count,
+    async (from, to) => {
+      const { data, error } = await supabase.from(table).select(columns).in(key, ids).order("id").range(from, to)
+      if (error) throw error
+      return (data ?? []) as T[]
+    }
+  )
 }

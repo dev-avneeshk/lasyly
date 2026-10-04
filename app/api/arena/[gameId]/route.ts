@@ -5,6 +5,8 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame, needsServerTick } from "@/lib/arena/store"
 import { serverTick, serverView, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
+import { settleArenaGame } from "@/lib/arena/settle"
 
 /**
  * GET /api/arena/[gameId] — the current authoritative view.
@@ -63,6 +65,8 @@ export const GET = withSecurity(async (
     return NextResponse.json({ error: "Game not found." }, { status: 404 })
   }
 
+  // Retries a payout whose RPC failed at simulate time (no-op once settled).
+  await settleArenaGame(existing)
   // Fast path: nothing for the clock to do, so don't take a lock or write.
   if (!needsServerTick(existing.state)) {
     return NextResponse.json(participantView(serverView(existing.state, viewer, existing.rev)))
@@ -79,7 +83,7 @@ export const GET = withSecurity(async (
   // it resolved) pushes that transition to the other so they don't wait for
   // their own poll to notice it. View included so the other client applies it in
   // one hop rather than answering the nudge with its own GET.
-  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev))
+  if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev)), "arena broadcast")
 
   return NextResponse.json(participantView(serverView(game.state, viewer, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

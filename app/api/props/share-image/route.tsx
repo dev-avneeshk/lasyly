@@ -1,7 +1,8 @@
 import { ImageResponse } from "next/og"
 import { NextRequest } from "next/server"
 
-export const runtime = "edge"
+const MAX_PARAM = 60
+const NUMERIC = /^-?\d{1,4}(\.\d{1,2})?$/
 
 /**
  * GET /api/props/share-image?player=...&stat=...&line=...&hitRate=...&direction=...&trend=...&confidence=...&team=...&sport=...&grade=...
@@ -10,6 +11,15 @@ export const runtime = "edge"
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
+
+  // Public, unauthenticated renderer: bound every input before it reaches ImageResponse.
+  for (const [key, value] of searchParams) {
+    if (value.length > MAX_PARAM) return new Response(`${key} too long`, { status: 400 })
+  }
+  for (const key of ["line", "hitRate"]) {
+    const v = searchParams.get(key)
+    if (v && !NUMERIC.test(v)) return new Response(`${key} must be numeric`, { status: 400 })
+  }
 
   const player = searchParams.get("player") || "Player"
   const stat = (searchParams.get("stat") || "PTS").toUpperCase()

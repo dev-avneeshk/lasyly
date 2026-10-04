@@ -487,9 +487,14 @@ export function useArenaServer() {
   // seat before it tells us the channel name). If we're refused — seat not
   // recorded, realtime misconfigured — the subscribe errors and the poll chain
   // above carries the game on its own.
+  //
+  // Keyed on `isComplete`, not `status`: re-running on every lobby→auction→
+  // lineup change tore the channel down and re-created the same topic while the
+  // old one was still leaving, so the new subscribe was a no-op and the game
+  // silently fell back to polling.
+  const isComplete = status === "complete"
   useEffect(() => {
-    if (!gameId || !channelName) return
-    if (status === "complete") return
+    if (!gameId || !channelName || isComplete) return
 
     let cancelled = false
     let channel: ReturnType<typeof supabase.channel> | null = null
@@ -541,7 +546,7 @@ export function useArenaServer() {
       cancelled = true
       if (channel) void supabase.removeChannel(channel)
     }
-  }, [gameId, channelName, status, supabase, pollOnce, applyRemote])
+  }, [gameId, channelName, isComplete, supabase, pollOnce, applyRemote])
 
   const reset = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)

@@ -7,7 +7,7 @@ import { GENERAL_APPLICATION_SLUG } from "@/lib/careers/constants"
 
 // Rendered on first request per job, then cached (ISR). Reads no cookies.
 export const dynamic = "force-static"
-export const revalidate = 300
+export const revalidate = 86400
 
 export function generateStaticParams() {
   return [{ jobId: GENERAL_APPLICATION_SLUG }]

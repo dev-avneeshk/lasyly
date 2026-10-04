@@ -382,7 +382,7 @@ function AuctionHeader({
             cx="32" cy="32" r={R} fill="none" stroke={ringColor} strokeWidth="5" strokeLinecap="round"
             strokeDasharray={C}
             animate={{ strokeDashoffset: C * (1 - pct) }}
-            transition={{ ease: "linear", duration: 0.1 }}
+            transition={{ ease: "linear", duration: 1 }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">

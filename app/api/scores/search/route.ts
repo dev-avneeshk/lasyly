@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { quotePostgrestValue as q } from "@/lib/sanitize"
 import { withSecurity, CACHE_CONTROL, checkQueryParams } from "@/lib/security/routeHelpers"
 
 /** Drop "TBD vs TBD" placeholder rows (golf/racing events with no head-to-head). */
@@ -36,7 +37,7 @@ async function handleGET(request: Request) {
     let dbQuery = supabase
       .from("matches")
       .select("*")
-      .or(`home_team.ilike.%${query}%,away_team.ilike.%${query}%`)
+      .or(`home_team.ilike.${q(`%${query}%`)},away_team.ilike.${q(`%${query}%`)}`)
       .order("match_date", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(limit)

@@ -3,6 +3,7 @@ import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 import BlogNewspaperWrapper from "@/components/blog/BlogNewspaperWrapper"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "Why You Should Share Your Betslip (Even When You Lose) — Lasyly Blog",
@@ -16,12 +17,12 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-24",
   },
   alternates: {
-    canonical: "https://lasyly.me/blog/why-share-your-betslip",
+    canonical: "/blog/why-share-your-betslip",
   },
 }
 
 export default function WhyShareBetslipPost() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   return (
     <BlogNewspaperWrapper>
       <JsonLd data={{

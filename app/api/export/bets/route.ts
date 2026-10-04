@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { checkRateLimit } from "@/lib/rateLimit"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
@@ -24,7 +25,9 @@ export const GET = withSecurity(async () => {
     )
   }
 
-  const { data: betslips, error } = await supabase
+  // Own rows only; the service role is needed because `matches` (in `*`) has no
+  // SELECT grant for user clients.
+  const { data: betslips, error } = await createAdminClient()
     .from("betslips")
     .select("*")
     .eq("user_id", user.id)

@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
+import { MotionConfig } from "framer-motion"
 
 type Theme = "dark" | "light"
 
@@ -20,15 +21,12 @@ export function useTheme() {
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark")
-  const [mounted, setMounted] = useState(false)
 
+  // data-theme is applied before first paint by the inline script in
+  // app/layout.tsx; this only syncs the toggle's state. The Provider is always
+  // rendered: swapping a fragment for it after mount remounted the whole tree.
   useEffect(() => {
-    const stored = localStorage.getItem("lasyly-theme") as Theme | null
-    if (stored === "light" || stored === "dark") {
-      setTheme(stored)
-      document.documentElement.setAttribute("data-theme", stored)
-    }
-    setMounted(true)
+    if (document.documentElement.dataset.theme === "light") setTheme("light")
   }, [])
 
   const toggleTheme = () => {
@@ -38,12 +36,10 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     document.documentElement.setAttribute("data-theme", next)
   }
 
-  // Prevent flash of wrong theme
-  if (!mounted) return <>{children}</>
-
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
+      {/* framer-motion ignores prefers-reduced-motion unless told to. */}
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </ThemeContext.Provider>
   )
 }

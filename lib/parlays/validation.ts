@@ -90,6 +90,9 @@ export function validateCreateParlay(body: unknown): ValidationResult {
       errors.push({ field: "odds", message: "odds must be a number." })
     } else if (payload.odds < MIN_ODDS || payload.odds > MAX_ODDS) {
       errors.push({ field: "odds", message: `odds must be between ${MIN_ODDS} and ${MAX_ODDS}.` })
+    } else if (payload.odds > -100 && payload.odds < 1.01) {
+      // Neither American (±100 and beyond) nor a decimal multiplier (≥ 1.01).
+      errors.push({ field: "odds", message: "odds must be a multiplier of at least 1.01, or American odds (±100 or beyond)." })
     }
   }
 

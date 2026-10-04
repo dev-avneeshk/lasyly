@@ -12,7 +12,7 @@ async function handleGET(
 ) {
   const { eventId } = await params
 
-  if (!eventId || eventId.length > 20) {
+  if (!/^\d{1,20}$/.test(eventId ?? "")) {
     return NextResponse.json(
       { error: "Invalid event ID", success: false },
       { status: 400 }
@@ -33,16 +33,17 @@ async function handleGET(
     const summary = await cached(
       `summary:${eventId}`,
       async () => {
-        // First check if we have it stored in DB
+        // A stored copy is only trusted if this route wrote it for a finished
+        // game (marker below); live games always come from ESPN so they update.
         try {
           const supabase = createAdminClient()
           const { data: stored } = await supabase
             .from("matches")
             .select("raw_data")
-            .like("event_id", `%${eventId}%`)
-            .not("raw_data", "is", null)
+            .eq("event_id", eventId)
+            .eq("raw_data->>storedFinal", "true")
             .limit(1)
-            .single()
+            .maybeSingle()
 
           if (stored?.raw_data) {
             return stored.raw_data
@@ -89,11 +90,14 @@ async function handleGET(
 async function storeSummaryInDB(eventId: string, summary: unknown): Promise<void> {
   const supabase = createAdminClient()
 
-  // Find the match by event_id and store the summary
+  // Only once the game is final: a live snapshot stored here used to be served
+  // DB-first forever, freezing the in-progress box score. The Python scraper
+  // writes "completed", the TS layer "Finished" (see matchStorage.normalizeStatus).
   await supabase
     .from("matches")
-    .update({ raw_data: summary, updated_at: new Date().toISOString() })
+    .update({ raw_data: { ...(summary as object), storedFinal: true }, updated_at: new Date().toISOString() })
     .eq("event_id", eventId)
+    .in("status", ["Finished", "completed"])
 }
 
 export const GET = withSecurity(handleGET, {

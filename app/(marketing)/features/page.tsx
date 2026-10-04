@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "Features — Lasyly Sports Analytics Platform",
   description: "Everything inside Lasyly: prop analytics with hit rates and matchup grades, real-time rooms, live scores across 10+ sports, creator rooms, a pick tracker, and curated news.",
   openGraph: { title: "Features — Lasyly Sports Analytics Platform", description: "Prop analytics, real-time rooms, live scores, creator rooms, a pick tracker, and curated news. All free.", type: "website" },
-  alternates: { canonical: "https://lasyly.me/features" },
+  alternates: { canonical: "/features" },
 }
 
 type Spec = { k: string; v: string }
@@ -122,7 +123,7 @@ function Cell({ value }: { value: string }) {
 }
 
 export default function FeaturesPage() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   return (
     <main className="min-h-screen">
       <JsonLd data={{

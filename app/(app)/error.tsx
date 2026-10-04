@@ -7,10 +7,10 @@ import { reportError } from '@/lib/observability/sentry-lazy'
 
 export default function AppError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string }
-  reset: () => void
+  retry: () => void
 }) {
   useEffect(() => {
     reportError(error)
@@ -32,7 +32,7 @@ export default function AppError({
           <p className="mt-2 text-xs text-slate-500">Error ID: {error.digest}</p>
         )}
         <button
-          onClick={() => reset()}
+          onClick={() => retry()}
           className="mt-6 inline-flex rounded-full bg-[var(--color-lime)] px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:opacity-90"
         >
           Try again

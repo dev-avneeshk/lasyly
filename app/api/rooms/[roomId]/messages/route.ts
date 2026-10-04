@@ -26,35 +26,6 @@ export const GET = withSecurity(async (
   const { roomId } = await context!.params
   const supabase = await createClient()
 
-  // Check if room is private — if so, require membership
-  const { data: room } = await supabase
-    .from("rooms")
-    .select("id, type")
-    .eq("id", roomId)
-    .maybeSingle()
-
-  if (!room) {
-    return NextResponse.json({ error: "Room not found." }, { status: 404 })
-  }
-
-  if (room.type === "Private") {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required." }, { status: 401 })
-    }
-
-    const { data: membership } = await supabase
-      .from("room_members")
-      .select("id")
-      .eq("room_id", roomId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (!membership) {
-      return NextResponse.json({ error: "You must be a member to view this room's messages." }, { status: 403 })
-    }
-  }
-
   // Support cursor-based pagination for older messages
   const url = new URL(request.url)
   const cursor = url.searchParams.get("before") // ISO timestamp cursor
@@ -79,19 +50,49 @@ export const GET = withSecurity(async (
       .order("created_at", { ascending: false })
       .limit(limit)
 
-    // Scope to a sub-channel when provided; otherwise the whole room.
+    // Always this room (the access check below is for roomId); narrowed to a
+    // sub-channel when provided.
+    query = query.eq("room_id", roomId)
     if (subchannelId) query = query.eq("subchannel_id", subchannelId)
-    else query = query.eq("room_id", roomId)
 
     if (cursor) query = query.lt("created_at", cursor)
     return query
+  }
+
+  // Check if room is private — if so, require membership. The messages read
+  // runs alongside it; its rows are only returned once access is confirmed.
+  const [{ data: room }, firstPage] = await Promise.all([
+    supabase.from("rooms").select("id, type").eq("id", roomId).maybeSingle(),
+    fetchMessages(),
+  ])
+
+  if (!room) {
+    return NextResponse.json({ error: "Room not found." }, { status: 404 })
+  }
+
+  if (room.type === "Private") {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 })
+    }
+
+    const { data: membership } = await supabase
+      .from("room_members")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (!membership) {
+      return NextResponse.json({ error: "You must be a member to view this room's messages." }, { status: 403 })
+    }
   }
 
   // Chat history is fetched fresh every time — no caching. A short cache here
   // caused just-sent messages to briefly vanish on refetch (the cached
   // pre-message snapshot was served back). Chat is realtime and the query is
   // cheap (indexed on subchannel_id, created_at), so we always hit the DB.
-  let { data: messages, error } = await fetchMessages()
+  let { data: messages, error } = firstPage
 
   // Backward-compat: if the sub-channel columns aren't migrated yet, retry
   // room-scoped without them so chat keeps working.
@@ -114,14 +115,6 @@ export const GET = withSecurity(async (
   const betslipIds = (messages ?? [])
     .map((m) => (m as { betslip_id?: string }).betslip_id)
     .filter((id): id is string => Boolean(id))
-  const betslipMap = new Map<string, unknown>()
-  if (betslipIds.length > 0) {
-    const { data: parlays } = await supabase
-      .from("parlays")
-      .select("id, odds, stake, status, custom_note, combined_hit_rate")
-      .in("id", betslipIds)
-    for (const p of parlays ?? []) betslipMap.set(p.id, p)
-  }
 
   // Hydrate reactions in ONE query (avoids the per-row N+1 the old client-side
   // MessageReactions component would have caused — one SELECT per visible row).
@@ -130,16 +123,20 @@ export const GET = withSecurity(async (
     string,
     { id: string; user_id: string; emoji: string }[]
   >()
-  if (messageIds.length > 0) {
-    const { data: reactions } = await supabase
-      .from("message_reactions")
-      .select("id, message_id, user_id, emoji")
-      .in("message_id", messageIds)
-    for (const r of reactions ?? []) {
-      const list = reactionsByMessage.get(r.message_id) ?? []
-      list.push({ id: r.id, user_id: r.user_id, emoji: r.emoji })
-      reactionsByMessage.set(r.message_id, list)
-    }
+  // Betslip cards and reactions in one round trip.
+  const [{ data: parlays }, { data: reactions }] = await Promise.all([
+    betslipIds.length > 0
+      ? supabase.from("parlays").select("id, odds, stake, status, custom_note, combined_hit_rate").in("id", betslipIds)
+      : { data: [] },
+    messageIds.length > 0
+      ? supabase.from("message_reactions").select("id, message_id, user_id, emoji").in("message_id", messageIds)
+      : { data: [] },
+  ])
+  const betslipMap = new Map<string, unknown>((parlays ?? []).map((p) => [p.id, p]))
+  for (const r of reactions ?? []) {
+    const list = reactionsByMessage.get(r.message_id) ?? []
+    list.push({ id: r.id, user_id: r.user_id, emoji: r.emoji })
+    reactionsByMessage.set(r.message_id, list)
   }
 
   const formatted = (messages ?? []).map((msg) => {
@@ -248,46 +245,46 @@ export const POST = withSecurity(async (
   // every client renders it clean without extra client-side work.
   const content = isBetslip ? sanitized : maskProfanity(sanitized)
 
+  // Independent checks in one round trip: betslip ownership, membership, an
+  // active mute, and the target sub-channel (the one given, else the default),
+  // always scoped to this room so a post can't land in another room's channel.
+  const [parlayRes, memberRes, muteRes, subRes] = await Promise.all([
+    isBetslip
+      ? supabase.from("parlays").select("id, user_id").eq("id", data.betslipId!).maybeSingle()
+      : null,
+    supabase.from("room_members").select("id").eq("room_id", roomId).eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("room_mutes")
+      .select("muted_until")
+      .eq("room_id", roomId)
+      .eq("user_id", user.id)
+      .gt("muted_until", new Date().toISOString())
+      .maybeSingle(),
+    supabase
+      .from("room_subchannels")
+      .select("id")
+      .eq("room_id", roomId)
+      .match(data.subchannelId ? { id: data.subchannelId } : { is_default: true })
+      .maybeSingle(),
+  ])
+
   // For betslip shares, verify the parlay belongs to the sender.
-  if (isBetslip) {
-    const { data: parlay } = await supabase
-      .from("parlays")
-      .select("id, user_id")
-      .eq("id", data.betslipId!)
-      .maybeSingle()
-    if (!parlay || parlay.user_id !== user.id) {
-      return NextResponse.json({ error: "You can only share your own betslip." }, { status: 403 })
-    }
+  if (parlayRes && (!parlayRes.data || parlayRes.data.user_id !== user.id)) {
+    return NextResponse.json({ error: "You can only share your own betslip." }, { status: 403 })
   }
 
-  // Check membership
-  const { data: membership, error: memberErr } = await supabase
-    .from("room_members")
-    .select("id")
-    .eq("room_id", roomId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (memberErr) {
+  if (memberRes.error) {
     return NextResponse.json({ error: "Failed to check membership." }, { status: 500 })
   }
 
-  if (!membership) {
+  if (!memberRes.data) {
     return NextResponse.json(
       { error: "You must be a member of this room to send messages." },
       { status: 403 }
     )
   }
 
-  // Check if user is muted
-  const { data: muteCheck } = await supabase
-    .from("room_mutes")
-    .select("muted_until")
-    .eq("room_id", roomId)
-    .eq("user_id", user.id)
-    .gt("muted_until", new Date().toISOString())
-    .maybeSingle()
-
+  const muteCheck = muteRes.data
   if (muteCheck) {
     const until = new Date(muteCheck.muted_until).toLocaleString()
     return NextResponse.json(
@@ -299,16 +296,13 @@ export const POST = withSecurity(async (
   // Resolve the target sub-channel: the one provided, else the room's default.
   // If the channels schema isn't migrated, this resolves to null and we insert
   // a room-scoped message (legacy behavior).
-  let subchannelId: string | null = data.subchannelId ?? null
+  if (data.subchannelId && !subRes.data) {
+    return subRes.error
+      ? NextResponse.json({ error: "Failed to send message." }, { status: 500 })
+      : NextResponse.json({ error: "Channel not found in this room." }, { status: 400 })
+  }
+  let subchannelId: string | null = subRes.data?.id ?? null
   if (!subchannelId) {
-    const { data: def } = await supabase
-      .from("room_subchannels")
-      .select("id")
-      .eq("room_id", roomId)
-      .eq("is_default", true)
-      .maybeSingle()
-    subchannelId = def?.id ?? null
-
     // No default channel yet (room predates the AFTER INSERT trigger added in
     // 20260904_repair_room_features.sql). Create it rather than inserting a
     // message with a NULL subchannel_id, which violates NOT NULL and surfaced
@@ -335,10 +329,13 @@ export const POST = withSecurity(async (
     if (isBetslip) insertPayload.betslip_id = data.betslipId
   }
 
+  // Embeds the sender's profile so the broadcast carries name/avatar (clients
+  // no longer relay their own echo; see lib/realtime/chat.ts).
+  const returning = "*, profiles:user_id (username, display_name, avatar_url)"
   let { data: message, error: insertErr } = await supabase
     .from("messages")
     .insert(insertPayload)
-    .select()
+    .select(returning)
     .single()
 
   // Backward-compat: columns not migrated yet → retry the legacy shape.
@@ -346,7 +343,7 @@ export const POST = withSecurity(async (
     const legacy = await supabase
       .from("messages")
       .insert({ room_id: roomId, user_id: user.id, content, is_system: false })
-      .select()
+      .select(returning)
       .single()
     message = legacy.data
     insertErr = legacy.error
@@ -382,6 +379,7 @@ export const POST = withSecurity(async (
       user_id: user.id,
       kind: data.kind,
       betslip_id: isBetslip ? data.betslipId : null,
+      profile: (Array.isArray(message.profiles) ? message.profiles[0] : message.profiles) ?? null,
     })
   }
 

@@ -162,6 +162,8 @@ export default function PlayerDashboardPage() {
 
   // Fetch the prop data for this player
   useEffect(() => {
+    // A quick stat/sport toggle must not let the older response land last.
+    let ignore = false
     setLoading(true)
     // Include search param to find the specific player/team
     const playerSearch = playerId.replace(/-/g, " ")
@@ -169,6 +171,7 @@ export default function PlayerDashboardPage() {
     // Cache for 30 seconds — same data as the analysis page
     cachedFetch<{ props?: PropData[] }>(url, 30_000)
       .then(data => {
+        if (ignore) return
         const props = data.props ?? []
         // Find matching prop by player slug or id
         const found = props.find((p: PropData) => {
@@ -185,6 +188,7 @@ export default function PlayerDashboardPage() {
           const fallbackUrl = `/api/props?sport=${sportParam}&stat=all&search=${encodeURIComponent(playerSearch)}`
           cachedFetch<{ props?: PropData[] }>(fallbackUrl, 30_000)
             .then(fallbackData => {
+              if (ignore) return
               const fallbackProps = fallbackData.props ?? []
               const fallbackFound = fallbackProps.find((p: PropData) => {
                 const slug = p.player.toLowerCase().replace(/[^a-z0-9]+/g, "-")
@@ -197,10 +201,11 @@ export default function PlayerDashboardPage() {
               }
               setLoading(false)
             })
-            .catch(() => setLoading(false))
+            .catch(() => { if (!ignore) setLoading(false) })
         }
       })
-      .catch(() => setLoading(false))
+      .catch(() => { if (!ignore) setLoading(false) })
+    return () => { ignore = true }
   }, [playerId, fetchStat, sportParam])
 
   // Fetch rolling averages from stats-reference endpoint (NBA only)
@@ -208,9 +213,11 @@ export default function PlayerDashboardPage() {
     if (!prop) return
     if (sportParam !== "NBA") return // Stats reference only available for NBA
     const playoffParam = seasonType === "playoffs" ? "&playoff=true" : ""
+    let ignore = false
     fetch(`/api/props/stats-reference?player=${encodeURIComponent(prop.player)}&stat=${fetchStat}${playoffParam}`)
       .then(res => res.json())
       .then(data => {
+        if (ignore) return
         if (data.rollingAverages) {
           setRollingAverages(data.rollingAverages)
         }
@@ -225,6 +232,7 @@ export default function PlayerDashboardPage() {
         }
       })
       .catch(() => {})
+    return () => { ignore = true }
   }, [prop?.player, fetchStat, seasonType])
 
   // Fetch team analytics for non-NBA sports (Soccer, NFL, NHL)

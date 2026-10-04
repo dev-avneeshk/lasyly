@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og"
 
-export const runtime = "edge"
 export const alt = "Lasyly — Where Sports Bettors Win Together"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
@@ -69,6 +68,8 @@ export default function OGImage() {
 
         {/* Headline */}
         <div style={{
+          display: "flex",
+          flexDirection: "column",
           color: "#ffffff",
           fontSize: 72,
           fontWeight: 900,
@@ -77,7 +78,7 @@ export default function OGImage() {
           marginBottom: 28,
           maxWidth: 780,
         }}>
-          Where bettors<br />
+          <span>Where bettors</span>
           <span style={{ color: "#D4FF00" }}>win together.</span>
         </div>
 

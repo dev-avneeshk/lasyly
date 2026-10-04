@@ -19,8 +19,8 @@ export function RankingsSkeleton() {
           {/* Logo */}
           <div className="w-8 h-8 rounded-full bg-white/8" />
           {/* Name */}
-          <div className="flex-1 space-y-1.5">
-            <div className="h-4 w-32 rounded bg-white/8" />
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="h-4 w-full max-w-32 rounded bg-white/8" />
             <div className="h-3 w-16 rounded bg-white/5" />
           </div>
           {/* Score */}

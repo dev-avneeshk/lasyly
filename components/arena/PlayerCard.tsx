@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { motion } from "framer-motion"
 import type { SeasonPlayer } from "@/lib/arena/types"
-import { headshotSources } from "@/lib/arena/data"
+import { arenaHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
 import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 
 function initials(name: string): string {

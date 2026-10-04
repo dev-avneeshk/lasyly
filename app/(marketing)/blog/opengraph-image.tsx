@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og"
 
-export const runtime = "edge"
 export const alt = "Lasyly Blog — Sports Betting Guides & Prop Analytics"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
@@ -51,8 +50,8 @@ export default function BlogOGImage() {
             Guides · Analytics · Community
           </span>
         </div>
-        <div style={{ color: "#ffffff", fontSize: 68, fontWeight: 900, lineHeight: 0.95, letterSpacing: "-2px", marginBottom: 28, maxWidth: 780 }}>
-          Bet smarter.<br />
+        <div style={{ display: "flex", flexDirection: "column", color: "#ffffff", fontSize: 68, fontWeight: 900, lineHeight: 0.95, letterSpacing: "-2px", marginBottom: 28, maxWidth: 780 }}>
+          <span>Bet smarter.</span>
           <span style={{ color: "#D4FF00" }}>Not harder.</span>
         </div>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 21, lineHeight: 1.4, maxWidth: 600 }}>

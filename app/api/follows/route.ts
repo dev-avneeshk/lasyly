@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
-import { invalidateCachePrefix } from "@/lib/cache"
+import { invalidateCache } from "@/lib/cache"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 const followSchema = z.object({
@@ -94,7 +94,7 @@ export const POST = withSecurity(async (request: Request) => {
     }
   }
 
-  invalidateCachePrefix(`feed-graph:${user.id}`).catch(() => {})
+  invalidateCache(`feed-graph:${user.id}`).catch(() => {}) // exact key: one DEL, not a SCAN
 
   const [{ count: followerCount }, { count: followingCount }] = await Promise.all([
     supabase

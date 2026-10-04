@@ -2,8 +2,12 @@ name: Keep Warm
 
 on:
   schedule:
-    # Runs every 5 minutes — keeps Vercel serverless functions warm to avoid cold starts
-    - cron: '*/5 * * * *'
+    # Every 15 minutes. It was */5, i.e. 1,440 invocations/day with zero users,
+    # and each NBA warm landed past the 3-min TTL so it kicked off a full
+    # 6-stat slate recompute ~288x/day. Fluid compute keeps instances warm on
+    # its own; this now only has to keep the NFL slate inside its 20-min
+    # stale window.
+    - cron: '*/15 * * * *'
   workflow_dispatch: # allow manual trigger
 
 jobs:

@@ -6,8 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 import BlogNewspaperWrapper from "@/components/blog/BlogNewspaperWrapper"
+import { SITE_URL } from "@/lib/seo/site"
 
-const BASE_URL = "https://lasyly.me"
+const BASE_URL = SITE_URL
 
 // ---------------------------------------------------------------------------
 // Types

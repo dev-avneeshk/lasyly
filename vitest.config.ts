@@ -34,6 +34,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      // Next resolves `server-only` to this no-op in server code; tests run server code.
+      "server-only": path.resolve(__dirname, "node_modules/next/dist/compiled/server-only/empty.js"),
     },
   },
 })

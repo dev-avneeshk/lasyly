@@ -106,7 +106,7 @@ export const GET = withSecurity(async (request: Request) => {
     hasMore,
     nextCursor: hasMore ? results[results.length - 1].created_at : null,
   })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 /** POST /api/feed/posts — create a new post */
 export const POST = withSecurity(async (request: Request) => {

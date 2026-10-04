@@ -12,6 +12,7 @@
 
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { quotePostgrestValue as q } from "@/lib/sanitize"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
@@ -76,7 +77,7 @@ async function computeSoccerStats(supabase: any, team: string): Promise<TeamStat
     .select("id, home_team, away_team, home_score, away_score, league, match_date, home_logo, away_logo")
     .in("league", SOCCER_LEAGUES)
     .eq("status", "completed")
-    .or(`home_team.eq.${team},away_team.eq.${team}`)
+    .or(`home_team.eq.${q(team)},away_team.eq.${q(team)}`)
     .order("match_date", { ascending: false })
     .limit(30)
 
@@ -267,7 +268,7 @@ async function computeNFLStats(supabase: any, team: string): Promise<TeamStatsRe
     .from("nfl_games")
     .select("id, home_team, away_team, home_abbr, away_abbr, home_score, away_score, game_date")
     .eq("status", "completed")
-    .or(`home_abbr.eq.${team},away_abbr.eq.${team}`)
+    .or(`home_abbr.eq.${q(team)},away_abbr.eq.${q(team)}`)
     .order("game_date", { ascending: false })
     .limit(20)
 
@@ -388,7 +389,7 @@ async function computeNHLStats(supabase: any, team: string): Promise<TeamStatsRe
     .select("id, home_team, away_team, home_score, away_score, league, match_date, home_logo, away_logo")
     .eq("league", "nhl")
     .eq("status", "completed")
-    .or(`home_team.eq.${team},away_team.eq.${team}`)
+    .or(`home_team.eq.${q(team)},away_team.eq.${q(team)}`)
     .order("match_date", { ascending: false })
     .limit(30)
 

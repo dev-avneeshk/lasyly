@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const addMatchSchema = z.object({
   match_id: z.string().min(1).max(255),
@@ -29,7 +30,7 @@ export const GET = withSecurity(async (
   }
 
   return NextResponse.json({ matches: roomMatches ?? [] })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 export const POST = withSecurity(async (
   request: Request,
@@ -48,6 +49,8 @@ export const POST = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   // Check user is owner or moderator of this room
   const { data: membership } = await supabase
@@ -112,6 +115,8 @@ export const DELETE = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const { searchParams } = new URL(request.url)
   const matchId = searchParams.get("match_id")

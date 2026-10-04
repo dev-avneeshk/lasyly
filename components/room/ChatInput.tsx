@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils"
 type ChatInputProps = {
   disabled: boolean
   placeholder: string
-  /** Send the trimmed message. Returns nothing; parent handles the async work. */
-  onSend: (content: string) => void
+  /** Send the trimmed message; resolving `false` (not sent) restores the draft. */
+  onSend: (content: string) => Promise<boolean> | void
 }
 
 const MAX_LEN = 1000
@@ -38,8 +38,11 @@ function ChatInputBase({ disabled, placeholder, onSend }: ChatInputProps) {
   const submit = useCallback(() => {
     const content = value.trim()
     if (!content) return
-    onSend(content)
     setValue("")
+    // Restore unless the user has already started a new draft.
+    Promise.resolve(onSend(content)).then((ok) => {
+      if (ok === false) setValue((v) => v || content)
+    })
   }, [value, onSend])
 
   const onKeyDown = useCallback(

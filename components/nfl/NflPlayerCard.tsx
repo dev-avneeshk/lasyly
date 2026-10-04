@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import type { NflPlayer, Position } from "@/lib/nfl/types"
-import { headshotSources } from "@/lib/nfl/data"
+import { nflHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
 import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn } from "@/lib/utils"
 
@@ -14,7 +14,7 @@ function Headshot({ player }: { player: NflPlayer }) {
   // Stored ~15KB WebP in preference to ESPN's ~225KB press original.
   const { src: url, onError } = useHeadshotFallback(headshotSources(player))
   return (
-    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/10 to-white/[0.02] ring-1 ring-white/10">
+    <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/10 to-white/[0.02] ring-1 ring-white/10">
       {url ? (
         // Plain <img> so we don't need next/image remotePatterns config.
         // eslint-disable-next-line @next/next/no-img-element
@@ -165,17 +165,17 @@ export function NflPlayerCard({ player }: { player: NflPlayer }) {
       exit={{ opacity: 0, scale: 0.94, y: -14 }}
       transition={{ type: "spring", stiffness: 260, damping: 24 }}
       className={cn(
-        "relative w-full max-w-md overflow-hidden rounded-3xl border bg-gradient-to-b from-[var(--color-surface-elevated)] to-[var(--color-surface)] p-6",
+        "relative w-full max-w-md overflow-hidden rounded-3xl border bg-gradient-to-b from-[var(--color-surface-elevated)] to-[var(--color-surface)] p-4 sm:p-6",
         TIER_GLOW[player.tier]
       )}
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3 sm:gap-4">
         <Headshot player={player} />
         <div className="min-w-0 flex-1">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-lime)]">
             {TIER_LABEL[player.tier]}
           </span>
-          <h2 className="mt-1 text-2xl font-black leading-tight text-[var(--color-text-primary)]">
+          <h2 className="mt-1 text-xl sm:text-2xl font-black leading-tight break-words text-[var(--color-text-primary)]">
             {player.name}
           </h2>
           <p className="text-sm text-[var(--color-text-muted)]">
@@ -189,7 +189,7 @@ export function NflPlayerCard({ player }: { player: NflPlayer }) {
             </span>
           </p>
         </div>
-        <div className="flex flex-col items-center rounded-2xl bg-black/30 px-4 py-2">
+        <div className="flex shrink-0 flex-col items-center rounded-2xl bg-black/30 px-3 sm:px-4 py-2">
           <span className="text-[9px] uppercase tracking-widest text-[var(--color-text-muted)]">OVR</span>
           <span className="text-3xl font-black tabular-nums text-[var(--color-lime)]">{player.overall}</span>
         </div>

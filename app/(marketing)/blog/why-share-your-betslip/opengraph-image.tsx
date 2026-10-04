@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og"
 
-export const runtime = "edge"
 export const alt = "Why You Should Share Your Betslip (Even When You Lose) — Lasyly Blog"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
@@ -32,9 +31,8 @@ export default function OGImage() {
         <div style={{ display: "flex", marginBottom: 24, background: "rgba(212,255,0,0.1)", border: "1px solid rgba(212,255,0,0.25)", borderRadius: 999, padding: "7px 18px" }}>
           <span style={{ color: "#D4FF00", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>Community · 6 min read</span>
         </div>
-        <div style={{ color: "#ffffff", fontSize: 56, fontWeight: 900, lineHeight: 1.0, letterSpacing: "-1.5px", marginBottom: 24, maxWidth: 900 }}>
-          Why You Should Share Your Betslip
-          <br />
+        <div style={{ display: "flex", flexDirection: "column", color: "#ffffff", fontSize: 56, fontWeight: 900, lineHeight: 1.0, letterSpacing: "-1.5px", marginBottom: 24, maxWidth: 900 }}>
+          <span>Why You Should Share Your Betslip</span>
           <span style={{ color: "#D4FF00" }}>(Even When You Lose)</span>
         </div>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, lineHeight: 1.5, maxWidth: 680 }}>

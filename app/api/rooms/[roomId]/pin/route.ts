@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const pinSchema = z.object({
   message_id: z.string().uuid(),
@@ -56,7 +57,7 @@ export const GET = withSecurity(async (
   })
 
   return NextResponse.json({ pins: formatted })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 // PIN a message
 export const POST = withSecurity(async (
@@ -70,6 +71,8 @@ export const POST = withSecurity(async (
   if (!user) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   // Check admin
   const { data: membership } = await supabase
@@ -139,6 +142,8 @@ export const DELETE = withSecurity(async (
   if (!user) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   // Check admin
   const { data: membership } = await supabase

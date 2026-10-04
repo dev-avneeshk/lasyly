@@ -21,6 +21,30 @@ export interface NbaRankingsParams {
 }
 
 /**
+ * The ranking version readers show for a season + mode: the latest published
+ * one, else the latest generated draft (useful during dev); null if none.
+ */
+export async function activeNbaRankingVersion(
+  supabase: ReturnType<typeof createAdminClient>,
+  season: string,
+  mode: NbaRankingsParams["mode"]
+): Promise<string | null> {
+  const latest = (published: boolean) => {
+    let q = supabase
+      .from("nba_ranking_versions")
+      .select("ranking_version")
+      .eq("season", season)
+      .eq("ranking_mode", mode)
+    if (published) q = q.eq("status", "published")
+    return q.order(published ? "published_at" : "generated_at", { ascending: false }).limit(1).maybeSingle()
+  }
+  const { data: published } = await latest(true)
+  if (published?.ranking_version) return published.ranking_version as string
+  const { data: draft } = await latest(false)
+  return (draft?.ranking_version as string | undefined) ?? null
+}
+
+/**
  * Read a page of NBA player rankings straight from the DB. This is the raw
  * fetcher; callers are expected to wrap it in the `cached()` helper (as both the
  * API route and the server page do) so results are served from Redis when warm.
@@ -31,40 +55,15 @@ export async function getNbaRankings(
   const { season, mode, type, limit, offset, publishedOnly } = params
   const supabase = createAdminClient()
 
-  // Get the active ranking version for this season
-  const { data: versionRow } = await supabase
-    .from("nba_ranking_versions")
-    .select("ranking_version")
-    .eq("season", season)
-    .eq("ranking_mode", mode)
-    .eq("status", "published")
-    .order("published_at", { ascending: false })
-    .limit(1)
-    .single()
-
-  let rankingVersion = (versionRow as any)?.ranking_version
-
+  const rankingVersion = await activeNbaRankingVersion(supabase, season, mode)
   if (!rankingVersion) {
-    // Fall back to draft if no published version exists (useful during dev)
-    const { data: draftVersionRow } = await supabase
-      .from("nba_ranking_versions")
-      .select("ranking_version")
-      .eq("season", season)
-      .eq("ranking_mode", mode)
-      .order("generated_at", { ascending: false })
-      .limit(1)
-      .single()
-
-    if (!draftVersionRow) {
-      return {
-        season,
-        ranking_type: type,
-        ranking_version: "none",
-        total: 0,
-        rankings: [],
-      }
+    return {
+      season,
+      ranking_type: type,
+      ranking_version: "none",
+      total: 0,
+      rankings: [],
     }
-    rankingVersion = (draftVersionRow as any).ranking_version
   }
 
   // Build query
@@ -74,12 +73,9 @@ export async function getNbaRankings(
     .eq("season", season)
     .eq("ranking_mode", mode)
     .eq("ranking_type", type)
+    .eq("ranking_version", rankingVersion)
     .order("rank", { ascending: true })
     .range(offset, offset + limit - 1)
-
-  if (rankingVersion) {
-    query = query.eq("ranking_version", rankingVersion)
-  }
 
   if (publishedOnly) {
     query = query.eq("is_published", true)
@@ -99,8 +95,7 @@ export async function getNbaRankings(
     .eq("season", season)
     .eq("ranking_mode", mode)
     .eq("ranking_type", type)
-
-  if (rankingVersion) countQuery = countQuery.eq("ranking_version", rankingVersion)
+    .eq("ranking_version", rankingVersion)
   if (publishedOnly) countQuery = countQuery.eq("is_published", true)
 
   const { count } = await countQuery
@@ -141,7 +136,7 @@ export async function getNbaRankings(
   return {
     season,
     ranking_type: type,
-    ranking_version: rankingVersion ?? "draft",
+    ranking_version: rankingVersion,
     total: count ?? rankings.length,
     rankings,
   }

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "sports betting analytics",
   ],
   alternates: {
-    canonical: "https://lasyly.me/analysis",
+    canonical: "/analysis",
   },
 }
 

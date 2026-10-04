@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cached, CACHE_TTL } from "@/lib/cache"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
@@ -74,7 +75,6 @@ export const GET = withSecurity(async (request: Request) => {
       odds,
       stake,
       payout,
-      matches,
       description,
       status,
       is_for_sale,
@@ -170,14 +170,28 @@ export const GET = withSecurity(async (request: Request) => {
     }
   }
 
+  const shouldRedact = (s: (typeof betslips)[number]) =>
+    s.is_for_sale && s.user_id !== user?.id && !unlockedBetslipIds.has(s.id)
+
+  // Pick content (`matches`) isn't readable by anon/authenticated (paywall is
+  // enforced by column grants), so load it with the service role, only for the
+  // rows this viewer already saw via RLS and is entitled to.
+  const visibleIds = betslips.filter((s) => !shouldRedact(s)).map((s) => s.id)
+  const matchesById = new Map<string, unknown>()
+  if (visibleIds.length > 0) {
+    const { data: contents, error: contentErr } = await createAdminClient()
+      .from("betslips")
+      .select("id, matches")
+      .in("id", visibleIds)
+    if (contentErr) {
+      return NextResponse.json({ error: "Failed to fetch feed." }, { status: 500 })
+    }
+    for (const c of contents ?? []) matchesById.set(c.id, c.matches)
+  }
+
   // Format response
   const formattedBetslips = betslips.map((s) => {
     const profile = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
-
-    const shouldRedact =
-      s.is_for_sale &&
-      s.user_id !== user?.id &&
-      !unlockedBetslipIds.has(s.id)
 
     return {
       id: s.id,
@@ -188,7 +202,7 @@ export const GET = withSecurity(async (request: Request) => {
       odds: s.odds,
       stake: s.stake,
       payout: s.payout,
-      matches: shouldRedact ? [] : s.matches,
+      matches: matchesById.get(s.id) ?? [],
       description: s.description,
       status: s.status,
       is_for_sale: s.is_for_sale,

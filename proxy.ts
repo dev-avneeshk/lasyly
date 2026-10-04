@@ -125,8 +125,8 @@ const RATE_LIMIT_EXEMPT_PREFIXES = ["/api/webhooks/"]
  *
  * The cookie VALUE is signed by Supabase and cannot be forged into something
  * that also authenticates, so hashing it gives a bucket that is stable for a
- * real session and useless to rotate: a request with a made-up cookie gets its
- * own bucket but is rejected by the route with a 401 anyway.
+ * real session. A made-up cookie still gets its own bucket (public routes never
+ * check it), which is why the per-IP bucket is always applied as well.
  *
  * Supabase splits large tokens across `...auth-token.0` / `.1` chunks, so all
  * matching cookies are concatenated in name order.
@@ -301,13 +301,20 @@ export async function proxy(request: NextRequest) {
 
   if (isApiRoute && !isRateLimitExempt) {
     const tier = tierForPath(pathname, hasSupabaseSessionCookie)
-    // Authenticated traffic is keyed per session so users behind one NAT don't
-    // share a bucket; anonymous traffic falls back to IP, read from
-    // platform-set headers rather than the client-forgeable x-forwarded-for.
-    const rateLimitKey =
-      bucket !== null ? `${tier}:s:${bucket}` : `${tier}:i:${getClientIp(request)}`
-
-    const rateResult = await checkRateLimitDistributed(rateLimitKey, tier)
+    // Two checks per request. The tier bucket: per session for cookie-bearing
+    // traffic, per IP otherwise (IP read from platform-set headers rather than
+    // the client-forgeable x-forwarded-for). And one ceiling keyed only by IP
+    // that every request counts against, whatever cookies it carries. The
+    // session cookie is unverified here, so forged cookies each mint their own
+    // session bucket; the IP ceiling (RATE_LIMIT_IP) caps the total they can
+    // reach at a fixed figure instead of N x cookies.
+    const ip = getClientIp(request)
+    const tierKey = tier === "standard" ? `standard:s:${bucket}` : `${tier}:i:${ip}`
+    const results = await Promise.all([
+      checkRateLimitDistributed(`ip:i:${ip}`, "ip"),
+      checkRateLimitDistributed(tierKey, tier),
+    ])
+    const rateResult = results.find((r) => !r.allowed) ?? results[1]
 
     if (!rateResult.allowed) {
       const limitedResponse = NextResponse.json(

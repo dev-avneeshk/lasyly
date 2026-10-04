@@ -8,6 +8,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
+import { SITE_URL } from "@/lib/seo/site"
 
 // ─── Job Type Constants ─────────────────────────────────────────────────────
 
@@ -80,11 +81,13 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
         playerGames.set(row.player_name, games)
       }
 
-      const props: { id: string; values: number[] }[] = []
-      for (const statFilter of NBA_STAT_FILTERS) {
-        const stat = statFilter.key
-        for (const [playerName, games] of playerGames) {
-          if (games.length < 10) continue
+      // Player-major, most games first: the 500-prop cap used to be filled by
+      // pts alone (stat-major order), so no other stat was ever correlated.
+      const props: { id: string; values: number[]; keys: string[] }[] = []
+      const players = [...playerGames].filter(([, games]) => games.length >= 10).sort((x, y) => y[1].length - x[1].length)
+      for (const [playerName, games] of players) {
+        for (const statFilter of NBA_STAT_FILTERS) {
+          const stat = statFilter.key
           const values = games.map((g: any) => {
             switch (stat) {
               case "pts": return g.pts ?? 0
@@ -97,31 +100,12 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
               default: return 0
             }
           })
-          props.push({ id: `${playerName}-${stat}`, values })
+          props.push({ id: `${playerName}-${stat}`, values, keys: games.map((g: any) => String(g.game_id)) })
         }
       }
 
       if (props.length > 0) {
-        const correlations = computeAllCorrelations(props, 500)
-
-        // Delete old and insert new
-        await supabase.from("correlations_cache").delete().eq("sport", "NBA")
-
-        const BATCH_SIZE = 500
-        let inserted = 0
-        for (let i = 0; i < correlations.length; i += BATCH_SIZE) {
-          const batch = correlations.slice(i, i + BATCH_SIZE).map((r) => ({
-            sport: "NBA",
-            prop_a: r.propA,
-            prop_b: r.propB,
-            coefficient: r.coefficient,
-            overlapping_games: r.overlappingGames,
-            computed_at: new Date().toISOString(),
-          }))
-          await supabase.from("correlations_cache").insert(batch)
-          inserted += batch.length
-        }
-        results.NBA = inserted
+        results.NBA = await replaceCorrelations(supabase, "NBA", computeAllCorrelations(props, 500))
       }
     } else {
       results.NBA = 0
@@ -164,7 +148,7 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
         playerStats.set(row.player_name, entries)
       }
 
-      const props: { id: string; values: number[] }[] = []
+      const props: { id: string; values: number[]; keys: string[] }[] = []
       const statMappings = [
         { key: "aces", getter: (r: any) => Number(r.aces_per_match ?? 0) },
         { key: "first_serve", getter: (r: any) => Number(r.first_serve_pct ?? 0) },
@@ -173,29 +157,12 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
       for (const { key, getter } of statMappings) {
         for (const [playerName, rows] of playerStats) {
           if (rows.length < 10) continue
-          props.push({ id: `${playerName}-${key}`, values: rows.map(getter) })
+          props.push({ id: `${playerName}-${key}`, values: rows.map(getter), keys: rows.map((r: any) => `${r.surface}:${r.stat_year}`) })
         }
       }
 
       if (props.length > 0) {
-        const correlations = computeAllCorrelations(props, 500)
-        await supabase.from("correlations_cache").delete().eq("sport", "Tennis")
-
-        const BATCH_SIZE = 500
-        let inserted = 0
-        for (let i = 0; i < correlations.length; i += BATCH_SIZE) {
-          const batch = correlations.slice(i, i + BATCH_SIZE).map((r) => ({
-            sport: "Tennis",
-            prop_a: r.propA,
-            prop_b: r.propB,
-            coefficient: r.coefficient,
-            overlapping_games: r.overlappingGames,
-            computed_at: new Date().toISOString(),
-          }))
-          await supabase.from("correlations_cache").insert(batch)
-          inserted += batch.length
-        }
-        results.Tennis = inserted
+        results.Tennis = await replaceCorrelations(supabase, "Tennis", computeAllCorrelations(props, 500))
       }
     } else {
       results.Tennis = 0
@@ -203,6 +170,35 @@ async function handleComputeCorrelations(payload: { sports?: string[] }) {
   }
 
   return { totalCorrelations: Object.values(results).reduce((a, b) => a + b, 0), breakdown: results }
+}
+
+/**
+ * Swap a sport's cached correlations for a new set. Upserts the new rows under
+ * one run stamp, then deletes only rows from older runs, and only if every
+ * batch landed: the old delete-then-insert left the table empty or partial
+ * while running (and for good on a failed batch, whose error was ignored).
+ */
+async function replaceCorrelations(
+  supabase: ReturnType<typeof createAdminClient>,
+  sport: "NBA" | "Tennis",
+  correlations: { propA: string; propB: string; coefficient: number; overlappingGames: number }[]
+): Promise<number> {
+  const stamp = new Date().toISOString()
+  for (let i = 0; i < correlations.length; i += 500) {
+    const batch = correlations.slice(i, i + 500).map((r) => ({
+      sport,
+      prop_a: r.propA,
+      prop_b: r.propB,
+      coefficient: r.coefficient,
+      overlapping_games: r.overlappingGames,
+      computed_at: stamp,
+    }))
+    const { error } = await supabase.from("correlations_cache").upsert(batch, { onConflict: "sport,prop_a,prop_b" })
+    if (error) throw new Error(`correlations_cache ${sport} write failed: ${error.message}`)
+  }
+  const { error } = await supabase.from("correlations_cache").delete().eq("sport", sport).lt("computed_at", stamp)
+  if (error) throw new Error(`correlations_cache ${sport} cleanup failed: ${error.message}`)
+  return correlations.length
 }
 
 // ─── Handler: Generate AI Writeup ──────────────────────────────────────────
@@ -338,7 +334,7 @@ Be concise and actionable. No disclaimers.`
 // ─── Handler: Submit IndexNow ───────────────────────────────────────────────
 
 async function handleSubmitIndexNow(payload: { urls?: string[] }) {
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+  const BASE_URL = SITE_URL
   const INDEXNOW_KEY = process.env.INDEXNOW_KEY
 
   if (!INDEXNOW_KEY) {

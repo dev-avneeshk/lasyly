@@ -116,9 +116,12 @@ async function handleGET(request: Request) {
     // values are ESPN URLs, now that we prefer our own Storage copy — these are
     // held for 24h, so without the bump a deploy would keep serving the old
     // hot-linked URLs for a full day.
-    const cacheKey = `headshot:v3:${normalizeHeadshotName(playerName)}:${(team ?? "").toLowerCase()}:${sportParam}`
+    // v4: the value is now wrapped ({ value }) so a "not found" is cached too.
+    // cached() treats a stored null as a miss, so bare-null misses re-ran the
+    // DB + roster + ESPN search on every request.
+    const cacheKey = `headshot:v4:${normalizeHeadshotName(playerName)}:${(team ?? "").toLowerCase()}:${sportParam}`
 
-    const result = await cached(cacheKey, async () => {
+    const { value: result } = await cached(cacheKey, async () => ({ value: await (async () => {
       // ─── Strategy 1: Check our espn_players table (fastest, all sports) ────
       const dbResult = await searchDatabase(playerName, team, sportConfig.headshotKey)
       if (dbResult) return dbResult
@@ -135,7 +138,7 @@ async function handleGET(request: Request) {
       if (searchResult) return searchResult
 
       return null
-    }, HEADSHOT_CACHE_TTL)
+    })() }), HEADSHOT_CACHE_TTL)
 
     if (!result) {
       return NextResponse.json({ success: false, error: "Player not found", headshot: null }, { status: 404 })
@@ -263,7 +266,7 @@ async function searchRoster(
     const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/${config.espnSport}/${config.espnLeague}/teams/${teamSlug}/roster`
     const res = await fetch(rosterUrl, {
       signal: AbortSignal.timeout(5000),
-      next: { revalidate: 86400 }, // Cache roster for 24h
+      cache: "no-store", // Redis (cached) holds this; Data Cache would bill an ISR write per URL
     })
     if (!res.ok) return null
 
@@ -311,7 +314,7 @@ async function searchESPNCore(
     const searchUrl = `https://sports.core.api.espn.com/v2/sports/${config.espnSport}/leagues/${config.espnLeague}/athletes?limit=5&search=${encodeURIComponent(providerQuery)}`
     const res = await fetch(searchUrl, {
       signal: AbortSignal.timeout(5000),
-      next: { revalidate: 86400 },
+      cache: "no-store", // Redis (cached) holds this; Data Cache would bill an ISR write per URL
     })
     if (!res.ok) return null
 
@@ -331,7 +334,7 @@ async function searchESPNCore(
       try {
         const detailRes = await fetch(
           `https://sports.core.api.espn.com/v2/sports/${config.espnSport}/leagues/${config.espnLeague}/athletes/${espnId}`,
-          { signal: AbortSignal.timeout(3000), next: { revalidate: 86400 } }
+          { signal: AbortSignal.timeout(3000), cache: "no-store" } // Redis (cached) holds this
         )
         if (!detailRes.ok) continue
 

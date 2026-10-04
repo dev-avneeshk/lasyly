@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const muteSchema = z.object({
   user_id: z.string().uuid(),
@@ -26,6 +28,8 @@ export const POST = withSecurity(async (
   if (!user) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   // Check admin
   const { data: membership } = await supabase
@@ -72,8 +76,11 @@ export const POST = withSecurity(async (
 
   const mutedUntil = new Date(Date.now() + data.duration_minutes * 60 * 1000).toISOString()
 
-  // Upsert mute
-  const { error: muteErr } = await supabase
+  // Service role: users have no write policies on room_mutes/room_audit_log
+  // (a moderator could mute the owner via PostgREST); the checks above are
+  // the hierarchy. The upsert also needs UPDATE, which RLS never allowed.
+  const admin = createAdminClient()
+  const { error: muteErr } = await admin
     .from("room_mutes")
     .upsert({
       room_id: roomId,
@@ -88,7 +95,7 @@ export const POST = withSecurity(async (
   }
 
   // Log the action
-  await supabase.from("room_audit_log").insert({
+  await admin.from("room_audit_log").insert({
     room_id: roomId,
     actor_id: user.id,
     action: "mute",
@@ -111,6 +118,8 @@ export const DELETE = withSecurity(async (
   if (!user) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
   }
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   // Check admin
   const { data: membership } = await supabase
@@ -128,7 +137,21 @@ export const DELETE = withSecurity(async (
   const [data, validationError] = validateRequestBody(body, unmuteSchema)
   if (validationError) return validationError
 
-  const { error: deleteErr } = await supabase
+  // Same hierarchy as mute: a muted moderator can't lift their own or a fellow
+  // moderator's mute (only the owner can).
+  if (membership.role === "moderator") {
+    const { data: target } = await supabase
+      .from("room_members")
+      .select("role")
+      .eq("room_id", roomId)
+      .eq("user_id", data.user_id)
+      .maybeSingle()
+    if (data.user_id === user.id || target?.role === "moderator" || target?.role === "owner") {
+      return NextResponse.json({ error: "Only the room owner can unmute a moderator." }, { status: 403 })
+    }
+  }
+
+  const { error: deleteErr } = await createAdminClient()
     .from("room_mutes")
     .delete()
     .eq("room_id", roomId)

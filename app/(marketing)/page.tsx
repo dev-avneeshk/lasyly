@@ -6,8 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // Static import so Next infers intrinsic width/height (669x1200) at build time —
 // no CLS, and no need to hand-maintain the dimensions.
 import heroImage from "@/public/hero-optimized.png"
+import { SITE_URL } from "@/lib/seo/site"
 
-export const revalidate = 60
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Lasyly — Sports Prop Analytics, Rooms & Creator Picks",
@@ -16,15 +17,15 @@ export const metadata: Metadata = {
   alternates: {
     // The root path permanently redirects to /explore, so point the canonical
     // there — declaring "/" as canonical while it 308s away is contradictory.
-    canonical: "https://www.lasyly.me/explore",
-    types: { "application/rss+xml": "https://www.lasyly.me/blog/feed.xml" },
+    canonical: "/explore",
+    types: { "application/rss+xml": "/blog/feed.xml" },
   },
   openGraph: {
     title: "Lasyly — Sports Prop Analytics, Rooms & Creator Picks",
     description:
       "Real-time rooms, prop analytics with hit rates, live scores, and independent creator analysis. All free. All in one app.",
     type: "website",
-    url: "https://www.lasyly.me/explore",
+    url: "/explore",
   },
 }
 
@@ -44,7 +45,7 @@ const features = [
   { no: "06", title: "Sports news", desc: "Curated news from ESPN across NFL, NBA, soccer, UFC, tennis, F1, and cricket, served straight from our own database.", href: "/news" },
 ]
 
-const BASE_URL = "https://lasyly.me"
+const BASE_URL = SITE_URL
 
 const FALLBACK_TRENDING = [
   { slug: "spurs-thunder-game-4-recap-2026", category: "NBA Playoffs", title: "Wembanyama 33 Pts: Spurs Rout Thunder 103-82, West Finals Tied 2-2", readTime: "7 min", accent: "#F59E0B" },

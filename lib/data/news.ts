@@ -85,7 +85,7 @@ async function fetchFromESPN(category: string | null): Promise<NewsItem[]> {
         // No custom User-Agent: ESPN's edge returns 403 for "Lasyly/1.0"
         // (and browser-spoof UAs) but serves 200 for the default fetch UA.
         const res = await fetch(feed.url, {
-          next: { revalidate: 300 },
+          cache: "no-store", // getNews() Redis cache covers this; skip per-feed ISR writes
         })
         if (!res.ok) return [] as NewsItem[]
         const data = await res.json()

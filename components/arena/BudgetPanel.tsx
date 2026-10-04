@@ -5,7 +5,7 @@ import { Cpu, Wallet } from "lucide-react"
 import type { BudgetSnapshot } from "@/lib/arena/budget"
 import type { RosterState, RosterSlot, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { ROSTER_SLOTS } from "@/lib/arena/types"
-import { headshotSources } from "@/lib/arena/data"
+import { arenaHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
 import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn, formatMoney } from "@/lib/utils"
 
@@ -84,7 +84,7 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
         {currentBid != null && isHighBidder && (
           <div className="mt-3 rounded-lg bg-[#253014] px-3 py-2 text-center">
             <span className="block text-[8px] font-semibold uppercase tracking-[0.15em] text-[#b9c3a7]">Current bid</span>
-            <span className="mt-0.5 block text-lg font-black leading-none tabular-nums text-white">${formatMoney(currentBid)}</span>
+            <span className="mt-0.5 block text-lg font-black leading-none tabular-nums text-[#f4f6fb]">${formatMoney(currentBid)}</span>
           </div>
         )}
       </section>

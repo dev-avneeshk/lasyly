@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: `Hit rates, matchup grade, confidence score, and historical trend data for ${displayName}.`,
     },
     alternates: {
-      canonical: `https://lasyly.me/analysis/${encodeURIComponent(playerId)}`,
+      canonical: `/analysis/${encodeURIComponent(playerId)}`,
     },
   }
 }

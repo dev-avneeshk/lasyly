@@ -117,11 +117,12 @@ export function xpToReachLevel(level: number): number {
 
 /** The level a given total XP corresponds to (level 1 is the floor). */
 export function levelForXp(totalXp: number): number {
-  const xp = Math.max(0, totalXp)
-  let level = 1
-  while (xpToReachLevel(level + 1) <= xp) {
-    level++
-  }
+  // Closed form of 50·n·(n-1) ≤ xp (the old step loop hung on Infinity), then
+  // one nudge each way for float rounding at exact boundaries.
+  const xp = Number.isFinite(totalXp) ? Math.max(0, totalXp) : 0
+  let level = Math.max(1, Math.floor((1 + Math.sqrt(1 + xp / 12.5)) / 2))
+  if (xpToReachLevel(level + 1) <= xp) level++
+  if (level > 1 && xpToReachLevel(level) > xp) level--
   return level
 }
 

@@ -45,7 +45,7 @@ export function teamProfiles(
 }
 
 export * from "./types"
-export { getSeasonPlayers, findPlayer, headshotUrl, AVAILABLE_SEASONS, DEFAULT_SEASON } from "./data"
+export { getSeasonPlayers, findPlayer, AVAILABLE_SEASONS, DEFAULT_SEASON } from "./data"
 export { DEFAULT_CONFIG } from "./types"
 export { gradeManager, scoreToGrade, estimatedPrice } from "./grades"
 export type { ManagerGrade, PositionGrade, AuctionInsight, LetterGrade } from "./grades"
