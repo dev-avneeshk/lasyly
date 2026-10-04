@@ -5,6 +5,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { EXPERIENCE_OPTIONS, REFERRAL_OPTIONS } from "@/lib/careers/constants"
 import { applicationFieldsSchema, fieldErrors } from "@/lib/careers/validation"
+import { getSupabaseClient } from "@/lib/supabase/lazy-client"
 import { FileXLUpload } from "./FileXLUpload"
 
 type Values = {
@@ -50,6 +51,10 @@ const GENERIC_ERROR =
 
 type Phase = "idle" | "submitting" | "submitted" | "done"
 
+// The apply page is statically rendered and reads no cookies, so sign-in state
+// is resolved in the browser. This is a UX gate only; the API enforces it.
+type AuthState = "checking" | "signedIn" | "signedOut"
+
 export interface ApplicationFormProps {
   /** null for the general / talent-pool application. */
   jobId: string | null
@@ -64,6 +69,31 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
   const [formError, setFormError] = useState<string | null>(null)
   const [reference, setReference] = useState<string | null>(null)
   const [honeypot, setHoneypot] = useState("")
+  const [auth, setAuth] = useState<AuthState>("checking")
+
+  useEffect(() => {
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
+    getSupabaseClient()
+      .then(async (supabase) => {
+        const { data } = await supabase.auth.getSession()
+        const user = data.session?.user
+        if (!cancelled) setAuth(user && !user.is_anonymous ? "signedIn" : "signedOut")
+        const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+          const u = session?.user
+          if (!cancelled) setAuth(u && !u.is_anonymous ? "signedIn" : "signedOut")
+        })
+        unsubscribe = () => sub.subscription.unsubscribe()
+        if (cancelled) unsubscribe()
+      })
+      .catch(() => {
+        if (!cancelled) setAuth("signedOut")
+      })
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [])
 
   // One idempotency key per form instance: retries/double-clicks reuse it.
   const submissionKey = useRef<string | null>(null)
@@ -161,7 +191,12 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
         return
       }
 
-      if (res.status === 400 && data?.fields && Object.keys(data.fields).length > 0) {
+      if (res.status === 401) {
+        // Session expired or was never valid server-side. Keep what they typed
+        // on screen and point them at sign-in.
+        setAuth("signedOut")
+        setFormError(data?.error ?? "Please log in to submit an application.")
+      } else if (res.status === 400 && data?.fields && Object.keys(data.fields).length > 0) {
         setErrors(data.fields)
         focusFirstError(data.fields)
         setFormError("Please check the highlighted fields.")
@@ -219,6 +254,21 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
         </Link>
       </section>
     )
+  }
+
+  // ── Sign-in gate ─────────────────────────────────────────────────────────────
+  if (auth === "checking") {
+    return (
+      <div
+        role="status"
+        aria-label="Checking your sign-in status"
+        className="h-64 animate-pulse rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]"
+      />
+    )
+  }
+
+  if (auth === "signedOut") {
+    return <SignInGate />
   }
 
   // ── Form ───────────────────────────────────────────────────────────────────
@@ -456,6 +506,43 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
 }
 
 // ─── Building blocks ─────────────────────────────────────────────────────────
+
+function SignInGate() {
+  // Send them back to this exact apply page after logging in.
+  const [redirect, setRedirect] = useState("/careers")
+  useEffect(() => {
+    setRedirect(window.location.pathname)
+  }, [])
+  const loginHref = `/login?redirect=${encodeURIComponent(redirect)}`
+
+  return (
+    <section
+      aria-labelledby="careers-signin-heading"
+      className="careers-rise rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-12 sm:px-12 sm:py-14 text-center"
+    >
+      <h2 id="careers-signin-heading" className="text-2xl font-bold font-serif tracking-tight text-white">
+        Log in to apply
+      </h2>
+      <p className="mt-3 text-[15px] leading-relaxed text-[var(--color-text-muted)] max-w-[48ch] mx-auto">
+        You need a Lasyly account to submit an application. It&apos;s free and takes under a minute.
+      </p>
+      <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <Link
+          href={loginHref}
+          className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--color-lime)] px-8 py-3 text-sm font-semibold text-black transition-transform duration-300 hover:scale-[0.98] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]"
+        >
+          Log in
+        </Link>
+        <Link
+          href={`/signup?redirect=${encodeURIComponent(redirect)}`}
+          className="inline-flex min-h-12 items-center justify-center rounded-full border border-[var(--color-border)] px-8 py-3 text-sm font-semibold text-white hover:border-white/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]"
+        >
+          Create an account
+        </Link>
+      </div>
+    </section>
+  )
+}
 
 function FormSection({
   no,

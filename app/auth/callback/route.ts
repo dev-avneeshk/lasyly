@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { safeRedirectPath } from "@/lib/security/safeRedirect"
 import { createServerClient } from "@supabase/ssr"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/auth-config"
@@ -7,7 +8,7 @@ import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/auth-config"
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
-  const next = requestUrl.searchParams.get("next") || "/explore"
+  const next = safeRedirectPath(requestUrl.searchParams.get("next"))
 
   if (code) {
     // We need to track cookies set during exchangeCodeForSession so we can

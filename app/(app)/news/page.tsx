@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = "force-static"
-export const revalidate = 60
+export const revalidate = false
 
 export default function NewsPage() {
   return (

@@ -9,6 +9,7 @@ import type { LiveMatch } from "@/types"
 import type { NewsItem } from "@/types/news"
 import type { LeaderboardSnapshotEntry, FeedSnapshot } from "@/lib/data/isr-snapshots"
 import { formatMatchTime, formatRelative } from "@/lib/datetime"
+import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
 const MatchDetailModal = dynamic(() => import("@/components/scores/MatchDetailModal"), { ssr: false })
 
@@ -79,11 +80,8 @@ export default function ExploreClient({ initialScores, initialArticle, initialLe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter, sportFilter])
 
-  // 30s polling
-  useEffect(() => {
-    const interval = setInterval(() => fetchScores(), 30000)
-    return () => clearInterval(interval)
-  }, [fetchScores])
+  // 30s polling, paused while the tab is hidden
+  useVisibleInterval(fetchScores, 30_000)
 
   // Close sport dropdown on outside click
   useEffect(() => {

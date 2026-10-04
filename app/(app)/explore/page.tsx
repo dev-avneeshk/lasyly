@@ -24,8 +24,10 @@ export const metadata: Metadata = {
 // Only the initial server snapshot needs this; ExploreClient polls for live
 // score/news updates on the client after mount. A 30s ISR window regenerated
 // the shell far more often than the data meaningfully changed, so relax it to
-// 5 minutes to cut ISR writes without affecting perceived freshness.
-export const revalidate = 300
+// 15 minutes to cut ISR writes without affecting perceived freshness. Every
+// snapshot in lib/data/isr-snapshots.ts must be >= this, since the lowest
+// revalidate on the route wins.
+export const revalidate = 900
 
 // Same reasoning as /scores: this segment shares the ISR-snapshot data layer,
 // whose ESPN/Redis reads carry `revalidate: 0` / `no-store` and would otherwise

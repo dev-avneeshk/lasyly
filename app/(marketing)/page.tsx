@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // no CLS, and no need to hand-maintain the dimensions.
 import heroImage from "@/public/hero-optimized.png"
 
-export const revalidate = 60
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Lasyly — Sports Prop Analytics, Rooms & Creator Picks",
