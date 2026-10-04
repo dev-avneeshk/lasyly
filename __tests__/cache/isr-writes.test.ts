@@ -3,23 +3,17 @@ import { readFileSync } from "fs"
 import path from "path"
 
 // Vercel bills an ISR write whenever a regeneration produces new output. These
-// tests pin the three changes that stop the routine writes: /explore and
-// /scores render dynamically (no ISR entry), their snapshots read through
-// Redis cache-aside instead of the Next Data Cache, and the sitemap output is
-// stable within a UTC day.
+// tests pin what keeps the routine writes bounded: /explore and /scores stay
+// on a 900 s ISR window, no snapshot inside them can drag that window lower
+// (the lowest revalidate on a route wins), and the sitemap output is stable
+// within a UTC day.
 
-const st = vi.hoisted(() => ({ cacheKeys: [] as string[] }))
+const st = vi.hoisted(() => ({ revalidates: [] as Array<number | false | undefined> }))
 
 vi.mock("next/cache", () => ({
-  unstable_cache: () => {
-    throw new Error("snapshots must not use the Next Data Cache")
-  },
-}))
-vi.mock("@/lib/cache", () => ({
-  CACHE_TTL: { scores: 10_000, feed: 15_000 },
-  cached: async <T>(key: string, fetcher: () => Promise<T>) => {
-    st.cacheKeys.push(key)
-    return fetcher()
+  unstable_cache: <A extends unknown[], R>(fn: (...args: A) => Promise<R>, _keys?: string[], opts?: { revalidate?: number | false }) => {
+    st.revalidates.push(opts?.revalidate)
+    return fn
   },
 }))
 vi.mock("@/lib/data/scores", () => ({
@@ -57,29 +51,37 @@ vi.mock("@/lib/data/public-players", () => ({
 const root = path.resolve(__dirname, "../..")
 const source = (rel: string) => readFileSync(path.join(root, rel), "utf8")
 
-describe("live-data shells are not ISR", () => {
-  it.each(["app/(app)/explore/page.tsx", "app/(app)/scores/page.tsx"])("%s renders dynamically with no revalidate window", (file) => {
+const PAGE_REVALIDATE = 900
+
+describe("/explore and /scores stay on 900 s ISR", () => {
+  it.each(["app/(app)/explore/page.tsx", "app/(app)/scores/page.tsx"])("%s exports revalidate = 900 and force-static", (file) => {
     const src = source(file)
-    expect(src).toMatch(/export const dynamic = "force-dynamic"/)
-    expect(src).not.toMatch(/export const revalidate/)
-    expect(src).not.toMatch(/force-static/)
+    expect(src).toMatch(new RegExp(`export const revalidate = ${PAGE_REVALIDATE}\\b`))
+    expect(src).toMatch(/export const dynamic = "force-static"/)
   })
 })
 
-describe("page snapshots read through Redis cache-aside", () => {
+describe("snapshots never lower the page's ISR window", () => {
   beforeEach(() => {
-    st.cacheKeys = []
+    st.revalidates = []
   })
 
-  it("scores and feed use their own Redis keys; news and leaderboard reuse their cached loaders", async () => {
-    const snap = await import("@/lib/data/page-snapshots")
+  it("every unstable_cache snapshot revalidates no sooner than the page", async () => {
+    const snap = await import("@/lib/data/isr-snapshots")
+    expect(snap.SNAPSHOT_REVALIDATE_SECONDS).toBeGreaterThanOrEqual(PAGE_REVALIDATE)
+
     expect(await snap.getScoresSnapshot()).toEqual([{ id: "m1" }])
     expect(await snap.getTopNewsSnapshot()).toEqual({ id: "n1" })
     expect(await snap.getLeaderboardSnapshot()).toEqual([
       { user_id: "u1", username: "a", display_name: "A", avatar_url: null, win_rate: 0.6, total_picks: 12 },
     ])
     await snap.getFeedSnapshot()
-    expect(st.cacheKeys).toEqual(["scores:snapshot:20261004", "explore:feed-snapshot"])
+
+    expect(st.revalidates).toHaveLength(4)
+    for (const r of st.revalidates) {
+      expect(typeof r).toBe("number")
+      expect(r as number).toBeGreaterThanOrEqual(PAGE_REVALIDATE)
+    }
   })
 })
 

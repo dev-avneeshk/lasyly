@@ -1,46 +1,78 @@
 import "server-only"
-import { cached, CACHE_TTL } from "@/lib/cache"
+import { unstable_cache } from "next/cache"
 import { getScoresForDate, getTodayYYYYMMDD, type ScoresResult } from "@/lib/data/scores"
 import { getNews } from "@/lib/data/news"
 import { getLeaderboard } from "@/lib/data/leaderboard"
-import { createAdminClient } from "@/lib/supabase/admin"
 import type { NewsItem } from "@/types/news"
 
 /**
- * Initial server-rendered data for the `/scores` and `/explore` shells.
+ * ISR-safe snapshot helpers for statically-generated marketing/app shells
+ * (`/scores`, `/explore`).
  *
- * Both routes render dynamically (`force-dynamic`) instead of as ISR. Their
- * HTML embeds live scores, so every timed ISR regeneration produced new
- * output and was billed as Vercel ISR writes (each one ~8-50 write units,
- * up to 96/day per route even at a 900 s window). A dynamic render writes
- * nothing to the ISR cache.
+ * WHY THIS EXISTS
+ * ---------------
+ * The runtime data layer (`getScoresForDate`, `getNews`) reads through the
+ * Upstash Redis cache-aside layer. The Upstash REST client issues its HTTP
+ * calls with `cache: "no-store"` (see @upstash/redis). In the Next.js App
+ * Router, a `no-store` fetch encountered while rendering a route forces that
+ * ENTIRE route to be dynamically rendered on every request — silently
+ * discarding the `export const revalidate` ISR window. That turned the
+ * `/scores` and `/explore` shells into per-request renders (and per-request
+ * cache writes), which is a primary driver of runaway Vercel ISR write usage.
  *
- * To keep each request cheap, every read here goes through the Redis
- * cache-aside layer (`cached()` in lib/cache.ts: Redis, then DB, then
- * populate with a TTL). `getNews` and `getLeaderboard` already cache
- * themselves; the scores and feed reads get their own keys below. The
- * snapshots used to sit behind `unstable_cache` with a 900 s window, which
- * only existed to stop the Upstash `no-store` fetch from de-opting the old
- * force-static routes. That is no longer needed, and dropping it also stops
- * the Data Cache writes.
+ * These wrappers run the same fetch inside an `unstable_cache` boundary. That
+ * boundary (a) stops the inner `no-store` fetch from de-opting the page, so
+ * the route can be statically generated and served from the ISR cache again,
+ * and (b) memoizes the snapshot in the Data Cache with a revalidate window
+ * that matches the page. The live `/api/scores` + `/api/explore` routes still
+ * call the underlying data layer directly (Redis-hot, fully dynamic) and the
+ * client components poll them for freshness — so nothing about the live
+ * experience changes.
  *
- * The client components still poll the live APIs after hydration.
+ * Only the INITIAL server-rendered snapshot flows through here.
  */
 
-/** Today's scores, keyed by UTC date. Shares the 10 s live-scores TTL. */
+// Snapshot revalidate window (seconds). It must stay >= the page-level
+// `export const revalidate` (900): the lowest revalidate on a route sets how
+// often the whole route regenerates, so a shorter snapshot window silently
+// multiplies ISR writes (a 30 s feed snapshot, 2495e7e, is the likely cause of
+// the Sep 16 spike). The client
+// components poll the live API for up-to-the-second data after hydration.
+export const SNAPSHOT_REVALIDATE_SECONDS = 900
+
+/**
+ * Cached initial scores snapshot for today, keyed by UTC calendar date so a
+ * new day naturally busts the entry.
+ */
 export async function getScoresSnapshot(): Promise<ScoresResult["data"]> {
   const today = getTodayYYYYMMDD()
-  return cached(
-    `scores:snapshot:${today}`,
-    async () => (await getScoresForDate(today)).data,
-    CACHE_TTL.scores
+
+  const load = unstable_cache(
+    async (date: string) => {
+      const result = await getScoresForDate(date)
+      return result.data
+    },
+    ["isr-scores-snapshot"],
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["scores-snapshot"] }
   )
+
+  return load(today)
 }
 
-/** Top news article for the explore shell (getNews is Redis-cached). */
+/**
+ * Cached top news article for the explore shell.
+ */
 export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
-  const news = await getNews(null)
-  return news.items.length > 0 ? news.items[0] : null
+  const load = unstable_cache(
+    async () => {
+      const news = await getNews(null)
+      return news.items.length > 0 ? news.items[0] : null
+    },
+    ["isr-top-news-snapshot"],
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["news-snapshot"] }
+  )
+
+  return load()
 }
 
 // ─── Explore above-the-fold snapshots ───────────────────────────────────────
@@ -51,6 +83,14 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
 // /api/leaderboard + /api/feed/posts. That made the LCP element appear a full
 // round-trip after hydration. Pre-rendering both on the server puts real
 // content in the first HTML response.
+//
+// Both go through unstable_cache for the same reason as the scores/news
+// snapshots above: the underlying reads touch the no-store Upstash layer, which
+// would otherwise de-opt the force-static /explore route to per-request
+// rendering. The client components still poll/refresh after hydration, so
+// freshness is unchanged; only the initial paint improves.
+
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export type LeaderboardSnapshotEntry = {
   user_id: string
@@ -66,12 +106,18 @@ export type LeaderboardSnapshotEntry = {
  * result trimmed to the fields MiniLeaderboard renders.
  */
 export async function getLeaderboardSnapshot(): Promise<LeaderboardSnapshotEntry[]> {
-  // getLeaderboard is already Redis cache-aside (`leaderboard:win_rate`).
-  return (await getLeaderboard("win_rate")).leaderboard
-    .slice(0, 5)
-    .map(({ user_id, username, display_name, avatar_url, win_rate, total_picks }) => ({
-      user_id, username, display_name, avatar_url, win_rate, total_picks,
-    }))
+  const load = unstable_cache(
+    async () =>
+      (await getLeaderboard("win_rate")).leaderboard
+        .slice(0, 5)
+        .map(({ user_id, username, display_name, avatar_url, win_rate, total_picks }) => ({
+          user_id, username, display_name, avatar_url, win_rate, total_picks,
+        })),
+    ["isr-leaderboard-snapshot"],
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["leaderboard-snapshot"] }
+  )
+
+  return load()
 }
 
 const FEED_SNAPSHOT_PAGE_SIZE = 10
@@ -117,12 +163,11 @@ export type FeedSnapshot = {
 /**
  * First page of the community feed for the explore SSR shell. Deliberately
  * omits per-user "liked_by_me" state (always false here) so the read stays
- * user-agnostic and one Redis entry serves every visitor. The client refreshes
- * with real like state after hydration.
+ * user-agnostic and the page remains static/CDN-cacheable — the client
+ * refreshes with real like state after hydration.
  */
 export async function getFeedSnapshot(): Promise<FeedSnapshot> {
-  return cached(
-    "explore:feed-snapshot",
+  const load = unstable_cache(
     async (): Promise<FeedSnapshot> => {
       const supabase = createAdminClient()
 
@@ -174,6 +219,9 @@ export async function getFeedSnapshot(): Promise<FeedSnapshot> {
         nextCursor: hasMore ? results[results.length - 1].created_at : null,
       }
     },
-    CACHE_TTL.feed
+    ["isr-feed-snapshot"],
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["feed-snapshot"] }
   )
+
+  return load()
 }
