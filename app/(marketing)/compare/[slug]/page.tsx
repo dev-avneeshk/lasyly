@@ -11,6 +11,11 @@ type Props = {
   params: Promise<{ slug: string }>
 }
 
+// getComparisonBySlug() only knows the slugs generateStaticParams enumerates,
+// so any other slug is a 404 anyway. With the default (true) each probed slug
+// rendered on demand and stored a 404 ISR entry, re-created after every deploy.
+export const dynamicParams = false
+
 export async function generateStaticParams() {
   return getAllComparisonSlugs().map((slug) => ({ slug }))
 }

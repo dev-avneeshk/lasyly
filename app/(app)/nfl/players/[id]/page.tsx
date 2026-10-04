@@ -3,6 +3,11 @@ import { notFound } from "next/navigation"
 import { getSeasonPlayers, findPlayer, DEFAULT_SEASON } from "@/lib/nfl/data"
 import PlayerDetailClient from "./PlayerDetailClient"
 
+// findPlayer() only knows the ids generateStaticParams enumerates, so any other
+// id is a 404 anyway. With the default (true) each probed id rendered on
+// demand and stored a 404 ISR entry, re-created after every deploy.
+export const dynamicParams = false
+
 export function generateStaticParams() {
   return getSeasonPlayers(DEFAULT_SEASON).map((p) => ({ id: p.id }))
 }
