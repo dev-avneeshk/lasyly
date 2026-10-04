@@ -247,8 +247,10 @@ export async function proxy(request: NextRequest) {
   // This was a 308 permanent redirect, but that forced every visitor to `/` to
   // pay a full extra round-trip (request → 308 → request /explore) before any
   // byte of HTML arrived — a direct FCP/LCP tax on the single most-hit route.
-  // A rewrite serves the statically-generated /explore route under the `/` URL
-  // with no client round-trip. SEO ranking signal still consolidates on
+  // A rewrite serves the /explore route under the `/` URL with no client
+  // round-trip. /explore is force-dynamic and renders per request from Redis;
+  // do not make it static/ISR again (its live data made every regen a billed
+  // ISR write). SEO ranking signal still consolidates on
   // /explore because app/(app)/explore/page.tsx emits
   // `<link rel="canonical" href=".../explore">`, so crawlers treat /explore as
   // the real home just as the 308 intended. Query string is preserved by URL.
