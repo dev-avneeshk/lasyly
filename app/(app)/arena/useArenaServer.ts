@@ -38,6 +38,13 @@ import type { AIDifficulty, Season, TeamId } from "@/lib/arena/types"
 import { createClient } from "@/lib/supabase/client"
 import { ARENA_UPDATE_EVENT, type ArenaBroadcast } from "@/lib/realtime/arena-shared"
 import { markBidSent, recordBroadcastLatency, recordActionAck } from "./latency"
+import {
+  createRequest,
+  joinRequest,
+  matchmakeRequest,
+  parseArenaError,
+  type ArenaErrorCode,
+} from "@/lib/arena/clientRequests"
 
 type View = ArenaServerView
 
@@ -99,6 +106,7 @@ export function useArenaServer() {
   const [view, setView] = useState<View | null>(null)
   const [gameId, setGameId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<ArenaErrorCode>(null)
   const [connecting, setConnecting] = useState(false)
   // True while we're sitting in a PUBLIC (matchmade) lobby. Drives the "Finding
   // an opponent" state instead of the private "share this link" one. A private
@@ -192,14 +200,23 @@ export function useArenaServer() {
     return true
   }, [])
 
+  /** Record a failed create/matchmake/join, keeping the 402 code for a wallet link. */
+  const fail = useCallback((res: ApiResult<unknown>, fallback: string) => {
+    const { message, code } = parseArenaError(res.status, res.body, fallback)
+    setError(message)
+    setErrorCode(code)
+  }, [])
+
   const create = useCallback(
-    async (opts: { season: Season; budget: number; difficulty: AIDifficulty; mode: "ai" | "human" }) => {
+    async (opts: { season: Season; budget: number; difficulty: AIDifficulty; mode: "ai" | "human"; stake?: number }) => {
       setConnecting(true)
       setError(null)
+      setErrorCode(null)
       try {
-        const res = await api("/api/arena", opts)
+        const req = createRequest(opts)
+        const res = await api(req.url, req.body)
         if (!res.ok) {
-          setError((res.body as { error?: string })?.error ?? "Failed to create game.")
+          fail(res, "Failed to create game.")
           return null
         }
         apply(res.body as View)
@@ -211,17 +228,19 @@ export function useArenaServer() {
         setConnecting(false)
       }
     },
-    [apply]
+    [apply, fail]
   )
 
   const matchmake = useCallback(
-    async (opts: { season: Season; budget: number; difficulty: AIDifficulty }) => {
+    async (opts: { season: Season; budget: number; difficulty: AIDifficulty; stake: number }) => {
       setConnecting(true)
       setError(null)
+      setErrorCode(null)
       try {
-        const res = await api("/api/arena/matchmake", opts)
+        const req = matchmakeRequest(opts)
+        const res = await api(req.url, req.body)
         if (!res.ok) {
-          setError((res.body as { error?: string })?.error ?? "Failed to find a match.")
+          fail(res, "Failed to find a match.")
           return null
         }
         // If the server sat us as P1, we're the one waiting → public lobby.
@@ -236,17 +255,19 @@ export function useArenaServer() {
         setConnecting(false)
       }
     },
-    [apply]
+    [apply, fail]
   )
 
   const join = useCallback(
     async (id: string) => {
       setConnecting(true)
       setError(null)
+      setErrorCode(null)
       try {
-        const res = await api(`/api/arena/${id}/join`, {})
+        const req = joinRequest(id)
+        const res = await api(req.url, req.body)
         if (!res.ok) {
-          setError((res.body as { error?: string })?.error ?? "Failed to join game.")
+          fail(res, "Failed to join game.")
           return
         }
         apply(res.body as View)
@@ -256,7 +277,7 @@ export function useArenaServer() {
         setConnecting(false)
       }
     },
-    [apply]
+    [apply, fail]
   )
 
   /**
@@ -559,6 +580,7 @@ export function useArenaServer() {
     setGameId(null)
     setChannelName(null)
     setError(null)
+    setErrorCode(null)
     setPublicLobby(false)
   }, [])
 
@@ -566,6 +588,8 @@ export function useArenaServer() {
     view,
     gameId,
     error,
+    /** "INSUFFICIENT_FUNDS" when create/matchmake/join failed on the stake. */
+    errorCode,
     connecting,
     viewer: (view?.viewer ?? "P1") as TeamId,
     isPublicLobby: publicLobby,

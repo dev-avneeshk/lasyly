@@ -11,7 +11,7 @@ import { participantView, registerArenaChannelMember } from "@/lib/realtime/aren
 import { trackLobby } from "@/lib/arena/matchmaking"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
-import { CPU_ENTRY_COST, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
+import { CPU_ENTRY_COST, MAX_STAKE, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 
 const createSchema = z.object({
@@ -22,9 +22,10 @@ const createSchema = z.object({
   mode: z.enum(["ai", "human"]).default("ai"),
   /**
    * 1v1 (mode "human") stake per player, in coins. Ignored for CPU games,
-   * which use the fixed entry cost. Must be a whole number ≥ MIN_STAKE.
+   * which use the fixed entry cost. Must be a whole number in
+   * [MIN_STAKE, MAX_STAKE].
    */
-  stake: z.number().int().min(MIN_STAKE).optional(),
+  stake: z.number().int().min(MIN_STAKE).max(MAX_STAKE).optional(),
 })
 
 /**

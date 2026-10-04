@@ -52,6 +52,17 @@ export function cpuWinReward(difficulty: AIDifficulty): number {
 export const MIN_STAKE = 5
 
 /**
+ * Largest stake a player may wager in a 1v1, enforced by the create and
+ * matchmake schemas. A decided default cap, not a law of the economy: change it
+ * here and both routes and the UI follow.
+ */
+export const MAX_STAKE = 1000
+
+/** The stake choices offered in the 1v1 setup UI. All lie in [MIN_STAKE, MAX_STAKE]. */
+export const STAKE_PRESETS = [5, 25, 100, 250] as const
+export type StakePreset = (typeof STAKE_PRESETS)[number]
+
+/**
  * House commission on a 1v1, as a fraction of the amount WON (i.e. one stake,
  * the opponent's contribution — not the whole pot). This matches the product
  * spec: stake 100 → win 190, with 10 coins (10% of the 100 won) taken as

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -62,10 +63,10 @@ export default function ArenaGame({
   useEffect(() => {
     if (launched.current) return
     launched.current = true
-    const { season, budget, difficulty, kind } = launch
+    const { season, budget, difficulty, kind, stake } = launch
     if (kind === "ai") game.start({ season, budget, difficulty })
-    else if (kind === "global") server.matchmake({ season, budget, difficulty })
-    else server.create({ season, budget, difficulty, mode: "human" })
+    else if (kind === "global") server.matchmake({ season, budget, difficulty, stake })
+    else server.create({ season, budget, difficulty, mode: "human", stake })
     // `game` / `server` are stable-enough hook bags; re-running this would start
     // a second game.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,9 +113,16 @@ export default function ArenaGame({
       <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center gap-5 px-4 py-24 text-center">
         {server.error ? (
           <>
-            <h2 className="text-xl font-black text-[var(--color-text-primary)]">Couldn&apos;t start that game</h2>
-            <p className="text-sm text-[var(--color-danger)]">{server.error}</p>
-            <Button variant="outline" onClick={() => onExit(server.error)}>Back to options</Button>
+            <h2 className="text-xl font-black text-[var(--color-text-primary)]">
+              {server.errorCode === "INSUFFICIENT_FUNDS" ? "Not enough coins" : <>Couldn&apos;t start that game</>}
+            </h2>
+            <p role="alert" className="text-sm text-[var(--color-danger)]">{server.error}</p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button variant="outline" onClick={() => onExit(server.error)}>Back to options</Button>
+              {server.errorCode === "INSUFFICIENT_FUNDS" && (
+                <Button asChild><Link href="/wallet">Open wallet</Link></Button>
+              )}
+            </div>
           </>
         ) : (
           <>
