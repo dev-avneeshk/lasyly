@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest"
+import { STAKE_PRESETS, stakePayout } from "@/lib/economy/arena"
 import {
   createRequest,
   matchmakeRequest,
   joinRequest,
   parseArenaError,
+  parseHeldLobby,
   stakeOptionState,
+  stakeTerms,
   INSUFFICIENT_FUNDS_MESSAGE,
 } from "@/lib/arena/clientRequests"
 
@@ -69,5 +72,39 @@ describe("stakeOptionState", () => {
   })
   it("unknown balance is affordable (server enforces)", () => {
     expect(stakeOptionState(250, null)).toEqual({ affordable: true, shortBy: 0 })
+  })
+})
+
+describe("stakeTerms (payout/commission copy)", () => {
+  it("stake 5 pays 10 with no commission (rounding)", () => {
+    expect(stakeTerms(5)).toEqual({ payout: 10, commission: 0 })
+  })
+  it("stake 25 shows the actual 2-coin cut, not 10%", () => {
+    expect(stakeTerms(25)).toEqual({ payout: 48, commission: 2 })
+  })
+  it("stake 100 pays 190 with a 10-coin cut", () => {
+    expect(stakeTerms(100)).toEqual({ payout: 190, commission: 10 })
+  })
+  it("matches stakePayout and conserves the pot for every preset", () => {
+    for (const s of STAKE_PRESETS) {
+      const t = stakeTerms(s)
+      expect(t.payout).toBe(stakePayout(s))
+      expect(t.payout + t.commission).toBe(2 * s)
+    }
+  })
+})
+
+describe("parseHeldLobby", () => {
+  it("reads gameId and stake from a matchmake 409", () => {
+    expect(parseHeldLobby(409, { error: "You're already waiting in a 25-coin match.", gameId: "g1", stake: 25 })).toEqual({ gameId: "g1", stake: 25 })
+  })
+  it("a 409 without a lobby (concurrent matchmake) offers no resume", () => {
+    expect(parseHeldLobby(409, { error: "You're already looking for a match." })).toBeNull()
+  })
+  it("ignores other statuses and malformed bodies", () => {
+    expect(parseHeldLobby(402, { gameId: "g1", stake: 25 })).toBeNull()
+    expect(parseHeldLobby(409, { gameId: "g1", stake: "25" })).toBeNull()
+    expect(parseHeldLobby(409, { gameId: "", stake: 25 })).toBeNull()
+    expect(parseHeldLobby(409, null)).toBeNull()
   })
 })

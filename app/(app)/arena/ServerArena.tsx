@@ -17,7 +17,7 @@ import type { ArenaState } from "@/lib/arena/auction"
 import type { TeamId } from "@/lib/arena/types"
 import { useArenaServer } from "./useArenaServer"
 import { cn, formatMoney } from "@/lib/utils"
-import { stakePayout } from "@/lib/economy/arena"
+import { stakeTerms } from "@/lib/arena/clientRequests"
 
 function asState(view: ArenaServerView): ArenaState {
   return { gameId: view.gameId, seed: 0, season: view.season, config: view.config, status: view.status, queue: [], lot: view.lot, passed: view.passed, rosters: view.rosters, isAI: view.isAI, history: [], results: view.results, lotDeadline: view.lotDeadline, completedAt: view.completedAt }
@@ -84,7 +84,7 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
 
   if (!view || !state) return <div className="flex items-center justify-center py-20 text-[var(--color-text-muted)]"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Connecting…</div>
   // Coin stake for a 1v1, from the server's own econ record (never client input).
-  const stakeOutcome = view.econ?.mode === "pvp" && view.econ.amount > 0 ? { stake: view.econ.amount, payout: stakePayout(view.econ.amount) } : undefined
+  const stakeOutcome = view.econ?.mode === "pvp" && view.econ.amount > 0 ? { stake: view.econ.amount, ...stakeTerms(view.econ.amount) } : undefined
 
   if (view.status === "lobby") return <WaitingRoom gameId={view.gameId} error={error} isPublic={server.isPublicLobby} stake={stakeOutcome} />
   if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={revealDone} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} stakeOutcome={stakeOutcome} />

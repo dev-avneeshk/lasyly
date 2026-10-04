@@ -109,6 +109,7 @@ export default function ArenaGame({
   // now that setup is a separate chunk, this is where connecting and failure are
   // reported.
   if (!state) {
+    const heldLobby = server.heldLobby
     return (
       <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center gap-5 px-4 py-24 text-center">
         {server.error ? (
@@ -119,6 +120,19 @@ export default function ArenaGame({
             <p role="alert" className="text-sm text-[var(--color-danger)]">{server.error}</p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button variant="outline" onClick={() => onExit(server.error)}>Back to options</Button>
+              {/* Still holding a public lobby at another stake: re-matchmaking at
+                  that stake returns the same lobby without a second charge. */}
+              {heldLobby && (
+                <Button
+                  disabled={server.connecting}
+                  onClick={() => {
+                    const { season, budget, difficulty } = launch
+                    void server.matchmake({ season, budget, difficulty, stake: heldLobby.stake })
+                  }}
+                >
+                  Resume {heldLobby.stake}-coin search
+                </Button>
+              )}
               {server.errorCode === "INSUFFICIENT_FUNDS" && (
                 <Button asChild><Link href="/wallet">Open wallet</Link></Button>
               )}

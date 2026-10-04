@@ -5,8 +5,8 @@ import Link from "next/link"
 import { Users, ChevronRight, Bot, Link2, Globe, Info, Trophy, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 // Pure constants/math and pure request helpers only: both are tiny and engine-free.
-import { COMMISSION_RATE, MIN_STAKE, STAKE_PRESETS, stakePayout } from "@/lib/economy/arena"
-import { stakeOptionState } from "@/lib/arena/clientRequests"
+import { MIN_STAKE, STAKE_PRESETS } from "@/lib/economy/arena"
+import { stakeOptionState, stakeTerms } from "@/lib/arena/clientRequests"
 import { useWalletBalance } from "./useWalletBalance"
 import { bidIncrementForBudget, BUDGET_PRESETS } from "@/lib/arena/types"
 import type { AIDifficulty, BudgetPreset, Season } from "@/lib/arena/types"
@@ -81,6 +81,7 @@ export default function ArenaSetup({
     : (affordablePresets[affordablePresets.length - 1] ?? MIN_STAKE)
   const cantAffordAny = mode === "human" && balanceStatus === "ready" && balance !== null && balance < MIN_STAKE
   const stakeHintId = useId()
+  const terms = stakeTerms(stake)
 
   const launch = () => {
     if (launching || cantAffordAny) return
@@ -114,7 +115,7 @@ export default function ArenaSetup({
               · <Link href="/wallet" className="text-[var(--color-lime)] underline-offset-2 hover:underline">Open wallet</Link>
             </p>
             <p>
-              Winner takes <span className="font-bold tabular-nums text-[var(--color-text-primary)]">{stakePayout(stake)} coins</span> ({Math.round(COMMISSION_RATE * 100)}% commission). Lose and your stake is gone.
+              Winner takes <span className="font-bold tabular-nums text-[var(--color-text-primary)]">{terms.payout} coins</span>{terms.commission > 0 && <> ({terms.commission}-coin commission)</>}. Lose and your stake is gone.
             </p>
             {affordablePresets.length < STAKE_PRESETS.length && <p id={stakeHintId}>Options above your balance are disabled.</p>}
           </div>

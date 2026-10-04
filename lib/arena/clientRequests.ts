@@ -9,6 +9,7 @@
  */
 
 import type { AIDifficulty, Season } from "@/lib/arena/types"
+import { stakePayout } from "@/lib/economy/arena"
 
 export type ArenaErrorCode = "INSUFFICIENT_FUNDS" | null
 
@@ -66,6 +67,35 @@ export function parseArenaError(
     return { message: serverMessage ?? INSUFFICIENT_FUNDS_MESSAGE, code: "INSUFFICIENT_FUNDS" }
   }
   return { message: serverMessage ?? fallback, code: null }
+}
+
+/** The public lobby the user already holds, named by a matchmake 409. */
+export interface HeldLobby {
+  gameId: string
+  stake: number
+}
+
+/**
+ * Read the held lobby out of a matchmake 409 ("You're already waiting in a
+ * N-coin match"), so the UI can offer to resume it. Re-matchmaking at the held
+ * stake returns that lobby without charging again.
+ */
+export function parseHeldLobby(status: number, body: unknown): HeldLobby | null {
+  if (status !== 409 || !body || typeof body !== "object") return null
+  const { gameId, stake } = body as { gameId?: unknown; stake?: unknown }
+  if (typeof gameId !== "string" || !gameId) return null
+  if (typeof stake !== "number" || !Number.isInteger(stake) || stake <= 0) return null
+  return { gameId, stake }
+}
+
+/**
+ * What a 1v1 at `stake` actually pays, for display. Derived from stakePayout
+ * (what settlement pays), so rounding is reflected: at 5 coins the winner
+ * takes 10 and the house takes nothing. Show a commission only when > 0.
+ */
+export function stakeTerms(stake: number): { payout: number; commission: number } {
+  const payout = stakePayout(stake)
+  return { payout, commission: Math.max(0, stake * 2 - payout) }
 }
 
 /**

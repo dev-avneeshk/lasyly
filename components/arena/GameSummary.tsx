@@ -27,9 +27,9 @@ export function GameSummary({
   /**
    * 1v1 coin stake. Settlement (lib/arena/settle.ts) pays the winner
    * stakePayout(stake) and the loser nothing; there are no draws. Omitted for
-   * CPU games.
+   * CPU games. `commission` is the house's actual cut (0 at small stakes).
    */
-  stakeOutcome?: { stake: number; payout: number }
+  stakeOutcome?: { stake: number; payout: number; commission: number }
 }) {
   const humanWon = result.winner === humanSeat
   const label = (t: TeamId) => (t === "P1" ? p1Label : p2Label)
@@ -81,7 +81,7 @@ export function GameSummary({
           <div className="mt-1 flex flex-col items-center gap-0.5">
             <p className={cn("text-sm font-bold", humanWon ? "text-[var(--color-lime)]" : "text-[var(--color-danger)]")}>
               {humanWon
-                ? `You won ${stakeOutcome.payout} coins: your ${stakeOutcome.stake} stake back + ${stakeOutcome.payout - stakeOutcome.stake} winnings (after commission).`
+                ? `You won ${stakeOutcome.payout} coins: your ${stakeOutcome.stake} stake back + ${stakeOutcome.payout - stakeOutcome.stake} winnings${stakeOutcome.commission > 0 ? ` (after ${stakeOutcome.commission}-coin commission)` : ""}.`
                 : `You lost your ${stakeOutcome.stake}-coin stake.`}
             </p>
             {humanWon && <p className="text-[11px] text-[var(--color-text-muted)]">Payouts can take a moment to show in your wallet.</p>}

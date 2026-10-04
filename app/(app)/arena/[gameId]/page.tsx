@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { loadGame } from "@/lib/arena/store"
-import { stakePayout } from "@/lib/economy/arena"
+import { stakeTerms } from "@/lib/arena/clientRequests"
 import JoinClient, { type JoinPreview } from "./JoinClient"
 export const metadata: Metadata = {
   title: "Join 1v1 | Lasyly Arena",
@@ -25,7 +25,7 @@ async function loadPreview(gameId: string): Promise<JoinPreview | null> {
     const stake = econ?.mode === "pvp" ? econ.amount : 0
     return {
       stake,
-      payout: stakePayout(stake),
+      ...stakeTerms(stake),
       seated: game.ownerUserId === user.id || game.guestUserId === user.id,
       joinable: !game.state.isAI.P2 && !game.guestUserId && game.state.status === "lobby",
     }

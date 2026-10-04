@@ -43,7 +43,9 @@ import {
   joinRequest,
   matchmakeRequest,
   parseArenaError,
+  parseHeldLobby,
   type ArenaErrorCode,
+  type HeldLobby,
 } from "@/lib/arena/clientRequests"
 
 type View = ArenaServerView
@@ -107,6 +109,9 @@ export function useArenaServer() {
   const [gameId, setGameId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [errorCode, setErrorCode] = useState<ArenaErrorCode>(null)
+  // Set when matchmake 409s because the user still holds a public lobby at a
+  // different stake, so the UI can offer to resume it (no second charge).
+  const [heldLobby, setHeldLobby] = useState<HeldLobby | null>(null)
   const [connecting, setConnecting] = useState(false)
   // True while we're sitting in a PUBLIC (matchmade) lobby. Drives the "Finding
   // an opponent" state instead of the private "share this link" one. A private
@@ -236,11 +241,13 @@ export function useArenaServer() {
       setConnecting(true)
       setError(null)
       setErrorCode(null)
+      setHeldLobby(null)
       try {
         const req = matchmakeRequest(opts)
         const res = await api(req.url, req.body)
         if (!res.ok) {
           fail(res, "Failed to find a match.")
+          setHeldLobby(parseHeldLobby(res.status, res.body))
           return null
         }
         // If the server sat us as P1, we're the one waiting → public lobby.
@@ -581,6 +588,7 @@ export function useArenaServer() {
     setChannelName(null)
     setError(null)
     setErrorCode(null)
+    setHeldLobby(null)
     setPublicLobby(false)
   }, [])
 
@@ -590,6 +598,8 @@ export function useArenaServer() {
     error,
     /** "INSUFFICIENT_FUNDS" when create/matchmake/join failed on the stake. */
     errorCode,
+    /** The public lobby a matchmake 409 said the user still holds, if any. */
+    heldLobby,
     connecting,
     viewer: (view?.viewer ?? "P1") as TeamId,
     isPublicLobby: publicLobby,

@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Coins } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { COMMISSION_RATE } from "@/lib/economy/arena"
 import { ServerArena } from "../ServerArena"
 import { useArenaServer } from "../useArenaServer"
 import { useWalletBalance } from "../useWalletBalance"
@@ -16,6 +15,8 @@ export type JoinPreview = {
   stake: number
   /** What the winner is paid (stakePayout(stake)). */
   payout: number
+  /** The house's actual cut (2 × stake − payout). 0 at small stakes after rounding. */
+  commission: number
   /** The viewer already holds a seat: rejoining charges nothing. */
   seated: boolean
   /** Seat P2 is open on a human lobby. */
@@ -74,7 +75,7 @@ export default function JoinClient({ gameId, preview }: { gameId: string; previe
       <span className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--color-lime)]">1v1 invite</span>
       <h1 className="text-2xl font-black text-[var(--color-text-primary)]">Stake: {preview.stake} coins each</h1>
       <p className="text-sm text-[var(--color-text-muted)]">
-        Winner takes <span className="font-bold text-[var(--color-text-primary)]">{preview.payout} coins</span> ({Math.round(COMMISSION_RATE * 100)}% commission). Lose and your stake is gone. You&apos;re charged when you join.
+        Winner takes <span className="font-bold text-[var(--color-text-primary)]">{preview.payout} coins</span>{preview.commission > 0 && <> ({preview.commission}-coin commission)</>}. Lose and your stake is gone. You&apos;re charged when you join.
       </p>
       <p className="text-xs text-[var(--color-text-muted)]">
         {balanceStatus === "ready" && balance !== null
