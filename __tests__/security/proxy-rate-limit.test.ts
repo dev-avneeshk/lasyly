@@ -58,3 +58,41 @@ describe("proxy API rate limit", () => {
     expect(limited).toBe(0)
   })
 })
+
+// The matcher now skips a few API paths (proxy-matcher.test.ts). The page auth
+// guard must be untouched: protected pages still redirect, public pages and the
+// `/` rewrite still pass, and API routes are still left to enforce their own.
+describe("proxy auth guard", () => {
+  vi.stubEnv("GUEST_TOKEN_SECRET", "test-guest-secret-0123456789abcdef0123456789")
+  const run = (path: string, cookie?: string) =>
+    proxy(new NextRequest(`http://localhost${path}`, { headers: cookie ? { cookie } : {} }))
+  const location = (res: Response) => res.headers.get("location")
+
+  it("redirects an anonymous /rooms visit to login", async () => {
+    expect(location(await run("/rooms"))).toBe("http://localhost/login?redirect=%2Frooms")
+  })
+
+  it("a guest cookie passes the general guard but not /rooms/create", async () => {
+    const { GUEST_COOKIE_NAME, issueGuestToken } = await import("@/lib/security/guestCookie")
+    const guest = `${GUEST_COOKIE_NAME}=${issueGuestToken(3600)}`
+    expect(location(await run("/rooms", guest))).toBeNull()
+    expect(location(await run("/rooms/create", guest))).toBe("http://localhost/login?redirect=%2Frooms%2Fcreate")
+  })
+
+  it.each(["/explore", "/scores"])("does not redirect anonymous %s and still sets CSP", async (path) => {
+    const res = await run(path)
+    expect(location(res)).toBeNull()
+    expect(res.headers.get("Content-Security-Policy")).toBeTruthy()
+  })
+
+  it("rewrites / to /explore", async () => {
+    const res = await run("/")
+    expect(res.headers.get("x-middleware-rewrite")).toBe("http://localhost/explore")
+  })
+
+  it("leaves API routes to enforce their own auth", async () => {
+    const res = await run("/api/props", undefined)
+    expect(res.status).toBe(200)
+    expect(location(res)).toBeNull()
+  })
+})

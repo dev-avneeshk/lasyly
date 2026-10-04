@@ -503,11 +503,27 @@ export async function proxy(request: NextRequest) {
 // proxy hop costs nothing there. Everything excluded here still receives
 // nosniff / X-Frame-Options / HSTS from next.config.ts `headers()`, which
 // applies to `/(.*)` independently of this matcher.
+//
+// A few API routes are excluded too, because the proxy adds only cost there.
+// Routing Middleware runs before the CDN, so every request to a matched path
+// pays for it even when the CDN would answer from cache:
+//   - `api/scores` (exact path; /search, /history, /[eventId]/summary stay in):
+//     a public, CDN-cached (PUBLIC_SHORT) read polled every 10–60 s by four
+//     clients. Each poll paid two Upstash rate-limit calls + a SHA-256. The
+//     same 120/min per-IP limit now runs inside the handler, so it only costs
+//     anything on a CDN miss, which is the only case that reaches the DB.
+//   - `api/webhooks/`: authenticated by signature in the handler and already
+//     exempt from the proxy rate limit.
+//   - `api/cron/` and `api/jobs/process` (exact; /enqueue and /[jobId] are
+//     user-facing and stay in): authenticated by CRON_SECRET in the handler
+//     (isAuthorizedCron, fail-closed), called server-to-server.
+// API routes never rely on the proxy for auth (section 8 skips them), and
+// these responses are JSON, so they lose only the proxy's CORS/CSP headers.
 export const config = {
   matcher: [
     {
       source:
-        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|.*\\.(?:png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|css|js|map|txt|xml|webmanifest)$).*)",
+        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|api/scores/?$|api/webhooks/|api/cron/|api/jobs/process/?$|.*\\.(?:png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|css|js|map|txt|xml|webmanifest)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
