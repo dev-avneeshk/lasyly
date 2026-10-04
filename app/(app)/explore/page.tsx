@@ -3,7 +3,7 @@ import {
   getTopNewsSnapshot,
   getLeaderboardSnapshot,
   getFeedSnapshot,
-} from "@/lib/data/isr-snapshots"
+} from "@/lib/data/page-snapshots"
 import ExploreClient from "./ExploreClient"
 import { SiteStructuredData } from "@/components/seo/SiteStructuredData"
 import type { Metadata } from "next"
@@ -21,21 +21,14 @@ export const metadata: Metadata = {
   },
 }
 
-// Only the initial server snapshot needs this; ExploreClient polls for live
-// score/news updates on the client after mount. A 30s ISR window regenerated
-// the shell far more often than the data meaningfully changed, so relax it to
-// 15 minutes to cut ISR writes without affecting perceived freshness. Every
-// snapshot in lib/data/isr-snapshots.ts must be >= this, since the lowest
-// revalidate on the route wins.
-export const revalidate = 900
-
-// Same reasoning as /scores: this segment shares the ISR-snapshot data layer,
-// whose ESPN/Redis reads carry `revalidate: 0` / `no-store` and would otherwise
-// downgrade the prerendered route to `revalidate: 0` at request time (E132,
-// "Page changed from static to dynamic at runtime"). The `Promise.allSettled`
-// below swallows the DynamicServerError, so the de-opt would be silent until
-// the runtime check fires. No cookies/headers/searchParams are read here.
-export const dynamic = "force-static"
+// Render per request instead of as ISR (same reasoning as /scores). This is
+// the site's most-requested route (`/` rewrites here) and its HTML embeds live
+// scores, the top story, the leaderboard and the feed, so every timed ISR
+// regeneration was a billed ISR write (~9-39 write units each). All four reads
+// are Redis cache-aside (lib/data/page-snapshots.ts), so a dynamic render is a
+// handful of Redis hits and writes nothing to the ISR cache. ExploreClient
+// still polls for live updates after mount.
+export const dynamic = "force-dynamic"
 
 /**
  * Server component shell for /explore.
@@ -46,10 +39,8 @@ export const dynamic = "force-static"
  * card; the client only does background polling and category swaps.
  */
 export default async function ExplorePage() {
-  // ISR-safe snapshots (see lib/data/isr-snapshots.ts): both reads go through
-  // an unstable_cache boundary so the Redis-backed data layer's no-store fetch
-  // doesn't force this page to render dynamically on every request. Live
-  // updates arrive via ExploreClient's client-side polling after hydration.
+  // Redis cache-aside snapshots (see lib/data/page-snapshots.ts). Live updates
+  // arrive via ExploreClient's client-side polling after hydration.
   const [scoresResult, newsResult, leaderboardResult, feedResult] = await Promise.allSettled([
     getScoresSnapshot(),
     getTopNewsSnapshot(),

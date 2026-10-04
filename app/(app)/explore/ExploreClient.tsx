@@ -7,7 +7,7 @@ import Image from "next/image"
 import dynamic from "next/dynamic"
 import type { LiveMatch } from "@/types"
 import type { NewsItem } from "@/types/news"
-import type { LeaderboardSnapshotEntry, FeedSnapshot } from "@/lib/data/isr-snapshots"
+import type { LeaderboardSnapshotEntry, FeedSnapshot } from "@/lib/data/page-snapshots"
 import { formatMatchTime, formatRelative } from "@/lib/datetime"
 import { useVisibleInterval } from "@/hooks/useVisibleInterval"
 
