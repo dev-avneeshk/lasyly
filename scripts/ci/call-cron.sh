@@ -96,7 +96,9 @@ BODY=$(printf '%s' "$RESPONSE" | sed '$d')
 # Next.js HTML document and dumping that buries the actual diagnosis in the log.
 BODY_SHORT=$(printf '%s' "$BODY" | head -c 500)
 if [ "${#BODY}" -gt 500 ]; then
-  BODY_SHORT="$BODY_SHORT… [truncated, ${#BODY} bytes total]"
+  # Braces matter: without them a non-UTF-8 bash reads the "…" bytes as part
+  # of the variable name and `set -u` aborts before the diagnosis prints.
+  BODY_SHORT="${BODY_SHORT}… [truncated, ${#BODY} bytes total]"
 fi
 
 echo "status: $CODE"
