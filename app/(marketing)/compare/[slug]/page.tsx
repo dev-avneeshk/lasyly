@@ -4,10 +4,17 @@ import Image from "next/image"
 import { notFound } from "next/navigation"
 import { getComparisonBySlug, getAllComparisonSlugs, COMPARISONS } from "@/lib/data/comparisons"
 import { JsonLd } from "@/components/seo/JsonLd"
+import heroImage from "@/public/hero-optimized.png"
+import { SITE_URL } from "@/lib/seo/site"
 
 type Props = {
   params: Promise<{ slug: string }>
 }
+
+// getComparisonBySlug() only knows the slugs generateStaticParams enumerates,
+// so any other slug is a 404 anyway. With the default (true) each probed slug
+// rendered on demand and stored a 404 ISR entry, re-created after every deploy.
+export const dynamicParams = false
 
 export async function generateStaticParams() {
   return getAllComparisonSlugs().map((slug) => ({ slug }))
@@ -25,9 +32,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: comparison.metaTitle,
       description: comparison.metaDescription,
       type: "article",
-      url: `https://lasyly.me/compare/${slug}`,
+      url: `/compare/${slug}`,
     },
-    alternates: { canonical: `https://lasyly.me/compare/${slug}` },
+    alternates: { canonical: `/compare/${slug}` },
   }
 }
 
@@ -54,8 +61,8 @@ export default async function ComparisonPage({ params }: Props) {
           "@type": "Article",
           headline: comparison.heroHeadline,
           description: comparison.metaDescription,
-          url: `https://lasyly.me/compare/${slug}`,
-          publisher: { "@type": "Organization", name: "Lasyly", url: "https://lasyly.me" },
+          url: `${SITE_URL}/compare/${slug}`,
+          publisher: { "@type": "Organization", name: "Lasyly", url: SITE_URL },
           datePublished: "2026-05-27",
           dateModified: "2026-05-27",
         }}
@@ -131,10 +138,9 @@ export default async function ComparisonPage({ params }: Props) {
                 </div>
                 <div className="rounded-xl overflow-hidden border border-[var(--color-lime)]/20 shadow-[0_0_30px_rgba(212,255,0,0.08)]">
                   <Image
-                    src="/hero.png"
+                    src={heroImage}
                     alt="Lasyly platform screenshot showing prop analytics dashboard"
-                    width={600}
-                    height={400}
+                    sizes="(min-width: 768px) 600px, 100vw"
                     className="w-full h-auto"
                   />
                 </div>

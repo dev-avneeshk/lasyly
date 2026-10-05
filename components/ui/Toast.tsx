@@ -40,7 +40,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex flex-col items-center gap-2 pointer-events-none">
+      {/* Live region so screen readers announce toasts. */}
+      <div role="status" aria-live="polite" className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex flex-col items-center gap-2 pointer-events-none">
         {items.map((t) => (
           <ToastCard key={t.id} item={t} onDone={() => remove(t.id)} />
         ))}

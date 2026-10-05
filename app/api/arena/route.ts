@@ -4,13 +4,15 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
+import { randomSeed } from "@/lib/arena/rng"
 import { driveAI, serverView } from "@/lib/arena/server"
 import { saveGame } from "@/lib/arena/store"
 import { participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
+import { trackLobby } from "@/lib/arena/matchmaking"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
-import { CPU_ENTRY_COST, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
-import { chargeArenaStake } from "@/lib/economy/wallet"
+import { CPU_ENTRY_COST, MAX_STAKE, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
+import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 
 const createSchema = z.object({
   season: z.enum(AVAILABLE_SEASONS as [string, ...string[]]).default(DEFAULT_CONFIG.season),
@@ -20,9 +22,10 @@ const createSchema = z.object({
   mode: z.enum(["ai", "human"]).default("ai"),
   /**
    * 1v1 (mode "human") stake per player, in coins. Ignored for CPU games,
-   * which use the fixed entry cost. Must be a whole number ≥ MIN_STAKE.
+   * which use the fixed entry cost. Must be a whole number in
+   * [MIN_STAKE, MAX_STAKE].
    */
-  stake: z.number().int().min(MIN_STAKE).optional(),
+  stake: z.number().int().min(MIN_STAKE).max(MAX_STAKE).optional(),
 })
 
 /**
@@ -78,7 +81,7 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json({ error: "Couldn't process the entry cost." }, { status: 500 })
   }
 
-  const state = createGame({ gameId, config, vsAI })
+  const state = createGame({ gameId, seed: randomSeed(), config, vsAI })
   state.econ = {
     mode: isPvp ? "pvp" : "cpu",
     amount,
@@ -96,7 +99,16 @@ export const POST = withSecurity(async (request: Request) => {
     state.status = "lobby"
   }
 
-  await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  // Charged but not persisted (Redis down) → give the coins back. Safe: the
+  // gameId is fresh, so a retry is a new game, not a free re-charge "duplicate".
+  try {
+    await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  } catch (error) {
+    await refundArenaStake({ userId: user.id, gameId })
+    throw error
+  }
+  // An invite lobby nobody joins is refunded by the jobs cron (sweepAbandonedLobbies).
+  if (!vsAI) await trackLobby(gameId, user.id)
   // Before responding: the client subscribes as soon as it has `channel`, and
   // Realtime checks the seat at that moment.
   await registerArenaChannelMember(gameId, user.id, "P1")

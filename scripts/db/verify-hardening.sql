@@ -149,7 +149,7 @@ check_replica_identity AS (
     'relreplident=' || c.relreplident::text || ' (d=default, f=full)' AS detail
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public' AND c.relname = 'so instmessages'
+  WHERE n.nspname = 'public' AND c.relname = 'messages'
 ),
 
 -- ── 6. Retention ────────────────────────────────────────────────────────────

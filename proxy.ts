@@ -125,8 +125,8 @@ const RATE_LIMIT_EXEMPT_PREFIXES = ["/api/webhooks/"]
  *
  * The cookie VALUE is signed by Supabase and cannot be forged into something
  * that also authenticates, so hashing it gives a bucket that is stable for a
- * real session and useless to rotate: a request with a made-up cookie gets its
- * own bucket but is rejected by the route with a 401 anyway.
+ * real session. A made-up cookie still gets its own bucket (public routes never
+ * check it), which is why the per-IP bucket is always applied as well.
  *
  * Supabase splits large tokens across `...auth-token.0` / `.1` chunks, so all
  * matching cookies are concatenated in name order.
@@ -301,13 +301,20 @@ export async function proxy(request: NextRequest) {
 
   if (isApiRoute && !isRateLimitExempt) {
     const tier = tierForPath(pathname, hasSupabaseSessionCookie)
-    // Authenticated traffic is keyed per session so users behind one NAT don't
-    // share a bucket; anonymous traffic falls back to IP, read from
-    // platform-set headers rather than the client-forgeable x-forwarded-for.
-    const rateLimitKey =
-      bucket !== null ? `${tier}:s:${bucket}` : `${tier}:i:${getClientIp(request)}`
-
-    const rateResult = await checkRateLimitDistributed(rateLimitKey, tier)
+    // Two checks per request. The tier bucket: per session for cookie-bearing
+    // traffic, per IP otherwise (IP read from platform-set headers rather than
+    // the client-forgeable x-forwarded-for). And one ceiling keyed only by IP
+    // that every request counts against, whatever cookies it carries. The
+    // session cookie is unverified here, so forged cookies each mint their own
+    // session bucket; the IP ceiling (RATE_LIMIT_IP) caps the total they can
+    // reach at a fixed figure instead of N x cookies.
+    const ip = getClientIp(request)
+    const tierKey = tier === "standard" ? `standard:s:${bucket}` : `${tier}:i:${ip}`
+    const results = await Promise.all([
+      checkRateLimitDistributed(`ip:i:${ip}`, "ip"),
+      checkRateLimitDistributed(tierKey, tier),
+    ])
+    const rateResult = results.find((r) => !r.allowed) ?? results[1]
 
     if (!rateResult.allowed) {
       const limitedResponse = NextResponse.json(
@@ -496,11 +503,27 @@ export async function proxy(request: NextRequest) {
 // proxy hop costs nothing there. Everything excluded here still receives
 // nosniff / X-Frame-Options / HSTS from next.config.ts `headers()`, which
 // applies to `/(.*)` independently of this matcher.
+//
+// A few API routes are excluded too, because the proxy adds only cost there.
+// Routing Middleware runs before the CDN, so every request to a matched path
+// pays for it even when the CDN would answer from cache:
+//   - `api/scores` (exact path; /search, /history, /[eventId]/summary stay in):
+//     a public, CDN-cached (PUBLIC_SHORT) read polled every 10–60 s by four
+//     clients. Each poll paid two Upstash rate-limit calls + a SHA-256. The
+//     same 120/min per-IP limit now runs inside the handler, so it only costs
+//     anything on a CDN miss, which is the only case that reaches the DB.
+//   - `api/webhooks/`: authenticated by signature in the handler and already
+//     exempt from the proxy rate limit.
+//   - `api/cron/` and `api/jobs/process` (exact; /enqueue and /[jobId] are
+//     user-facing and stay in): authenticated by CRON_SECRET in the handler
+//     (isAuthorizedCron, fail-closed), called server-to-server.
+// API routes never rely on the proxy for auth (section 8 skips them), and
+// these responses are JSON, so they lose only the proxy's CORS/CSP headers.
 export const config = {
   matcher: [
     {
       source:
-        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|.*\\.(?:png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|css|js|map|txt|xml|webmanifest)$).*)",
+        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|api/scores/?$|api/webhooks/|api/cron/|api/jobs/process/?$|.*\\.(?:png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|css|js|map|txt|xml|webmanifest)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

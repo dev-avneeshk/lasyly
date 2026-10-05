@@ -221,4 +221,22 @@ describe("computeAllCorrelations", () => {
       expect(idB).toBeLessThan(500)
     }
   })
+
+  // DB-21: values were paired by array index, so two players' unrelated games
+  // were correlated. With game keys only shared games are paired.
+  it("pairs keyed props on shared games only", () => {
+    const games = Array.from({ length: 12 }, (_, i) => `g${i}`)
+    const a = { id: "a-pts", keys: games, values: games.map((_, i) => i) }
+    // Same games in reverse order: index pairing gave r = -1, game pairing r = 1.
+    const b = { id: "b-pts", keys: [...games].reverse(), values: games.map((_, i) => 11 - i) }
+    const [r] = computeAllCorrelations([a, b])
+    expect(r.coefficient).toBeCloseTo(1)
+    expect(r.overlappingGames).toBe(12)
+  })
+
+  it("skips keyed props with no shared games (was correlated by index)", () => {
+    const keys = (p: string) => Array.from({ length: 12 }, (_, i) => `${p}${i}`)
+    const values = Array.from({ length: 12 }, (_, i) => i)
+    expect(computeAllCorrelations([{ id: "a", keys: keys("x"), values }, { id: "b", keys: keys("y"), values }])).toEqual([])
+  })
 })

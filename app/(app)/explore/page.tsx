@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     description: "Discover public and expert prediction rooms, live match cards, and trending picks.",
   },
   alternates: {
-    canonical: "https://www.lasyly.me/explore",
+    canonical: "/explore",
   },
 }
 

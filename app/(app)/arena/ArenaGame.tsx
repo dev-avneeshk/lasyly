@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -16,10 +17,18 @@ import { useArenaGame } from "./useArenaGame"
 import { useArenaServer } from "./useArenaServer"
 import { ServerArena } from "./ServerArena"
 import type { ArenaLaunch } from "./ArenaSetup"
-import type { TeamId } from "@/lib/arena/types"
+import type { Season, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { getSeasonPlayers } from "@/lib/arena/data"
 import { cn } from "@/lib/utils"
 import { Hourglass } from "lucide-react"
+
+// id → player per season, built once (lookups ran pool.find per queued id per render).
+const playerIndex = new Map<Season, Map<string, SeasonPlayer>>()
+function playersById(season: Season): Map<string, SeasonPlayer> {
+  let byId = playerIndex.get(season)
+  if (!byId) playerIndex.set(season, (byId = new Map(getSeasonPlayers(season).map((p) => [p.id, p]))))
+  return byId
+}
 
 /**
  * Everything expensive about /arena/nba: the auction engine, the AI, the
@@ -54,10 +63,10 @@ export default function ArenaGame({
   useEffect(() => {
     if (launched.current) return
     launched.current = true
-    const { season, budget, difficulty, kind } = launch
+    const { season, budget, difficulty, kind, stake } = launch
     if (kind === "ai") game.start({ season, budget, difficulty })
-    else if (kind === "global") server.matchmake({ season, budget, difficulty })
-    else server.create({ season, budget, difficulty, mode: "human" })
+    else if (kind === "global") server.matchmake({ season, budget, difficulty, stake })
+    else server.create({ season, budget, difficulty, mode: "human", stake })
     // `game` / `server` are stable-enough hook bags; re-running this would start
     // a second game.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,13 +109,34 @@ export default function ArenaGame({
   // now that setup is a separate chunk, this is where connecting and failure are
   // reported.
   if (!state) {
+    const heldLobby = server.heldLobby
     return (
       <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center gap-5 px-4 py-24 text-center">
         {server.error ? (
           <>
-            <h2 className="text-xl font-black text-[var(--color-text-primary)]">Couldn&apos;t start that game</h2>
-            <p className="text-sm text-[var(--color-danger)]">{server.error}</p>
-            <Button variant="outline" onClick={() => onExit(server.error)}>Back to options</Button>
+            <h2 className="text-xl font-black text-[var(--color-text-primary)]">
+              {server.errorCode === "INSUFFICIENT_FUNDS" ? "Not enough coins" : <>Couldn&apos;t start that game</>}
+            </h2>
+            <p role="alert" className="text-sm text-[var(--color-danger)]">{server.error}</p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button variant="outline" onClick={() => onExit(server.error)}>Back to options</Button>
+              {/* Still holding a public lobby at another stake: re-matchmaking at
+                  that stake returns the same lobby without a second charge. */}
+              {heldLobby && (
+                <Button
+                  disabled={server.connecting}
+                  onClick={() => {
+                    const { season, budget, difficulty } = launch
+                    void server.matchmake({ season, budget, difficulty, stake: heldLobby.stake })
+                  }}
+                >
+                  Resume {heldLobby.stake}-coin search
+                </Button>
+              )}
+              {server.errorCode === "INSUFFICIENT_FUNDS" && (
+                <Button asChild><Link href="/wallet">Open wallet</Link></Button>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -160,7 +190,7 @@ export default function ArenaGame({
           {/* Bid controls flow inline like the mockup — no fixed overlay that
               clips the card or hides the queue bar. On lg+ this sits inside the
               center column. */}
-          {lot && <div className="w-full"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} /></div>}
+          {lot && <div className="w-full"><BidControls state={state} humanSeat={game.humanSeat} minRaise={game.humanMinRaise} onBid={game.bid} onMax={game.bidMax} onPass={game.passLot} upcoming={state.queue.flatMap((id) => playersById(state.season).get(id) ?? [])} /></div>}
           {lot && <NextInQueue season={state.season} queue={state.queue} currentId={lot.player.id} />}
         </main>
         <div className="hidden lg:order-3 lg:block lg:pt-1">{game.budgets && <BudgetPanel team="P2" label={P2_LABEL} budget={game.budgets.P2} roster={state.rosters.P2} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === "P2"} isAI />}</div>
@@ -177,13 +207,12 @@ export default function ArenaGame({
  * progress bar shows how far through the board we are. Hidden on lg+ where the
  * side rails already carry roster/budget context.
  */
-function NextInQueue({ season, queue, currentId }: { season: Parameters<typeof getSeasonPlayers>[0]; queue: string[]; currentId: string }) {
+function NextInQueue({ season, queue, currentId }: { season: Season; queue: string[]; currentId: string }) {
   const remainingIds = queue.filter((id) => id !== currentId)
   const remaining = remainingIds.length
   if (remaining === 0) return null
 
-  const pool = getSeasonPlayers(season)
-  const next = pool.find((p) => p.id === remainingIds[0])
+  const next = playersById(season).get(remainingIds[0])
   if (!next) return null
 
   const positions = [next.primaryPosition, ...next.secondaryPositions].join(" / ")
@@ -221,5 +250,5 @@ function AuctionHeader({ lotNumber, totalLots, timeSec, maxSec, currentBid, stat
   const urgent = timeSec <= 3
   const ringColor = urgent ? "var(--color-danger)" : "#d4ff00"
   const toneColor = status.tone === "good" ? "#d4ff00" : status.tone === "warn" ? "#f3c66e" : "#aab4c6"
-  return <section className="flex w-full items-center gap-3 rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 px-3.5 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.16)]"><div className="relative h-12 w-12 shrink-0"><svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90"><circle cx="28" cy="28" r={radius} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="4" /><motion.circle cx="28" cy="28" r={radius} fill="none" stroke={ringColor} strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} animate={{ strokeDashoffset: circumference * (1 - pct) }} transition={{ ease: "linear", duration: 0.1 }} /></svg><span className={cn("absolute inset-0 grid place-items-center text-base font-black tabular-nums", urgent ? "text-[var(--color-danger)]" : "text-[#f4f6fb]")}>{timeSec}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8f9ab0]"><span>Lot {lotNumber} / {totalLots}</span><span>Current bid</span></div><div className="mt-1 flex items-end justify-between gap-3"><strong className="truncate text-xs font-bold" style={{ color: toneColor }}>{status.text}</strong><motion.span key={currentBid} initial={{ scale: 1.18 }} animate={{ scale: 1 }} className="text-xl font-black leading-none tabular-nums text-[#d4ff00]">${currentBid}</motion.span></div></div></section>
+  return <section className="flex w-full items-center gap-3 rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 px-3.5 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.16)]"><div className="relative h-12 w-12 shrink-0"><svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90"><circle cx="28" cy="28" r={radius} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="4" /><motion.circle cx="28" cy="28" r={radius} fill="none" stroke={ringColor} strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} animate={{ strokeDashoffset: circumference * (1 - pct) }} transition={{ ease: "linear", duration: 1 }} /></svg><span className={cn("absolute inset-0 grid place-items-center text-base font-black tabular-nums", urgent ? "text-[var(--color-danger)]" : "text-[#f4f6fb]")}>{timeSec}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8f9ab0]"><span>Lot {lotNumber} / {totalLots}</span><span>Current bid</span></div><div className="mt-1 flex items-end justify-between gap-3"><strong className="truncate text-xs font-bold" style={{ color: toneColor }}>{status.text}</strong><motion.span key={currentBid} initial={{ scale: 1.18 }} animate={{ scale: 1 }} className="text-xl font-black leading-none tabular-nums text-[#d4ff00]">${currentBid}</motion.span></div></div></section>
 }

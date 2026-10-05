@@ -156,16 +156,18 @@ export function legacyArenaChannelName(gameId: string): string {
 }
 
 async function send(topic: string, isPrivate: boolean, payload: ArenaBroadcast): Promise<void> {
+  const supabase = createAdminClient()
+  const channel = supabase.channel(topic, { config: { private: isPrivate } })
   try {
-    const supabase = createAdminClient()
-    const channel = supabase.channel(topic, { config: { private: isPrivate } })
     const res = await channel.httpSend(ARENA_UPDATE_EVENT, payload)
     if (!res.success) {
       console.error("[arena] realtime broadcast failed:", topic.slice(0, 12), res)
     }
-    await supabase.removeChannel(channel)
   } catch (err) {
     console.error("[arena] realtime broadcast failed:", err)
+  } finally {
+    // The admin client is memoized: a channel left behind on a rejected send leaks.
+    await supabase.removeChannel(channel).catch(() => {})
   }
 }
 

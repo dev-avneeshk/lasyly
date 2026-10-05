@@ -4,10 +4,20 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
+import { randomSeed } from "@/lib/arena/rng"
 import { serverView } from "@/lib/arena/server"
 import { saveGame, loadGame, mutateGame } from "@/lib/arena/store"
-import { enqueueOpenGame, dequeueOpenGame, removeOpenGame } from "@/lib/arena/matchmaking"
+import {
+  enqueueOpenGame,
+  dequeueOpenGame,
+  removeOpenGame,
+  getUserLobby,
+  holdUserLobby,
+  trackLobby,
+  untrackLobby,
+} from "@/lib/arena/matchmaking"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import {
   DEFAULT_CONFIG,
@@ -16,15 +26,15 @@ import {
   type ArenaGameConfig,
 } from "@/lib/arena/types"
 
-import { MIN_STAKE } from "@/lib/economy/arena"
+import { MAX_STAKE, MIN_STAKE } from "@/lib/economy/arena"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 
 const matchmakeSchema = z.object({
   season: z.enum(AVAILABLE_SEASONS as [string, ...string[]]).default(DEFAULT_CONFIG.season),
   budget: z.union([z.literal(25), z.literal(50), z.literal(100)]).default(25),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
-  /** Stake per player for this public 1v1, in coins. */
-  stake: z.number().int().min(MIN_STAKE).default(MIN_STAKE),
+  /** Stake per player for this public 1v1, in coins, within [MIN_STAKE, MAX_STAKE]. */
+  stake: z.number().int().min(MIN_STAKE).max(MAX_STAKE).default(MIN_STAKE),
 })
 
 /**
@@ -63,18 +73,31 @@ export const POST = withSecurity(async (request: Request) => {
   const [data, err] = validateRequestBody(body, matchmakeSchema)
   if (err) return err
 
+  // ── 0. Already waiting in your own lobby? Return it; never charge twice ──
+  const heldId = await getUserLobby(user.id)
+  if (heldId) {
+    const held = await loadGame(heldId)
+    if (held && held.ownerUserId === user.id && held.state.status === "lobby" && !held.guestUserId) {
+      const heldStake = held.state.econ?.amount ?? 0
+      if (heldStake !== data.stake) {
+        return NextResponse.json(
+          { error: `You're already waiting in a ${heldStake}-coin match.`, gameId: heldId, stake: heldStake },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json(participantView(serverView(held.state, "P1", held.rev)))
+    }
+  }
+
   // ── 1. Try to join a stranger who is already waiting ──────────────────────
   // Only match players who chose the SAME stake — an uneven pot isn't a fair
-  // winner-take-all 1v1.
+  // winner-take-all 1v1. A live lobby that isn't for us stays queued.
   const openGameId = await dequeueOpenGame(async (id) => {
     const g = await loadGame(id)
-    if (!g) return false // expired
-    if (g.ownerUserId === user.id) return false // don't match yourself
-    if (g.guestUserId) return false // already full
-    if (g.state.isAI.P2) return false // not a human game
-    if (g.state.status !== "lobby") return false // already started
-    if ((g.state.econ?.amount ?? 0) !== data.stake) return false // stake mismatch
-    return true
+    if (!g || g.guestUserId || g.state.isAI.P2 || g.state.status !== "lobby") return "drop"
+    if (g.ownerUserId === user.id) return "keep" // don't match yourself
+    if ((g.state.econ?.amount ?? 0) !== data.stake) return "keep" // stake mismatch
+    return "join"
   })
 
   if (openGameId) {
@@ -107,14 +130,14 @@ export const POST = withSecurity(async (request: Request) => {
             openNextLot(g.state)
           }
         })
-        // Make sure a claimed game never lingers in the queue.
-        await removeOpenGame(openGameId)
+        // Make sure a claimed game never lingers in the queue or the refund sweep.
+        await Promise.all([removeOpenGame(openGameId), untrackLobby(openGameId, game.ownerUserId)])
         // Let the new P2 join the private channel before they learn its name.
         await registerArenaChannelMember(openGameId, user.id, "P2")
         // Flip the waiting creator straight into the auction (they've been
         // sitting on "Finding an opponent…" polling their lobby). Ship the view
         // so they transition in one hop.
-        void broadcastArenaUpdate(openGameId, serverView(game.state, "P2", game.rev))
+        afterResponse(() => broadcastArenaUpdate(openGameId, serverView(game.state, "P2", game.rev)), "arena broadcast")
         return NextResponse.json(participantView(serverView(game.state, "P2", game.rev)))
       } catch {
         // The game filled or vanished between the pop and the lock. Refund the
@@ -140,6 +163,11 @@ export const POST = withSecurity(async (request: Request) => {
 
   const gameId = crypto.randomUUID()
 
+  // One open lobby per user: a concurrent matchmake holds the slot → 409.
+  if (!(await holdUserLobby(user.id, gameId, heldId))) {
+    return NextResponse.json({ error: "You're already looking for a match." }, { status: 409 })
+  }
+
   // Charge the creator's stake before the lobby exists.
   const charge = await chargeArenaStake({
     userId: user.id,
@@ -157,14 +185,19 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json({ error: "Couldn't process the stake." }, { status: 500 })
   }
 
-  const state = createGame({ gameId, config, vsAI: false })
+  const state = createGame({ gameId, seed: randomSeed(), config, vsAI: false })
   state.isAI.P2 = false
   state.status = "lobby"
   state.econ = { mode: "pvp", amount: data.stake, settled: false }
 
-  await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  try {
+    await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })
+  } catch (error) {
+    await refundArenaStake({ userId: user.id, gameId }) // fresh gameId: a retry can't reuse the charge
+    throw error
+  }
   await registerArenaChannelMember(gameId, user.id, "P1")
-  await enqueueOpenGame(gameId)
+  await Promise.all([enqueueOpenGame(gameId), trackLobby(gameId, user.id)])
 
   return NextResponse.json(participantView(serverView(state, "P1", 1)), { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

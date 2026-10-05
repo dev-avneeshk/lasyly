@@ -113,3 +113,34 @@ describe("sanitizeText + profanity flow", () => {
     expect(maskProfanity(clean)).toBe("what the ****")
   })
 })
+
+// AUTHZ-11: ESPN story HTML and JSON-LD were injected unescaped.
+describe("sanitizeArticleHtml", () => {
+  it("strips scripts, handlers, images and javascript: links; escapes stray <", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize")
+    const out = sanitizeArticleHtml(
+      '<p onclick="x()">Hi <script>alert(1)</script><img src=x onerror=alert(1)>' +
+        '<a href="javascript:alert(1)">bad</a> <a class="c" href="https://espn.com/x?a=1&b=2">ok</a></p><iframe src="//e"></iframe> 1 < 2 <svg/onload=alert(1)'
+    )
+    expect(out).toBe(
+      '<p>Hi alert(1)bad</a> <a href="https://espn.com/x?a=1&amp;b=2" rel="noopener noreferrer nofollow" target="_blank">ok</a></p> 1 &lt; 2 &lt;svg/onload=alert(1)'
+    )
+  })
+
+  it("keeps basic article formatting", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize")
+    expect(sanitizeArticleHtml("<h2>Title</h2><p><strong>A</strong> <em>b</em><br/></p><ul><li>c</li></ul>"))
+      .toBe("<h2>Title</h2><p><strong>A</strong> <em>b</em><br></p><ul><li>c</li></ul>")
+  })
+})
+
+describe("JsonLd", () => {
+  it("escapes < so data can't close the script tag", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server")
+    const { createElement } = await import("react")
+    const { JsonLd } = await import("@/components/seo/JsonLd")
+    const html = renderToStaticMarkup(createElement(JsonLd, { data: { name: "</script><script>alert(1)</script>" } }))
+    expect(html).not.toContain("</script><script>")
+    expect(html).toContain("\\u003c/script>")
+  })
+})

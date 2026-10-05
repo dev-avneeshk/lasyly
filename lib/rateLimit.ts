@@ -9,6 +9,7 @@
  * Business-level rate limits (per-user, per-action) that complement the
  * global IP-based limits enforced in proxy.ts.
  */
+import { NextResponse } from "next/server"
 import { getRedisClient } from "./redis"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,20 @@ export async function checkRateLimit(
 
   // Fallback: in-memory for local development only
   return checkRateLimitMemory(key, config)
+}
+
+/**
+ * Per-user/per-route gate: a 429 response when `key` is over `config`, else
+ * null. The proxy's per-IP limit is only a coarse flood guard (its tier can be
+ * nudged with an unverified cookie, REV-6), so mutation routes add their own.
+ */
+export async function rateLimited(key: string, config: RateLimitConfig): Promise<NextResponse | null> {
+  const r = await checkRateLimit(key, config)
+  if (r.allowed) return null
+  return NextResponse.json(
+    { error: "Too many requests. Please slow down." },
+    { status: 429, headers: { "Retry-After": String(Math.ceil(r.retryAfterMs / 1000)) } }
+  )
 }
 
 /**
@@ -282,6 +297,8 @@ export const RATE_LIMITS = {
   jobEnqueue: { maxRequests: 20, windowMs: 60000 },
   /** Expensive unauthenticated analytics reads, keyed per IP: 30/min. */
   expensiveRead: { maxRequests: 30, windowMs: 60000 },
+  /** AI writeup generations (paid OpenAI call per cache miss), per IP: 10/hour. */
+  aiWriteup: { maxRequests: 10, windowMs: 3600000 },
   /** Careers applications, per IP: 10 per hour (room for shared NATs). */
   careersApplyIp: { maxRequests: 10, windowMs: 3600000 },
   /** Careers applications, per email: 3 per day. */

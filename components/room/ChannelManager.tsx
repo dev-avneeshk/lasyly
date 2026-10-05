@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { X, Globe, Lock, Copy, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Subchannel, PostPolicy, JoinPolicy, SubchannelVisibility } from "@/lib/types/channel"
@@ -61,6 +63,7 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
     mode.kind === "manage-subchannel" ? mode.sub.join_policy : "open"
   )
   const [busy, setBusy] = useState(false)
+  const openerFocus = useOpenerFocus()
   const [error, setError] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -156,12 +159,15 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
   const showSubFields = true
 
   return (
+    // Radix: dialog role/labels, focus trap and restore, Escape, scroll lock.
+    <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
+    <Dialog.Portal>
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-[400px] rounded-2xl bg-[#141414] border border-white/[0.08] shadow-2xl">
+      <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} className="relative w-full max-w-[400px] rounded-2xl bg-[#141414] border border-white/[0.08] shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-          <h3 className="text-[15px] font-semibold text-white/90">{title}</h3>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/[0.06] flex items-center justify-center">
+          <Dialog.Title className="text-[15px] font-semibold text-white/90">{title}</Dialog.Title>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/[0.06] flex items-center justify-center">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -266,7 +272,9 @@ export default function ChannelManager({ roomId, mode, onClose, onChanged, onLim
             )}
           </div>
         </div>
-      </div>
+      </Dialog.Content>
     </div>
+    </Dialog.Portal>
+    </Dialog.Root>
   )
 }

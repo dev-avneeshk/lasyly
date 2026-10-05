@@ -69,10 +69,12 @@ export default function PlayerRankingPage({ params, searchParams }: any) {
   }
 
   const season = resolvedSearchParams.season ?? "2026-27"
-  return <NbaPlayerRankingPage playerId={playerId} season={season} />
+  // Forwarded as-is; without it the API derives the mode from the season.
+  const mode = resolvedSearchParams.mode === "historical" || resolvedSearchParams.mode === "projected" ? resolvedSearchParams.mode : ""
+  return <NbaPlayerRankingPage playerId={playerId} season={season} mode={mode} />
 }
 
-function NbaPlayerRankingPage({ playerId, season }: { playerId: string; season: string }) {
+function NbaPlayerRankingPage({ playerId, season, mode }: { playerId: string; season: string; mode: string }) {
   const [data, setData] = useState<any>(null)
   const [stats, setStats] = useState<StatsRef>(null)
   const [headshot, setHeadshot] = useState<string | null>(null)
@@ -85,7 +87,7 @@ function NbaPlayerRankingPage({ playerId, season }: { playerId: string; season: 
     let cancelled = false
     async function fetchPlayer() {
       try {
-        const res = await fetch(`/api/rankings/players/${playerId}?season=${season}`)
+        const res = await fetch(`/api/rankings/players/${playerId}?season=${season}${mode && `&mode=${mode}`}`)
         if (!res.ok) {
           if (res.status === 404 && !cancelled) notFound()
           throw new Error("Failed to load player")
@@ -100,7 +102,7 @@ function NbaPlayerRankingPage({ playerId, season }: { playerId: string; season: 
     }
     fetchPlayer()
     return () => { cancelled = true }
-  }, [playerId, season])
+  }, [playerId, season, mode])
 
   // 2. Box-score stats + headshot, keyed on the resolved player name
   useEffect(() => {

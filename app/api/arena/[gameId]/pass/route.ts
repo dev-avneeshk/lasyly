@@ -6,6 +6,7 @@ import { loadGame, mutateGame } from "@/lib/arena/store"
 import { pass } from "@/lib/arena/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 
 /**
  * POST /api/arena/[gameId]/pass — the human passes on the current lot. If the
@@ -50,7 +51,7 @@ export const POST = withSecurity(async (
 
   // Push the new lot / resolution to the opponent right away, view included so
   // they apply it in one hop.
-  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
+  if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev)), "arena broadcast")
 
   return NextResponse.json(participantView(serverView(game.state, seat, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

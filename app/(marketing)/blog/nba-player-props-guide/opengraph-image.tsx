@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og"
 
-export const runtime = "edge"
 export const alt = "The Complete Guide to NBA Player Props in 2026 — Lasyly Blog"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
@@ -32,11 +31,12 @@ export default function OGImage() {
         <div style={{ display: "flex", marginBottom: 24, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 999, padding: "7px 18px" }}>
           <span style={{ color: "#F59E0B", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>NBA · 10 min read</span>
         </div>
-        <div style={{ color: "#ffffff", fontSize: 58, fontWeight: 900, lineHeight: 1.0, letterSpacing: "-1.5px", marginBottom: 24, maxWidth: 860 }}>
-          The Complete Guide to
-          <br />
-          <span style={{ color: "#F59E0B" }}>NBA Player Props</span>
-          <span style={{ color: "rgba(255,255,255,0.4)" }}> in 2026</span>
+        <div style={{ display: "flex", flexDirection: "column", color: "#ffffff", fontSize: 58, fontWeight: 900, lineHeight: 1.0, letterSpacing: "-1.5px", marginBottom: 24, maxWidth: 860 }}>
+          <span>The Complete Guide to</span>
+          <div style={{ display: "flex" }}>
+            <span style={{ color: "#F59E0B" }}>NBA Player Props</span>
+            <span style={{ color: "rgba(255,255,255,0.4)", marginLeft: 14 }}>in 2026</span>
+          </div>
         </div>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, lineHeight: 1.5, maxWidth: 680 }}>
           Points, rebounds, assists, 3PM — defensive matchups, line value, correlated parlays, and how to track your edge.

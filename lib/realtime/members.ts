@@ -38,15 +38,17 @@ export function membersChannelName(roomId: string): string {
  * misses.
  */
 export async function broadcastMembersChanged(roomId: string): Promise<void> {
+  // Private: only viewers of the room may join, and clients can't send.
+  const supabase = createAdminClient()
+  const channel = supabase.channel(membersChannelName(roomId), { config: { private: true } })
   try {
-    const supabase = createAdminClient()
-    const channel = supabase.channel(membersChannelName(roomId))
     const res = await channel.httpSend("members_changed", { roomId })
     if (!res.success) {
       console.error("[members] server broadcast failed:", res.status, res.error)
     }
-    await supabase.removeChannel(channel)
   } catch (err) {
     console.error("[members] server broadcast failed:", err)
+  } finally {
+    await supabase.removeChannel(channel).catch(() => {})
   }
 }

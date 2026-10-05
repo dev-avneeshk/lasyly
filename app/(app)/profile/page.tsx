@@ -75,7 +75,8 @@ export default async function ProfilePage() {
 
   // Betslip stats (legacy room-based bets)
   const bsTotal = betslips.length
-  const bsResolved = betslips.filter((b) => b.status === "Won" || b.status === "Lost" || b.status === "Void")
+  // Void is a refund, not a loss: win rate is over Won + Lost only (as the profile API).
+  const bsResolved = betslips.filter((b) => b.status === "Won" || b.status === "Lost")
   const bsWon = betslips.filter((b) => b.status === "Won").length
   const bsLost = betslips.filter((b) => b.status === "Lost").length
   const bsPending = betslips.filter((b) => b.status === "Pending").length

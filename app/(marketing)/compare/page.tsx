@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { COMPARISONS } from "@/lib/data/comparisons"
 import { JsonLd } from "@/components/seo/JsonLd"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "Lasyly vs Competitors — Free Prop Analytics Comparison",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
     description:
       "Compare Lasyly with the top sports analytics tools. Hit rates, matchup grades, community, and live scores — all free.",
   },
-  alternates: { canonical: "https://lasyly.me/compare" },
+  alternates: { canonical: "/compare" },
 }
 
 export default function ComparePage() {
@@ -23,9 +24,9 @@ export default function ComparePage() {
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "Lasyly Comparisons",
-          url: "https://lasyly.me/compare",
+          url: `${SITE_URL}/compare`,
           description: "Compare Lasyly with other sports analytics tools.",
-          publisher: { "@type": "Organization", name: "Lasyly", url: "https://lasyly.me" },
+          publisher: { "@type": "Organization", name: "Lasyly", url: SITE_URL },
         }}
       />
 

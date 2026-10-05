@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { invalidateCachePrefix } from "@/lib/cache"
+import { invalidateCache } from "@/lib/cache"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { handleConflict } from "@/lib/security/concurrency"
 import { broadcastMembersChanged } from "@/lib/realtime/members"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 export const POST = withSecurity(async (
   _request: Request,
@@ -21,6 +22,8 @@ export const POST = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`room-join:${user.id}`, RATE_LIMITS.roomJoin)
+  if (limited) return limited
 
   const { data: room, error: roomError } = await supabase
     .from("rooms")
@@ -107,7 +110,7 @@ export const POST = withSecurity(async (
     .select("*", { count: "exact", head: true })
     .eq("room_id", roomId)
 
-  invalidateCachePrefix(`feed-graph:${user.id}`).catch(() => {})
+  invalidateCache(`feed-graph:${user.id}`).catch(() => {}) // exact key: one DEL, not a SCAN
 
   // Nudge every other viewer of this room to refetch its members list. The
   // membership row is already committed; this is best-effort and must not

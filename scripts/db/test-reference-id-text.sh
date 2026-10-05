@@ -15,6 +15,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ECONOMY="$ROOT/supabase/migrations/20260921_arena_economy.sql"
 FIX="${FIX:-$ROOT/supabase/migrations/20260928_transactions_reference_id_text.sql}"
 TYPE_FIX="${TYPE_FIX:-$ROOT/supabase/migrations/20260929_transactions_type_check_all_ledger_types.sql}"
+REFUND_FIX="${REFUND_FIX:-$ROOT/supabase/migrations/20261003_refund_arena_stake_paid_game_guard.sql}"
 
 for bin in initdb pg_ctl psql; do
   command -v "$bin" >/dev/null || { echo "error: $bin not found on PATH" >&2; exit 1; }
@@ -113,6 +114,14 @@ check "payout is idempotent"    duplicate "$(q "SELECT public.settle_1v1_stake('
 check "P1 balance 500-50+90"    540 "$(q "SELECT wallet_balance::int FROM public.profiles WHERE id='$P1';")"
 check "P2 balance 500-50"       450 "$(q "SELECT wallet_balance::int FROM public.profiles WHERE id='$P2';")"
 check "no refund after payout"  already_settled "$(q "SELECT public.refund_arena_stake('$P1', '$GAME');")"
+# REV-17: the guard only checked the refunded user's own payout rows.
+check "before 20261003: the LOSER of a paid game could be refunded" completed \
+  "$("${PSQL[@]}" <<< "BEGIN; SELECT public.refund_arena_stake('$P2', '$GAME'); ROLLBACK;" | head -n 1)"
+"${PSQL[@]}" -f "$REFUND_FIX" >/dev/null 2>&1
+"${PSQL[@]}" -f "$REFUND_FIX" >/dev/null 2>&1   # re-runnable
+check "after 20261003: loser of a paid game is not refunded" already_settled "$(q "SELECT public.refund_arena_stake('$P2', '$GAME');")"
+check "P2 balance unchanged"    450 "$(q "SELECT wallet_balance::int FROM public.profiles WHERE id='$P2';")"
+check "refund stays service-role only" f "$(q "SELECT has_function_privilege('authenticated', 'public.refund_arena_stake(uuid, text)', 'EXECUTE');")"
 
 echo "the other money paths"
 check "CPU reward"              completed "$(q "SELECT public.award_cpu_reward('$P1', 'cccccccc-0000-4000-8000-000000000001', 75, 20);")"

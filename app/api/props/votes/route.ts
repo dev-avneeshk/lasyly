@@ -98,7 +98,7 @@ export const GET = withSecurity(async (request: Request) => {
     total: totals.total,
     userVote,
   })
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 // ─── POST /api/props/votes ───────────────────────────────────────────────────
 

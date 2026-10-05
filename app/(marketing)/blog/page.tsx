@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const revalidate = 3600
 
@@ -38,7 +39,7 @@ function formatDate(iso: string): string {
 }
 
 export default async function BlogIndexPage() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   const supabase = createAdminClient()
   const { data: dbRows } = await supabase
     .from("blog_posts")

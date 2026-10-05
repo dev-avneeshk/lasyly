@@ -1,6 +1,6 @@
 import { JsonLd } from "./JsonLd"
+import { SITE_URL } from "@/lib/seo/site"
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
 
 /**
  * Site-wide Organization / WebSite / ItemList structured data.

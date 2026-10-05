@@ -6,7 +6,9 @@ import { loadGame, mutateGame } from "@/lib/arena/store"
 import { openNextLot } from "@/lib/arena/auction"
 import { serverView } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
+import { afterResponse } from "@/lib/background"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
+import { untrackLobby } from "@/lib/arena/matchmaking"
 import type { TeamId } from "@/lib/arena/types"
 
 /**
@@ -64,9 +66,8 @@ export const POST = withSecurity(async (
   // The joiner must match the creator's stake. Charge BEFORE claiming the seat
   // so a player who can't cover the stake never gets seated (and never blocks
   // the game). The debit is idempotent per (user, game): a retry after a
-  // successful charge is a no-op, and if the seat claim below then fails
-  // (someone beat them to it) we refund. We only need the refund path for that
-  // narrow race, handled by the abandonment/refund flow.
+  // successful charge is a no-op, and if the seat claim below fails in a way a
+  // retry can't recover from, we refund.
   const stake = existing.state.econ?.amount ?? 0
   if (stake > 0) {
     const charge = await chargeArenaStake({
@@ -104,11 +105,18 @@ export const POST = withSecurity(async (
       }
     }))
   } catch (e) {
-    // Lost the race for the seat after we already charged the stake — give it
-    // back. refund is idempotent, so this is safe even if the charge above hit
-    // the 'duplicate' path.
-    if (stake > 0 && e instanceof Error && e.message === "This game is already full.") {
-      await refundArenaStake({ userId: user.id, gameId })
+    // The seat wasn't committed after we already charged the stake. Refund only
+    // when no retry can win the seat (the game was swept, or someone else holds
+    // P2): the ARENA_STAKE row survives a refund, so a retry would read it as
+    // "duplicate" and be seated for free. A busy/conflict failure with the seat
+    // still open keeps the charge so the client's retry is backed by it.
+    if (stake > 0) {
+      const now = await loadGame(gameId).catch(() => undefined)
+      if (now === null || (now?.guestUserId && now.guestUserId !== user.id)) {
+        await refundArenaStake({ userId: user.id, gameId })
+      }
+    }
+    if (e instanceof Error && e.message === "This game is already full.") {
       return NextResponse.json({ error: "This game is already full." }, { status: 409 })
     }
     throw e
@@ -118,7 +126,10 @@ export const POST = withSecurity(async (
   // them wait for their lobby poll to notice the join. Ship the view so their
   // client transitions in one hop.
   const seat: TeamId = "P2"
-  if (changed) void broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev))
+  if (changed) {
+    await untrackLobby(gameId, game.ownerUserId) // joined: no longer the refund sweep's
+    afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev)), "arena broadcast")
+  }
 
   // The caller now holds seat P2: allow them on the private channel before
   // handing them its name (Realtime checks the seat when they subscribe).

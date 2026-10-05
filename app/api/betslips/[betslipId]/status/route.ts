@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { handleConflict } from "@/lib/security/concurrency"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
-const VALID_STATUSES = ["Pending", "Won", "Lost", "Void", "Partial"] as const
-
+// A betslip is graded once: Pending → one result. Re-grading let a tipster turn
+// old losses into wins (and keep a Won payout after moving off Won), which feeds
+// the paid-pick win rate.
 const updateStatusSchema = z.object({
-  status: z.enum(VALID_STATUSES),
+  status: z.enum(["Won", "Lost", "Void", "Partial"]),
 })
 
 export const PATCH = withSecurity(async (
@@ -27,6 +30,8 @@ export const PATCH = withSecurity(async (
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`betslip-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, updateStatusSchema)
@@ -58,6 +63,10 @@ export const PATCH = withSecurity(async (
     )
   }
 
+  if (betslip.status !== "Pending") {
+    return NextResponse.json({ error: "This betslip has already been graded." }, { status: 409 })
+  }
+
   // Build update payload
   const updatePayload: { status: string; payout?: number } = { status: data.status }
 
@@ -66,15 +75,15 @@ export const PATCH = withSecurity(async (
     updatePayload.payout = Math.round(betslip.stake * betslip.odds * 100) / 100
   }
 
-  // Update the betslip with current status as a condition (concurrency guard).
-  // This ensures the update only succeeds if the status hasn't been changed
-  // by a concurrent request since we read it.
-  const { data: updated, error: updateErr, count } = await supabase
+  // Service role: users have no UPDATE on betslips, so payout is always the
+  // value computed here. Only while still Pending (a racing grade gets 409).
+  const { data: updated, error: updateErr, count } = await createAdminClient()
     .from("betslips")
     .update(updatePayload)
     .eq("id", betslipId)
-    .eq("status", betslip.status)
-    .select()
+    .eq("user_id", user.id)
+    .eq("status", "Pending")
+    .select("id, user_id, odds, stake, payout, status")
 
   if (updateErr) {
     return NextResponse.json({ error: "Failed to update betslip." }, { status: 500 })

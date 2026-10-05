@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Hash, Settings, Menu, LogOut, X } from "lucide-react"
+import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { createClient } from "@/lib/supabase/client"
 import AdminPanel from "@/components/room/AdminPanel"
 import { MessageRow, getUserColor, getInitials, type ChatMessage } from "@/components/room/MessageRow"
@@ -11,6 +13,7 @@ import { ChannelSidebar } from "@/components/room/ChannelSidebar"
 import ChannelManager from "@/components/room/ChannelManager"
 import { UpgradeModal } from "@/components/room/UpgradeModal"
 import { TopBetPanel } from "@/components/room/TopBetPanel"
+import { useToast } from "@/components/ui/Toast"
 import type { Subchannel } from "@/lib/types/channel"
 
 /**
@@ -26,6 +29,23 @@ const OLDER_PAGE_SIZE = 50
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
+ * Load the session JWT into the Realtime socket before a private join, so it
+ * isn't sent with only the anon key (members-only rooms would be refused).
+ * Failure is fine: public rooms admit anon, and history still loads over HTTP.
+ *
+ * Also waits out a still-leaving channel on the same topic: supabase.channel()
+ * hands that instance back, and subscribing it is a no-op, so a quick A→B→A
+ * switch left the chat dead. Create the channel only after this resolves.
+ */
+function joinPrivate(supabase: ReturnType<typeof createClient>, topic: string): Promise<void> {
+  const stale = supabase.getChannels().find((c) => c.topic === `realtime:${topic}`)
+  return Promise.all([stale && supabase.removeChannel(stale), supabase.realtime.setAuth()]).then(
+    () => {},
+    () => {}
+  )
+}
+
+/**
  * Insert/replace messages while keeping the array in strict chronological
  * order (created_at asc, id as a stable tie-break). Realtime broadcast,
  * postgres_changes, and optimistic sends can all arrive out of order — a naive
@@ -34,7 +54,7 @@ const OLDER_PAGE_SIZE = 50
  * Dedupes by id, so it's safe to call with a message already present (the
  * incoming copy wins, which lets us reconcile optimistic rows in place).
  */
-function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[], keepAll = false): ChatMessage[] {
   if (incoming.length === 0) return prev
   const byId = new Map<string, ChatMessage>()
   for (const m of prev) byId.set(m.id, m)
@@ -45,8 +65,12 @@ function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessag
     if (ta !== tb) return ta - tb
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
-  // Cap from the OLD end so we always keep the most recent messages.
-  return merged.length > MAX_MESSAGES ? merged.slice(-MAX_MESSAGES) : merged
+  // Cap from the OLD end so we always keep the most recent messages, but never
+  // below what's already shown (older pages the user loaded stay) and never
+  // when merging an older page itself (keepAll), which the cap used to slice
+  // straight back off.
+  const cap = keepAll ? Infinity : Math.max(MAX_MESSAGES, prev.length)
+  return merged.length > cap ? merged.slice(-cap) : merged
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -90,6 +114,7 @@ type CurrentUser = {
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>()
   const router = useRouter()
+  const { toast } = useToast()
   const roomId = params.roomId
   const supabase = useMemo(() => createClient(), [])
 
@@ -120,6 +145,17 @@ export default function RoomPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [sending, setSending] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const drawerFocus = useOpenerFocus()
+  // The drawer is md:hidden but modal: close it once the viewport reaches md
+  // (rotate to landscape) so an invisible dialog can't lock the page.
+  useEffect(() => {
+    if (!drawerOpen) return
+    const md = window.matchMedia("(min-width: 768px)")
+    const close = () => { if (md.matches) setDrawerOpen(false) }
+    close()
+    md.addEventListener("change", close)
+    return () => md.removeEventListener("change", close)
+  }, [drawerOpen])
   const [adminOpen, setAdminOpen] = useState(false)
   const [userRole, setUserRole] = useState<"owner" | "moderator" | "member">("member")
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; messageId: string; isOwnMessage: boolean } | null>(null)
@@ -127,7 +163,6 @@ export default function RoomPage() {
 
   const feedRef = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null)
   // Cache of user_id -> profile so incoming realtime rows (which carry no join)
   // can render an avatar/name without an extra fetch per message.
   const profileCacheRef = useRef<Map<string, ChatProfile>>(new Map())
@@ -152,36 +187,40 @@ export default function RoomPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const res = await fetch(`/api/rooms/${roomId}`)
+      // Independent reads run together (were 5 serial steps plus a second
+      // getUser): room + user + channels, then the user's members/pins/profile.
+      const [res, u] = await Promise.all([
+        fetch(`/api/rooms/${roomId}`),
+        supabase.auth.getUser(),
+        loadChannels(true), // picks the first sub-channel as active
+      ])
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Failed to load room."); setLoading(false); return }
       setRoom(data)
       setMemberCount(data.member_count ?? 0)
       setIsMember(data.is_member ?? false)
-      const u = await supabase.auth.getUser()
       const uid = u.data.user?.id ?? null
       setUserId(uid)
       setIsOwner(uid === data.creator_id)
 
-      // Fetch user role in this room
       if (uid) {
-        const memberRes = await fetch(`/api/rooms/${roomId}/members`)
+        const [memberRes, pinRes, { data: profile }] = await Promise.all([
+          fetch(`/api/rooms/${roomId}/members`),
+          fetch(`/api/rooms/${roomId}/pin`),
+          supabase.from("profiles").select("username, display_name, avatar_url").eq("id", uid).single(),
+        ])
+        setCurrentUser({ id: uid, profile })
         if (memberRes.ok) {
           const memberData = await memberRes.json()
           const me = (memberData.members ?? []).find((m: { id: string }) => m.id === uid)
           if (me) setUserRole(me.role)
           setMembers(memberData.members ?? [])
         }
-        // Fetch pinned messages
-        const pinRes = await fetch(`/api/rooms/${roomId}/pin`)
         if (pinRes.ok) {
           const pinData = await pinRes.json()
           setPinnedMessages(new Set((pinData.pins ?? []).map((p: { message_id: string }) => p.message_id)))
         }
       }
-
-      // Load channels and pick the first sub-channel as active.
-      await loadChannels(true)
 
       setLoading(false)
     }
@@ -199,32 +238,34 @@ export default function RoomPage() {
   // on demand instead of once per subscriber per row inside Realtime.
   useEffect(() => {
     let ignore = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     const refetch = async () => {
+      timer = undefined
       const res = await fetch(`/api/rooms/${roomId}/members`)
       if (ignore || !res.ok) return
       const data = await res.json()
       setMembers(data.members ?? [])
     }
-    const channel = supabase
-      .channel(`room-members-${roomId}`)
-      .on("broadcast", { event: "members_changed" }, () => { void refetch() })
-      .subscribe()
-    return () => { ignore = true; supabase.removeChannel(channel) }
+    // A burst of joins/leaves/moderation nudges costs one refetch per second.
+    const nudge = () => { timer ??= setTimeout(() => void refetch(), 1000) }
+    // Private: Realtime checks room visibility at join (RLS on realtime.messages).
+    const topic = `room-members-${roomId}`
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    void joinPrivate(supabase, topic).then(() => {
+      if (ignore) return
+      channel = supabase
+        .channel(topic, { config: { private: true } })
+        .on("broadcast", { event: "members_changed" }, nudge)
+        .subscribe()
+    })
+    return () => {
+      ignore = true
+      clearTimeout(timer)
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [supabase, roomId])
 
   // ─── Load Messages + Realtime ───────────────────────────────────────────────
-
-  // Resolve current user's profile once.
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
-        setCurrentUser({ id: user.id, profile })
-      }
-    }
-    getUser()
-  }, [supabase])
 
   // Fetch messages + subscribe to realtime for the ACTIVE sub-channel.
   useEffect(() => {
@@ -261,60 +302,66 @@ export default function RoomPage() {
       profile: msg.profile ?? profileCacheRef.current.get(msg.user_id) ?? null,
     })
 
-    // Delivery is now BROADCAST-ONLY, from two senders on the same channel:
-    //   1) the sender's own client — instant echo, carries their profile so the
-    //      name/avatar render without a lookup;
-    //   2) the messages API route — authoritative, fires in the same request as
-    //      the insert, so delivery no longer depends on the sender's tab
-    //      surviving (lib/realtime/chat.ts).
-    // Both dedupe by id via mergeMessages, so double delivery is harmless.
+    // Delivery is BROADCAST-ONLY, sent by the messages API route in the same
+    // request as the insert (with the sender's profile), so it doesn't depend on
+    // the sender's tab surviving (lib/realtime/chat.ts). The channel is PRIVATE:
+    // Realtime admits only users who can view the sub-channel, and clients can't
+    // send on it, so nobody outside the room can listen in or forge messages.
     //
-    // `postgres_changes` used to be the reliability backstop for (1). It is now
+    // `postgres_changes` used to be the reliability backstop. It is now
     // redundant and OFF by default, because Realtime evaluates the row filter and
     // the `messages` RLS policy (`can_view_subchannel`, 2-3 index lookups) once
     // PER SUBSCRIBER PER ROW — one message in a room with N viewers costs ~2-3N
     // lookups. Set NEXT_PUBLIC_CHAT_PG_CHANGES=true to re-enable it without a
     // code change if a delivery gap ever shows up in practice.
-    let channelBuilder = supabase
-      .channel(`room-sub-${activeSubchannelId}`)
-      .on("broadcast", { event: "new_message" }, (payload) => {
-        const msg = payload.payload as ChatMessage
-        setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
-      })
+    const topic = `room-sub-${activeSubchannelId}`
+    const build = () => {
+      let channelBuilder = supabase
+        .channel(topic, { config: { private: true } })
+        .on("broadcast", { event: "new_message" }, (payload) => {
+          const msg = payload.payload as ChatMessage
+          setMessages((prev) => mergeMessages(prev, [hydrate(msg)]))
+        })
+        .on("broadcast", { event: "message_deleted" }, (payload) => {
+          const { id } = payload.payload as { id: string }
+          setMessages((prev) => prev.filter((m) => m.id !== id))
+        })
 
-    if (process.env.NEXT_PUBLIC_CHAT_PG_CHANGES === "true") {
-      channelBuilder = channelBuilder.on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `subchannel_id=eq.${activeSubchannelId}`,
-        },
-        (payload) => {
-          const row = payload.new as {
-            id: string
-            content: string
-            is_system: boolean
-            created_at: string
-            user_id: string
-            kind?: "text" | "betslip"
+      if (process.env.NEXT_PUBLIC_CHAT_PG_CHANGES === "true") {
+        channelBuilder = channelBuilder.on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `subchannel_id=eq.${activeSubchannelId}`,
+          },
+          (payload) => {
+            const row = payload.new as {
+              id: string
+              content: string
+              is_system: boolean
+              created_at: string
+              user_id: string
+              kind?: "text" | "betslip"
+            }
+            setMessages((prev) =>
+              mergeMessages(prev, [
+                hydrate({
+                  id: row.id,
+                  content: row.content,
+                  is_system: row.is_system,
+                  created_at: row.created_at,
+                  user_id: row.user_id,
+                  kind: row.kind ?? "text",
+                  profile: null,
+                }),
+              ])
+            )
           }
-          setMessages((prev) =>
-            mergeMessages(prev, [
-              hydrate({
-                id: row.id,
-                content: row.content,
-                is_system: row.is_system,
-                created_at: row.created_at,
-                user_id: row.user_id,
-                kind: row.kind ?? "text",
-                profile: null,
-              }),
-            ])
-          )
-        }
-      )
+        )
+      }
+      return channelBuilder
     }
 
     // Catch-up on (re)subscribe. This is what actually makes delivery reliable:
@@ -324,14 +371,17 @@ export default function RoomPage() {
     // strictly more robust than postgres_changes, which also delivered nothing
     // while disconnected.
     let subscribedOnce = false
-    const channel = channelBuilder.subscribe((status) => {
-      if (status !== "SUBSCRIBED") return
-      if (subscribedOnce) void fetchMessages("merge")
-      subscribedOnce = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    void joinPrivate(supabase, topic).then(() => {
+      if (ignore) return
+      channel = build().subscribe((status) => {
+        if (status !== "SUBSCRIBED") return
+        if (subscribedOnce) void fetchMessages("merge")
+        subscribedOnce = true
+      })
     })
-    channelRef.current = channel
 
-    return () => { ignore = true; supabase.removeChannel(channel); channelRef.current = null }
+    return () => { ignore = true; if (channel) supabase.removeChannel(channel) }
   }, [supabase, roomId, activeSubchannelId])
 
   // ─── Load older messages (cursor pagination) ─────────────────────────────────
@@ -352,7 +402,7 @@ export default function RoomPage() {
       )
       const data = await res.json()
       if (res.ok && data.messages) {
-        setMessages((prev) => mergeMessages(prev, data.messages))
+        setMessages((prev) => mergeMessages(prev, data.messages, true))
         setHasMoreOlder(Boolean(data.hasMore))
         setOlderCursor(data.nextCursor ?? null)
         // Restore scroll offset once the DOM has grown.
@@ -408,8 +458,10 @@ export default function RoomPage() {
 
   // ─── Send Message ───────────────────────────────────────────────────────────
 
-  const handleSend = useCallback(async (content: string) => {
-    if (!content || !currentUser || sending) return
+  // Resolves false when the message wasn't sent, so the composer restores the
+  // draft (failures used to be silent and lose the text).
+  const handleSend = useCallback(async (content: string): Promise<boolean> => {
+    if (!content || !currentUser || sending) return false
     setSending(true)
 
     const tempId = `temp-${Date.now()}`
@@ -438,37 +490,31 @@ export default function RoomPage() {
             { ...optimistic, id: saved.id, created_at: saved.created_at, content: savedContent },
           ])
         })
-        // Fast local echo with the masked content and this user's profile, so
-        // other viewers get the name/avatar without a lookup. This is an
-        // OPTIMISATION, not the delivery mechanism — the API route broadcasts the
-        // same message server-side in the same request, so nothing is lost if
-        // this tab dies here.
-        channelRef.current?.send({
-          type: "broadcast",
-          event: "new_message",
-          payload: {
-            id: saved.id, content: savedContent, is_system: false,
-            created_at: saved.created_at, user_id: currentUser.id, profile: currentUser.profile,
-          },
-        })
-      } else {
-        setMessages(prev => prev.filter(m => m.id !== tempId))
+        return true
       }
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      const { error } = await res.json().catch(() => ({}))
+      toast(typeof error === "string" ? error : "Message not sent. Try again.", "error")
     } catch {
       setMessages(prev => prev.filter(m => m.id !== tempId))
+      toast("Message not sent. Check your connection.", "error")
     } finally {
       setSending(false)
     }
-  }, [currentUser, sending, roomId, activeSubchannelId])
+    return false
+  }, [currentUser, sending, roomId, activeSubchannelId, toast])
 
   const handleJoinLeave = async () => {
     if (!userId) return
     setJoining(true)
     try {
       const res = await fetch(`/api/rooms/${roomId}/join`, { method: "POST" })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok) { setIsMember(data.joined); setMemberCount(data.memberCount) }
-    } catch {} finally { setJoining(false) }
+      else toast(typeof data.error === "string" ? data.error : "Couldn't update membership. Try again.", "error")
+    } catch {
+      toast("Couldn't update membership. Check your connection.", "error")
+    } finally { setJoining(false) }
   }
 
   // The creator is always an owner/admin/member, even before the members list
@@ -787,13 +833,14 @@ export default function RoomPage() {
       </div>
 
       {/* ─── Mobile Drawer ─── */}
-      {drawerOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setDrawerOpen(false)} />
-          <div className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
+      {/* Radix: dialog role/label, focus trap and restore, Escape, scroll lock. */}
+      <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 z-40 md:hidden" />
+          <Dialog.Content {...drawerFocus} aria-describedby={undefined} className="fixed top-0 left-0 bottom-0 w-[280px] bg-[#111111] z-50 md:hidden overflow-y-auto flex flex-col">
             <div className="px-5 pt-6 pb-4 flex items-center gap-3 border-b border-white/[0.06]">
-              <h2 className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</h2>
-              <button onClick={() => setDrawerOpen(false)} className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
+              <Dialog.Title className="text-[15px] font-semibold text-white/90 flex-1">{room.name}</Dialog.Title>
+              <button onClick={() => setDrawerOpen(false)} aria-label="Close" className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <ChannelSidebar
               subchannels={subchannels}
@@ -804,9 +851,9 @@ export default function RoomPage() {
               onAddSubchannel={() => { setDrawerOpen(false); setManagerMode({ kind: "new-subchannel" }) }}
               onManageSubchannel={(sub) => { setDrawerOpen(false); setManagerMode({ kind: "manage-subchannel", sub }) }}
             />
-          </div>
-        </>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* ─── Message Context Menu ─── */}
       {contextMenu && (

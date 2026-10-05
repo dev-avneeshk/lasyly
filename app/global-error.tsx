@@ -5,10 +5,10 @@
 // it needs - the app stylesheet may not be available at this point.
 export default function GlobalError({
   error,
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string }
-  unstable_retry: () => void
+  retry: () => void
 }) {
   return (
     <html lang="en">
@@ -77,7 +77,7 @@ export default function GlobalError({
             </p>
           )}
           <button
-            onClick={() => unstable_retry()}
+            onClick={() => retry()}
             style={{
               marginTop: "1.5rem",
               display: "inline-flex",

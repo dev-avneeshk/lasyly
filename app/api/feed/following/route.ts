@@ -100,4 +100,4 @@ export const GET = withSecurity(async (request: Request) => {
     // Gracefully handle any errors (missing tables, etc.)
     return NextResponse.json({ parlays: [], hasMore: false })
   }
-}, { cacheControl: CACHE_CONTROL.PUBLIC_SHORT })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

@@ -3,6 +3,7 @@ import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
 import BlogPostBackButton from "@/components/blog/BlogPostBackButton"
 import BlogNewspaperWrapper from "@/components/blog/BlogNewspaperWrapper"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "The Complete Guide to NBA Player Props in 2026 — Lasyly Blog",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     publishedTime: "2026-05-20",
   },
   alternates: {
-    canonical: "https://lasyly.me/blog/nba-player-props-guide",
+    canonical: "/blog/nba-player-props-guide",
   },
 }
 
@@ -32,7 +33,7 @@ function PropTypeCard({ title, children }: { title: string; children: React.Reac
 }
 
 export default function NbaPropsGuidePost() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   return (
     <BlogNewspaperWrapper>
       <JsonLd data={{

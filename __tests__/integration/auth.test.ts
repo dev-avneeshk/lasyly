@@ -197,18 +197,20 @@ describe.skipIf(!hasTestDB)("Integration: Parlay Creation & RLS", () => {
     await user?.cleanup()
   })
 
-  it("authenticated user can create a parlay", async () => {
-    const { data, error } = await client.from("parlays").insert({
+  it("user cannot insert a parlay directly (only /api/parlays, via service role)", async () => {
+    const { error } = await client.from("parlays").insert({
       user_id: user.userId,
-      status: "pending",
       odds: 3.5,
       visibility: "public",
-    }).select().single()
+    })
+    expect(error).not.toBeNull()
 
-    expect(error).toBeNull()
-    expect(data).not.toBeNull()
-    expect(data!.user_id).toBe(user.userId)
-    expect(data!.status).toBe("pending")
+    const { error: adminError } = await admin.from("parlays").insert({
+      user_id: user.userId,
+      odds: 3.5,
+      visibility: "public",
+    })
+    expect(adminError).toBeNull()
   })
 
   it("user can read own parlays", async () => {

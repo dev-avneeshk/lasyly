@@ -2,6 +2,7 @@ import "server-only"
 import { unstable_cache } from "next/cache"
 import { getScoresForDate, getTodayYYYYMMDD, type ScoresResult } from "@/lib/data/scores"
 import { getNews } from "@/lib/data/news"
+import { getLeaderboard } from "@/lib/data/leaderboard"
 import type { NewsItem } from "@/types/news"
 
 /**
@@ -31,11 +32,13 @@ import type { NewsItem } from "@/types/news"
  * Only the INITIAL server-rendered snapshot flows through here.
  */
 
-// Snapshot revalidate windows (seconds). These match the page-level
-// `export const revalidate` and are intentionally generous: the client
+// Snapshot revalidate window (seconds). It must stay >= the page-level
+// `export const revalidate` (900): the lowest revalidate on a route sets how
+// often the whole route regenerates, so a shorter snapshot window silently
+// multiplies ISR writes (a 30 s feed snapshot, 2495e7e, is the likely cause of
+// the Sep 16 spike). The client
 // components poll the live API for up-to-the-second data after hydration.
-const SCORES_SNAPSHOT_REVALIDATE = 900
-const NEWS_SNAPSHOT_REVALIDATE = 900
+export const SNAPSHOT_REVALIDATE_SECONDS = 900
 
 /**
  * Cached initial scores snapshot for today, keyed by UTC calendar date so a
@@ -50,7 +53,7 @@ export async function getScoresSnapshot(): Promise<ScoresResult["data"]> {
       return result.data
     },
     ["isr-scores-snapshot"],
-    { revalidate: SCORES_SNAPSHOT_REVALIDATE, tags: ["scores-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["scores-snapshot"] }
   )
 
   return load(today)
@@ -66,7 +69,7 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
       return news.items.length > 0 ? news.items[0] : null
     },
     ["isr-top-news-snapshot"],
-    { revalidate: NEWS_SNAPSHOT_REVALIDATE, tags: ["news-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["news-snapshot"] }
   )
 
   return load()
@@ -89,9 +92,6 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
 
 import { createAdminClient } from "@/lib/supabase/admin"
 
-const LEADERBOARD_SNAPSHOT_REVALIDATE = 900
-const FEED_SNAPSHOT_REVALIDATE = 900
-
 export type LeaderboardSnapshotEntry = {
   user_id: string
   username: string
@@ -102,63 +102,19 @@ export type LeaderboardSnapshotEntry = {
 }
 
 /**
- * Top-5 win-rate leaderboard for the explore sidebar. Mirrors the aggregation
- * in /api/leaderboard but returns only the five fields MiniLeaderboard renders.
+ * Top-5 win-rate leaderboard for the explore sidebar: the /api/leaderboard
+ * result trimmed to the fields MiniLeaderboard renders.
  */
 export async function getLeaderboardSnapshot(): Promise<LeaderboardSnapshotEntry[]> {
   const load = unstable_cache(
-    async () => {
-      const supabase = createAdminClient()
-
-      const { data: parlays, error } = await supabase
-        .from("parlays")
-        .select("user_id, status")
-        .in("status", ["won", "lost", "pending"])
-
-      if (error || !parlays || parlays.length === 0) return []
-
-      const userStats = new Map<string, { total: number; won: number; totalPicks: number }>()
-      for (const parlay of parlays) {
-        if (!parlay.user_id) continue
-        const s = userStats.get(parlay.user_id) || { total: 0, won: 0, totalPicks: 0 }
-        s.totalPicks += 1
-        if (parlay.status === "won" || parlay.status === "lost") {
-          s.total += 1
-          if (parlay.status === "won") s.won += 1
-        }
-        userStats.set(parlay.user_id, s)
-      }
-
-      const qualified = Array.from(userStats.entries())
-        .filter(([, s]) => s.total >= 10)
-        .map(([userId]) => userId)
-
-      if (qualified.length === 0) return []
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url")
-        .in("id", qualified)
-
-      if (!profiles) return []
-
-      return profiles
-        .map((p) => {
-          const s = userStats.get(p.id)!
-          return {
-            user_id: p.id,
-            username: p.username,
-            display_name: p.display_name,
-            avatar_url: p.avatar_url,
-            win_rate: s.total > 0 ? Math.round((s.won / s.total) * 1000) / 10 : 0,
-            total_picks: s.totalPicks,
-          }
-        })
-        .sort((a, b) => b.win_rate - a.win_rate)
+    async () =>
+      (await getLeaderboard("win_rate")).leaderboard
         .slice(0, 5)
-    },
+        .map(({ user_id, username, display_name, avatar_url, win_rate, total_picks }) => ({
+          user_id, username, display_name, avatar_url, win_rate, total_picks,
+        })),
     ["isr-leaderboard-snapshot"],
-    { revalidate: LEADERBOARD_SNAPSHOT_REVALIDATE, tags: ["leaderboard-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["leaderboard-snapshot"] }
   )
 
   return load()
@@ -264,7 +220,7 @@ export async function getFeedSnapshot(): Promise<FeedSnapshot> {
       }
     },
     ["isr-feed-snapshot"],
-    { revalidate: FEED_SNAPSHOT_REVALIDATE, tags: ["feed-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["feed-snapshot"] }
   )
 
   return load()

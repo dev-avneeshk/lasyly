@@ -8,12 +8,15 @@
  *
  * Settlement logic:
  * - Fetches pending legs along with the parlay's created_at timestamp
- * - Only considers games played AFTER the parlay was created
- * - Uses case-insensitive player name matching (ilike) for fuzzy lookup
+ * - Only considers games that tipped off AFTER the parlay was created
+ * - NBA names match exactly (creation validates them); Tennis is case-insensitive
  * - Supports NBA auto-settlement; Tennis uses serve stats when available
+ * - Unsettleable legs expire after 5 days; the parlay is then void, never won
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchESPNLeague } from "@/lib/services/espn"
+import { fetchAllIn } from "@/lib/supabase/paged"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -129,6 +132,12 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
       parlays!inner(created_at)
     `)
     .eq("result", "pending")
+    // Only sports we can settle; unsettleable legs (left to expire) must not
+    // fill the batch and starve these.
+    .in("sport", ["NBA", "Tennis"])
+    // Oldest bets first: each run settles or expires the front of the queue,
+    // so newer legs can't sit behind an arbitrary unordered 500.
+    .order("parlays(created_at)", { ascending: true })
     .limit(500)
 
   if (legsError) {
@@ -147,7 +156,7 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
   }
 
   if (!pendingLegs || pendingLegs.length === 0) {
-    return result
+    return { ...result, parlaysExpired: await expireStaleParlays(supabase) }
   }
 
   // Reshape: extract parlay_created_at from the join
@@ -200,6 +209,44 @@ export async function settleParlayLegs(): Promise<SettlementResult> {
 
 // ─── NBA Settlement ─────────────────────────────────────────────────────────
 
+// nba_player_stats.game_id is a UUID FK; the date lives on nba_games.
+const NBA_STAT_COLUMNS =
+  "game_id, pts, trb, ast, tp, stl, blk, tov, fg, fga, ft, fta, nba_games!inner(game_date, home_team)"
+type NbaStatRow = Record<string, unknown> & { game_id: string; nba_games: { game_date: string; home_team: string } }
+
+/** YYYY-MM-DD of an instant in US Eastern time — the calendar nba_games.game_date uses. */
+export function easternDay(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(iso))
+}
+
+/** over/under against the line; equal is a push. */
+export function legOutcome(actual: number, line: number, direction: "over" | "under"): "won" | "lost" | "push" {
+  if (actual === line) return "push"
+  return (direction === "over" ? actual > line : actual < line) ? "won" : "lost"
+}
+
+/** Team nickname ("Lakers"): unique in the NBA and identical in ESPN and nba_games. */
+const nick = (team: string) => team.trim().split(/\s+/).pop() ?? ""
+
+/** ESPN tip-off times (ms) keyed `YYYY-MM-DD|home nickname`, for the given days. */
+async function nbaTipOffs(days: string[]): Promise<Map<string, number>> {
+  const tips = new Map<string, number>()
+  const boards = await Promise.all(
+    days.map((d) => fetchESPNLeague("basketball/nba", d.replace(/-/g, "")).catch(() => []))
+  )
+  days.forEach((d, i) => {
+    for (const m of boards[i]) if (m.startTime) tips.set(`${d}|${nick(m.homeTeam)}`, Date.parse(m.startTime))
+  })
+  return tips
+}
+
+/**
+ * A leg settles against the player's FIRST game that tipped off after the
+ * parlay was created. A game on the creation day (US Eastern) counts only if
+ * it tipped off later; if it already started, the next game counts; if its
+ * tip-off is unknown the leg waits (and eventually expires void). There is no
+ * fallback to an earlier game: that let users bet on games already played.
+ */
 async function settleNBALegs(
   supabase: ReturnType<typeof createAdminClient>,
   legs: PendingLeg[]
@@ -207,205 +254,60 @@ async function settleNBALegs(
   let settled = 0
   let errors = 0
 
-  // Get unique player names (lowercased for case-insensitive matching)
-  const playerNames = [...new Set(legs.map((l) => l.player_name))]
-
-  // Fetch recent game stats for these players
-  // We fetch more games to ensure we find ones after the parlay was created
-  const { data: gameStats, error: statsError } = await supabase
-    .from("nba_player_stats")
-    .select("player_name, game_id, pts, trb, ast, tp, stl, blk, tov, fg, fga, ft, fta, created_at")
-    .in("player_name", playerNames)
-    .order("game_id", { ascending: false })
-    .limit(playerNames.length * 10)
-
-  if (statsError || !gameStats) {
-    // Try case-insensitive fallback if exact match fails
-    return await settleNBALegsFuzzy(supabase, legs)
+  // First games per (player, creation day): a later one is used when the first
+  // tipped off before the bet (4 rows tolerate duplicated stats rows). One small indexed-range query each; a
+  // single `.in(players).limit(n)` truncated at PostgREST's row cap.
+  const keyOf = (l: PendingLeg) => `${l.player_name}|${easternDay(l.parlay_created_at)}`
+  const keys = [...new Set(legs.filter((l) => l.parlay_created_at).map(keyOf))]
+  const nextGames = new Map<string, NbaStatRow[]>()
+  for (let i = 0; i < keys.length; i += 20) {
+    await Promise.all(
+      keys.slice(i, i + 20).map(async (key) => {
+        const [name, day] = key.split("|")
+        const { data, error } = await supabase
+          .from("nba_player_stats")
+          .select(NBA_STAT_COLUMNS)
+          .eq("player_name", name)
+          .gte("nba_games.game_date", day)
+          .order("nba_games(game_date)", { ascending: true })
+          .limit(4)
+        if (error) errors++
+        else if (data?.length) nextGames.set(key, data as unknown as NbaStatRow[])
+      })
+    )
   }
 
-  // Build a map: player_name -> array of game stats (sorted newest first)
-  const playerGames = new Map<string, Array<Record<string, number | string>>>()
-  for (const row of gameStats) {
-    const existing = playerGames.get(row.player_name) ?? []
-    existing.push({
-      game_id: row.game_id as string,
-      created_at: (row.created_at as string) ?? "",
-      pts: Number(row.pts) || 0,
-      trb: Number(row.trb) || 0,
-      ast: Number(row.ast) || 0,
-      tp: Number(row.tp) || 0,
-      stl: Number(row.stl) || 0,
-      blk: Number(row.blk) || 0,
-      tov: Number(row.tov) || 0,
-      fg: Number(row.fg) || 0,
-      fga: Number(row.fga) || 0,
-      ft: Number(row.ft) || 0,
-      fta: Number(row.fta) || 0,
-    })
-    playerGames.set(row.player_name, existing)
-  }
+  const sameDays = [...nextGames.entries()]
+    .filter(([key, rows]) => rows[0].nba_games.game_date === key.split("|")[1])
+    .map(([key]) => key.split("|")[1])
+  const tipOffs = await nbaTipOffs([...new Set(sameDays)])
 
-  // Settle each leg
   for (const leg of legs) {
-    const games = playerGames.get(leg.player_name)
-    if (!games || games.length === 0) {
-      // Try fuzzy match for this specific player
-      continue
-    }
-
+    if (!leg.parlay_created_at) continue
+    const rows = nextGames.get(keyOf(leg))
     const statKey = NBA_STAT_MAP[leg.stat_category.toLowerCase()]
-    if (!statKey) {
-      // Unknown stat category — can't settle
-      continue
+    if (!rows || !statKey) continue
+
+    let game: NbaStatRow | undefined = rows[0]
+    if (game.nba_games.game_date === easternDay(leg.parlay_created_at)) {
+      const tip = tipOffs.get(`${game.nba_games.game_date}|${nick(game.nba_games.home_team)}`)
+      if (tip === undefined) continue
+      // Already started: the next game on a LATER day (duplicate stats rows for
+      // tonight's game must not count as "next").
+      if (tip <= Date.parse(leg.parlay_created_at)) game = rows.find((r) => r.nba_games.game_date > game!.nba_games.game_date)
+      if (!game) continue
     }
+    const stats: NbaStatRow = game
 
-    // Find the first game played AFTER the parlay was created
-    // game_id format is like "202501150LAL" — first 8 chars are YYYYMMDD
-    const parlayDate = leg.parlay_created_at ? new Date(leg.parlay_created_at) : null
-    let targetGame: Record<string, number | string> | null = null
-
-    if (parlayDate) {
-      // Convert parlay date to YYYYMMDD for comparison with game_id
-      const parlayDateStr = parlayDate.toISOString().slice(0, 10).replace(/-/g, "")
-
-      for (const game of games) {
-        const gameDate = (game.game_id as string).slice(0, 8)
-        // Game must be on or after the parlay creation date
-        if (gameDate >= parlayDateStr) {
-          // Pick the earliest game after parlay creation (last in sorted order)
-          if (!targetGame || (game.game_id as string).slice(0, 8) <= (targetGame.game_id as string).slice(0, 8)) {
-            targetGame = game
-          }
-        }
-      }
-    }
-
-    // Fallback: if no date filtering possible, use most recent game
-    if (!targetGame) {
-      targetGame = games[0]
-    }
-
-    // Compute actual value (handle combo stats)
-    let actualValue: number
-    if (statKey === "pra") {
-      actualValue = (targetGame.pts as number) + (targetGame.trb as number) + (targetGame.ast as number)
-    } else if (statKey === "pa") {
-      actualValue = (targetGame.pts as number) + (targetGame.ast as number)
-    } else if (statKey === "pr") {
-      actualValue = (targetGame.pts as number) + (targetGame.trb as number)
-    } else if (statKey === "ra") {
-      actualValue = (targetGame.trb as number) + (targetGame.ast as number)
-    } else {
-      actualValue = targetGame[statKey] as number
-      if (actualValue === undefined) continue
-    }
-
-    // Determine result
-    let legResult: "won" | "lost" | "push"
-    if (leg.direction === "over") {
-      if (actualValue > leg.prop_line) legResult = "won"
-      else if (actualValue === leg.prop_line) legResult = "push"
-      else legResult = "lost"
-    } else {
-      if (actualValue < leg.prop_line) legResult = "won"
-      else if (actualValue === leg.prop_line) legResult = "push"
-      else legResult = "lost"
-    }
-
-    // Update the leg result and store the game_id for reference
-    const { error: updateError } = await supabase
-      .from("parlay_legs")
-      .update({ result: legResult, game_id: targetGame.game_id as string })
-      .eq("id", leg.id)
-
-    if (updateError) {
-      errors++
-    } else {
-      settled++
-    }
-  }
-
-  return { settled, errors }
-}
-
-// ─── NBA Fuzzy Settlement (case-insensitive player name matching) ────────────
-
-async function settleNBALegsFuzzy(
-  supabase: ReturnType<typeof createAdminClient>,
-  legs: PendingLeg[]
-): Promise<{ settled: number; errors: number }> {
-  let settled = 0
-  let errors = 0
-
-  // Process each leg individually with ilike matching
-  for (const leg of legs) {
-    const { data: gameStats, error: statsError } = await supabase
-      .from("nba_player_stats")
-      .select("player_name, game_id, pts, trb, ast, tp, stl, blk, tov, fg, fga, ft, fta, created_at")
-      .ilike("player_name", leg.player_name)
-      .order("game_id", { ascending: false })
-      .limit(10)
-
-    if (statsError || !gameStats || gameStats.length === 0) continue
-
-    const statKey = NBA_STAT_MAP[leg.stat_category.toLowerCase()]
-    if (!statKey) continue
-
-    // Find game after parlay creation
-    const parlayDate = leg.parlay_created_at ? new Date(leg.parlay_created_at) : null
-    let targetGame = gameStats[0] // default to most recent
-
-    if (parlayDate) {
-      const parlayDateStr = parlayDate.toISOString().slice(0, 10).replace(/-/g, "")
-      for (const game of gameStats) {
-        const gameDate = (game.game_id as string).slice(0, 8)
-        if (gameDate >= parlayDateStr) {
-          targetGame = game
-        }
-      }
-    }
-
-    // Compute actual value
-    let actualValue: number
-    const stats = {
-      pts: Number(targetGame.pts) || 0,
-      trb: Number(targetGame.trb) || 0,
-      ast: Number(targetGame.ast) || 0,
-      tp: Number(targetGame.tp) || 0,
-      stl: Number(targetGame.stl) || 0,
-      blk: Number(targetGame.blk) || 0,
-      tov: Number(targetGame.tov) || 0,
-      fg: Number(targetGame.fg) || 0,
-      fga: Number(targetGame.fga) || 0,
-      ft: Number(targetGame.ft) || 0,
-      fta: Number(targetGame.fta) || 0,
-    }
-
-    if (statKey === "pra") actualValue = stats.pts + stats.trb + stats.ast
-    else if (statKey === "pa") actualValue = stats.pts + stats.ast
-    else if (statKey === "pr") actualValue = stats.pts + stats.trb
-    else if (statKey === "ra") actualValue = stats.trb + stats.ast
-    else {
-      actualValue = stats[statKey as keyof typeof stats]
-      if (actualValue === undefined) continue
-    }
-
-    let legResult: "won" | "lost" | "push"
-    if (leg.direction === "over") {
-      if (actualValue > leg.prop_line) legResult = "won"
-      else if (actualValue === leg.prop_line) legResult = "push"
-      else legResult = "lost"
-    } else {
-      if (actualValue < leg.prop_line) legResult = "won"
-      else if (actualValue === leg.prop_line) legResult = "push"
-      else legResult = "lost"
-    }
+    const v = (k: string) => Number(stats[k]) || 0
+    const combos: Record<string, string[]> = { pra: ["pts", "trb", "ast"], pa: ["pts", "ast"], pr: ["pts", "trb"], ra: ["trb", "ast"] }
+    const actualValue = (combos[statKey] ?? [statKey]).reduce((sum, k) => sum + v(k), 0)
 
     const { error: updateError } = await supabase
       .from("parlay_legs")
-      .update({ result: legResult, game_id: targetGame.game_id as string })
+      .update({ result: legOutcome(actualValue, leg.prop_line, leg.direction), game_id: stats.game_id })
       .eq("id", leg.id)
+      .eq("result", "pending") // the cron and the queue job can overlap
 
     if (updateError) errors++
     else settled++
@@ -433,9 +335,9 @@ async function settleTennisLegs(
     let query = supabase
       .from("tennis_serve_stats")
       .select("player_name, aces, double_faults, first_serve_pct, games_won, games_lost, sets_won, sets_lost, created_at")
-      .ilike("player_name", leg.player_name)
-      .order("created_at", { ascending: false })
-      .limit(5)
+      .ilike("player_name", leg.player_name.replace(/[\\%_]/g, "\\$&")) // literal, not a pattern
+      .order("created_at", { ascending: true }) // first match after the bet
+      .limit(1)
 
     if (parlayDate) {
       query = query.gte("created_at", parlayDate)
@@ -451,30 +353,17 @@ async function settleTennisLegs(
     const stat = serveStats[0]
     const category = leg.stat_category.toLowerCase()
 
-    let actualValue: number | null = null
-    if (category === "aces") actualValue = Number(stat.aces) || null
-    else if (category === "double_faults") actualValue = Number(stat.double_faults) || null
-    else if (category === "first_serve_pct") actualValue = Number(stat.first_serve_pct) || null
-    else if (category === "games_won") actualValue = Number(stat.games_won) || null
-    else if (category === "sets_won") actualValue = Number(stat.sets_won) || null
-
-    if (actualValue === null) continue
-
-    let legResult: "won" | "lost" | "push"
-    if (leg.direction === "over") {
-      if (actualValue > leg.prop_line) legResult = "won"
-      else if (actualValue === leg.prop_line) legResult = "push"
-      else legResult = "lost"
-    } else {
-      if (actualValue < leg.prop_line) legResult = "won"
-      else if (actualValue === leg.prop_line) legResult = "push"
-      else legResult = "lost"
-    }
+    // 0 is a real value ("under 2.5 aces" with 0 aces wins); only missing is skipped.
+    const columns = ["aces", "double_faults", "first_serve_pct", "games_won", "sets_won"]
+    const raw = columns.includes(category) ? stat[category as keyof typeof stat] : null
+    const actualValue = raw === null || raw === undefined ? NaN : Number(raw)
+    if (!Number.isFinite(actualValue)) continue
 
     const { error: updateError } = await supabase
       .from("parlay_legs")
-      .update({ result: legResult })
+      .update({ result: legOutcome(actualValue, leg.prop_line, leg.direction) })
       .eq("id", leg.id)
+      .eq("result", "pending")
 
     if (updateError) errors++
     else settled++
@@ -486,76 +375,85 @@ async function settleTennisLegs(
 // ─── Parlay Resolution ──────────────────────────────────────────────────────
 
 /**
- * Checks if all legs in the given parlays are settled.
- * If so, resolves the parlay (won if all legs won, lost if any lost).
- * Push legs are treated as won (standard parlay rules).
+ * Parlay outcome from its leg results (null = not decided yet).
+ * - any leg lost → lost
+ * - otherwise pushed legs drop out: any won → won, all push → void
+ * - unsettled legs: wait, or void once the parlay has expired. A leg we can't
+ *   settle (unsupported sport/stat, player never played) used to become a push
+ *   and the parlay a free win.
+ * `void` is excluded from win rates (they count won/lost only).
  */
+export function parlayOutcome(results: string[], expired = false): "won" | "lost" | "void" | null {
+  if (results.includes("lost")) return "lost"
+  if (results.includes("pending")) return expired ? "void" : null
+  return results.includes("won") ? "won" : "void"
+}
+
+/** Results of every leg of the given parlays, by parlay id (chunked `.in()`). */
+async function legResultsByParlay(
+  supabase: ReturnType<typeof createAdminClient>,
+  parlayIds: string[]
+): Promise<Map<string, { id: string; result: string }[]> | null> {
+  const byParlay = new Map<string, { id: string; result: string }[]>()
+  for (let i = 0; i < parlayIds.length; i += 100) {
+    // Paged: a plain .in() stops at 1000 rows, and a dropped `lost` leg (legacy
+    // parlays can exceed the 10-leg cap) would resolve its parlay `won`.
+    let data: { id: string; parlay_id: string; result: string }[]
+    try {
+      data = await fetchAllIn(supabase, "parlay_legs", "id, parlay_id, result", "parlay_id", parlayIds.slice(i, i + 100))
+    } catch {
+      return null
+    }
+    for (const l of data) byParlay.set(l.parlay_id, [...(byParlay.get(l.parlay_id) ?? []), l])
+  }
+  return byParlay
+}
+
+/** Sets each parlay's outcome, one guarded update per outcome; returns how many. */
+async function finishParlays(
+  supabase: ReturnType<typeof createAdminClient>,
+  outcomes: Map<string, "won" | "lost" | "void" | null>
+): Promise<number> {
+  let finished = 0
+  for (const status of ["won", "lost", "void"] as const) {
+    const ids = [...outcomes].filter(([, o]) => o === status).map(([id]) => id)
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await supabase
+        .from("parlays")
+        .update({ status, resolved_at: new Date().toISOString() })
+        .in("id", ids.slice(i, i + 100))
+        .eq("status", "pending") // Only update if still pending (idempotent)
+        .select("id")
+      if (error) console.error(`[settlement] parlays ${status} update failed:`, error.message)
+      finished += data?.length ?? 0 // rows the pending guard actually matched
+    }
+  }
+  return finished
+}
+
+/** Resolves the given parlays whose legs are all settled. */
 async function resolveParlays(
   supabase: ReturnType<typeof createAdminClient>,
   parlayIds: string[]
 ): Promise<number> {
-  let resolved = 0
-
-  for (const parlayId of parlayIds) {
-    // Fetch all legs for this parlay
-    const { data: legs, error } = await supabase
-      .from("parlay_legs")
-      .select("result")
-      .eq("parlay_id", parlayId)
-
-    if (error || !legs || legs.length === 0) continue
-
-    // Check if all legs are settled (not pending)
-    const allSettled = legs.every((l) => l.result !== "pending")
-    if (!allSettled) continue
-
-    // Determine parlay outcome
-    const anyLost = legs.some((l) => l.result === "lost")
-    const allWonOrPush = legs.every((l) => l.result === "won" || l.result === "push")
-
-    let newStatus: "won" | "lost"
-    if (anyLost) {
-      newStatus = "lost"
-    } else if (allWonOrPush) {
-      newStatus = "won"
-    } else {
-      continue
-    }
-
-    // Update parlay status
-    const { error: updateError } = await supabase
-      .from("parlays")
-      .update({
-        status: newStatus,
-        resolved_at: new Date().toISOString(),
-      })
-      .eq("id", parlayId)
-      .eq("status", "pending") // Only update if still pending (idempotent)
-
-    if (!updateError) {
-      resolved++
-    }
-  }
-
-  return resolved
+  const byParlay = await legResultsByParlay(supabase, parlayIds)
+  if (!byParlay) return 0
+  const outcomes = new Map([...byParlay].map(([id, legs]) => [id, parlayOutcome(legs.map((l) => l.result))]))
+  return finishParlays(supabase, outcomes)
 }
 
 // ─── Stale Parlay Expiry ────────────────────────────────────────────────────
 
 /**
- * Expires parlays that are older than 5 days and still have pending legs.
- * These are bets where game stats were never found (scraper missed the game,
- * player didn't play, etc.). Marks unsettled legs as "push" and resolves
- * the parlay based on whatever legs did settle.
- *
- * If ALL legs are still pending after 5 days, the parlay is voided (marked lost).
+ * Expires parlays older than 5 days that still have pending legs (stats never
+ * found, or a leg type with no auto-settlement). Unsettled legs become `push`;
+ * the parlay is lost if a settled leg lost, otherwise void.
  */
 async function expireStaleParlays(
   supabase: ReturnType<typeof createAdminClient>
 ): Promise<number> {
   const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
 
-  // Find stale parlays: pending, created more than 5 days ago
   const { data: staleParlays, error } = await supabase
     .from("parlays")
     .select("id")
@@ -564,56 +462,19 @@ async function expireStaleParlays(
     .limit(100)
 
   if (error || !staleParlays || staleParlays.length === 0) return 0
-
-  let expired = 0
-
-  for (const parlay of staleParlays) {
-    // Get all legs for this parlay
-    const { data: legs, error: legsError } = await supabase
+  const ids = staleParlays.map((p) => p.id as string)
+  const byParlay = await legResultsByParlay(supabase, ids)
+  if (!byParlay) return 0
+  const pendingIds = [...byParlay.values()].flat().filter((l) => l.result === "pending").map((l) => l.id)
+  for (let i = 0; i < pendingIds.length; i += 100) {
+    const { error: pushError } = await supabase
       .from("parlay_legs")
-      .select("id, result")
-      .eq("parlay_id", parlay.id)
-
-    if (legsError || !legs || legs.length === 0) continue
-
-    const pendingLegs = legs.filter((l) => l.result === "pending")
-    const settledLegs = legs.filter((l) => l.result !== "pending")
-
-    // Mark all remaining pending legs as "push" (voided — no action)
-    if (pendingLegs.length > 0) {
-      const pendingIds = pendingLegs.map((l) => l.id)
-      await supabase
-        .from("parlay_legs")
-        .update({ result: "push" })
-        .in("id", pendingIds)
-    }
-
-    // Determine final parlay status
-    // If any settled leg lost → parlay lost
-    // If all legs are won/push → parlay won
-    // If ALL legs were pending (now push) → parlay lost (void = loss)
-    const anyLost = settledLegs.some((l) => l.result === "lost")
-    const allOriginallyPending = settledLegs.length === 0
-
-    let newStatus: "won" | "lost"
-    if (anyLost || allOriginallyPending) {
-      newStatus = "lost"
-    } else {
-      // All settled legs won/push, remaining were voided as push
-      newStatus = "won"
-    }
-
-    const { error: updateError } = await supabase
-      .from("parlays")
-      .update({
-        status: newStatus,
-        resolved_at: new Date().toISOString(),
-      })
-      .eq("id", parlay.id)
-      .eq("status", "pending")
-
-    if (!updateError) expired++
+      .update({ result: "push" })
+      .in("id", pendingIds.slice(i, i + 100))
+      .eq("result", "pending")
+    if (pushError) return 0
   }
-
-  return expired
+  // No legs → void, never pending forever.
+  const outcomes = new Map(ids.map((id) => [id, parlayOutcome((byParlay.get(id) ?? []).map((l) => l.result), true)]))
+  return finishParlays(supabase, outcomes)
 }

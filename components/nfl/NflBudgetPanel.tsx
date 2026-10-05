@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import type { BudgetSnapshot } from "@/lib/nfl/budget"
 import type { NflPlayer, RosterSlot, RosterState, TeamId } from "@/lib/nfl/types"
 import { OFFENSE_SLOTS, DEFENSE_SLOTS } from "@/lib/nfl/types"
-import { headshotSources } from "@/lib/nfl/data"
+import { nflHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
 import { useHeadshotFallback } from "@/lib/players/useHeadshotFallback"
 import { cn, formatMoney } from "@/lib/utils"
 

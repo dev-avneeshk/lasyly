@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 /**
  * POST /api/rooms/[roomId]/requests/[requestId]  { approve: boolean }
@@ -20,6 +21,8 @@ export const POST = withSecurity(async (
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, decideSchema)

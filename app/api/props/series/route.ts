@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { cached } from "@/lib/cache"
+import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 /**
  * GET /api/props/series?team=OKC&opponent=SAS
@@ -26,12 +28,17 @@ const ABBR_TO_TEAM_NAME: Record<string, string> = {
   TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards",
 }
 
-/** Expand a team abbreviation to the full name stored in nba_games. Falls back to input. */
-function expandTeam(abbr: string): string {
-  return ABBR_TO_TEAM_NAME[abbr.toUpperCase()] ?? abbr
+const TEAM_NAMES = new Set(Object.values(ABBR_TO_TEAM_NAME))
+
+/** Abbreviation or full name → the full name stored in nba_games; null if unknown. */
+function expandTeam(input: string): string | null {
+  const full = ABBR_TO_TEAM_NAME[input.toUpperCase()] ?? input
+  return TEAM_NAMES.has(full) ? full : null
 }
 
-export async function GET(request: Request) {
+type Game = { home_team: string; away_team: string; home_score: number; away_score: number; game_date: string }
+
+export const GET = withSecurity(async (request: Request) => {
   const { searchParams } = new URL(request.url)
   const team = searchParams.get("team")
   const opponent = searchParams.get("opponent")
@@ -40,82 +47,49 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "team and opponent are required" }, { status: 400 })
   }
 
-  // Expand abbreviations to full names as stored in nba_games
+  // Allowlisted: the names are interpolated into a PostgREST `.or()` filter,
+  // so raw input could rewrite it. Unknown teams have no games anyway.
   const teamFull = expandTeam(team)
   const opponentFull = expandTeam(opponent)
+  if (!teamFull || !opponentFull) {
+    return NextResponse.json({ type: "season", teamWins: 0, opponentWins: 0, gamesPlayed: 0 })
+  }
+
+  // This season (since October 1); the last 14 days of it decide "playoff".
+  const seasonStart = new Date()
+  seasonStart.setMonth(9, 1)
+  if (seasonStart > new Date()) seasonStart.setFullYear(seasonStart.getFullYear() - 1)
+  const recentStart = new Date(Date.now() - 14 * 86_400_000)
+  const day = (d: Date) => d.toISOString().split("T")[0]
+  const since = day(recentStart < seasonStart ? recentStart : seasonStart)
+  const recentDateStr = day(recentStart)
 
   try {
-    const supabase = createAdminClient()
+    // One query (was two), cached: the record only changes when a game ends.
+    const games = await cached(`props-series:v1:${teamFull}:${opponentFull}:${since}`, async () => {
+      const { data, error } = await createAdminClient()
+        .from("nba_games")
+        .select("home_team, away_team, home_score, away_score, game_date")
+        .or(`and(home_team.eq.${teamFull},away_team.eq.${opponentFull}),and(home_team.eq.${opponentFull},away_team.eq.${teamFull})`)
+        .gte("game_date", since)
+        .eq("status", "completed")
+        .order("game_date", { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Game[]
+    }, 600_000)
 
-    // First check: recent games (last 14 days) to detect playoff series
-    const fourteenDaysAgo = new Date()
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
-    const recentDateStr = fourteenDaysAgo.toISOString().split("T")[0]
-
-    const { data: recentGames } = await supabase
-      .from("nba_games")
-      .select("home_team, away_team, home_score, away_score, game_date")
-      .or(`and(home_team.eq.${teamFull},away_team.eq.${opponentFull}),and(home_team.eq.${opponentFull},away_team.eq.${teamFull})`)
-      .gte("game_date", recentDateStr)
-      .eq("status", "completed")
-      .order("game_date", { ascending: true })
-
-    const recentCount = recentGames?.length ?? 0
-
-    // If 2+ games in last 14 days → playoff series
-    if (recentCount >= 2) {
-      let teamWins = 0
-      let opponentWins = 0
-
-      for (const game of recentGames!) {
-        const homeWon = game.home_score > game.away_score
-        const winner = homeWon ? game.home_team : game.away_team
-        if (winner === teamFull) teamWins++
-        else if (winner === opponentFull) opponentWins++
-      }
-
-      return NextResponse.json({
-        type: "playoff",
-        teamWins,
-        opponentWins,
-        gamesPlayed: recentCount,
-      })
-    }
-
-    // Otherwise: full season series
-    // Get all games between these teams this season (since October)
-    const seasonStart = new Date()
-    seasonStart.setMonth(9, 1) // October 1
-    if (seasonStart > new Date()) {
-      seasonStart.setFullYear(seasonStart.getFullYear() - 1)
-    }
-    const seasonDateStr = seasonStart.toISOString().split("T")[0]
-
-    const { data: seasonGames } = await supabase
-      .from("nba_games")
-      .select("home_team, away_team, home_score, away_score, game_date")
-      .or(`and(home_team.eq.${teamFull},away_team.eq.${opponentFull}),and(home_team.eq.${opponentFull},away_team.eq.${teamFull})`)
-      .gte("game_date", seasonDateStr)
-      .eq("status", "completed")
-      .order("game_date", { ascending: true })
-
+    const recent = games.filter((g) => g.game_date >= recentDateStr)
+    const playoff = recent.length >= 2
+    const counted = playoff ? recent : games.filter((g) => g.game_date >= day(seasonStart))
     let teamWins = 0
     let opponentWins = 0
-
-    for (const game of seasonGames ?? []) {
-      const homeWon = game.home_score > game.away_score
-      const winner = homeWon ? game.home_team : game.away_team
+    for (const game of counted) {
+      const winner = game.home_score > game.away_score ? game.home_team : game.away_team
       if (winner === teamFull) teamWins++
       else if (winner === opponentFull) opponentWins++
     }
-
-    return NextResponse.json({
-      type: "season",
-      teamWins,
-      opponentWins,
-      gamesPlayed: seasonGames?.length ?? 0,
-    })
+    return NextResponse.json({ type: playoff ? "playoff" : "season", teamWins, opponentWins, gamesPlayed: counted.length })
   } catch {
     return NextResponse.json({ type: "season", teamWins: 0, opponentWins: 0, gamesPlayed: 0 })
   }
-}
+}, { cacheControl: CACHE_CONTROL.PUBLIC_MEDIUM })

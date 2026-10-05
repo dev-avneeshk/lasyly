@@ -16,6 +16,7 @@
 
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { quotePostgrestValue as q } from "@/lib/sanitize"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { CorrelatedProp } from "@/lib/analytics/types"
 
@@ -41,7 +42,7 @@ export const GET = withSecurity(async (request: Request) => {
   const { data, error } = await supabase
     .from("correlations_cache")
     .select("prop_a, prop_b, coefficient, computed_at")
-    .or(`prop_a.eq.${propId},prop_b.eq.${propId}`)
+    .or(`prop_a.eq.${q(propId)},prop_b.eq.${q(propId)}`)
     .gt("coefficient", 0.5)
     .order("coefficient", { ascending: false })
     .limit(10)

@@ -233,7 +233,7 @@ jobs:
           # Use depcheck for static analysis of unused dependencies
           # Ignore packages that are used implicitly (config-based, dynamic imports, etc.)
           npx depcheck --json \
-            --ignores="@types/*,eslint-config-*,@tailwindcss/*,tailwindcss,postcss,typescript,@sentry/nextjs,@stripe/stripe-js,@radix-ui/*" \
+            --ignores="@types/*,eslint-config-*,@tailwindcss/*,tailwindcss,postcss,typescript,@sentry/nextjs,@radix-ui/*" \
             . | node -e "
           const fs = require('fs');
           let input = '';

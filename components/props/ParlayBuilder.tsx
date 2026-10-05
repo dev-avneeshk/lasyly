@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { X, Trash2, AlertTriangle, TrendingUp, Link2, ChevronDown, Check } from "lucide-react"
+import * as Dialog from "@radix-ui/react-dialog"
+import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { cn } from "@/lib/utils"
 import { SaveParlayDialog } from "@/components/parlays/SaveParlayDialog"
 import type { SaveParlayPayload, ParlayLeg as ParlayLegType } from "@/lib/types/parlay"
@@ -44,6 +46,7 @@ const MAX_LEGS = 10
 export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, isAuthenticated }: ParlayBuilderProps) {
   const { legs, combinedHitRate, overlappingDates, isVisible } = state
   const [isOpen, setIsOpen] = useState(false)
+  const openerFocus = useOpenerFocus()
 
   // Save dialog state (Task 8.1)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
@@ -169,29 +172,23 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
         </span>
       </button>
 
-      {/* Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {/* Radix: dialog role/label, focus trap and restore, Escape, scroll lock.
+          Mounted while open; Radix waits for the bottom-sheet exit animation
+          (globals.css) before unmounting, so it still slides in and out. */}
+      <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Portal>
+      <Dialog.Overlay className="bottom-sheet-scrim fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
 
       {/* Slide-up panel */}
-      <div
-        className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ease-out",
-          isOpen ? "translate-y-0" : "translate-y-full"
-        )}
-      >
+      <Dialog.Content {...openerFocus} aria-describedby={undefined} className="bottom-sheet-panel fixed bottom-0 left-0 right-0 z-50">
         <div className="bg-[var(--color-surface-elevated)] border-t border-[var(--color-border)] rounded-t-2xl shadow-2xl max-h-[70vh] flex flex-col mx-auto max-w-lg">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]/50">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[var(--color-lime)]" />
-              <span className="text-sm font-semibold text-white">
+              <Dialog.Title className="text-sm font-semibold text-white">
                 My Prediction
-              </span>
+              </Dialog.Title>
               <span className="text-xs text-[var(--color-text-muted)] bg-white/10 px-1.5 py-0.5 rounded-full">
                 {legs.length}/{MAX_LEGS}
               </span>
@@ -261,7 +258,9 @@ export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, 
             )}
           </div>
         </div>
-      </div>
+      </Dialog.Content>
+      </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Save Parlay Dialog (Task 8.1) */}
       {showSaveDialog && (

@@ -52,7 +52,7 @@ if (typeof setInterval !== "undefined") {
         invalidationEpochs.delete(key)
       }
     }
-  }, 30_000)
+  }, 30_000).unref?.() // don't keep a Node process (scripts, tests) alive
 }
 
 // ─── Redis Cache Helpers ─────────────────────────────────────────────────────
@@ -277,7 +277,9 @@ export async function cached<T>(
       const startEpoch = epochOf(key)
       const memoize = (data: T, at: number) => {
         if (epochOf(key) !== startEpoch) return
-        memoryCache.set(key, { data, timestamp: at, ttl: ttlMs })
+        // ttl = the memo window, so the sweeper frees it after 2× that (was 2×
+        // the full key TTL: multi-MB blobs held for hours, served ≤10 s).
+        memoryCache.set(key, { data, timestamp: at, ttl: memoWindowFor(ttlMs) })
       }
 
       // Coalesce concurrent reads of the same key into one round trip. Without

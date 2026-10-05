@@ -3,11 +3,21 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getAllPlayerSlugs } from "@/lib/data/public-players"
 import { SPORT_SLUG_MAP } from "@/lib/seo/player-slug"
 import { getAllComparisonSlugs } from "@/lib/data/comparisons"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const revalidate = 3600 // regenerate sitemap every hour
+// The player index is read through Upstash Redis, whose client fetches with
+// `cache: "no-store"`; without this the route bails to per-request rendering.
+// Nothing here reads cookies or headers, so forcing static keeps hourly ISR.
+export const dynamic = "force-static"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://lasyly.me"
+  const baseUrl = SITE_URL
+  // Midnight UTC of the current day, not `new Date()`. A per-render timestamp
+  // made every hourly regeneration produce new output, and Vercel bills ISR
+  // writes only when the output changes. With a day-stable value the sitemap
+  // changes at most once a day plus whenever the underlying data changes.
+  const today = new Date(new Date().toISOString().slice(0, 10))
 
   // Fetch all published blog posts from DB for dynamic sitemap entries
   const supabase = createAdminClient()
@@ -62,7 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const propsEntry: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/props/today`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "daily" as const,
       priority: 0.9,
     },
@@ -72,7 +82,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const sportScoresEntries: MetadataRoute.Sitemap = Object.keys(SPORT_SLUG_MAP).map(
     (sportSlug) => ({
       url: `${baseUrl}/scores/${sportSlug}`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "hourly" as const,
       priority: 0.8,
     })
@@ -82,7 +92,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const comparisonSlugs = getAllComparisonSlugs()
   const comparisonEntries: MetadataRoute.Sitemap = comparisonSlugs.map((slug) => ({
     url: `${baseUrl}/compare/${slug}`,
-    lastModified: new Date(),
+    lastModified: today,
     changeFrequency: "monthly" as const,
     priority: 0.85,
   }))
@@ -93,45 +103,45 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // sitemap is an error Google Search Console flags. /explore is the home.
     {
       url: `${baseUrl}/explore`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${baseUrl}/scores`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "hourly",
       priority: 0.8,
     },
     {
       url: `${baseUrl}/news`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "daily",
       priority: 0.7,
     },
     // Marketing / SEO pages
     {
       url: `${baseUrl}/features`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "monthly",
       priority: 0.9,
     },
     {
       url: `${baseUrl}/tipsters`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "weekly",
       priority: 0.85,
     },
     {
       url: `${baseUrl}/careers`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "weekly",
       priority: 0.6,
     },
     // Blog index
     {
       url: `${baseUrl}/blog`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "daily",
       priority: 0.85,
     },
@@ -147,7 +157,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Public SEO pages: comparisons (Lasyly vs X)
     {
       url: `${baseUrl}/compare`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "monthly" as const,
       priority: 0.85,
     },
@@ -155,26 +165,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Auth
     {
       url: `${baseUrl}/login`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "monthly",
       priority: 0.5,
     },
     {
       url: `${baseUrl}/signup`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     // Legal
     {
       url: `${baseUrl}/terms`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
       url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: "yearly",
       priority: 0.3,
     },

@@ -177,7 +177,11 @@ export default function QuizPlayer({
     setAnswers((prev) => ({ ...prev, [current.id]: choice }))
   }
 
+  // One submit at a time: the countdown and a click could both fire it.
+  const submittingRef = useRef(false)
   const submit = useCallback(async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setPhase("submitting")
     setError(null)
     try {
@@ -207,26 +211,25 @@ export default function QuizPlayer({
     } catch {
       setError("Couldn't reach the server. Check your connection and try again.")
       setPhase("playing")
+    } finally {
+      submittingRef.current = false
     }
   }, [quizId])
 
   // Advance to the next question, or submit if we're on the last one. Shared by
   // the countdown and the manual "Next" button.
   const goNext = useCallback(() => {
-    setIndex((i) => {
-      if (i >= total - 1) {
-        void submit()
-        return i
-      }
-      return i + 1
-    })
-  }, [total, submit])
+    if (index >= total - 1) void submit() // not inside a state updater (those can run twice)
+    else setIndex(index + 1)
+  }, [index, total, submit])
 
   // ── Per-question 10s countdown ─────────────────────────────────────────────
   // Reset to full whenever the question changes (or play begins). A 1s tick
-  // decrements; hitting 0 auto-advances. Only runs during the playing phase.
+  // decrements; hitting 0 auto-advances. Only runs during the playing phase,
+  // and not after a failed submit: that restarted the clock and auto-retried
+  // every 10 s forever. The user retries with the button instead.
   useEffect(() => {
-    if (phase !== "playing") return
+    if (phase !== "playing" || error) return
     setTimeLeft(PER_QUESTION_SECONDS)
     const id = setInterval(() => {
       setTimeLeft((t) => {
@@ -238,7 +241,7 @@ export default function QuizPlayer({
       })
     }, 1000)
     return () => clearInterval(id)
-  }, [phase, index, goNext])
+  }, [phase, index, goNext, error])
 
   function backToSetup() {
     setQuestions([])

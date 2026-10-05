@@ -144,6 +144,26 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, fetchScores])
 
+  // Today's board changes as games start (they leave Upcoming) and finish, but
+  // it was never refetched. Refresh every minute while visible, and on return.
+  useEffect(() => {
+    if (selectedDate !== formatYYYYMMDD(new Date())) return
+    let ctrl: AbortController | null = null
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return
+      ctrl?.abort()
+      ctrl = new AbortController()
+      fetchScores(selectedDate, ctrl.signal)
+    }
+    const id = setInterval(refresh, 60_000)
+    document.addEventListener("visibilitychange", refresh)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener("visibilitychange", refresh)
+      ctrl?.abort()
+    }
+  }, [selectedDate, fetchScores])
+
   // ─── Filtering ───────────────────────────────────────────────────────────────
 
   // Keep only matches that fall on `selectedDate` in the viewer's timezone.
@@ -237,13 +257,14 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
           </div>
 
           {/* Filter row: date strip + league dropdown + status tabs */}
-          <div className="flex flex-col lg:flex-row gap-3 mb-6">
-            {/* Date strip */}
-            <div className="flex items-center gap-1 bg-[var(--color-surface)] rounded-xl p-1.5 border border-white/5">
+          {/* Side by side only from 1400px: below that the nav + 320px rail leave the tabs ~24px wide. */}
+          <div className="flex flex-col min-[1400px]:flex-row gap-3 mb-6">
+            {/* Date strip (scrolls on narrow phones instead of clipping) */}
+            <div className="flex items-center gap-1 bg-[var(--color-surface)] rounded-xl p-1.5 border border-white/5 min-w-0 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setSelectedDate(formatYYYYMMDD(new Date(parseYYYYMMDD(selectedDate).getTime() - 86400000)))}
                 aria-label="Previous day"
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+                className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -252,7 +273,7 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
                   key={d.fullDate}
                   onClick={() => setSelectedDate(d.fullDate)}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-lg transition-all",
+                    "shrink-0 flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-lg transition-all",
                     selectedDate === d.fullDate
                       ? "bg-[var(--color-lime)] text-black"
                       : "text-white/50 hover:bg-white/5 hover:text-white",
@@ -269,14 +290,14 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
               <button
                 onClick={() => setSelectedDate(formatYYYYMMDD(new Date(parseYYYYMMDD(selectedDate).getTime() + 86400000)))}
                 aria-label="Next day"
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+                className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
             {/* League dropdown + status tabs */}
-            <div className="flex items-center gap-2 bg-[var(--color-surface)] rounded-xl p-1.5 border border-white/5 flex-1">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-[var(--color-surface)] rounded-xl p-1.5 border border-white/5 flex-1 min-w-0">
               {/* League dropdown */}
               <div className="relative shrink-0">
                 <button
@@ -314,10 +335,9 @@ export default function ScoresClient({ initialDate, initialScores }: ScoresClien
                 )}
               </div>
 
-              <div className="w-px h-6 bg-white/10 shrink-0" />
-
-              {/* Status tabs */}
-              <div className="flex items-center gap-1 flex-1 min-w-0">
+              <div className="hidden sm:block w-px h-6 bg-white/10 shrink-0" />
+              {/* Status tabs (own line on phones, where they were cut to "U" / "F.") */}
+              <div className="flex items-center gap-1 flex-1 min-w-0 basis-full sm:basis-auto">
                 <StatusTab active={activeTab === "upcoming"} onClick={() => setActiveTab("upcoming")} label="Upcoming" count={upcomingCount} />
                 <StatusTab active={activeTab === "finished"} onClick={() => setActiveTab("finished")} label="Finished" count={finishedCount} />
               </div>

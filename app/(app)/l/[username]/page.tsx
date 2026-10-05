@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { fetchAllIn } from "@/lib/supabase/paged"
 import { notFound } from "next/navigation"
 import PublicProfileClient from "./PublicProfileClient"
 import type { Metadata } from "next"
@@ -31,7 +32,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   }
 
   // Fetch stats in parallel
-  const [followersResult, followingResult, betslipsResult] = await Promise.all([
+  const [followersResult, followingResult, betslipsResult, { data: { user: currentUser } }] = await Promise.all([
     supabase
       .from("follows")
       .select("*", { count: "exact", head: true })
@@ -40,19 +41,21 @@ export default async function PublicProfilePage({ params }: PageProps) {
       .from("follows")
       .select("*", { count: "exact", head: true })
       .eq("follower_id", profile.id),
-    supabase
-      .from("betslips")
-      .select("status, odds")
-      .eq("user_id", profile.id),
+    // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
+    // A failed stats read shows empty stats, not the error page (nothing cached).
+    fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id])
+      .catch((e) => (console.error("profile stats read failed:", e?.message ?? e), [])),
+    supabase.auth.getUser(),
   ])
 
   const followerCount = followersResult.count ?? 0
   const followingCount = followingResult.count ?? 0
 
   // Compute betting stats
-  const betslips = betslipsResult.data ?? []
+  const betslips = betslipsResult
   const totalPicks = betslips.length
-  const resolved = betslips.filter((b) => b.status === "Won" || b.status === "Lost" || b.status === "Void")
+  // Void is a refund, not a loss: win rate is over Won + Lost only (as the profile API).
+  const resolved = betslips.filter((b) => b.status === "Won" || b.status === "Lost")
   const wonCount = betslips.filter((b) => b.status === "Won").length
   const lostCount = betslips.filter((b) => b.status === "Lost").length
   const winRate = resolved.length > 0 ? Math.round((wonCount / resolved.length) * 1000) / 10 : 0
@@ -61,9 +64,6 @@ export default async function PublicProfilePage({ params }: PageProps) {
     : 0
 
   // Check if current user is following this profile
-  const {
-    data: { user: currentUser },
-  } = await supabase.auth.getUser()
 
   let isFollowing = false
   if (currentUser && currentUser.id !== profile.id) {

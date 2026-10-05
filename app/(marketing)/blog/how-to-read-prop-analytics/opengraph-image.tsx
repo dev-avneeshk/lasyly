@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og"
 
-export const runtime = "edge"
 export const alt = "How to Read Prop Analytics: Hit Rates, Matchup Grades & Confidence Scores — Lasyly Blog"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
@@ -36,9 +35,8 @@ export default function OGImage() {
             <div key={m} style={{ background: "rgba(108,99,255,0.15)", border: "1px solid rgba(108,99,255,0.3)", borderRadius: 6, padding: "5px 12px", color: "#8B83FF", fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>{m}</div>
           ))}
         </div>
-        <div style={{ color: "#ffffff", fontSize: 52, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-1.5px", marginBottom: 22, maxWidth: 860 }}>
-          How to Read Prop Analytics:
-          <br />
+        <div style={{ display: "flex", flexDirection: "column", color: "#ffffff", fontSize: 52, fontWeight: 900, lineHeight: 1.05, letterSpacing: "-1.5px", marginBottom: 22, maxWidth: 860 }}>
+          <span>How to Read Prop Analytics:</span>
           <span style={{ color: "#8B83FF" }}>Hit Rates, Matchup Grades & Confidence Scores</span>
         </div>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 19, lineHeight: 1.5, maxWidth: 660 }}>

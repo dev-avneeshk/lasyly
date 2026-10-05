@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { JsonLd } from "@/components/seo/JsonLd"
+import { SITE_URL } from "@/lib/seo/site"
 
 export const metadata: Metadata = {
   title: "Become a Creator on Lasyly — Share Your Sports Analysis",
   description: "Build a public track record, run your own room, and grow an audience for your sports analysis and picks. Creator content is your own opinion; Lasyly does not accept or settle wagers.",
   openGraph: { title: "Become a Creator on Lasyly — Share Your Analysis", description: "Build a public track record, run your own room, and grow an audience for your sports analysis.", type: "website" },
-  alternates: { canonical: "https://lasyly.me/tipsters" },
+  alternates: { canonical: "/tipsters" },
 }
 
 const howItWorks = [
@@ -26,7 +27,7 @@ const faqs = [
 ]
 
 export default function TipstersPage() {
-  const baseUrl = "https://lasyly.me"
+  const baseUrl = SITE_URL
   return (
     <div className="min-h-screen">
       <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", "mainEntity": faqs.map((faq) => ({ "@type": "Question", "name": faq.q, "acceptedAnswer": { "@type": "Answer", "text": faq.a } })) }} />

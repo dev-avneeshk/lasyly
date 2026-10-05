@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   openGraph: { title: "Careers | Lasyly", description: DESCRIPTION, type: "website" },
   twitter: { card: "summary_large_image", title: "Careers | Lasyly", description: DESCRIPTION },
-  alternates: { canonical: "https://lasyly.me/careers" },
+  alternates: { canonical: "/careers" },
 }
 
 const GENERAL_HREF = `/careers/apply/${GENERAL_APPLICATION_SLUG}`

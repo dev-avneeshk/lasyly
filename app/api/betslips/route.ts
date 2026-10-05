@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 const VALID_BET_TYPES = ["Single", "Accumulator", "System", "Lucky"] as const
 
@@ -29,6 +30,8 @@ export const POST = withSecurity(async (request: Request) => {
       { status: 401 }
     )
   }
+  const limited = await rateLimited(`betslip-write:${user.id}`, RATE_LIMITS.feedWrite)
+  if (limited) return limited
 
   const body = await request.json()
   const [data, validationError] = validateRequestBody(body, createBetslipSchema)
@@ -78,12 +81,13 @@ export const POST = withSecurity(async (request: Request) => {
       price: data.price ?? null,
       status: "Pending",
     })
-    .select()
+    // `matches` has no SELECT grant (paywall), so RETURNING * is refused; echo it back.
+    .select("id, room_id, user_id, sportsbook, bet_type, odds, stake, payout, description, status, is_for_sale, price, created_at")
     .single()
 
   if (insertError) {
     return NextResponse.json({ error: "Failed to create betslip." }, { status: 500 })
   }
 
-  return NextResponse.json(betslip, { status: 201 })
+  return NextResponse.json({ ...betslip, matches: data.matches }, { status: 201 })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })

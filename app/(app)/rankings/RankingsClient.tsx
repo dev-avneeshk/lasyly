@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, X, Info, BarChart3, Layers, RefreshCw, SlidersHorizontal } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -68,52 +68,41 @@ export default function RankingsClient({ initialData }: RankingsClientProps = {}
   // so the mount effect below can skip the redundant initial fetch exactly once.
   const [hasSeededInitial, setHasSeededInitial] = useState(Boolean(initialData))
 
-  // Fetch rankings when sport, category or season changes
+  // Fetch rankings when sport, category or season changes. Only the latest
+  // request may write state: a slow earlier response used to overwrite a newer
+  // selection (and the other list wasn't cleared, so NBA teams/players mixed).
+  const requestId = useRef(0)
   const fetchRankings = useCallback(
     async (sp: Sport, cat: ActiveCategory, s: string, m: string) => {
+      const id = ++requestId.current
       setLoading(true)
       setEmpty(false)
       setSearchQuery("")
 
+      const url =
+        cat === "teams"
+          ? sp === "NFL"
+            ? `/api/rankings/teams?sport=NFL&season=${NFL_SEASON}`
+            : `/api/rankings/teams?season=${s}&mode=${m}&published=false`
+          : sp === "NFL"
+            ? `/api/rankings?sport=NFL&season=${NFL_SEASON}&type=${cat}`
+            : `/api/rankings?season=${s}&mode=${m}&type=${cat}&published=false`
       try {
-        if (sp === "NFL") {
-          if (cat === "teams") {
-            const res = await fetch(`/api/rankings/teams?sport=NFL&season=${NFL_SEASON}`)
-            if (!res.ok) throw new Error("Failed to fetch NFL team rankings")
-            const data = await res.json()
-            setPlayers([])
-            setTeams(data.rankings ?? [])
-            setRankingVersion(data.ranking_version ?? null)
-            setEmpty(!data.rankings?.length)
-          } else {
-            const res = await fetch(`/api/rankings?sport=NFL&season=${NFL_SEASON}&type=${cat}`)
-            if (!res.ok) throw new Error("Failed to fetch NFL rankings")
-            const data = await res.json()
-            setTeams([])
-            setPlayers(data.rankings ?? [])
-            setRankingVersion(data.ranking_version ?? null)
-            setEmpty(!data.rankings?.length)
-          }
-        } else if (cat === "teams") {
-          const res = await fetch(`/api/rankings/teams?season=${s}&mode=${m}&published=false`)
-          if (!res.ok) throw new Error("Failed to fetch team rankings")
-          const data = await res.json()
-          setTeams(data.rankings ?? [])
-          setRankingVersion(data.ranking_version ?? null)
-          setEmpty(!data.rankings?.length)
-        } else {
-          const res = await fetch(`/api/rankings?season=${s}&mode=${m}&type=${cat}&published=false`)
-          if (!res.ok) throw new Error("Failed to fetch rankings")
-          const data = await res.json()
-          setPlayers(data.rankings ?? [])
-          setRankingVersion(data.ranking_version ?? null)
-          setEmpty(!data.rankings?.length)
-        }
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`Failed to fetch rankings (${res.status})`)
+        const data = await res.json()
+        if (id !== requestId.current) return
+        const rows = data.rankings ?? []
+        setPlayers(cat === "teams" ? [] : rows)
+        setTeams(cat === "teams" ? rows : [])
+        setRankingVersion(data.ranking_version ?? null)
+        setEmpty(!rows.length)
       } catch (err) {
+        if (id !== requestId.current) return
         console.error("[rankings] fetch error:", err)
         setEmpty(true)
       } finally {
-        setLoading(false)
+        if (id === requestId.current) setLoading(false)
       }
     },
     []

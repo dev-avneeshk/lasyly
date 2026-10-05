@@ -122,7 +122,8 @@ export const PATCH = withSecurity(async (request: Request) => {
     .from("profiles")
     .update(updatePayload)
     .eq("id", user.id)
-    .select()
+    // Explicit columns: anon/authenticated have no SELECT on wallet_balance, so `*` is refused.
+    .select("id, username, display_name, avatar_url, bio, favourite_sports, country, account_type, is_verified, created_at")
     .single()
 
   if (updateErr) {

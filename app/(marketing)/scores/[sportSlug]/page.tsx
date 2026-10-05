@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import type { Metadata } from "next"
@@ -46,7 +47,10 @@ const SLUG_TO_LEAGUES: Record<string, string[]> = {
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
-async function getScoresForSport(sportSlug: string): Promise<MatchRow[]> {
+// Wrapped in React cache() so generateMetadata and the page share one query per
+// render. Without it every render ran the same espn_games select twice (it is
+// a Supabase client call, not a fetch, so Next does not dedupe it).
+const getScoresForSport = cache(async (sportSlug: string): Promise<MatchRow[]> => {
   const leagues = SLUG_TO_LEAGUES[sportSlug]
   if (!leagues) return []
 
@@ -62,7 +66,7 @@ async function getScoresForSport(sportSlug: string): Promise<MatchRow[]> {
 
   if (error || !data) return []
   return data as MatchRow[]
-}
+})
 
 // ─── Status Helpers ──────────────────────────────────────────────────────────
 
@@ -116,10 +120,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: "website",
-      url: `https://lasyly.me/scores/${sportSlug}`,
+      url: `/scores/${sportSlug}`,
     },
     alternates: {
-      canonical: `https://lasyly.me/scores/${sportSlug}`,
+      canonical: `/scores/${sportSlug}`,
     },
   }
 }

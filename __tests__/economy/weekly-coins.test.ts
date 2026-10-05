@@ -1,0 +1,101 @@
+import { describe, it, expect, vi, beforeEach } from "vitest"
+
+// L-15: each run restarted at the first page, so once the payout exceeded the
+// time budget the same already-paid users were re-walked and the tail of the
+// table never got this week's coins.
+const st = vi.hoisted(() => ({
+  ids: [] as string[],
+  paid: new Set<string>(),
+  kv: new Map<string, string>(),
+  now: 0,
+  failOnce: new Set<string>(),
+  failAlways: new Set<string>(),
+}))
+
+vi.mock("@/lib/security/cronAuth", () => ({ isAuthorizedCron: () => true }))
+vi.mock("@/lib/redis", () => ({
+  getRedisClient: () => ({
+    get: async (k: string) => st.kv.get(k) ?? null,
+    set: async (k: string, v: string) => (st.kv.set(k, v), "OK"),
+    del: async (...ks: string[]) => ks.filter((k) => st.kv.delete(k)).length,
+  }),
+}))
+vi.mock("@/lib/economy/wallet", () => ({
+  grantWeeklyLevelBonus: async ({ userId }: { userId: string }) => {
+    st.now += 50 // each grant costs 50 ms of the 45 s budget
+    if (st.failOnce.delete(userId) || st.failAlways.has(userId)) return "error"
+    if (st.paid.has(userId)) return "duplicate"
+    st.paid.add(userId)
+    return "completed"
+  },
+}))
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => {
+      let after = ""
+      let limit = Infinity
+      let range: [number, number] | null = null
+      const c: Record<string, unknown> = {
+        select: () => c,
+        order: () => c,
+        gt: (_k: string, v: string) => ((after = v), c),
+        limit: (n: number) => ((limit = n), c),
+        range: (a: number, b: number) => ((range = [a, b]), c),
+        then: (r: (v: unknown) => unknown) => {
+          const rows = st.ids.filter((id) => id > after).map((id) => ({ id, level: 1 }))
+          return r({ data: range ? rows.slice(range[0], range[1] + 1) : rows.slice(0, limit), error: null })
+        },
+      }
+      return c
+    },
+  }),
+}))
+
+import { POST } from "@/app/api/cron/weekly-coins/route"
+
+const run = async () => (await POST(new Request("http://localhost/api/cron/weekly-coins", { method: "POST" }))).json()
+
+beforeEach(() => {
+  st.ids = Array.from({ length: 1200 }, (_, i) => `u${String(i).padStart(5, "0")}`)
+  st.paid.clear()
+  st.kv.clear()
+  st.now = 0
+  st.failOnce.clear()
+  st.failAlways.clear()
+  vi.spyOn(Date, "now").mockImplementation(() => st.now)
+})
+
+describe("weekly coins payout (L-15)", () => {
+  it("a run that hits the budget is resumed by the next call and pays everyone once", async () => {
+    const first = await run()
+    expect(first).toMatchObject({ incomplete: true, granted: 1000 })
+    const second = await run()
+    expect(second).toMatchObject({ incomplete: false, granted: 200, skipped: 0 }) // was: re-walked the first 1000
+    expect(st.paid.size).toBe(1200)
+    expect(st.kv.size).toBe(0) // cursor cleared once complete
+  })
+  // REV-20: the cursor moved past a user whose grant RPC errored, so a DB blip
+  // left them unpaid for the week while the job reported success.
+  it("a transient grant error stops the cursor there and the next call pays that user", async () => {
+    st.ids = st.ids.slice(0, 300)
+    st.failOnce.add("u00123")
+    const first = await run()
+    expect(first).toMatchObject({ incomplete: true, failed: 1 }) // was: incomplete false, u00123 never paid
+    const second = await run()
+    expect(second).toMatchObject({ incomplete: false, failed: 0 })
+    expect(st.paid.has("u00123")).toBe(true)
+    expect(st.paid.size).toBe(300)
+  })
+  // A user whose grant always errors pinned the cursor, so every user after
+  // them went unpaid and the workflow gave up silently after 10 calls.
+  it("a user who fails twice is skipped so the rest still get paid", async () => {
+    st.ids = st.ids.slice(0, 300)
+    st.failAlways.add("u00123")
+    expect(await run()).toMatchObject({ incomplete: true, failed: 1 })
+    const second = await run()
+    expect(second).toMatchObject({ incomplete: false, failed: 1 }) // was: incomplete true on every call
+    expect(st.paid.size).toBe(299)
+    expect(st.paid.has("u00299")).toBe(true)
+    expect(st.kv.size).toBe(0)
+  })
+})

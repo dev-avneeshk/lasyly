@@ -91,8 +91,8 @@ export function withSecurity(
       // 2. Execute the actual handler
       const response = await handler(request, context)
 
-      // 3. Set Cache-Control header on the response
-      response.headers.set("Cache-Control", cacheControl)
+      // 3. Cache-Control: the preset only on success; errors must not be cached
+      response.headers.set("Cache-Control", response.ok ? cacheControl : CACHE_CONTROL.SENSITIVE)
 
       return response
     } catch (error: unknown) {

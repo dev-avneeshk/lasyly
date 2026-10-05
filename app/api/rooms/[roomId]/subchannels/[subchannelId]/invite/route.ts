@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 /**
  * GET  — admin fetches the current invite link parts (slug + token) for a
@@ -18,10 +20,10 @@ export const GET = withSecurity(async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
 
-  // RLS lets admins/members read the row; token is only meaningful to admins.
+  // RLS lets admins/members read the row (not the token column).
   const { data: sub, error } = await supabase
     .from("room_subchannels")
-    .select("slug, visibility, invite_token, room_id")
+    .select("slug, visibility, room_id")
     .eq("id", subchannelId)
     .maybeSingle()
 
@@ -38,11 +40,17 @@ export const GET = withSecurity(async (
   const isAdmin = membership?.role === "owner" || membership?.role === "moderator"
   if (!isAdmin) return NextResponse.json({ error: "Admins only." }, { status: 403 })
 
-  return NextResponse.json({
-    slug: sub.slug,
-    visibility: sub.visibility,
-    token: sub.visibility === "private" ? sub.invite_token : null,
-  })
+  // API roles can't read invite_token (AUTHZ-7); fetch it after the admin check.
+  let token: string | null = null
+  if (sub.visibility === "private") {
+    const { data } = await createAdminClient()
+      .from("room_subchannels")
+      .select("invite_token")
+      .eq("id", subchannelId)
+      .maybeSingle()
+    token = data?.invite_token ?? null
+  }
+  return NextResponse.json({ slug: sub.slug, visibility: sub.visibility, token })
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
 
 export const POST = withSecurity(async (
@@ -54,6 +62,8 @@ export const POST = withSecurity(async (
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 })
+  const limited = await rateLimited(`room-admin:${user.id}`, RATE_LIMITS.adminAction)
+  if (limited) return limited
 
   const { data: result, error } = await supabase.rpc("room_rotate_invite", {
     p_subchannel_id: subchannelId,

@@ -28,8 +28,8 @@ export const RATE_LIMIT_AUTH: RateLimitConfig = {
  *      before the whole population starts seeing 429s — indistinguishable from
  *      an outage.
  *
- * The ceiling is now per session (see proxy.ts), so NAT is irrelevant, and it
- * is high enough that a heavy real user with several tabs never reaches it. The
+ * Applied per session, and it is high enough that a heavy real user with
+ * several tabs never reaches it. The
  * precise, per-action limits live in the routes themselves (RATE_LIMITS in
  * lib/rateLimit.ts) — this is only the coarse backstop.
  */
@@ -49,6 +49,19 @@ export const RATE_LIMIT_STANDARD: RateLimitConfig = {
  */
 export const RATE_LIMIT_UNAUTHENTICATED: RateLimitConfig = {
   maxRequests: 120,
+  windowMs: 60_000,
+}
+
+/**
+ * Per-IP ceiling on ALL API requests from one address, whatever cookies they
+ * carry: 600/min. The proxy can't verify a session cookie, so any per-session
+ * allowance is attacker-mintable; this one counter keyed only by IP bounds
+ * forged cookies at a fixed 5× the anonymous budget, however many are used.
+ * Sized for NAT: the busiest real client (arena, 5 s poll) is ~12 req/min, so
+ * dozens of active users can share one CGNAT/office IP.
+ */
+export const RATE_LIMIT_IP: RateLimitConfig = {
+  maxRequests: 600,
   windowMs: 60_000,
 }
 
