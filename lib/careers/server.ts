@@ -35,12 +35,14 @@ export interface Application {
   currentCompany: string | null
   experience: string
   linkedin: string | null
+  portfolioUrl: string | null
+  fitAnswer: string | null
+  /** Legacy: optional GitHub/portfolio field from before portfolioUrl. */
   github: string | null
   referralSource: string | null
   referralOther: string | null
-  cvFileName: string | null
+  /** Legacy CV link; no longer collected. */
   cvFileUrl: string | null
-  cvFileId: string | null
   consentAt: string
   status: ApplicationStatus
   createdAt: string
@@ -58,7 +60,7 @@ const JOB_COLUMNS =
   "id, title, department, location, employment_type, experience_level, description, requirements, skills, is_active, created_at, updated_at"
 
 const APPLICATION_COLUMNS =
-  "id, reference, application_type, job_id, job_title, full_name, email, phone, location, current_job_title, current_company, experience, linkedin, github, referral_source, referral_other, cv_file_name, cv_file_url, cv_file_id, consent_at, status, created_at, updated_at"
+  "id, reference, application_type, job_id, job_title, full_name, email, phone, location, current_job_title, current_company, experience, linkedin, portfolio_url, fit_answer, github, referral_source, referral_other, cv_file_url, consent_at, status, created_at, updated_at"
 
 type Row = Record<string, unknown>
 
@@ -94,12 +96,12 @@ function toApplication(r: Row): Application {
     currentCompany: (r.current_company as string | null) ?? null,
     experience: r.experience as string,
     linkedin: (r.linkedin as string | null) ?? null,
+    portfolioUrl: (r.portfolio_url as string | null) ?? null,
+    fitAnswer: (r.fit_answer as string | null) ?? null,
     github: (r.github as string | null) ?? null,
     referralSource: (r.referral_source as string | null) ?? null,
     referralOther: (r.referral_other as string | null) ?? null,
-    cvFileName: (r.cv_file_name as string | null) ?? null,
     cvFileUrl: (r.cv_file_url as string | null) ?? null,
-    cvFileId: (r.cv_file_id as string | null) ?? null,
     consentAt: r.consent_at as string,
     status: r.status as ApplicationStatus,
     createdAt: r.created_at as string,

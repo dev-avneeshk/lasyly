@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { getCareersAdmin } from "@/lib/careers/adminAuth"
 import { getApplicationById } from "@/lib/careers/server"
 import { EXPERIENCE_OPTIONS, REFERRAL_OPTIONS, labelFor } from "@/lib/careers/constants"
-import { isFileXLUrl, isHttpUrl } from "@/lib/careers/validation"
+import { isHttpUrl } from "@/lib/careers/validation"
 import { AdminShell, StatusBadge } from "@/components/careers/admin/AdminShell"
 import { StatusSelect } from "@/components/careers/admin/StatusSelect"
 
@@ -51,7 +51,15 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     { label: "Current company", value: app.currentCompany ?? "—" },
     { label: "Experience", value: labelFor(EXPERIENCE_OPTIONS, app.experience) },
     { label: "LinkedIn", value: app.linkedin && isHttpUrl(app.linkedin) ? <ExternalLink href={app.linkedin}>{app.linkedin}</ExternalLink> : "—" },
-    { label: "GitHub / Portfolio", value: app.github && isHttpUrl(app.github) ? <ExternalLink href={app.github}>{app.github}</ExternalLink> : "—" },
+    { label: "Portfolio / GitHub", value: app.portfolioUrl && isHttpUrl(app.portfolioUrl) ? <ExternalLink href={app.portfolioUrl}>{app.portfolioUrl}</ExternalLink> : "—" },
+    // Legacy optional field; only applications from before portfolioUrl have it.
+    ...(app.github
+      ? [{ label: "GitHub / Portfolio (legacy)", value: isHttpUrl(app.github) ? <ExternalLink href={app.github}>{app.github}</ExternalLink> : "—" }]
+      : []),
+    // Legacy CV link; no longer collected. Shown only for older applications.
+    ...(app.cvFileUrl
+      ? [{ label: "CV link (legacy)", value: isHttpUrl(app.cvFileUrl) ? <ExternalLink href={app.cvFileUrl}>{app.cvFileUrl}</ExternalLink> : "—" }]
+      : []),
     { label: "Referral source", value: referral },
     {
       label: "Position",
@@ -69,8 +77,6 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     { label: "Applied", value: <time dateTime={app.createdAt}>{format(new Date(app.createdAt), "MMM d, yyyy 'at' HH:mm")}</time> },
     { label: "Consent given", value: <time dateTime={app.consentAt}>{format(new Date(app.consentAt), "MMM d, yyyy 'at' HH:mm")}</time> },
   ]
-
-  const cvLink = app.cvFileUrl && isFileXLUrl(app.cvFileUrl) ? app.cvFileUrl : null
 
   return (
     <AdminShell
@@ -93,6 +99,15 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
               </div>
             ))}
           </dl>
+
+          <div className="mt-6 border-t border-[var(--color-border)] pt-5">
+            <h3 className="text-[13px] text-[var(--color-text-muted)]">Why they&apos;re a fit</h3>
+            {app.fitAnswer ? (
+              <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-white/85">{app.fitAnswer}</p>
+            ) : (
+              <p className="mt-2 text-sm text-white/85">—</p>
+            )}
+          </div>
         </section>
 
         <aside className="space-y-6">
@@ -100,34 +115,6 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
             <StatusSelect applicationId={app.id} initial={app.status} />
           </section>
 
-          <section aria-labelledby="cv-h" className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-            <h2 id="cv-h" className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">CV</h2>
-            <p className="mt-3 text-sm text-white/85">CV uploaded via FileXL</p>
-            {cvLink ? (
-              <>
-                <a
-                  href={cvLink}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="mt-4 inline-flex min-h-10 items-center rounded-full bg-[var(--color-lime)] px-5 py-2 text-sm font-semibold text-black hover:opacity-90"
-                >
-                  View CV
-                </a>
-                <p className="mt-3 break-all font-mono text-[11px] text-[var(--color-text-muted)]">{cvLink}</p>
-                <p className="mt-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
-                  Opens the FileXL download link the applicant pasted after uploading. If they enabled
-                  FileXL&apos;s self-destruct option, the file is deleted after the first open, so download it
-                  the first time you view it.
-                </p>
-              </>
-            ) : (
-              <p className="mt-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
-                No FileXL link was stored with this application. FileXL&apos;s embed does not report
-                uploads back to this site, so the file can only be retrieved with the link the applicant
-                received. Contact the applicant by email to request it.
-              </p>
-            )}
-          </section>
         </aside>
       </div>
     </AdminShell>

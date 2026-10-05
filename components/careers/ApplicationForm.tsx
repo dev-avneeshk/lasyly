@@ -4,9 +4,14 @@ import { useEffect, useId, useRef, useState } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { EXPERIENCE_OPTIONS, REFERRAL_OPTIONS } from "@/lib/careers/constants"
-import { applicationFieldsSchema, fieldErrors } from "@/lib/careers/validation"
+import {
+  applicationFieldsSchema,
+  fieldErrors,
+  FIT_ANSWER_MAX,
+  FIT_ANSWER_MIN,
+  PORTFOLIO_URL_MAX,
+} from "@/lib/careers/validation"
 import { getSupabaseClient } from "@/lib/supabase/lazy-client"
-import { FileXLUpload } from "./FileXLUpload"
 
 type Values = {
   fullName: string
@@ -17,10 +22,10 @@ type Values = {
   currentCompany: string
   experience: string
   linkedin: string
-  github: string
+  portfolioUrl: string
+  fitAnswer: string
   referralSource: string
   referralOther: string
-  cvFileUrl: string
   consent: boolean
 }
 
@@ -33,17 +38,17 @@ const INITIAL: Values = {
   currentCompany: "",
   experience: "",
   linkedin: "",
-  github: "",
+  portfolioUrl: "",
+  fitAnswer: "",
   referralSource: "",
   referralOther: "",
-  cvFileUrl: "",
   consent: false,
 }
 
 // Order used to focus the first invalid field on submit.
 const FIELD_ORDER: (keyof Values)[] = [
   "fullName", "email", "phone", "location", "currentJobTitle", "currentCompany",
-  "experience", "linkedin", "github", "referralSource", "referralOther", "cvFileUrl", "consent",
+  "experience", "linkedin", "portfolioUrl", "referralSource", "referralOther", "fitAnswer", "consent",
 ]
 
 const GENERIC_ERROR =
@@ -244,7 +249,7 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
           <span className="mt-1 font-mono text-xl font-semibold text-white tabular-nums">#{reference}</span>
         </div>
         <p className="mt-8 text-sm text-[var(--color-text-muted)]">
-          We&apos;ll contact you if your profile matches an opportunity.
+          Keep an eye out: every applicant gets a direct assessment link.
         </p>
         <Link
           href="/careers"
@@ -361,11 +366,16 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
               onChange={(v) => update("linkedin", v)} onBlur={() => blur("linkedin")}
             />
           </Field>
-          <Field label="GitHub / Portfolio" htmlFor={id("github")} error={showErr("github")} errorId={id("github-error")}>
+          <Field
+            label="Portfolio or GitHub link" required htmlFor={id("portfolioUrl")}
+            error={showErr("portfolioUrl")} errorId={id("portfolioUrl-error")}
+            hint="Show us something you've built." hintId={id("portfolioUrl-hint")}
+          >
             <TextInput
-              id={id("github")} name="github" type="url" inputMode="url" placeholder="https://github.com/..."
-              value={values.github} error={!!errors.github} errorId={id("github-error")}
-              onChange={(v) => update("github", v)} onBlur={() => blur("github")}
+              id={id("portfolioUrl")} name="portfolioUrl" type="url" inputMode="url" autoComplete="url"
+              placeholder="https://github.com/..." maxLength={PORTFOLIO_URL_MAX}
+              value={values.portfolioUrl} error={!!errors.portfolioUrl} errorId={id("portfolioUrl-error")} hintId={id("portfolioUrl-hint")}
+              onChange={(v) => update("portfolioUrl", v)} onBlur={() => blur("portfolioUrl")} required
             />
           </Field>
         </div>
@@ -394,32 +404,30 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
         </div>
       </FormSection>
 
-      <FormSection
-        no="05"
-        title="Upload Your CV"
-        id={id("s-cv")}
-        description="Upload your latest resume or CV."
-      >
-        <FileXLUpload />
-        <p className="mt-3 text-[13px] text-[var(--color-text-muted)]">
-          Accepted formats: PDF, DOC, DOCX
-        </p>
+      <FormSection no="05" title="Why you" id={id("s-fit")}>
+        <NoCvNotice />
 
-        <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/60 p-4 sm:p-5">
+        <div className="mt-6">
           <Field
-            label="Your FileXL CV link"
+            label={jobId ? "Why are you a fit for this role?" : "Why are you a fit for Lasyly?"}
             required
-            htmlFor={id("cvFileUrl")}
-            error={showErr("cvFileUrl")}
-            errorId={id("cvFileUrl-error")}
-            hint="When the upload finishes, FileXL shows a download link inside the box above. Copy that link and paste it here so our team can open your CV. Leave “Self-Destruct” switched off so the link keeps working."
-            hintId={id("cvFileUrl-hint")}
+            htmlFor={id("fitAnswer")}
+            error={showErr("fitAnswer")}
+            errorId={id("fitAnswer-error")}
+            hint={`Tell us what you'd bring and what you've done that shows it. At least ${FIT_ANSWER_MIN} characters.`}
+            hintId={id("fitAnswer-hint")}
           >
-            <TextInput
-              id={id("cvFileUrl")} name="cvFileUrl" type="url" inputMode="url" autoComplete="off"
-              placeholder="https://www.filexl.com/..."
-              value={values.cvFileUrl} error={!!errors.cvFileUrl} errorId={id("cvFileUrl-error")} hintId={id("cvFileUrl-hint")}
-              onChange={(v) => update("cvFileUrl", v)} onBlur={() => blur("cvFileUrl")} required
+            <TextArea
+              id={id("fitAnswer")} name="fitAnswer" rows={7} maxLength={FIT_ANSWER_MAX}
+              value={values.fitAnswer} error={!!errors.fitAnswer} errorId={id("fitAnswer-error")}
+              hintId={id("fitAnswer-hint")} counterId={id("fitAnswer-count")}
+              onChange={(v) => update("fitAnswer", v)} onBlur={() => blur("fitAnswer")} required
+            />
+            <CharCounter
+              id={id("fitAnswer-count")}
+              length={values.fitAnswer.trim().length}
+              min={FIT_ANSWER_MIN}
+              max={FIT_ANSWER_MAX}
             />
           </Field>
         </div>
@@ -652,6 +660,7 @@ function TextInput({
   placeholder,
   autoComplete,
   inputMode,
+  maxLength,
   required,
 }: {
   id: string
@@ -666,6 +675,7 @@ function TextInput({
   placeholder?: string
   autoComplete?: string
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"]
+  maxLength?: number
   required?: boolean
 }) {
   return (
@@ -679,12 +689,97 @@ function TextInput({
       placeholder={placeholder}
       autoComplete={autoComplete}
       inputMode={inputMode}
+      maxLength={maxLength}
       required={required}
       aria-required={required || undefined}
       aria-invalid={error || undefined}
       aria-describedby={describedBy(error, errorId, hintId)}
       className={controlClass(error)}
     />
+  )
+}
+
+function TextArea({
+  id,
+  name,
+  value,
+  onChange,
+  onBlur,
+  error,
+  errorId,
+  hintId,
+  counterId,
+  rows,
+  maxLength,
+  required,
+}: {
+  id: string
+  name: string
+  value: string
+  onChange: (v: string) => void
+  onBlur: () => void
+  error: boolean
+  errorId: string
+  hintId?: string
+  counterId?: string
+  rows?: number
+  maxLength?: number
+  required?: boolean
+}) {
+  const ids = [describedBy(error, errorId, hintId), counterId].filter(Boolean).join(" ")
+  return (
+    <textarea
+      id={id}
+      name={name}
+      value={value}
+      rows={rows}
+      maxLength={maxLength}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      required={required}
+      aria-required={required || undefined}
+      aria-invalid={error || undefined}
+      aria-describedby={ids || undefined}
+      className={cn(controlClass(error), "h-auto min-h-40 resize-y py-3 leading-relaxed")}
+    />
+  )
+}
+
+/** Live length counter for a textarea. Polite only at the limits, not per keystroke. */
+function CharCounter({ id, length, min, max }: { id: string; length: number; min: number; max: number }) {
+  const short = length > 0 && length < min
+  return (
+    <p
+      id={id}
+      className={cn(
+        "mt-2 text-right text-[12px] tabular-nums",
+        short || length >= max ? "text-[var(--color-warning)]" : "text-[var(--color-text-muted)]"
+      )}
+    >
+      {length} / {max} characters
+      {short && <span> · {min - length} more needed</span>}
+    </p>
+  )
+}
+
+/** Replaces the old CV upload: tells applicants how selection works. */
+function NoCvNotice() {
+  return (
+    <div
+      role="note"
+      className="flex items-start gap-3 rounded-xl border border-[var(--color-lime)]/25 bg-[var(--color-lime)]/[0.06] p-4 sm:p-5"
+    >
+      <svg className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-lime)]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M10 9v5M10 6.2v.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+      <div className="text-sm leading-relaxed">
+        <p className="font-semibold text-white">No CV needed. We don&apos;t shortlist on CVs.</p>
+        <p className="mt-1 text-[var(--color-text-muted)]">
+          Every applicant gets a direct assessment link. Your work and your answer below are what we look at.
+        </p>
+      </div>
+    </div>
   )
 }
 
