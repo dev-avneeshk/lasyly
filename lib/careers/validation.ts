@@ -83,6 +83,16 @@ export function cleanMultilineText(value: unknown): unknown {
     .trim()
 }
 
+/**
+ * Length of a fit answer exactly as the schema measures it: the value after
+ * `cleanMultilineText`, counted in UTF-16 code units (`String#length`, which
+ * is what zod's min/max use). The form's counter uses this so it can't drift
+ * from the FIT_ANSWER_MIN/FIT_ANSWER_MAX check.
+ */
+export function fitAnswerLength(value: string): number {
+  return (cleanMultilineText(value) as string).length
+}
+
 /** International phone: optional leading +, 7–15 digits, common separators. */
 export function isValidPhone(value: string): boolean {
   if (!/^\+?[0-9\s().-]+$/.test(value)) return false

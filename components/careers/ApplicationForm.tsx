@@ -7,6 +7,7 @@ import { EXPERIENCE_OPTIONS, REFERRAL_OPTIONS } from "@/lib/careers/constants"
 import {
   applicationFieldsSchema,
   fieldErrors,
+  fitAnswerLength,
   FIT_ANSWER_MAX,
   FIT_ANSWER_MIN,
   PORTFOLIO_URL_MAX,
@@ -425,7 +426,7 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
             />
             <CharCounter
               id={id("fitAnswer-count")}
-              length={values.fitAnswer.trim().length}
+              length={fitAnswerLength(values.fitAnswer)}
               min={FIT_ANSWER_MIN}
               max={FIT_ANSWER_MAX}
             />
@@ -745,7 +746,12 @@ function TextArea({
   )
 }
 
-/** Live length counter for a textarea. Polite only at the limits, not per keystroke. */
+/**
+ * Length counter for a textarea. `length` should be the normalised length the
+ * server validates (see fitAnswerLength). It is not a live region: screen
+ * readers hear it only through the textarea's aria-describedby, so typing
+ * doesn't trigger per-keystroke announcements.
+ */
 function CharCounter({ id, length, min, max }: { id: string; length: number; min: number; max: number }) {
   const short = length > 0 && length < min
   return (

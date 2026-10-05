@@ -3,6 +3,7 @@ import {
   applicationFieldsSchema,
   applicationRequestSchema,
   fieldErrors,
+  fitAnswerLength,
   FIT_ANSWER_MAX,
   FIT_ANSWER_MIN,
   MESSAGES,
@@ -102,6 +103,34 @@ describe("careers application: why are you a fit", () => {
     })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.fitAnswer).toBe(`${FIT}\n\nSecond paragraph.`)
+  })
+})
+
+describe("careers application: fit-answer counter agrees with the server", () => {
+  // The form's CharCounter shows fitAnswerLength(value). For every input, the
+  // counter being within [MIN, MAX] must match the schema accepting the answer.
+  const counterOk = (v: string) => {
+    const n = fitAnswerLength(v)
+    return n >= FIT_ANSWER_MIN && n <= FIT_ANSWER_MAX
+  }
+  const serverOk = (v: string) => !errorsFor({ ...valid, fitAnswer: v }).fitAnswer
+
+  it.each([
+    ["49 chars", "x".repeat(FIT_ANSWER_MIN - 1), FIT_ANSWER_MIN - 1, false],
+    ["50 chars", "x".repeat(FIT_ANSWER_MIN), FIT_ANSWER_MIN, true],
+    ["49 chars + surrounding whitespace", ` \n\t ${"x".repeat(FIT_ANSWER_MIN - 1)} \n `, FIT_ANSWER_MIN - 1, false],
+    ["50 chars + surrounding whitespace", ` \n\t ${"x".repeat(FIT_ANSWER_MIN)} \n `, FIT_ANSWER_MIN, true],
+    // Padding that .trim() alone would count: trailing spaces before a newline,
+    // extra blank lines and control characters are all removed by the server.
+    ["49 chars padded with blank lines", `${"x".repeat(24)}   \n\n\n\n\n${"x".repeat(23)}\u0007`, FIT_ANSWER_MIN - 1, false],
+    ["CRLF counted as one newline", `${"x".repeat(24)}\r\n\r\n${"x".repeat(24)}`, FIT_ANSWER_MIN, true],
+    ["3000 chars", "x".repeat(FIT_ANSWER_MAX), FIT_ANSWER_MAX, true],
+    ["3001 chars", "x".repeat(FIT_ANSWER_MAX + 1), FIT_ANSWER_MAX + 1, false],
+    ["3000 chars + surrounding whitespace", `  ${"x".repeat(FIT_ANSWER_MAX)}\n\n  `, FIT_ANSWER_MAX, true],
+  ])("%s", (_label, value, expectedLength, expectedOk) => {
+    expect(fitAnswerLength(value)).toBe(expectedLength)
+    expect(counterOk(value)).toBe(expectedOk)
+    expect(serverOk(value)).toBe(expectedOk)
   })
 })
 
