@@ -60,8 +60,5 @@ export function labelFor<T extends { value: string; label: string }>(
 /** The route segment used for the talent-pool application. */
 export const GENERAL_APPLICATION_SLUG = "general"
 
-/** Exact FileXL embed URL supplied for the CV upload widget. Do not change. */
-export const FILEXL_EMBED_SRC = "https://www.filexl.com/embed.php"
-
 /** Minimum time (ms) between form render and submit; faster is treated as a bot. */
 export const MIN_FILL_TIME_MS = 3000

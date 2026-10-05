@@ -150,10 +150,10 @@ export const POST = withSecurity(
         current_company: fields.currentCompany ?? null,
         experience: fields.experience,
         linkedin: fields.linkedin ?? null,
-        github: fields.github ?? null,
+        portfolio_url: fields.portfolioUrl,
+        fit_answer: fields.fitAnswer,
         referral_source: fields.referralSource ?? null,
         referral_other: fields.referralSource === "other" ? fields.referralOther ?? null : null,
-        cv_file_url: fields.cvFileUrl,
         consent_at: new Date().toISOString(),
       })
       .select("reference")

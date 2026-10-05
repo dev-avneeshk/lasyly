@@ -519,30 +519,3 @@
     scroll-behavior: smooth;
   }
 }
-
-/* FileXL CV widget wrapper. The iframe is FileXL's own UI; this only makes it
-   fill the column without horizontal overflow on any viewport. */
-.filexl-upload-container {
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
-.filexl-upload-container iframe {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  min-height: 500px;
-  height: 600px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-}
-
-@media (max-width: 480px) {
-  /* The widget's options stack vertically on narrow screens. */
-  .filexl-upload-container iframe {
-    height: 680px;
-  }
-}

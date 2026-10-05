@@ -88,7 +88,7 @@ export default async function CareersPage() {
             </svg>
           </a>
           <Link href={GENERAL_HREF} className={secondaryCta}>
-            Submit Your Resume
+            Join the Talent Pool
           </Link>
         </div>
       </section>
@@ -119,10 +119,10 @@ export default async function CareersPage() {
           <div role="status" className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-12 text-center">
             <h3 className="text-xl font-bold font-serif text-white">We couldn&apos;t load open positions</h3>
             <p className="mt-3 text-[15px] text-[var(--color-text-muted)] max-w-[50ch] mx-auto">
-              Please refresh the page in a moment. You can still send us your resume in the meantime.
+              Please refresh the page in a moment. You can still join our talent pool in the meantime.
             </p>
             <Link href={GENERAL_HREF} className={`${primaryCta} mt-7`}>
-              Submit Your Resume
+              Join the Talent Pool
             </Link>
           </div>
         ) : jobs.length === 0 ? (
@@ -132,7 +132,7 @@ export default async function CareersPage() {
               We don&apos;t have any open positions at the moment, but we&apos;re always interested in talented people.
             </p>
             <Link href={GENERAL_HREF} className={`${primaryCta} mt-8`}>
-              Submit Your Resume
+              Join the Talent Pool
             </Link>
           </div>
         ) : (
@@ -171,7 +171,7 @@ export default async function CareersPage() {
         </div>
       </section>
 
-      {/* General resume */}
+      {/* General / talent pool */}
       <section aria-labelledby="general-heading" className="max-w-5xl mx-auto px-5 sm:px-6 pb-8">
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-10 sm:px-10 sm:py-12 md:flex md:items-center md:justify-between md:gap-10">
           <div className="max-w-[52ch]">
@@ -179,11 +179,11 @@ export default async function CareersPage() {
               Don&apos;t See the Right Role?
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-[var(--color-text-muted)]">
-              We&apos;re always interested in meeting talented people. Send us your resume and we&apos;ll keep you in mind for future opportunities.
+              We&apos;re always interested in meeting talented people. Share your work and tell us why you&apos;d be a fit. There&apos;s no CV screening: every applicant gets a direct assessment link.
             </p>
           </div>
           <Link href={GENERAL_HREF} className={`${primaryCta} mt-7 shrink-0 md:mt-0`}>
-            Submit Your Resume
+            Join the Talent Pool
           </Link>
         </div>
       </section>

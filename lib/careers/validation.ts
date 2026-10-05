@@ -64,23 +64,33 @@ function optionalUrl(message: string) {
   )
 }
 
+export const PORTFOLIO_URL_MAX = 500
+export const FIT_ANSWER_MIN = 50
+export const FIT_ANSWER_MAX = 3000
+
 /**
- * The FileXL link the widget shows after an upload. Only https links on
- * filexl.com (or a subdomain) are accepted, so this field cannot be used to
- * store arbitrary URLs that an admin would later click.
+ * Multi-line free text: strip control characters (keeping newlines), normalise
+ * line endings, trim each line's trailing spaces, cap blank runs at one empty
+ * line, and trim the whole value.
  */
-export function isFileXLUrl(value: string): boolean {
-  try {
-    const url = new URL(value)
-    const host = url.hostname.toLowerCase()
-    return (
-      url.protocol === "https:" &&
-      (host === "filexl.com" || host.endsWith(".filexl.com")) &&
-      url.pathname.length > 1
-    )
-  } catch {
-    return false
-  }
+export function cleanMultilineText(value: unknown): unknown {
+  if (typeof value !== "string") return value
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(CONTROL_CHARS, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+/**
+ * Length of a fit answer exactly as the schema measures it: the value after
+ * `cleanMultilineText`, counted in UTF-16 code units (`String#length`, which
+ * is what zod's min/max use). The form's counter uses this so it can't drift
+ * from the FIT_ANSWER_MIN/FIT_ANSWER_MAX check.
+ */
+export function fitAnswerLength(value: string): number {
+  return (cleanMultilineText(value) as string).length
 }
 
 /** International phone: optional leading +, 7–15 digits, common separators. */
@@ -104,10 +114,13 @@ export const MESSAGES = {
   location: "Please enter your current location.",
   experience: "Please select your experience.",
   linkedin: "Please enter a valid LinkedIn URL, e.g. https://linkedin.com/in/your-name.",
-  github: "Please enter a valid URL, e.g. https://github.com/your-name.",
+  portfolio: "Please add a link to your portfolio or GitHub profile.",
+  portfolioInvalid: "Please enter a valid http(s) link, e.g. https://github.com/your-name.",
+  portfolioTooLong: `Please keep this link under ${PORTFOLIO_URL_MAX} characters.`,
+  fit: "Please tell us why you're a good fit.",
+  fitTooShort: `Please write at least ${FIT_ANSWER_MIN} characters.`,
+  fitTooLong: `Please keep this under ${FIT_ANSWER_MAX} characters.`,
   referralOther: "Please tell us where you heard about us.",
-  cv: "Please upload your CV before submitting your application.",
-  cvLink: "Paste the FileXL link shown after your upload finishes (it starts with https://www.filexl.com/).",
   consent: "Please confirm the information is accurate and consent to processing.",
 } as const
 
@@ -132,19 +145,28 @@ export const applicationFieldsSchema = z
     currentCompany: optionalText(120),
     experience: z.enum(experienceValues, { error: MESSAGES.experience }),
     linkedin: optionalUrl(MESSAGES.linkedin),
-    github: optionalUrl(MESSAGES.github),
+    // http(s) only: isHttpUrl parses with URL and rejects javascript:, data:,
+    // file:, etc. Admins click this link, so the scheme check matters.
+    portfolioUrl: z.preprocess(
+      blankToUndefined,
+      z
+        .string({ error: MESSAGES.portfolio })
+        .max(PORTFOLIO_URL_MAX, MESSAGES.portfolioTooLong)
+        .refine(isHttpUrl, MESSAGES.portfolioInvalid)
+    ),
+    fitAnswer: z.preprocess(
+      cleanMultilineText,
+      z
+        .string({ error: MESSAGES.fit })
+        .min(1, MESSAGES.fit)
+        .min(FIT_ANSWER_MIN, MESSAGES.fitTooShort)
+        .max(FIT_ANSWER_MAX, MESSAGES.fitTooLong)
+    ),
     referralSource: z.preprocess(
       blankToUndefined,
       z.enum(referralValues).optional()
     ),
     referralOther: optionalText(120),
-    cvFileUrl: z.preprocess(
-      blankToUndefined,
-      z
-        .string({ error: MESSAGES.cv })
-        .max(500, MESSAGES.cvLink)
-        .refine(isFileXLUrl, MESSAGES.cvLink)
-    ),
     consent: z.literal(true, { error: MESSAGES.consent }),
   })
   .superRefine((data, ctx) => {

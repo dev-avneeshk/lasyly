@@ -45,8 +45,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
   return {
-    title: "Submit Your Resume — Careers",
-    description: "Send us your resume and we'll keep you in mind for future opportunities at Lasyly.",
+    title: "Join the Talent Pool — Careers",
+    description: "Share your portfolio or GitHub and tell us why you're a fit for Lasyly. No CV screening: every applicant gets a direct assessment link.",
     robots,
   }
 }
@@ -65,7 +65,7 @@ export default async function ApplyPage({ params }: PageProps) {
           </li>
           <li aria-hidden="true">/</li>
           <li aria-current="page" className="text-white/70">
-            {r.kind === "job" ? r.job.title : "Submit your resume"}
+            {r.kind === "job" ? r.job.title : "Join the talent pool"}
           </li>
         </ol>
       </nav>
@@ -95,14 +95,17 @@ export default async function ApplyPage({ params }: PageProps) {
               <>
                 <p className="text-[13px] font-medium text-[var(--color-lime)] mb-3">Talent pool</p>
                 <h1 className="text-[2rem] sm:text-[2.75rem] font-bold font-serif tracking-tight text-white leading-[1.08]">
-                  Submit Your Resume
+                  Join the Talent Pool
                 </h1>
                 <p className="mt-4 text-[15px] leading-relaxed text-white/60 max-w-[58ch]">
-                  Don&apos;t see a position that matches your experience? Send us your resume and we&apos;ll keep you in mind for future opportunities.
+                  Don&apos;t see a position that matches your experience? Share your work and tell us why you&apos;d be a fit, and we&apos;ll keep you in mind for future opportunities.
                 </p>
               </>
             )}
-            <p className="mt-6 text-[13px] text-[var(--color-text-muted)]">
+            <p className="mt-6 text-[14px] leading-relaxed text-white/75">
+              We don&apos;t shortlist on CVs. Every applicant gets a direct assessment link.
+            </p>
+            <p className="mt-3 text-[13px] text-[var(--color-text-muted)]">
               Fields marked <span className="text-[var(--color-lime)]" aria-hidden="true">*</span>
               <span className="sr-only">with an asterisk</span> are required.
             </p>

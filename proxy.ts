@@ -177,7 +177,7 @@ function buildCSPHeader(): string {
     font-src 'self' data:;
     connect-src 'self' https: wss:;
     worker-src 'self' blob:;
-    frame-src 'self' https://www.filexl.com;
+    frame-src 'self';
     object-src 'none';
     base-uri 'self';
     frame-ancestors 'none';
