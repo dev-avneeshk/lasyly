@@ -361,7 +361,10 @@ async function searchESPNCore(
 }
 
 export const GET = withSecurity(handleGET, {
-  // The CDN image is independently cacheable. Do not let browsers retain a
-  // JSON 404 after a provider/name-resolution fix or roster update.
-  cacheControl: CACHE_CONTROL.SENSITIVE,
+  // Applies to 200s only: withSecurity stamps SENSITIVE on every non-OK
+  // response, so a JSON 404 (or 400/500) is never retained by the CDN or the
+  // browser after a provider/name-resolution fix or roster update. A found
+  // headshot is keyed only by public query params and already held 24 h in
+  // Redis, so letting the CDN answer repeats costs no freshness.
+  cacheControl: CACHE_CONTROL.IMMUTABLE,
 })

@@ -69,6 +69,27 @@ function dedupeById(matches: LiveMatch[]): LiveMatch[] {
   return out
 }
 
+/**
+ * Run an ESPN fetch and persist its result to Supabase.
+ *
+ * Called only from inside a `cached()` fetcher, so the upsert happens once per
+ * real ESPN refetch (one per TTL fleet-wide, thanks to the refresh lease)
+ * instead of on every request that finds the DB stale but Redis warm. Those
+ * Redis hits were already persisted by whichever invocation fetched them.
+ *
+ * Deferred past the response so persistence never blocks it, but still tied
+ * to this invocation; see lib/background.ts for why unattended promises stall
+ * for ~2 minutes here. Each match is stored under its own UTC match_date
+ * (derived from startTime), so neighboring-day games are filed correctly.
+ */
+async function fetchAndPersist(load: () => Promise<LiveMatch[]>): Promise<LiveMatch[]> {
+  const result = await load()
+  if (result.length > 0) {
+    afterResponse(() => upsertMatches(result, "espn"), "upsertMatches")
+  }
+  return result
+}
+
 export function getTodayYYYYMMDD(): string {
   const now = new Date()
   return `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}${String(now.getUTCDate()).padStart(2, "0")}`
@@ -147,30 +168,21 @@ export async function getScoresForDate(
       // "today" (live) plus the adjacent UTC days so the local-day window is
       // complete. fetchLiveScores() already covers the current scoreboard.
       const [live, prev, next] = await Promise.all([
-        cached(`scores:espn:${date}`, () => fetchLiveScores(), CACHE_TTL.scores),
-        cached(`scores:espn:${prevDate}`, () => fetchESPNScores(prevDate), 60_000),
-        cached(`scores:espn:${nextDate}`, () => fetchESPNScores(nextDate), 60_000),
+        cached(`scores:espn:${date}`, () => fetchAndPersist(() => fetchLiveScores()), CACHE_TTL.scores),
+        cached(`scores:espn:${prevDate}`, () => fetchAndPersist(() => fetchESPNScores(prevDate)), 60_000),
+        cached(`scores:espn:${nextDate}`, () => fetchAndPersist(() => fetchESPNScores(nextDate)), 60_000),
       ])
       scores = dedupeById([...live, ...prev, ...next])
     } else {
       const [center, prev, next] = await Promise.all([
-        cached(`scores:espn:${date}`, () => fetchESPNScores(date), 60_000),
-        cached(`scores:espn:${prevDate}`, () => fetchESPNScores(prevDate), 60_000),
-        cached(`scores:espn:${nextDate}`, () => fetchESPNScores(nextDate), 60_000),
+        cached(`scores:espn:${date}`, () => fetchAndPersist(() => fetchESPNScores(date)), 60_000),
+        cached(`scores:espn:${prevDate}`, () => fetchAndPersist(() => fetchESPNScores(prevDate)), 60_000),
+        cached(`scores:espn:${nextDate}`, () => fetchAndPersist(() => fetchESPNScores(nextDate)), 60_000),
       ])
       scores = dedupeById([...center, ...prev, ...next])
     }
 
     source = "espn_cached"
-
-    if (scores.length > 0) {
-      // Deferred past the response so persistence never blocks it, but still
-      // tied to this invocation — see lib/background.ts for why unattended
-      // promises stall for ~2 minutes here. Each match is stored under its own
-      // UTC match_date (derived from startTime), not the requested `date`, so
-      // neighboring-day games are filed correctly.
-      afterResponse(() => upsertMatches(scores, "espn"), "upsertMatches")
-    }
 
     if (scores.length === 0 && dbMatches.length > 0) {
       scores = dbMatches

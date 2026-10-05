@@ -61,8 +61,13 @@ fi
 # ─── Resolve the canonical origin, unauthenticated ────────────────────────────
 # Follow redirects on a harmless endpoint to learn where SITE_URL actually lands,
 # so the secret can then be sent straight to the final origin.
+#
+# /robots.txt is static and outside the proxy matcher, so this costs no function
+# invocation. It used to be /api/health, which ran the proxy plus a Supabase
+# query before every cron call (~760/day). Vercel's domain redirect applies to
+# every path, so the effective URL still gives the canonical origin.
 
-FINAL=$(curl -s -o /dev/null -L --max-time 30 -w '%{url_effective}' "${SITE_URL%/}/api/health" || echo "")
+FINAL=$(curl -s -o /dev/null -L --max-time 30 -w '%{url_effective}' "${SITE_URL%/}/robots.txt" || echo "")
 if [ -n "$FINAL" ]; then
   ORIGIN=$(printf '%s' "$FINAL" | sed -E 's#^(https?://[^/]+).*#\1#')
 else
@@ -91,7 +96,9 @@ BODY=$(printf '%s' "$RESPONSE" | sed '$d')
 # Next.js HTML document and dumping that buries the actual diagnosis in the log.
 BODY_SHORT=$(printf '%s' "$BODY" | head -c 500)
 if [ "${#BODY}" -gt 500 ]; then
-  BODY_SHORT="$BODY_SHORT… [truncated, ${#BODY} bytes total]"
+  # Braces matter: without them a non-UTF-8 bash reads the "…" bytes as part
+  # of the variable name and `set -u` aborts before the diagnosis prints.
+  BODY_SHORT="${BODY_SHORT}… [truncated, ${#BODY} bytes total]"
 fi
 
 echo "status: $CODE"

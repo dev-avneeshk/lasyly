@@ -32,11 +32,13 @@ import type { NewsItem } from "@/types/news"
  * Only the INITIAL server-rendered snapshot flows through here.
  */
 
-// Snapshot revalidate windows (seconds). These match the page-level
-// `export const revalidate` and are intentionally generous: the client
+// Snapshot revalidate window (seconds). It must stay >= the page-level
+// `export const revalidate` (900): the lowest revalidate on a route sets how
+// often the whole route regenerates, so a shorter snapshot window silently
+// multiplies ISR writes (a 30 s feed snapshot, 2495e7e, is the likely cause of
+// the Sep 16 spike). The client
 // components poll the live API for up-to-the-second data after hydration.
-const SCORES_SNAPSHOT_REVALIDATE = 900
-const NEWS_SNAPSHOT_REVALIDATE = 900
+export const SNAPSHOT_REVALIDATE_SECONDS = 900
 
 /**
  * Cached initial scores snapshot for today, keyed by UTC calendar date so a
@@ -51,7 +53,7 @@ export async function getScoresSnapshot(): Promise<ScoresResult["data"]> {
       return result.data
     },
     ["isr-scores-snapshot"],
-    { revalidate: SCORES_SNAPSHOT_REVALIDATE, tags: ["scores-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["scores-snapshot"] }
   )
 
   return load(today)
@@ -67,7 +69,7 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
       return news.items.length > 0 ? news.items[0] : null
     },
     ["isr-top-news-snapshot"],
-    { revalidate: NEWS_SNAPSHOT_REVALIDATE, tags: ["news-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["news-snapshot"] }
   )
 
   return load()
@@ -89,9 +91,6 @@ export async function getTopNewsSnapshot(): Promise<NewsItem | null> {
 // freshness is unchanged; only the initial paint improves.
 
 import { createAdminClient } from "@/lib/supabase/admin"
-
-const LEADERBOARD_SNAPSHOT_REVALIDATE = 900
-const FEED_SNAPSHOT_REVALIDATE = 900
 
 export type LeaderboardSnapshotEntry = {
   user_id: string
@@ -115,7 +114,7 @@ export async function getLeaderboardSnapshot(): Promise<LeaderboardSnapshotEntry
           user_id, username, display_name, avatar_url, win_rate, total_picks,
         })),
     ["isr-leaderboard-snapshot"],
-    { revalidate: LEADERBOARD_SNAPSHOT_REVALIDATE, tags: ["leaderboard-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["leaderboard-snapshot"] }
   )
 
   return load()
@@ -221,7 +220,7 @@ export async function getFeedSnapshot(): Promise<FeedSnapshot> {
       }
     },
     ["isr-feed-snapshot"],
-    { revalidate: FEED_SNAPSHOT_REVALIDATE, tags: ["feed-snapshot"] }
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: ["feed-snapshot"] }
   )
 
   return load()
