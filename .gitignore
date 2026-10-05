@@ -74,3 +74,6 @@ scripts/.next/
 load-tests/sessions.txt
 load-tests/results.json
 load-tests/results.csv
+
+# local git worktrees
+.worktrees/
