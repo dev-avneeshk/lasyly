@@ -26,15 +26,15 @@ import {
   type ArenaGameConfig,
 } from "@/lib/arena/types"
 
-import { MIN_STAKE } from "@/lib/economy/arena"
+import { MAX_STAKE, MIN_STAKE } from "@/lib/economy/arena"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
 
 const matchmakeSchema = z.object({
   season: z.enum(AVAILABLE_SEASONS as [string, ...string[]]).default(DEFAULT_CONFIG.season),
   budget: z.union([z.literal(25), z.literal(50), z.literal(100)]).default(25),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
-  /** Stake per player for this public 1v1, in coins. */
-  stake: z.number().int().min(MIN_STAKE).default(MIN_STAKE),
+  /** Stake per player for this public 1v1, in coins, within [MIN_STAKE, MAX_STAKE]. */
+  stake: z.number().int().min(MIN_STAKE).max(MAX_STAKE).default(MIN_STAKE),
 })
 
 /**

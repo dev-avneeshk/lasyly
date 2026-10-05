@@ -15,6 +15,7 @@ export function GameSummary({
   onRematch,
   onNewAuction,
   onExit,
+  stakeOutcome,
 }: {
   result: GameResult
   humanSeat: TeamId
@@ -23,6 +24,12 @@ export function GameSummary({
   onRematch: () => void
   onNewAuction: () => void
   onExit: () => void
+  /**
+   * 1v1 coin stake. Settlement (lib/arena/settle.ts) pays the winner
+   * stakePayout(stake) and the loser nothing; there are no draws. Omitted for
+   * CPU games. `commission` is the house's actual cut (0 at small stakes).
+   */
+  stakeOutcome?: { stake: number; payout: number; commission: number }
 }) {
   const humanWon = result.winner === humanSeat
   const label = (t: TeamId) => (t === "P1" ? p1Label : p2Label)
@@ -69,6 +76,16 @@ export function GameSummary({
           <span className="rounded-full border border-[var(--color-warning)]/50 bg-[var(--color-warning)]/10 px-3 py-0.5 text-xs font-bold uppercase tracking-widest text-[var(--color-warning)]">
             {overtimeLabel} · {gameMinutes} min
           </span>
+        )}
+        {stakeOutcome && (
+          <div className="mt-1 flex flex-col items-center gap-0.5">
+            <p className={cn("text-sm font-bold", humanWon ? "text-[var(--color-lime)]" : "text-[var(--color-danger)]")}>
+              {humanWon
+                ? `You won ${stakeOutcome.payout} coins: your ${stakeOutcome.stake} stake back + ${stakeOutcome.payout - stakeOutcome.stake} winnings${stakeOutcome.commission > 0 ? ` (after ${stakeOutcome.commission}-coin commission)` : ""}.`
+                : `You lost your ${stakeOutcome.stake}-coin stake.`}
+            </p>
+            {humanWon && <p className="text-[11px] text-[var(--color-text-muted)]">Payouts can take a moment to show in your wallet.</p>}
+          </div>
         )}
         <div className="mt-2 flex items-center gap-2 rounded-full bg-white/5 px-4 py-1.5 text-sm">
           <Trophy className="h-4 w-4 text-[var(--color-lime)]" />

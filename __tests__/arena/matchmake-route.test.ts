@@ -23,6 +23,7 @@ import * as auction from "@/lib/arena/auction"
 import * as store from "@/lib/arena/store"
 import * as wallet from "@/lib/economy/wallet"
 import { DEFAULT_CONFIG } from "@/lib/arena/types"
+import { parseHeldLobby } from "@/lib/arena/clientRequests"
 
 const req = (stake: number) =>
   new Request("http://localhost/api/arena/matchmake", {
@@ -53,5 +54,16 @@ describe("matchmake with a held lobby", () => {
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual(expect.objectContaining({ gameId: "held", stake: 50 }))
     expect(wallet.chargeArenaStake).not.toHaveBeenCalled()
+  })
+
+  it("resume from the 409 (held stake fed back) returns the held lobby, no charge", async () => {
+    const conflict = await matchmake(req(100))
+    const held = parseHeldLobby(conflict.status, await conflict.json())
+    expect(held).toEqual({ gameId: "held", stake: 50 })
+    const res = await matchmake(req(held!.stake))
+    expect(res.status).toBe(200)
+    expect((await res.json()).gameId).toBe("held")
+    expect(wallet.chargeArenaStake).not.toHaveBeenCalled()
+    expect(wallet.refundArenaStake).not.toHaveBeenCalled()
   })
 })
