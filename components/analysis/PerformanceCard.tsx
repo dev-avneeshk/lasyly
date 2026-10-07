@@ -14,7 +14,6 @@ import {
 import { BarChart3, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatGameTime } from "@/lib/props/dates"
-import { pricesFromProbability } from "@/lib/props/odds"
 
 export interface PerformanceGame {
   value: number
@@ -28,7 +27,7 @@ interface PerformanceCardProps {
   statLabel: string
   /** Games to plot, oldest first. */
   games: PerformanceGame[]
-  /** Threshold the bars are compared against (the prop line, user-adjustable). */
+  /** Threshold the bars are compared against (the prop target, user-adjustable). */
   threshold: number
   onThresholdChange: (value: number) => void
   /** Sub-heading, e.g. "Last 15 Games". */
@@ -138,9 +137,6 @@ export function PerformanceCard({
     ? Math.round((games.reduce((sum, g) => sum + g.value, 0) / total) * 10) / 10
     : null
 
-  // Priced from the window on screen so the odds and the hit rate agree.
-  const prices = total > 0 ? pricesFromProbability(overCount / total) : null
-
   return (
     <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Header */}
@@ -156,14 +152,14 @@ export function PerformanceCard({
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {/* Line doubles as the threshold control. */}
+          {/* Target doubles as the threshold control. */}
           <div className="flex items-center gap-1.5 shrink-0 px-2.5 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/60">
             <div className="flex flex-col items-center">
               <span className="text-[14px] font-black leading-none text-white tabular-nums">
                 {threshold}
               </span>
               <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                Line
+                Target
               </span>
             </div>
             <div className="flex flex-col">
@@ -192,8 +188,6 @@ export function PerformanceCard({
             label={total > 0 ? `Over (${overPct}%)` : "Over"}
             accent
           />
-          <MetricTile value={prices?.over ?? "—"} label="Over Odds" />
-          <MetricTile value={prices?.under ?? "—"} label="Under Odds" />
         </div>
       </div>
 

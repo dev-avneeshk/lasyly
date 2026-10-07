@@ -39,7 +39,7 @@ export default function OGImage() {
           </div>
         </div>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, lineHeight: 1.5, maxWidth: 680 }}>
-          Points, rebounds, assists, 3PM — defensive matchups, line value, correlated parlays, and how to track your edge.
+          Points, rebounds, assists, 3PM — defensive matchups, target value, correlated parlays, and how to track your edge.
         </div>
       </div>
     ),

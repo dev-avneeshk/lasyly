@@ -53,7 +53,7 @@ export default function PropAnalyticsGuidePost() {
         "@context": "https://schema.org",
         "@type": "Article",
         "headline": "How to Read Prop Analytics: Hit Rates, Matchup Grades, and Confidence Scores Explained",
-        "description": "A plain-English breakdown of every metric on a Lasyly prop card — hit rates, matchup grades, confidence scores, trend arrows, streak dots, correlations, and line movement.",
+        "description": "A plain-English breakdown of every metric on a Lasyly prop card — hit rates, matchup grades, confidence scores, trend arrows, streak dots, correlations, and target movement.",
         "datePublished": "2026-05-22",
         "dateModified": "2026-05-22",
         "author": { "@type": "Organization", "name": "Lasyly", "url": baseUrl },
@@ -65,7 +65,7 @@ export default function PropAnalyticsGuidePost() {
         },
         "url": `${baseUrl}/blog/how-to-read-prop-analytics`,
         "mainEntityOfPage": { "@type": "WebPage", "@id": `${baseUrl}/blog/how-to-read-prop-analytics` },
-        "keywords": ["prop analytics", "hit rate", "matchup grade", "confidence score", "sports betting"],
+        "keywords": ["prop analytics", "hit rate", "matchup grade", "confidence score", "sports analytics"],
       }} />
 
       {/* Hero — asymmetric left-aligned */}
@@ -84,7 +84,7 @@ export default function PropAnalyticsGuidePost() {
           </h1>
 
           <p className="text-lg md:text-xl text-[var(--color-text-primary)]/60 leading-relaxed max-w-[52ch] mb-8">
-            Hit rates, matchup grades, confidence scores, trend arrows, streak dots, correlations, and line movement — decoded.
+            Hit rates, matchup grades, confidence scores, trend arrows, streak dots, correlations, and target movement — decoded.
           </p>
 
           <div className="flex items-center gap-4 text-sm text-[var(--color-text-muted)]">
@@ -192,7 +192,7 @@ export default function PropAnalyticsGuidePost() {
               </div>
 
               <p className="text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch] mt-8">
-                The confidence score is a research prioritization tool, not a betting instruction. A 5-star prop can lose. A 2-star prop can hit. Use it to decide where to spend your analysis time.
+                The confidence score is a research prioritization tool, not a recommendation. A 5-star prop can lose. A 2-star prop can hit. Use it to decide where to spend your analysis time.
               </p>
             </section>
 
@@ -205,10 +205,10 @@ export default function PropAnalyticsGuidePost() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  The trend arrow shows the direction of a player&apos;s recent performance relative to the prop line. An upward arrow means their actual numbers have been trending above the line. A downward arrow means below.
+                  The trend arrow shows the direction of a player&apos;s recent performance relative to the prop target. An upward arrow means their actual numbers have been trending above the target. A downward arrow means below.
                 </p>
                 <p>
-                  This is most useful combined with the L5 hit rate. A strong upward trend alongside a high L5 suggests the line may not have fully adjusted yet — which is where value lives.
+                  This is most useful combined with the L5 hit rate. A strong upward trend alongside a high L5 suggests the target may not have caught up yet — which is where the opportunity is.
                 </p>
               </div>
             </section>
@@ -239,7 +239,7 @@ export default function PropAnalyticsGuidePost() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  The correlations feature shows which other props historically hit at the same time as the one you&apos;re looking at. If Player A goes over his assist line 80% of the time when Player B also goes over his points line, that&apos;s a correlation worth knowing.
+                  The correlations feature shows which other props historically hit at the same time as the one you&apos;re looking at. If Player A goes over his assist target 80% of the time when Player B also goes over his points target, that&apos;s a correlation worth knowing.
                 </p>
                 <p>
                   Use correlations when building parlays. Correlated legs reduce the independent variance of a parlay — if one hits, the conditions that made it hit are likely to also benefit the correlated leg.
@@ -247,19 +247,19 @@ export default function PropAnalyticsGuidePost() {
               </div>
             </section>
 
-            {/* Line Movement */}
+            {/* Target Movement */}
             <section className="mb-20">
               <h2 className="text-2xl md:text-3xl font-bold font-serif tracking-tight text-[var(--color-text-primary)] mb-4">
-                Line Movement
+                Target Movement
               </h2>
               <div className="w-12 h-[2px] bg-[var(--color-lime)] mb-8 rounded-full" />
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  Prop lines move based on bet volume and sharp action. Lasyly tracks line history so you can see where a line started and where it is now.
+                  Prop targets are recalculated as new games come in. Lasyly keeps a history of each target so you can see where it started and where it is now.
                 </p>
                 <p>
-                  A line that moved in your favor (e.g., you wanted the over and the line dropped) suggests public money is on the under — which often means there&apos;s value on the over side, since sharp bettors tend to move lines. A line that moved against you adds caution.
+                  A target that dropped while you lean over usually means the player&apos;s recent output has cooled, so check whether the dip is a slump or a role change. A target that climbed reflects stronger recent form.
                 </p>
               </div>
             </section>
@@ -285,7 +285,7 @@ export default function PropAnalyticsGuidePost() {
                       "Matchup grade B or better",
                       "Trend arrow pointing the same direction as your bet",
                       "Streak dots showing consistent recent form",
-                      "Line movement neutral or in your favor",
+                      "Target movement neutral or in your favor",
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-3">
                         <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--color-lime)] shrink-0" />
@@ -339,7 +339,7 @@ export default function PropAnalyticsGuidePost() {
                     "Trend Arrow",
                     "Streak Dots",
                     "Correlations",
-                    "Line Movement",
+                    "Target Movement",
                     "Putting it together",
                   ].map((item) => (
                     <li key={item} className="text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">

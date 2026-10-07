@@ -451,15 +451,15 @@ export const GET = withSecurity(async (request: Request) => {
   const movement = await getLineMovementDescription(player, stat, sport)
 
   // Build the prompt
-  const prompt = `You are a sports betting analyst. Write a 3-5 sentence analysis (max 500 chars) for this prop:
-Player: ${player}, Stat: ${stat}, Line: ${propLine}
+  const prompt = `You are a sports analytics writer. Write a 3-5 sentence analysis (max 500 chars) for this prop:
+Player: ${player}, Stat: ${stat}, Target: ${propLine}
 Last 10 games: ${gameValues.join(", ")}
 L5 hit rate: ${l5HitRate}%, L10 hit rate: ${l10HitRate}%
 Matchup grade: ${grade ?? "N/A"} vs ${opponent}
-Line movement: ${movement}
+Target movement: ${movement}
 
-Cover: recent form trend, matchup quality, and whether the line offers value.
-Be concise and actionable. No disclaimers.`
+Cover: recent form trend, matchup quality, and how the player compares to the target.
+Be concise and actionable. No disclaimers. Do not use betting terms (odds, lines, bets, sportsbooks).`
 
   // Call OpenAI with 15s timeout
   const writeup = await callOpenAI(prompt)

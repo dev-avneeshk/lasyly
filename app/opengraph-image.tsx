@@ -62,7 +62,7 @@ export default function OGImage() {
           marginBottom: 28,
         }}>
           <span style={{ color: "#D4FF00", fontSize: 14, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Sports Betting Platform
+            Sports Analytics Platform
           </span>
         </div>
 

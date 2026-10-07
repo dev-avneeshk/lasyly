@@ -36,7 +36,7 @@ export default function WhyShareBetslipPost() {
         "publisher": { "@type": "Organization", "name": "Lasyly", "url": baseUrl, "logo": { "@type": "ImageObject", "url": `${baseUrl}/lasyly_logo.png` } },
         "url": `${baseUrl}/blog/why-share-your-betslip`,
         "mainEntityOfPage": { "@type": "WebPage", "@id": `${baseUrl}/blog/why-share-your-betslip` },
-        "keywords": ["betslip sharing", "sports betting community", "tipster track record", "betting accountability"],
+        "keywords": ["betslip sharing", "sports picks community", "tipster track record", "pick accountability"],
       }} />
 
       {/* Hero */}
@@ -98,7 +98,7 @@ export default function WhyShareBetslipPost() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  There&apos;s a well-documented psychological shift that happens when you know people are watching. When a bet is private, you can rationalize almost anything. &ldquo;LeBron always goes off after a back-to-back.&rdquo; &ldquo;The line feels off.&rdquo; &ldquo;I just have a feeling.&rdquo;
+                  There&apos;s a well-documented psychological shift that happens when you know people are watching. When a bet is private, you can rationalize almost anything. &ldquo;LeBron always goes off after a back-to-back.&rdquo; &ldquo;The number feels off.&rdquo; &ldquo;I just have a feeling.&rdquo;
                 </p>
                 <p>
                   When you know you&apos;re going to post the slip, those justifications get stress-tested differently. You start asking whether you&apos;d be comfortable explaining the reasoning out loud. You check the matchup grade. You look at the L10 hit rate before committing.
@@ -138,10 +138,10 @@ export default function WhyShareBetslipPost() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  Every betslip you post in a room does something useful for everyone else. It surfaces an angle someone might have missed. It sparks a conversation about a matchup. It shows that a prop line is getting action — which can itself be signal.
+                  Every betslip you post in a room does something useful for everyone else. It surfaces an angle someone might have missed. It sparks a conversation about a matchup. It shows that a prop is getting attention — which can itself be signal.
                 </p>
                 <p>
-                  Betting has historically been a zero-sum game between bettors and sportsbooks. The sharing dynamic on Lasyly tips that balance slightly. When five people in a room are independently reaching the same prop from different angles, that convergence matters.
+                  Research has historically been a solo activity. The sharing dynamic on Lasyly changes that. When five people in a room are independently reaching the same prop from different angles, that convergence matters.
                 </p>
               </div>
             </section>
@@ -155,10 +155,10 @@ export default function WhyShareBetslipPost() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  One of the hardest mental challenges in sports betting is separating results from process. A bad bet can win. A good bet can lose. The community reaction to a shared betslip helps anchor that.
+                  One of the hardest mental challenges in sports picks is separating results from process. A bad pick can win. A good pick can lose. The community reaction to a shared betslip helps anchor that.
                 </p>
                 <p>
-                  When you post a well-reasoned 5-leg parlay and people react with fire even before the result, that&apos;s validation of your process. When a sloppy pick loses and nobody bats an eye, that&apos;s useful feedback too. Over time, community reactions calibrate your confidence in ways that solo betting can&apos;t.
+                  When you post a well-reasoned 5-leg parlay and people react with fire even before the result, that&apos;s validation of your process. When a sloppy pick loses and nobody bats an eye, that&apos;s useful feedback too. Over time, community reactions calibrate your confidence in ways that solo picking can&apos;t.
                 </p>
               </div>
             </section>
@@ -201,7 +201,7 @@ export default function WhyShareBetslipPost() {
                   When your track record grows, the option to monetize opens up. Set a price for your picks, share them in a Tipster Room, and earn 85% of every purchase.
                 </p>
                 <p>
-                  The best time to start building your record was when you started betting. The second best time is now.
+                  The best time to start building your record was when you made your first pick. The second best time is now.
                 </p>
               </div>
             </section>
@@ -211,7 +211,7 @@ export default function WhyShareBetslipPost() {
               <div className="rounded-[calc(2rem-1px)] bg-[var(--color-surface)] p-8 md:p-10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
                 <p className="text-xl font-bold text-[var(--color-text-primary)] mb-2">Start building your track record</p>
                 <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6 max-w-[44ch]">
-                  Create your free account, log your first pick, and share it in a room. Your betting career starts now.
+                  Create your free account, log your first pick, and share it in a room. Your track record starts now.
                 </p>
                 <Link
                   href="/signup"

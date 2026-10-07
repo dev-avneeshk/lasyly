@@ -20,7 +20,6 @@ import { MatchupBanner } from "@/components/analysis/MatchupBanner"
 import { PropControls } from "@/components/analysis/PropControls"
 import { PerformanceCard } from "@/components/analysis/PerformanceCard"
 import { OpponentSummaryRow } from "@/components/analysis/OpponentSummaryRow"
-import { pricesFromProbability } from "@/lib/props/odds"
 import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
 import { ComposedChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts"
 
@@ -547,10 +546,6 @@ export default function PlayerDashboardPage() {
         }
       : null)
 
-  // Priced off the window on screen so the hero, chart strip and hit-rate
-  // summary can't disagree with each other.
-  const windowPrices = totalGames > 0 ? pricesFromProbability(overCount / totalGames) : null
-
   const projectionValue =
     prop.projection?.projection ?? (prop as { projectedValue?: number | null }).projectedValue ?? null
 
@@ -570,10 +565,8 @@ export default function PlayerDashboardPage() {
         teamName={teamMeta.name}
         teamColor={teamMeta.color}
         bio={profile?.bio ? { ...profile.bio, position: heroPosition } : (heroPosition ? { position: heroPosition, jerseyNumber: null, height: null, weight: null, age: null } : null)}
-        statLabel={statLabel}
         line={prop.propLine}
         projection={projectionValue}
-        prices={windowPrices}
         recommended={(prop as { direction?: "over" | "under" }).direction ?? "over"}
         onBack={() => router.push("/analysis")}
       />
@@ -1214,7 +1207,7 @@ export default function PlayerDashboardPage() {
 
         {/* Defensive Stats */}
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md p-4">
-          <h3 className="font-semibold text-sm tracking-wide mb-3 text-[var(--color-danger)]">Defensive / Betting</h3>
+          <h3 className="font-semibold text-sm tracking-wide mb-3 text-[var(--color-danger)]">Defensive &amp; Results</h3>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-[var(--color-text-muted)] border-b border-[var(--color-border)]">

@@ -8,11 +8,11 @@ import { SITE_URL } from "@/lib/seo/site"
 export const metadata: Metadata = {
   title: "Spurs Beat Thunder Game 4: Wembanyama 33 Pts, OKC Series Tied 2-2 — Lasyly",
   description:
-    "Victor Wembanyama scores 33 points, 8 rebounds, 5 assists and 3 blocks as the San Antonio Spurs rout the Oklahoma City Thunder 103-82 in Game 4. Western Conference Finals series tied 2-2. Full recap, box score analysis, and betting takeaways.",
+    "Victor Wembanyama scores 33 points, 8 rebounds, 5 assists and 3 blocks as the San Antonio Spurs rout the Oklahoma City Thunder 103-82 in Game 4. Western Conference Finals series tied 2-2. Full recap, box score analysis, and key takeaways.",
   openGraph: {
     title: "Spurs Beat Thunder 103-82 in Game 4 — Wembanyama 33 Pts, Series Tied 2-2",
     description:
-      "Wembanyama drops 33 points as San Antonio dominates OKC 103-82 to even the West Finals at 2-2. Full Game 4 recap, player grades, and NBA prop betting angles for Game 5.",
+      "Wembanyama drops 33 points as San Antonio dominates OKC 103-82 to even the West Finals at 2-2. Full Game 4 recap, player grades, and NBA prop analysis for Game 5.",
     type: "article",
     publishedTime: "2026-05-25",
   },
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
     "Shai Gilgeous-Alexander",
     "NBA playoffs 2026",
     "Victor Wembanyama props",
-    "Game 5 betting",
-    "NBA betting recap",
+    "Game 5 preview",
+    "NBA playoff recap",
   ],
 }
 
@@ -202,7 +202,7 @@ export default function SpursThunderGame4Post() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  Shai Gilgeous-Alexander finished with just 19 points on 6-of-15 shooting. He was the eighth-highest scorer in the game. OKC bettors who had the over on SGA&#39;s points prop (typically set at 28.5-30.5) were torched.
+                  Shai Gilgeous-Alexander finished with just 19 points on 6-of-15 shooting. He was the eighth-highest scorer in the game. Anyone expecting his usual 28-30 point night was left disappointed.
                 </p>
                 <p>
                   The Spurs&#39; defensive scheme specifically targeted SGA&#39;s downhill drives and stifled his rhythm from the opening tip.
@@ -310,10 +310,10 @@ export default function SpursThunderGame4Post() {
               </div>
             </section>
 
-            {/* Betting angles */}
+            {/* Key angles */}
             <section className="mb-20">
               <h2 className="text-2xl md:text-3xl font-bold font-serif tracking-tight text-[var(--color-text-primary)] mb-4">
-                Betting Angles for Game 5
+                Key Angles for Game 5
               </h2>
               <div className="w-12 h-[2px] bg-[var(--color-lime)] mb-8 rounded-full" />
 
@@ -326,11 +326,11 @@ export default function SpursThunderGame4Post() {
               <div className="rounded-[1.5rem] p-[1px] bg-gradient-to-b from-[var(--color-border)] to-transparent max-w-[56ch]">
                 <div className="rounded-[calc(1.5rem-1px)] bg-[var(--color-surface)] p-6 md:p-8 space-y-5">
                   {[
-                    { title: "SGA bounce-back", desc: "His scoring prop for Game 5 will likely open at 27.5-28.5. The public will hammer the over; consider whether San Antonio can replicate the same defensive scheme on the road." },
-                    { title: "Wembanyama props", desc: "Averaging 30+ in the series. The 30+ points line has strong supporting data — his blocks (2.5 line) and rebounds (10.5) are the secondary props to layer." },
-                    { title: "Stephon Castle", desc: "Just 1 turnover in Game 4 after committing 20 in the first two games. Castle's assists prop (6-7 range) and points are worth tracking." },
+                    { title: "SGA bounce-back", desc: "Expect a big scoring response in Game 5. The question is whether San Antonio can replicate the same defensive scheme on the road." },
+                    { title: "Wembanyama props", desc: "Averaging 30+ in the series, with blocks and rebounds as the secondary stats to watch." },
+                    { title: "Stephon Castle", desc: "Just 1 turnover in Game 4 after committing 20 in the first two games. Castle's assists and points are worth tracking." },
                     { title: "Home team trend", desc: "Home team has won every game in this series. OKC at home is a different animal than playing in San Antonio." },
-                    { title: "Total", desc: "Games 2-4 have all been under 240. The under on a 220-225 total has a reasonable case." },
+                    { title: "Pace", desc: "Games 2-4 have all finished with fewer than 240 combined points. Expect another grind-it-out game." },
                   ].map((angle, i) => (
                     <div key={angle.title} className={i < 4 ? "border-b border-[var(--color-border)] pb-5" : ""}>
                       <p className="text-sm font-bold text-[var(--color-text-primary)] mb-2">{angle.title}</p>

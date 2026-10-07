@@ -8,11 +8,11 @@ import { SITE_URL } from "@/lib/seo/site"
 export const metadata: Metadata = {
   title: "The Complete Guide to NBA Player Props in 2026 — Lasyly Blog",
   description:
-    "Points, rebounds, assists, 3-pointers, and beyond. Everything you need to approach NBA player props in 2026 — how to read defensive matchups, find line value, use L10 hit rates, and build smarter parlays.",
+    "Points, rebounds, assists, 3-pointers, and beyond. Everything you need to approach NBA player props in 2026 — how to read defensive matchups, find target value, use L10 hit rates, and build smarter parlays.",
   openGraph: {
     title: "The Complete Guide to NBA Player Props in 2026",
     description:
-      "Everything you need to approach NBA player props — defensive matchups, line value, hit rates, and smarter parlays.",
+      "Everything you need to approach NBA player props — defensive matchups, target value, hit rates, and smarter parlays.",
     type: "article",
     publishedTime: "2026-05-20",
   },
@@ -40,7 +40,7 @@ export default function NbaPropsGuidePost() {
         "@context": "https://schema.org",
         "@type": "Article",
         "headline": "The Complete Guide to NBA Player Props in 2026",
-        "description": "Points, rebounds, assists, 3-pointers, and beyond. Everything you need to approach NBA player props — defensive matchups, line value, hit rates, and correlated parlays.",
+        "description": "Points, rebounds, assists, 3-pointers, and beyond. Everything you need to approach NBA player props — defensive matchups, target value, hit rates, and correlated parlays.",
         "datePublished": "2026-05-20",
         "dateModified": "2026-05-20",
         "author": { "@type": "Organization", "name": "Lasyly", "url": baseUrl },
@@ -52,7 +52,7 @@ export default function NbaPropsGuidePost() {
         },
         "url": `${baseUrl}/blog/nba-player-props-guide`,
         "mainEntityOfPage": { "@type": "WebPage", "@id": `${baseUrl}/blog/nba-player-props-guide` },
-        "keywords": ["NBA player props", "NBA betting guide", "prop analytics", "parlay builder", "defensive matchup"],
+        "keywords": ["NBA player props", "NBA props guide", "prop analytics", "parlay builder", "defensive matchup"],
       }} />
 
       {/* Hero */}
@@ -99,7 +99,7 @@ export default function NbaPropsGuidePost() {
           <article className="max-w-none">
 
             <p className="text-lg text-[var(--color-text-primary)]/70 leading-relaxed mb-16 max-w-[60ch]">
-              NBA player props are one of the best betting markets available. High volume, deep data, and a soft market relative to spreads make them consistently exploitable — if you know how to approach them. This guide covers everything from the basics to advanced frameworks.
+              NBA player props are one of the richest areas for stat research. High volume and deep data make them rewarding to study — if you know how to approach them. This guide covers everything from the basics to advanced frameworks.
             </p>
 
             {/* Why NBA Props */}
@@ -111,10 +111,10 @@ export default function NbaPropsGuidePost() {
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  The NBA has 82 games per team per season, which means massive historical data sets for every player. Unlike NFL point spreads — where sharp money is concentrated and lines are efficient — the NBA props market is spread thin across hundreds of player-stat combinations per night. That inefficiency creates opportunity.
+                  The NBA has 82 games per team per season, which means massive historical data sets for every player. Each night brings hundreds of player-stat combinations to study, and few people look at all of them closely. That creates opportunity for careful research.
                 </p>
                 <p>
-                  Sportsbooks set hundreds of player prop lines per game day. They can&apos;t analyze every single one with the same rigor as a game spread. A well-researched bettor with good data has a genuine edge.
+                  With that many props per game day, nobody can analyze every one with the same rigor. A well-researched fan with good data has a genuine edge.
                 </p>
               </div>
             </section>
@@ -129,7 +129,7 @@ export default function NbaPropsGuidePost() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <PropTypeCard title="Points">
                   <p>
-                    The most liquid prop type. Lines are set close to a player&apos;s season average, with adjustment for pace, matchup, and injury. Because it&apos;s the most popular prop, it&apos;s also the most efficiently priced.
+                    The most liquid prop type. Targets sit close to a player&apos;s season average, with adjustment for pace, matchup, and injury. Because it&apos;s the most popular prop, it&apos;s also the most efficiently priced.
                   </p>
                   <p>
                     To find edge: focus on back-to-back games, home/away splits, and pace of play. A player who scores 26 per game but faces a team that plays at the league&apos;s slowest pace is a genuine under candidate.
@@ -148,12 +148,12 @@ export default function NbaPropsGuidePost() {
                     Highly sensitive to whether a player&apos;s primary targets are available. If a playmaker&apos;s main scoring options are healthy, his assist potential is strong. If a key shooter is out, his assist line is suspect.
                   </p>
                   <p>
-                    Check injury reports obsessively for assist props. The line can become completely wrong within 24 hours of a late-breaking injury.
+                    Check injury reports obsessively for assist props. The target can become completely outdated within 24 hours of a late-breaking injury.
                   </p>
                 </PropTypeCard>
                 <PropTypeCard title="3-Pointers Made">
                   <p>
-                    High variance, full stop. Even elite shooters will fail to hit a line a significant percentage of the time due to simple variance in a small counting number.
+                    High variance, full stop. Even elite shooters will fall short of a target a significant percentage of the time due to simple variance in a small counting number.
                   </p>
                   <p>
                     Best approach: use 3-PM props as parlay legs for players with extremely high volume of attempts. Also check whether the opposing team gives up corner threes.
@@ -177,7 +177,7 @@ export default function NbaPropsGuidePost() {
                   A team that ranks 28th in points allowed to small forwards is a dream matchup for an SF&apos;s points prop — but might be fine against centers. Aggregate defensive stats don&apos;t capture this. Position-specific defensive splits do.
                 </p>
                 <p>
-                  On Lasyly, every prop card shows a matchup grade (A–F) derived from exactly this data — how the opposing team defends that specific player&apos;s position and stat type. An A-grade matchup is a sportsbook pricing in a player&apos;s average without fully adjusting for how bad the opposing defense is against that stat.
+                  On Lasyly, every prop card shows a matchup grade (A–F) derived from exactly this data — how the opposing team defends that specific player&apos;s position and stat type. An A-grade matchup means the opposing defense is especially weak against that stat, which a plain season average doesn&apos;t capture.
                 </p>
               </div>
             </section>
@@ -199,16 +199,16 @@ export default function NbaPropsGuidePost() {
               </div>
             </section>
 
-            {/* Line Value */}
+            {/* Target Value */}
             <section className="mb-20">
               <h2 className="text-2xl md:text-3xl font-bold font-serif tracking-tight text-[var(--color-text-primary)] mb-4">
-                Line Value — Finding When a Line Is Wrong
+                Target Value — Finding When a Target Is Off
               </h2>
               <div className="w-12 h-[2px] bg-[var(--color-lime)] mb-8 rounded-full" />
 
               <div className="space-y-5 text-base text-[var(--color-text-muted)] leading-relaxed max-w-[60ch]">
                 <p>
-                  A line is &ldquo;wrong&rdquo; when it doesn&apos;t reflect the available information. The most common scenarios:
+                  A target is &ldquo;off&rdquo; when it doesn&apos;t reflect the available information. The most common scenarios:
                 </p>
               </div>
 
@@ -229,7 +229,7 @@ export default function NbaPropsGuidePost() {
                   <div>
                     <p className="text-sm font-bold text-[var(--color-text-primary)] mb-2">Blowout context</p>
                     <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
-                      Players in blowout wins play fewer minutes in the fourth quarter. Their prop line might be set for 36 minutes when they&apos;ll play 28.
+                      Players in blowout wins play fewer minutes in the fourth quarter. Their target might assume 36 minutes when they&apos;ll play 28.
                     </p>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ export default function NbaPropsGuidePost() {
                   The only way to know if your NBA prop strategy has edge is to track it systematically over a sample size large enough to separate luck from skill. A winning month can be variance. A winning year is harder to dismiss.
                 </p>
                 <p>
-                  Log every bet in Lasyly&apos;s tracker — player, stat type, line, direction, odds, and your reasoning. After 100+ bets, the platform will surface your best-performing signals automatically: which confidence score tiers, matchup grades, and stat types are actually returning profit for you specifically.
+                  Log every pick in Lasyly&apos;s tracker — player, stat type, target, direction, and your reasoning. After 100+ picks, the platform will surface your best-performing signals automatically: which confidence score tiers, matchup grades, and stat types are actually hitting for you specifically.
                 </p>
                 <p>
                   Everyone&apos;s edge is different. The data will show you yours.
@@ -334,7 +334,7 @@ export default function NbaPropsGuidePost() {
                     "Points, Rebounds, Assists, 3PM",
                     "Reading defensive matchups",
                     "Home / Away splits",
-                    "Finding line value",
+                    "Finding target value",
                     "Correlated parlays",
                     "Historical vs. recent form",
                     "Tracking your results",

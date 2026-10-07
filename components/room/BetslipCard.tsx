@@ -274,7 +274,7 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
                 </div>
                 <h4 className="font-black text-white relative z-10 mb-1 text-base">Premium Pick</h4>
                 <p className="text-xs text-[var(--color-text-muted)] relative z-10 mb-4 max-w-[220px] leading-relaxed">
-                  Unlock to view the full selections and copy to your sportsbook.
+                  Unlock to view the full selections.
                 </p>
                 {error && <p className="text-xs text-[var(--color-danger)] mb-3 relative z-10">{error}</p>}
                 <button

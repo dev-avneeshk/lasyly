@@ -783,7 +783,7 @@ export default function AnalysisClient({
         {!isToday && (
           <p className="flex items-start gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-3.5 py-2.5 text-xs text-[var(--color-text-muted)]">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--color-lime)]" />
-            You&apos;re viewing another day&apos;s schedule. Prop lines below are always generated for
+            You&apos;re viewing another day&apos;s schedule. Props below are always generated for
             today&apos;s slate.
           </p>
         )}

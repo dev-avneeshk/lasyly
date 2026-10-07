@@ -125,9 +125,9 @@ export default async function PlayerPage({ params }: PageProps) {
         {!hasProps && (
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-8 text-center mb-8">
             <div className="text-4xl mb-4">📊</div>
-            <h2 className="text-lg font-semibold text-white mb-2">No active prop lines</h2>
+            <h2 className="text-lg font-semibold text-white mb-2">No active props</h2>
             <p className="text-[var(--color-text-muted)] text-sm max-w-md mx-auto">
-              There are currently no active prop lines available for {player.name}. Check back when games are scheduled.
+              There are currently no active props for {player.name}. Check back when games are scheduled.
             </p>
           </div>
         )}
@@ -135,11 +135,11 @@ export default async function PlayerPage({ params }: PageProps) {
         {/* Props Data */}
         {hasProps && (
           <div className="space-y-6">
-            {/* Prop Line Card */}
+            {/* Current Target Card */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                  Current Prop Line
+                  Current Target
                 </h2>
                 {player.trend && (
                   <div className="flex items-center gap-1.5">

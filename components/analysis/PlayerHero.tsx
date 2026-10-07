@@ -14,12 +14,9 @@ interface PlayerHeroProps {
   /** Primary team colour, hex without a leading `#`. Tints the backdrop. */
   teamColor: string | null
   bio: PlayerBio | null
-  statLabel: string
   line: number
   /** Model projection for the active stat, when the engine produced one. */
   projection: number | null
-  /** Model-implied two-way price. Null when there's no usable sample. */
-  prices: { over: string; under: string } | null
   /** Side the model favours — gets the accent treatment. */
   recommended?: "over" | "under"
   onBack: () => void
@@ -74,10 +71,8 @@ export function PlayerHero({
   teamName,
   teamColor,
   bio,
-  statLabel,
   line,
   projection,
-  prices,
   recommended = "over",
   onBack,
 }: PlayerHeroProps) {
@@ -210,21 +205,15 @@ export function PlayerHero({
             <span className="text-[19px] font-black leading-none text-[var(--color-lime)] tabular-nums">
               {line}
             </span>
-            <span className="mt-1 text-[10px] font-semibold text-[var(--color-text-muted)]">Line</span>
+            <span className="mt-1 text-[10px] font-semibold text-[var(--color-text-muted)]">Target</span>
           </div>
 
           {(["over", "under"] as const).map((side) => {
             const Icon = side === "over" ? ArrowUp : ArrowDown
             const isRecommended = recommended === side
-            const price = prices?.[side] ?? null
             return (
               <div
                 key={side}
-                title={
-                  price
-                    ? `${side === "over" ? "Over" : "Under"} ${line} ${statLabel} — ${price} model-implied price, not a sportsbook line`
-                    : "Not enough sample to price this side"
-                }
                 className={cn(
                   "flex items-center justify-center gap-1.5 min-w-[86px] px-3 py-2.5 rounded-xl border",
                   isRecommended
@@ -233,21 +222,14 @@ export function PlayerHero({
                 )}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[13px] font-bold tabular-nums whitespace-nowrap">
-                  {side === "over" ? "O" : "U"} {price ?? "—"}
+                <span className="text-[13px] font-bold whitespace-nowrap">
+                  {side === "over" ? "Over" : "Under"}
                 </span>
               </div>
             )
           })}
         </div>
       </div>
-
-      {/* Price provenance — these are model numbers, not market prices. */}
-      {prices && (
-        <p className="relative px-4 pb-3 md:px-5 text-[10px] text-[var(--color-text-muted)]/70">
-          O/U prices are model-implied from hit rate — not sportsbook lines.
-        </p>
-      )}
     </section>
   )
 }

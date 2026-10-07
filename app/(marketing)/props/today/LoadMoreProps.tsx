@@ -55,7 +55,7 @@ export function LoadMoreProps({ props }: LoadMorePropsProps) {
                     <div className="hidden sm:grid grid-cols-[1fr_120px_80px_90px_70px] gap-2 px-4 py-2.5 border-b border-[var(--color-border)] bg-white/[0.02]">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Player</span>
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Stat</span>
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] text-right">Line</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] text-right">Target</span>
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] text-right">L10 Hit</span>
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] text-center">Grade</span>
                     </div>

@@ -7,7 +7,6 @@ import { ArrowDown, ArrowUp, ArrowRight, Bookmark, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
-import { getModelPrices } from "@/lib/props/odds"
 import { formatGameDayTime } from "@/lib/props/dates"
 import { resolveMatchup } from "@/lib/props/matchup"
 import { PlayerPhoto } from "@/components/props/PlayerPhoto"
@@ -39,7 +38,6 @@ export function PropCardCompact({
   const teamProp = isTeamProp(prop)
 
   const statLabel = STAT_LABELS[prop.statCategory] ?? prop.statCategory.toUpperCase()
-  const prices = useMemo(() => getModelPrices(prop), [prop])
   const kickoff = formatGameDayTime(gameTime)
   const { opponent, prefix: venuePrefix } = useMemo(() => resolveMatchup(prop), [prop])
 
@@ -62,7 +60,7 @@ export function PropCardCompact({
       className="group h-full flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-4 transition-colors hover:border-[var(--color-lime)]/40 cursor-pointer"
       role="link"
       tabIndex={0}
-      aria-label={`${prop.player} ${statLabel} ${prop.propLine} — view details`}
+      aria-label={`${prop.player} ${statLabel} target ${prop.propLine} — view details`}
       onClick={(e) => {
         const target = e.target as HTMLElement
         if (target.closest("button") || target.closest("a")) return
@@ -139,10 +137,10 @@ export function PropCardCompact({
         </div>
       </div>
 
-      {/* Line + prices */}
+      {/* Target */}
       <div className="mt-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">{statLabel}</p>
+          <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">{statLabel} · Target</p>
           <p className="text-[30px] font-extrabold leading-none tracking-[-0.02em] text-[var(--color-text-primary)] tabular-nums">
             {prop.propLine}
           </p>
@@ -151,7 +149,6 @@ export function PropCardCompact({
         <div className="flex items-stretch gap-2 shrink-0">
           {(["over", "under"] as const).map((direction) => {
             const isRecommended = prop.direction === direction
-            const price = prices ? prices[direction] : null
             const Icon = direction === "over" ? ArrowUp : ArrowDown
             return (
               <button
@@ -159,12 +156,8 @@ export function PropCardCompact({
                 type="button"
                 disabled={parlayDisabled}
                 onClick={() => onAddToParlay?.(prop, direction)}
-                title={
-                  price
-                    ? `Add ${direction} to prediction — ${price} model-implied price (not a sportsbook line)`
-                    : `Add ${direction} to prediction`
-                }
-                aria-label={`Add ${prop.player} ${direction} ${prop.propLine} ${statLabel} to prediction${price ? `, model-implied price ${price}` : ""}`}
+                title={`Add ${direction} to prediction`}
+                aria-label={`Add ${prop.player} ${direction} ${prop.propLine} ${statLabel} to prediction`}
                 className={cn(
                   "flex flex-col items-center justify-center gap-0.5 min-w-[62px] px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors",
                   parlayDisabled && "opacity-50 cursor-not-allowed",
@@ -176,9 +169,6 @@ export function PropCardCompact({
                 <span className="flex items-center gap-1 leading-none">
                   <Icon className="w-3 h-3" />
                   {direction === "over" ? "Over" : "Under"}
-                </span>
-                <span className="text-[10px] font-semibold leading-none tabular-nums opacity-80">
-                  {price ?? "—"}
                 </span>
               </button>
             )
@@ -212,7 +202,7 @@ export function PropCardCompact({
             {prop.propLine}
           </p>
           <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-            O/U
+            Target
           </p>
         </div>
       </div>

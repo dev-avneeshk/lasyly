@@ -11,7 +11,7 @@ export const SORT_OPTIONS: { key: PropSortKey; label: string }[] = [
   { key: "popularity", label: "Popularity" },
   { key: "hitRate", label: "Hit Rate" },
   { key: "confidence", label: "Confidence" },
-  { key: "line", label: "Line (High–Low)" },
+  { key: "line", label: "Target (High–Low)" },
   { key: "name", label: "Player (A–Z)" },
 ]
 

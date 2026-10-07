@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "prop analytics",
     "parlay builder",
     "player prop research",
-    "sports betting analytics",
+    "sports analytics",
   ],
   alternates: {
     canonical: "/analysis",

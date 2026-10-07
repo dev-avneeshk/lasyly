@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { username } = await params
   return {
     title: `@${username} | Lasyly`,
-    description: `View ${username}'s betting profile, stats, and picks on Lasyly.`,
+    description: `View ${username}'s profile, stats, and picks on Lasyly.`,
   }
 }
 

@@ -57,7 +57,7 @@ const features: Feature[] = [
     specs: [
       { k: "Polling", v: "Adaptive, faster on live games" },
       { k: "Dates", v: "Past, today, upcoming" },
-      { k: "Detail", v: "Team stats, box score, odds" },
+      { k: "Detail", v: "Team stats, box score, standings" },
       { k: "Media", v: "YouTube highlights" },
     ],
   },
