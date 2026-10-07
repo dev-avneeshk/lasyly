@@ -80,12 +80,6 @@ export type MatchSummary = {
   eventId: string
   venue?: string
   broadcasts?: string[]
-  odds?: {
-    homeMoneyline?: string
-    awayMoneyline?: string
-    spread?: string
-    overUnder?: string
-  }
   leaders?: Array<{
     team: string
     name: string
@@ -97,10 +91,17 @@ export type MatchSummary = {
     teams: Array<{
       team: string
       logo?: string
+      /** ESPN team id / abbreviation / side; absent on legacy stored summaries. */
+      teamId?: string
+      abbreviation?: string
+      homeAway?: "home" | "away"
       stats: Array<{ label: string; value: string }>
     }>
     players: Array<{
       team: string
+      teamId?: string
+      abbreviation?: string
+      homeAway?: "home" | "away"
       labels: string[]
       athletes: Array<{
         name: string

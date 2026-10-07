@@ -158,7 +158,7 @@ export async function fetchESPNLeague(sportPath: string, date?: string): Promise
 
 /**
  * Fetch match summary/detail from ESPN's summary endpoint.
- * Returns venue, odds, broadcasts, leaders, and headline.
+ * Returns venue, broadcasts, leaders, headline, and boxscore.
  */
 export async function fetchESPNSummary(sportPath: string, eventId: string): Promise<MatchSummary> {
   const controller = new AbortController()
@@ -524,22 +524,6 @@ function mapESPNSummary(data: any, eventId: string): MatchSummary {
     summary.broadcasts = undefined
   }
 
-  // Extract odds from pickcenter
-  try {
-    const pickcenter = data?.pickcenter
-    if (Array.isArray(pickcenter) && pickcenter.length > 0) {
-      const pc = pickcenter[0]
-      summary.odds = {
-        homeMoneyline: pc?.homeTeamOdds?.moneyLine?.toString() || undefined,
-        awayMoneyline: pc?.awayTeamOdds?.moneyLine?.toString() || undefined,
-        spread: pc?.details || undefined,
-        overUnder: pc?.overUnder?.toString() || undefined,
-      }
-    }
-  } catch {
-    summary.odds = undefined
-  }
-
   // Extract leaders
   try {
     const leaders = data?.leaders
@@ -579,12 +563,39 @@ function mapESPNSummary(data: any, eventId: string): MatchSummary {
       // Team stats
       const teamStats: MatchSummary["boxscore"] = { teams: [], players: [] }
 
+      // ESPN lists boxscore teams/players away-first, so carry each entry's
+      // team id and side so the UI can bind them to the header's home/away.
+      const sideByTeamId = new Map<string, "home" | "away">()
+      const competitors = data?.header?.competitions?.[0]?.competitors
+      if (Array.isArray(competitors)) {
+        for (const c of competitors) {
+          const id = c?.team?.id ?? c?.id
+          if (id != null && (c?.homeAway === "home" || c?.homeAway === "away")) {
+            sideByTeamId.set(String(id), c.homeAway)
+          }
+        }
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const identity = (entry: any) => {
+        const teamId = entry?.team?.id != null ? String(entry.team.id) : undefined
+        const homeAway: "home" | "away" | undefined =
+          entry?.homeAway === "home" || entry?.homeAway === "away"
+            ? entry.homeAway
+            : teamId ? sideByTeamId.get(teamId) : undefined
+        return {
+          teamId,
+          abbreviation: entry?.team?.abbreviation ?? undefined,
+          homeAway,
+        }
+      }
+
       // Extract team-level stats
       if (Array.isArray(boxscore.teams)) {
         for (const team of boxscore.teams) {
           const teamEntry = {
             team: team?.team?.displayName ?? "",
             logo: team?.team?.logo ?? undefined,
+            ...identity(team),
             stats: [] as Array<{ label: string; value: string }>,
           }
           if (Array.isArray(team?.statistics)) {
@@ -621,7 +632,7 @@ function mapESPNSummary(data: any, eventId: string): MatchSummary {
             }
 
             if (athletes.length > 0) {
-              teamStats.players.push({ team: teamName, labels, athletes })
+              teamStats.players.push({ team: teamName, ...identity(playerGroup), labels, athletes })
             }
           }
         }

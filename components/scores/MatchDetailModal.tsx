@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { X, MapPin, Tv, TrendingUp, BarChart3, Users2, Clock } from "lucide-react"
+import { X, MapPin, Tv, BarChart3, Users2, Clock } from "lucide-react"
 import { LiveMatch, MatchSummary } from "@/types"
 import { cn } from "@/lib/utils"
 import { formatMatchTime, formatDay, formatDateReadable, formatTime } from "@/lib/datetime"
+import { alignHomeAway, orderHomeFirst } from "@/lib/scores/alignTeams"
 
 interface MatchDetailModalProps {
   match: LiveMatch | null
   onClose: () => void
 }
 
-type Tab = "summary" | "boxscore" | "stats" | "odds" | "standings"
+type Tab = "summary" | "boxscore" | "stats" | "standings"
 
 function isLive(status: string): boolean {
   return (
@@ -30,8 +31,6 @@ function isLive(status: string): boolean {
 
 // ─── Sport-specific tab configuration ────────────────────────────────────────
 
-// Sports that are team-based and support box scores / team stats
-const TEAM_SPORTS = new Set(["Football", "Basketball", "American Football", "Hockey", "Baseball", "Cricket"])
 // Sports that are individual (no team stats or box score)
 const INDIVIDUAL_SPORTS = new Set(["Tennis", "MMA", "Golf", "F1"])
 
@@ -39,16 +38,12 @@ const INDIVIDUAL_SPORTS = new Set(["Tennis", "MMA", "Golf", "F1"])
 const BOX_SCORE_SPORTS = new Set(["Basketball", "American Football", "Hockey", "Baseball"])
 
 function getTabsForSport(
-  sport: string,
-  hasTeamStats?: boolean,
-  hasBoxscore?: boolean,
-  hasOdds?: boolean
+  sport: string
 ): { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] {
   if (INDIVIDUAL_SPORTS.has(sport)) {
-    // Individual sports: show match info + odds if available
+    // Individual sports: match info only
     return [
       { id: "summary", label: "Match Info", icon: <Clock className="h-3.5 w-3.5" />, show: true },
-      { id: "odds", label: "Betting Lines", icon: <TrendingUp className="h-3.5 w-3.5" />, show: true },
     ]
   }
 
@@ -60,7 +55,6 @@ function getTabsForSport(
     { id: "stats", label: "Team Stats", icon: <Users2 className="h-3.5 w-3.5" />, show: true },
     { id: "boxscore", label: "Box Score", icon: <BarChart3 className="h-3.5 w-3.5" />, show: showBoxScore },
     { id: "standings", label: "Standings", icon: <Clock className="h-3.5 w-3.5" />, show: true },
-    { id: "odds", label: "Betting Lines", icon: <TrendingUp className="h-3.5 w-3.5" />, show: true },
   ]
 }
 
@@ -186,16 +180,17 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
 
   const live = isLive(match.status)
   const venue = summary?.venue || match.venue
-  const hasBoxscore = summary?.boxscore?.players && summary.boxscore.players.length > 0
-  const hasTeamStats = summary?.boxscore?.teams && summary.boxscore.teams.length > 0
   const isUpcoming = match.status === "Not Started"
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] = isUpcoming
-    ? [
-        { id: "summary", label: "Preview", icon: <Clock className="h-3.5 w-3.5" />, show: true },
-        { id: "odds", label: "Betting Lines", icon: <TrendingUp className="h-3.5 w-3.5" />, show: true },
-      ]
-    : getTabsForSport(match.sport, hasTeamStats, hasBoxscore, !!summary?.odds)
+    ? [{ id: "summary", label: "Preview", icon: <Clock className="h-3.5 w-3.5" />, show: true }]
+    : getTabsForSport(match.sport)
+  const visibleTabs = tabs.filter((t) => t.show)
+
+  // ESPN lists boxscore entries away-first; bind them to the header's sides
+  // (home left, away right) by flag/name rather than array position.
+  const alignedTeams = summary?.boxscore?.teams ? alignHomeAway(summary.boxscore.teams, match) : null
+  const playersHomeFirst = summary?.boxscore?.players ? orderHomeFirst(summary.boxscore.players, match) : []
 
   return createPortal(
     <div
@@ -210,7 +205,9 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
     >
       <div className="w-full max-w-lg max-h-[90vh] rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
         {/* Scoreboard Header */}
-        <div className="relative overflow-hidden">
+        {/* shrink-0: tall tab content must scroll, never compress the header
+            (overflow-hidden makes its min-height 0, which clipped the names). */}
+        <div className="relative shrink-0 overflow-hidden">
           {/* Team-color wash — the one committed color moment, kept low and
               anchored to the two teams' actual brand colors. */}
           <div className="absolute inset-0">
@@ -262,18 +259,21 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
           </div>
 
           {/* Score Display */}
-          <div className="relative px-6 pb-7 pt-3">
-            <div className="flex items-start justify-between gap-2">
+          <div className="relative px-3 sm:px-6 pb-7 pt-3">
+            <div className="flex items-start justify-between gap-1.5 sm:gap-2">
               {/* Home Team */}
-              <div className="flex-1 flex flex-col items-center gap-2.5">
+              <div className="flex-1 basis-0 min-w-0 flex flex-col items-center gap-2.5">
                 <TeamLogo url={match.homeLogo} name={match.homeTeam} color={match.homeColor} />
-                <span className="text-[13px] font-bold text-white/90 text-center leading-tight max-w-[110px]">
+                <span
+                  className="w-full break-words text-[12px] sm:text-[13px] font-bold text-white/90 text-center leading-tight"
+                  title={match.homeTeam}
+                >
                   {match.homeTeam}
                 </span>
               </div>
 
               {/* Score */}
-              <div className="flex-shrink-0 px-2 pt-3 text-center">
+              <div className="flex-shrink-0 px-1 sm:px-2 pt-3 text-center">
                 {match.status === "Not Started" ? (
                   <div className="flex flex-col items-center">
                     <span className="text-2xl font-black text-white/25 tracking-wider">VS</span>
@@ -284,18 +284,18 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-1.5 sm:gap-2.5">
                     <span className={cn(
-                      "text-5xl font-black tabular-nums leading-none transition-colors",
+                      "text-3xl sm:text-5xl font-black tabular-nums leading-none transition-colors",
                       match.homeScore > match.awayScore
                         ? "text-[var(--color-lime)]"
                         : match.homeScore === match.awayScore ? "text-white" : "text-white/40"
                     )}>
                       {match.homeScore}
                     </span>
-                    <span className="text-2xl text-white/20 font-light leading-none">–</span>
+                    <span className="text-xl sm:text-2xl text-white/20 font-light leading-none">–</span>
                     <span className={cn(
-                      "text-5xl font-black tabular-nums leading-none transition-colors",
+                      "text-3xl sm:text-5xl font-black tabular-nums leading-none transition-colors",
                       match.awayScore > match.homeScore
                         ? "text-[var(--color-lime)]"
                         : match.awayScore === match.homeScore ? "text-white" : "text-white/40"
@@ -307,9 +307,12 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
               </div>
 
               {/* Away Team */}
-              <div className="flex-1 flex flex-col items-center gap-2.5">
+              <div className="flex-1 basis-0 min-w-0 flex flex-col items-center gap-2.5">
                 <TeamLogo url={match.awayLogo} name={match.awayTeam} color={match.awayColor} />
-                <span className="text-[13px] font-bold text-white/90 text-center leading-tight max-w-[110px]">
+                <span
+                  className="w-full break-words text-[12px] sm:text-[13px] font-bold text-white/90 text-center leading-tight"
+                  title={match.awayTeam}
+                >
                   {match.awayTeam}
                 </span>
               </div>
@@ -318,10 +321,10 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
         </div>
 
         {/* Tabs — segmented control */}
-        {!loading && !fetchError && (
-          <div className="px-4 pt-3 pb-1">
+        {!loading && !fetchError && visibleTabs.length > 1 && (
+          <div className="shrink-0 px-4 pt-3 pb-1">
             <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1">
-              {tabs.filter(t => t.show).map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -341,7 +344,7 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           {loading && (
             <div className="space-y-3 py-2">
               {/* Skeleton rows — matches the stat-bar layout users are about to see */}
@@ -373,8 +376,8 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
           )}
 
           {!loading && !fetchError && activeTab === "boxscore" && (
-            summary?.boxscore?.players && summary.boxscore.players.length > 0 ? (
-              <BoxScoreTab players={summary.boxscore.players} />
+            playersHomeFirst.length > 0 ? (
+              <BoxScoreTab players={playersHomeFirst} />
             ) : (
               <div className="text-center py-8">
                 <p className="text-sm text-white/40">Box score not available yet</p>
@@ -384,9 +387,10 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
           )}
 
           {!loading && !fetchError && activeTab === "stats" && (
-            summary?.boxscore?.teams ? (
+            alignedTeams ? (
               <TeamStatsTab
-                teams={summary.boxscore.teams}
+                home={alignedTeams.home}
+                away={alignedTeams.away}
                 homeTeam={match.homeTeam}
                 awayTeam={match.awayTeam}
                 homeColor={match.homeColor}
@@ -406,10 +410,6 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
               <p className="text-sm text-white/40">Standings not available</p>
               <p className="text-xs text-white/25 mt-1">League standings data is not available for this match</p>
             </div>
-          )}
-
-          {!loading && !fetchError && activeTab === "odds" && (
-            <OddsTab match={match} summary={summary} />
           )}
         </div>
       </div>
@@ -502,46 +502,6 @@ function SummaryTab({ match, summary, venue }: { match: LiveMatch; summary: Matc
         )}
       </div>
 
-      {/* Odds */}
-      {summary?.odds && !TEAM_SPORTS.has(match.sport) && !INDIVIDUAL_SPORTS.has(match.sport) && (
-        <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-4 w-4 text-[var(--color-primary)]" />
-            <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Betting Lines</span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {summary.odds.homeMoneyline && (
-              <div className="rounded-lg bg-white/5 p-3 text-center">
-                <p className="text-[10px] text-white/40 mb-1 truncate">{match.homeTeam}</p>
-                <p className="text-sm font-black text-white">{summary.odds.homeMoneyline}</p>
-              </div>
-            )}
-            {summary.odds.spread && (
-              <div className="rounded-lg bg-white/5 p-3 text-center">
-                <p className="text-[10px] text-white/40 mb-1">
-                  {match.sport === "Tennis" ? "Game Spread" : "Spread"}
-                </p>
-                <p className="text-sm font-black text-white">{summary.odds.spread}</p>
-              </div>
-            )}
-            {summary.odds.awayMoneyline && (
-              <div className="rounded-lg bg-white/5 p-3 text-center">
-                <p className="text-[10px] text-white/40 mb-1 truncate">{match.awayTeam}</p>
-                <p className="text-sm font-black text-white">{summary.odds.awayMoneyline}</p>
-              </div>
-            )}
-          </div>
-          {summary.odds.overUnder && (
-            <div className="mt-3 rounded-lg bg-white/5 p-3 text-center">
-              <p className="text-[10px] text-white/40 mb-1">
-                {match.sport === "Tennis" ? "Total Games" : "Over/Under"}
-              </p>
-              <p className="text-sm font-black text-white">{summary.odds.overUnder}</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Leaders */}
       {summary?.leaders && summary.leaders.length > 0 && (
         <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
@@ -573,17 +533,17 @@ function SummaryTab({ match, summary, venue }: { match: LiveMatch; summary: Matc
       )}
 
       {/* Fallback for upcoming with no data */}
-      {isUpcoming && !summary?.odds && !summary?.broadcasts && !venue && (
+      {isUpcoming && !summary?.broadcasts && !venue && (
         <div className="text-center py-6">
           <p className="text-sm text-white/40">
             {isIndividual ? "Match details will be available closer to start" : "Game details will be available closer to tip-off"}
           </p>
-          <p className="text-xs text-white/25 mt-1">Check back for odds, venue, and broadcast info</p>
+          <p className="text-xs text-white/25 mt-1">Check back for venue and broadcast info</p>
         </div>
       )}
 
       {/* Fallback for individual sports with no summary data (live/finished) */}
-      {isIndividual && !isUpcoming && !summary?.odds && !summary?.leaders && !venue && (
+      {isIndividual && !isUpcoming && !summary?.leaders && !venue && (
         <div className="text-center py-4">
           <p className="text-xs text-white/30">Detailed stats may not be available for this match</p>
         </div>
@@ -681,23 +641,26 @@ function BoxScoreTab({ players }: { players: NonNullable<MatchSummary["boxscore"
 
 // ─── Team Stats Tab ──────────────────────────────────────────────────────────
 
+type TeamStatsEntry = NonNullable<MatchSummary["boxscore"]>["teams"][number]
+
 function TeamStatsTab({
-  teams,
+  home,
+  away,
   homeTeam,
   awayTeam,
   homeColor,
   awayColor,
 }: {
-  teams: NonNullable<MatchSummary["boxscore"]>["teams"]
+  /** Entry for the header's left (home) team. */
+  home: TeamStatsEntry | null
+  /** Entry for the header's right (away) team. */
+  away: TeamStatsEntry | null
   homeTeam: string
   awayTeam: string
   homeColor?: string
   awayColor?: string
 }) {
-  if (teams.length < 2) return null
-
-  const team1 = teams[0]
-  const team2 = teams[1]
+  if (!home || !away) return null
 
   // Each team's brand color, with sensible on-brand fallbacks.
   const homeHex = homeColor ? `#${homeColor}` : "var(--color-primary)"
@@ -705,13 +668,13 @@ function TeamStatsTab({
 
   // Pair stats by label
   const pairedStats: Array<{ label: string; home: string; away: string }> = []
-  const team2Map = new Map(team2.stats.map((s) => [s.label, s.value]))
+  const awayMap = new Map(away.stats.map((s) => [s.label, s.value]))
 
-  for (const stat of team1.stats) {
+  for (const stat of home.stats) {
     pairedStats.push({
       label: stat.label,
       home: stat.value,
-      away: team2Map.get(stat.label) ?? "-",
+      away: awayMap.get(stat.label) ?? "-",
     })
   }
 
@@ -720,15 +683,15 @@ function TeamStatsTab({
       {/* Team header with color chips */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          {team1.logo
-            ? <img src={team1.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
+          {home.logo
+            ? <img src={home.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
             : <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: homeHex }} />}
-          <span className="text-xs font-bold text-white/85 truncate">{team1.team || homeTeam}</span>
+          <span className="text-xs font-bold text-white/85 truncate">{home.team || homeTeam}</span>
         </div>
         <div className="flex items-center gap-2 min-w-0 justify-end">
-          <span className="text-xs font-bold text-white/85 truncate">{team2.team || awayTeam}</span>
-          {team2.logo
-            ? <img src={team2.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
+          <span className="text-xs font-bold text-white/85 truncate">{away.team || awayTeam}</span>
+          {away.logo
+            ? <img src={away.logo} alt="" className="h-5 w-5 object-contain shrink-0" />
             : <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: awayHex }} />}
         </div>
       </div>
@@ -787,62 +750,6 @@ function TeamStatsTab({
             </div>
           )
         })}
-      </div>
-    </div>
-  )
-}
-
-
-// ─── Odds / Betting Lines Tab ────────────────────────────────────────────────
-
-function OddsTab({ match, summary }: { match: LiveMatch; summary: MatchSummary | null }) {
-  if (!summary?.odds) {
-    return (
-      <div className="text-center py-8">
-        <TrendingUp className="w-8 h-8 text-white/15 mx-auto mb-3" />
-        <p className="text-sm text-white/40">Betting lines not available</p>
-        <p className="text-xs text-white/25 mt-1">Odds data is not available for this match</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="h-4 w-4 text-[var(--color-primary)]" />
-          <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Betting Lines</span>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {summary.odds.homeMoneyline && (
-            <div className="rounded-lg bg-white/5 p-3 text-center">
-              <p className="text-[10px] text-white/40 mb-1 truncate">{match.homeTeam}</p>
-              <p className="text-sm font-black text-white">{summary.odds.homeMoneyline}</p>
-            </div>
-          )}
-          {summary.odds.spread && (
-            <div className="rounded-lg bg-white/5 p-3 text-center">
-              <p className="text-[10px] text-white/40 mb-1">
-                {match.sport === "Tennis" ? "Game Spread" : "Spread"}
-              </p>
-              <p className="text-sm font-black text-white">{summary.odds.spread}</p>
-            </div>
-          )}
-          {summary.odds.awayMoneyline && (
-            <div className="rounded-lg bg-white/5 p-3 text-center">
-              <p className="text-[10px] text-white/40 mb-1 truncate">{match.awayTeam}</p>
-              <p className="text-sm font-black text-white">{summary.odds.awayMoneyline}</p>
-            </div>
-          )}
-        </div>
-        {summary.odds.overUnder && (
-          <div className="mt-3 rounded-lg bg-white/5 p-3 text-center">
-            <p className="text-[10px] text-white/40 mb-1">
-              {match.sport === "Tennis" ? "Total Games" : "Over/Under"}
-            </p>
-            <p className="text-sm font-black text-white">{summary.odds.overUnder}</p>
-          </div>
-        )}
       </div>
     </div>
   )
