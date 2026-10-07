@@ -1,0 +1,89 @@
+{
+  "name": "lasyly-audit-fixloop",
+  "description": "Resume of wf_cda508f57f2a6164 from the fix loop (first fix batch c058d3e already done; review-security.md from that batch is REJECTED). Fix/review loop tolerant of reviewer failures, re-audit loop, final report.",
+  "inputs": {},
+  "steps": [
+    {
+      "id": "fix-loop",
+      "type": "repeat",
+      "maxIterations": 20,
+      "onMaxIterations": "pause",
+      "stopCondition": {
+        "fileCheck": {
+          "path": "/Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/fix-review.json",
+          "jsonPath": "verdict",
+          "value": "APPROVED"
+        }
+      },
+      "steps": [
+        {
+          "agent": "wf-coder",
+          "id": "fix",
+          "type": "step",
+          "prompt": "You are the single fixer for the Lasyly production-hardening audit. Work ONLY in /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening). Never touch the main tree at /Users/ayushkumar/development/betroom except the task dir /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/.\n\nRead first: BRIEF.md, audit-matrix.md, status.json, fix-review.json, and if present review-security.md and review-code.md (all in the task dir). If the reviews contain REJECT findings, fix those first. Then work open matrix items in severity order: all CRITICAL and HIGH must be fixed; then MEDIUM; LOW/OPTIMIZATION where cheap and clearly beneficial. Take as large a batch as you can finish and verify well this iteration.\n\nRules: minimal, simple diffs; net code size flat or smaller; no new abstraction/dependency unless clearly justified; reuse existing utilities. Next.js has breaking changes - read /Users/ayushkumar/development/betroom/.worktrees/audit/node_modules/next/dist/docs/ for any Next.js API you touch. Redis cache-aside for expensive/frequent reads per AGENTS.md; never share-cache per-user data. Atomic DB ops / transactions / idempotency for coins, parlays, rewards, arena. New migrations: files only in supabase/migrations/, idempotent and non-destructive; NEVER apply them to any remote DB. No pushes, deploys, k6, or prod scraper runs. Never print or commit secret values; if a hardcoded secret exists, remove it and mark 'rotate key <NAME>' in the matrix. Don't upgrade deps blindly; pin exact versions. Keep Lasyly visual design.\nSecurity fixes: add a vitest test proving attack fails and legit request works (and note it failed before). UI fixes: verify in a headless browser at relevant widths (dev server `node server.mjs` in the background; stop it afterwards).\n\nAfter each logical fix, commit with a conventional message (fix:/security:/perf:/refactor:/chore:/test:). Before finishing the iteration, run in the worktree: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` - all must pass (lint errors 0; don't increase warnings). Update audit-matrix.md statuses (fixed + verification evidence) and status.json counts. Signal success with a summary of what was fixed and the new HEAD sha.\n\nRESUME CONTEXT (relaunch #2): Iterations 1-4 are committed (HEAD fa94e5f, 0 CRITICAL, 0 HIGH open; MEDIUM 27, LOW 56, OPT 17). Iteration 4 was security-reviewed (/Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/review-security.md, VERDICT: APPROVED) but its code review never ran (reviewer service error), so this iteration's code review covers b7081ec..HEAD. First: the iter-4 security review says REV-19 (MEDIUM) is falsely marked fixed: 10 reused forged sb-*-auth-token cookies still get 2,400/min per IP (repro confirmed). Orchestrator decision to end that back-and-forth: in proxy.ts add one per-IP ceiling that applies to ALL requests from an IP regardless of how many distinct session cookies it presents (one shared counter keyed only by IP, sized for real NAT use, e.g. 600/min), on top of any per-session bucket. Per-user/per-route limits on costly mutations stay as they are. Forged cookies then gain at most that fixed ceiling, never N x cookies. Add a test: 10 forged cookies from one IP cannot exceed the IP ceiling; a legit signed-in user under the ceiling is not throttled. Record the NAT tradeoff in the matrix row. Then continue with open MEDIUMs. For any MEDIUM that is genuinely not worth fixing or needs the owner (deploy config, product decision), mark it wontfix-with-reason or owner-action with a concrete written justification instead of leaving it open; the gate accepts justified items. REVIEW FILE HYGIENE: before finishing, move /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/review-security.md (and review-code.md if present) to /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/reviews/iter-<next n>-*.md. Scratch files go only in /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/scratch/, never /tmp."
+        },
+        {
+          "id": "fix-reviews",
+          "type": "parallel",
+          "joinPolicy": "allSettled",
+          "branches": [
+            {
+              "agent": "semantic_reviewer",
+              "id": "review-security",
+              "type": "step",
+              "prompt": "Security review of the Lasyly hardening changes. Repo/worktree: /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening). Read /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md, audit-matrix.md and fix-review.json in that task dir. Review the diff `git -C /Users/ayushkumar/development/betroom/.worktrees/audit diff <reviewed_head from fix-review.json>..HEAD` (also skim full `93b4e0b..HEAD` for context). Do not edit source code.\nCheck: each security fix actually closes the hole (authz/IDOR, RLS/RPC grants, SSRF, open redirect, XSS, upload validation, rate limiting, CSRF, secrets) with a test proving attack fails + legit path works; no new vulnerabilities or authz regressions; business-logic integrity (coins non-negative, idempotent rewards/settlement, atomicity); no per-user data in shared caches; no secrets committed; migrations idempotent/non-destructive. Also verify matrix items marked fixed for CRITICAL/HIGH truly are.\nWrite /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/review-security.md with findings (severity, file:line, why, required fix) and a final line exactly `VERDICT: APPROVED` or `VERDICT: REJECTED`. Reject on any HIGH/CRITICAL problem or any CRITICAL/HIGH matrix item falsely marked fixed."
+            },
+            {
+              "agent": "wf-auto-researcher",
+              "id": "review-code",
+              "type": "step",
+              "prompt": "READ-ONLY REVIEW: do not edit source code and do not commit. Code-quality/correctness review of the Lasyly hardening changes. Repo/worktree: /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening). Read /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md, audit-matrix.md and fix-review.json. Review `git -C /Users/ayushkumar/development/betroom/.worktrees/audit diff <reviewed_head from fix-review.json>..HEAD` (skim `93b4e0b..HEAD` for context). Do not edit source code.\nCheck: behavioral correctness and regressions (UI, API contracts, DB results, sports stats/rankings, auth flows, mobile), race conditions, memory leaks/cleanup, perf changes preserve results, code got simpler not bigger (no needless abstractions/deps, dead code removed safely with references verified), Next.js API usage valid for this Next version (see node_modules/next/dist/docs/), Redis cache-aside correctness, tests meaningful. Run `npm test` and `npx tsc --noEmit` in the worktree to confirm.\nWrite /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/review-code.md with findings (severity, file:line, why, required fix) and a final line exactly `VERDICT: APPROVED` or `VERDICT: REJECTED`. Reject on any HIGH/CRITICAL regression or bug."
+            }
+          ]
+        },
+        {
+          "agent": "wf-coder",
+          "id": "fix-aggregate",
+          "type": "step",
+          "prompt": "Gate writer for the fix loop. Do NOT edit source code.\nRead /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/review-security.md, review-code.md, status.json and audit-matrix.md. Recount open items by severity from the matrix and update status.json. Get HEAD via `git -C /Users/ayushkumar/development/betroom/.worktrees/audit rev-parse HEAD`.\nWrite /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/fix-review.json: {\"verdict\":\"APPROVED\"|\"REJECTED\",\"reviewed_head\":\"<HEAD sha>\",\"open_critical\":n,\"open_high\":n,\"reasons\":[...]}. verdict is APPROVED ONLY IF both reviews end with `VERDICT: APPROVED` AND open_critical==0 AND open_high==0 AND no open MEDIUM item lacks either a fix or a written justification. Otherwise REJECTED with reasons. Append any new reviewer findings as open rows in audit-matrix.md. Signal success with the verdict.\n\nIf review-security.md or review-code.md is missing (a reviewer step failed, e.g. a service/access error), treat it as NOT approved: verdict REJECTED with reason 'reviewer <name> did not produce a review; rerun'. Keep reviewed_head at the PREVIOUS value from fix-review.json in that case (do not advance it), so the next review still covers the unreviewed diff. Only advance reviewed_head to HEAD when both review files exist."
+        }
+      ]
+    },
+    {
+      "id": "reaudit-loop",
+      "type": "repeat",
+      "maxIterations": 6,
+      "onMaxIterations": "pause",
+      "stopCondition": {
+        "fileCheck": {
+          "path": "/Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/status.json",
+          "jsonPath": "complete",
+          "value": true
+        }
+      },
+      "steps": [
+        {
+          "agent": "wf-auto-researcher",
+          "id": "reaudit",
+          "type": "step",
+          "prompt": "INDEPENDENT FROM-SCRATCH RE-AUDIT (BRIEF.md section 37). Do NOT edit source code. Assume previous passes missed things.\nRead /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md. Audit /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening) across ALL 37 areas, independently - form your own view first, only then compare with audit-matrix.md (pay extra attention to any area the matrix header marks NOT AUDITED). Specifically hunt for bugs/regressions/security holes introduced by the fixes (`git -C /Users/ayushkumar/development/betroom/.worktrees/audit log --oneline 93b4e0b..HEAD` and the diff), unnecessary complexity added, duplicated logic, perf regressions, missed edge cases, races, inconsistent state, UI regressions (verify in a headless browser at 320/768/1440 at least; dev server `node server.mjs` in background, stop it after). Run the gate in the worktree: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`.\nAppend genuinely new meaningful issues to audit-matrix.md (status open, id prefix RA-n). Update /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/status.json counts. If this pass found NO new meaningful issues (nothing CRITICAL/HIGH/MEDIUM, and no LOW worth fixing), all open counts for CRITICAL/HIGH are 0, and the gate passes: increment clean_audit_passes_in_a_row and set complete=true. Otherwise set clean_audit_passes_in_a_row=0 and complete=false. Write your pass notes to reaudit-pass-<n>.md in the task dir. Signal success with the result."
+        },
+        {
+          "agent": "wf-coder",
+          "id": "reaudit-fix",
+          "type": "step",
+          "prompt": "Read /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/status.json. If complete is true, do nothing and signal success immediately.\nOtherwise fix all open CRITICAL/HIGH/MEDIUM items (and cheap LOWs) in /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/audit-matrix.md, working ONLY in /Users/ayushkumar/development/betroom/.worktrees/audit, following every rule in /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md: minimal diffs, net size flat/smaller, Next.js docs in node_modules/next/dist/docs/, Redis cache-aside per AGENTS.md, atomic ops for money-like values, migrations as idempotent files only (never apply remotely), no pushes/deploys/prod calls, never print/commit secrets, security fixes proven with vitest tests, UI fixes verified in a headless browser. Commit each logical fix (conventional commits). Run `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` - all must pass. Update matrix statuses and status.json counts (leave complete=false; only the re-audit sets it). Signal success with a summary."
+        }
+      ]
+    },
+    {
+      "agent": "wf-coder",
+      "id": "final-report",
+      "type": "step",
+      "prompt": "Final verification and report for the Lasyly audit. Worktree: /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening, baseline commit 93b4e0b2571c098d9738149a8d705c7021081cea). Do not push, rebase, or merge.\n1. Re-run the gate in the worktree: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` (capture route-size table), `npm audit --omit=dev`. If anything fails, fix it minimally, commit, and re-run.\n2. Read BRIEF.md, baseline.md, audit-matrix.md, status.json, review-*.md and reaudit-pass-*.md in /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/.\n3. Write /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/FINAL-REPORT.md in exactly the BRIEF.md 'Final report format': Fixed (per item [SEVERITY] Issue / Location / Root cause / Fix / Verification), Security (Authentication, Authorization, Input validation, Injection, XSS, CSRF, Rate limiting, Secrets, Business logic, Data exposure, Dependencies), Performance (Before/After/Improvement with numbers - route sizes from baseline vs. now, query/request counts where measured), Architecture, Removed, Remaining (only genuine product/infra/credential/third-party items, incl. any 'rotate key <NAME>' and any new migration files the user must apply manually, listed by filename), plus net line-count change from `git -C /Users/ayushkumar/development/betroom/.worktrees/audit diff --stat 93b4e0b..HEAD` and the commit list.\n4. Delete temp files you or earlier steps created (e.g. /tmp/lasyly-wip.patch, stray screenshots outside the task dir). Ensure no background processes remain.\nSignal success with a 3-sentence summary.",
+      "artifacts": {
+        "final_report": "/Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/FINAL-REPORT.md"
+      }
+    }
+  ]
+}

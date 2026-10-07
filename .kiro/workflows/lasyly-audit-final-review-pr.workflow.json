@@ -1,0 +1,53 @@
+{
+  "name": "lasyly-audit-final-review-pr",
+  "description": "Review the 10 unreviewed audit commits (daa58aa..9811c5d), fix if rejected (max 2 rounds), then push audit/production-hardening and open a PR against main.",
+  "inputs": {},
+  "steps": [
+    {
+      "id": "review-loop",
+      "type": "repeat",
+      "maxIterations": 2,
+      "onMaxIterations": "pause",
+      "stopCondition": { "fileCheck": { "path": "/Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review.json", "jsonPath": "verdict", "value": "APPROVED" } },
+      "steps": [
+        {
+          "id": "fix",
+          "type": "step",
+          "agent": "wf-coder",
+          "prompt": "Worktree: /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening). Task dir: /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/.\nIf /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review.json does not exist, this is the first round: do nothing and signal success immediately.\nOtherwise read it plus final-review-security.md and final-review-code.md in the task dir and fix every CRITICAL/HIGH/MEDIUM finding with minimal diffs, following /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md rules (no pushes, no remote DB, migrations as idempotent files only, never print secrets, scratch files only in the task dir's scratch/). Commit each fix (conventional commits). Run `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` in the worktree; all must pass. Then move the two review files to reviews/final-<n>-*.md and signal success with the new HEAD."
+        },
+        {
+          "id": "reviews",
+          "type": "parallel",
+          "joinPolicy": "allSettled",
+          "branches": [
+            {
+              "id": "review-security",
+              "type": "step",
+              "agent": "semantic_reviewer",
+              "prompt": "Security review. Repo: /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening). These commits were never reviewed: `git -C /Users/ayushkumar/development/betroom/.worktrees/audit diff daa58aa..HEAD` (re-audit fixes RA-1..RA-4, cheap LOWs, sitemap ISR fix). Context: /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md, audit-matrix.md, FINAL-REPORT.md. Do not edit source code.\nCheck: authz/RLS (incl. new migration 20261005_messages_insert_same_room.sql: idempotent, non-destructive, closes cross-room posting, legit posting still works), injection (quotePostgrestValue usage), rate limits, caching of per-user data, business-logic integrity (arena invite join refunds), no secrets.\nWrite /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review-security.md with findings (severity, file:line, why, required fix) and a last line exactly `VERDICT: APPROVED` or `VERDICT: REJECTED`. Reject only on CRITICAL/HIGH/MEDIUM problems."
+            },
+            {
+              "id": "review-code",
+              "type": "step",
+              "agent": "wf-auto-researcher",
+              "prompt": "READ-ONLY CODE REVIEW: do not edit source code and do not commit. Repo: /Users/ayushkumar/development/betroom/.worktrees/audit (branch audit/production-hardening). Review `git -C /Users/ayushkumar/development/betroom/.worktrees/audit diff daa58aa..HEAD` (never reviewed). Context: /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/BRIEF.md, audit-matrix.md, FINAL-REPORT.md. Next.js docs: /Users/ayushkumar/development/betroom/.worktrees/audit/node_modules/next/dist/docs/.\nCheck behavioral correctness and regressions (chat moderation/delete, light-theme explore hero/Top Story, leaderboard batching, arena invite join, sitemap ISR revalidate, scores/correlations/team-stats search quoting), tests meaningful, code not bloated. Run `npm test` and `npx tsc --noEmit` in the worktree. Scratch files only in /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/scratch/.\nWrite /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review-code.md with findings (severity, file:line, why, required fix) and a last line exactly `VERDICT: APPROVED` or `VERDICT: REJECTED`. Reject only on CRITICAL/HIGH/MEDIUM problems."
+            }
+          ]
+        },
+        {
+          "id": "gate",
+          "type": "step",
+          "agent": "wf-coder",
+          "prompt": "Gate writer. Do not edit source code. Read /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review-security.md and final-review-code.md. Write /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review.json as {\"verdict\":\"APPROVED\"|\"REJECTED\",\"head\":\"<git -C /Users/ayushkumar/development/betroom/.worktrees/audit rev-parse HEAD>\",\"reasons\":[...]}. APPROVED only if both files exist and both end with `VERDICT: APPROVED`; a missing file means REJECTED with reason 'reviewer did not run'. Append any new LOW findings to audit-matrix.md as open rows. Signal success with the verdict."
+        }
+      ]
+    },
+    {
+      "id": "open-pr",
+      "type": "step",
+      "agent": "wf-coder",
+      "prompt": "Publish the audit branch. Repo: /Users/ayushkumar/development/betroom/.worktrees/audit, branch audit/production-hardening.\n1. Read /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/final-review.json. If verdict is not APPROVED, do NOT push: signal error with the reasons.\n2. If any commits were added after FINAL-REPORT.md was written, update the Fixed/commit list in /Users/ayushkumar/development/betroom/.agents/tasks/lasyly-audit-2026-10-02/FINAL-REPORT.md and replace the 'iteration 8 and the sitemap fix were never reviewed' note with the final review result.\n3. `git -C /Users/ayushkumar/development/betroom/.worktrees/audit status --short` must be clean. Then `git -C /Users/ayushkumar/development/betroom/.worktrees/audit push -u origin audit/production-hardening` (the user may be prompted to approve; wait for it). Never force-push. Never push to main or feat/careers.\n4. Open a PR with `gh pr create --repo` inferred from origin, `--base main --head audit/production-hardening`, title `Production hardening: security, data integrity and performance audit` (under 70 chars). Body (use --body-file, file in the task dir's scratch/): summary of outcome (0 critical/high, counts fixed by severity, gate table before/after, npm audit 7 -> 0, app code -261 lines); a prominent 'Before merging' section listing the 13 migration files to apply manually in order (copy from FINAL-REPORT.md Remaining, including the two psql CONCURRENTLY ones and the pg_policies pre-check), the 9 owner decisions in one line each, and a note that the first commit `chore: baseline snapshot of feat/careers WIP` contains the owner's previously uncommitted feat/careers work; what was tested; link to nothing external. Do not paste secrets.\n5. Delete scratch files you created. Signal success with the PR URL."
+    }
+  ]
+}

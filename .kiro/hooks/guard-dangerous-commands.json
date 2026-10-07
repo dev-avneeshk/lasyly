@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Ask before rm / psql / vercel / git push",
+      "trigger": "PreToolUse",
+      "description": "Even with all commands trusted, prompts for approval on rm outside /tmp and the audit worktree, psql/pg_dump, vercel, git push, supabase db push/reset, and npm run db:apply.",
+      "matcher": "^(execute_bash|control_bash_process)$",
+      "action": {
+        "type": "command",
+        "command": "node /Users/ayushkumar/development/betroom/.kiro/hooks/guard-dangerous-commands.mjs",
+        "timeout": 10
+      }
+    }
+  ]
+}
