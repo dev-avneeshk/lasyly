@@ -13,6 +13,7 @@ import { ChannelSidebar } from "@/components/room/ChannelSidebar"
 import ChannelManager from "@/components/room/ChannelManager"
 import { UpgradeModal } from "@/components/room/UpgradeModal"
 import { TopBetPanel } from "@/components/room/TopBetPanel"
+import { ROOM_SHELL, RoomShellSkeleton, MessageListSkeleton } from "@/components/room/skeletons"
 import { useToast } from "@/components/ui/Toast"
 import type { Subchannel } from "@/lib/types/channel"
 
@@ -139,6 +140,9 @@ export default function RoomPage() {
   // channels", so the composer can explain itself instead of guessing.
   const [channelsLoaded, setChannelsLoaded] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  // True once the active sub-channel's first page has settled, so an empty
+  // feed means "no messages" rather than "not fetched yet".
+  const [messagesLoaded, setMessagesLoaded] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [olderCursor, setOlderCursor] = useState<string | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -274,6 +278,7 @@ export default function RoomPage() {
 
     // Clear the feed on channel switch so streams don't bleed together.
     setMessages([])
+    setMessagesLoaded(false)
     setHasMoreOlder(false)
     setOlderCursor(null)
 
@@ -281,15 +286,20 @@ export default function RoomPage() {
     // before this fetch resolves, don't let its result overwrite newer state.
     let ignore = false
     const fetchMessages = async (mode: "replace" | "merge" = "replace") => {
-      const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
-      const data = await res.json()
-      if (ignore || !res.ok || !data.messages) return
-      // On a reconnect we MERGE rather than replace, so optimistic rows and
-      // anything already on screen survive.
-      setMessages((prev) => mergeMessages(mode === "replace" ? [] : prev, data.messages))
-      if (mode === "replace") {
-        setHasMoreOlder(Boolean(data.hasMore))
-        setOlderCursor(data.nextCursor ?? null)
+      try {
+        const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
+        const data = await res.json()
+        if (ignore || !res.ok || !data.messages) return
+        // On a reconnect we MERGE rather than replace, so optimistic rows and
+        // anything already on screen survive.
+        setMessages((prev) => mergeMessages(mode === "replace" ? [] : prev, data.messages))
+        if (mode === "replace") {
+          setHasMoreOlder(Boolean(data.hasMore))
+          setOlderCursor(data.nextCursor ?? null)
+        }
+      } finally {
+        // Settled either way (ok, !ok, or a thrown/JSON error): stop the feed skeleton.
+        if (mode === "replace" && !ignore) setMessagesLoaded(true)
       }
     }
     fetchMessages("replace")
@@ -628,7 +638,8 @@ export default function RoomPage() {
 
   // ─── Loading / Error ────────────────────────────────────────────────────────
 
-  if (loading) return <div className="h-[calc(100dvh-64px)] bg-[#0A0A0A] flex items-center justify-center"><div className="w-5 h-5 border-2 border-[#B8FF4F]/30 border-t-[#B8FF4F] rounded-full animate-spin" /></div>
+  // Same markup as the route's loading.tsx, so the hand-off is seamless.
+  if (loading) return <RoomShellSkeleton />
   if (error || !room) return (
     <div className="h-[calc(100dvh-64px)] bg-[#0A0A0A] flex flex-col items-center justify-center gap-4">
       <p className="text-sm text-white/50">{error || "Room not found."}</p>
@@ -639,7 +650,7 @@ export default function RoomPage() {
   const selectSub = (id: string) => setActiveSubchannelId(id)
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] overflow-hidden bg-[#0A0A0A]">
+    <div className={ROOM_SHELL} data-chat-shell="">
       {/* ─── Server Panel (Channel Sidebar) ─── */}
       <div className="hidden md:flex w-[240px] shrink-0 flex-col bg-[#111111] border-r border-white/[0.06] overflow-y-auto scrollbar-hide">
         {/* Server Header */}
@@ -684,7 +695,9 @@ export default function RoomPage() {
               the room had no sub-channel at all. */}
           <div className="flex items-center gap-1.5 text-[15px] font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>
             <Hash className="w-4 h-4 text-white/30" />
-            {activeSub?.name ?? (channelsLoaded ? "no channel" : "...")}
+            {activeSub?.name ?? (channelsLoaded
+              ? "no channel"
+              : <span aria-hidden="true" className="h-4 w-24 rounded bg-white/5 animate-pulse motion-reduce:animate-none" />)}
           </div>
           {activeSub?.topic && (
             <span className="hidden md:block text-[12px] text-white/30 truncate max-w-[240px] border-l border-white/[0.08] pl-3">
@@ -737,7 +750,14 @@ export default function RoomPage() {
                   </span>
                 </div>
               )}
-              {messages.length === 0 && (
+              {activeSubchannelId && !messagesLoaded && messages.length === 0 && (
+                <div role="status" aria-busy="true">
+                  <span className="sr-only">Loading messages</span>
+                  <MessageListSkeleton />
+                </div>
+              )}
+              {/* No sub-channel (none exist, or channels failed) still explains itself. */}
+              {messages.length === 0 && (messagesLoaded || !activeSubchannelId) && (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
                     <Hash className="w-6 h-6 text-white/25" />

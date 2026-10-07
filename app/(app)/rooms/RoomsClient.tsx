@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Plus, Users, Lock, Zap, Search, Loader2, X, Hash } from "lucide-react"
+import { Plus, Users, Lock, Zap, Search, X, Hash } from "lucide-react"
+import { ROOMS_LIST_SHELL, RoomCardGridSkeleton } from "@/components/room/skeletons"
 
 type Room = {
   id: string
@@ -35,6 +36,9 @@ export default function RoomsClient({ isAuthenticated }: Props) {
 
   const [error, setError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  // Guests never fetch joined rooms, so they start "loaded". For accounts the
+  // grid waits for both fetches, so "Your Rooms" can't push it down later.
+  const [joinedLoaded, setJoinedLoaded] = useState(!isAuthenticated)
 
   // Joined rooms once, and only for real accounts (guests got a 401 per load,
   // and it was refetched on every keystroke).
@@ -43,8 +47,13 @@ export default function RoomsClient({ isAuthenticated }: Props) {
     const ctrl = new AbortController()
     fetch("/api/rooms/joined", { signal: ctrl.signal })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data && setJoinedRooms(data.rooms ?? []))
-      .catch(() => {})
+      .then((data) => {
+        if (data) setJoinedRooms(data.rooms ?? [])
+        setJoinedLoaded(true)
+      })
+      .catch(() => {
+        if (!ctrl.signal.aborted) setJoinedLoaded(true)
+      })
     return () => ctrl.abort()
   }, [isAuthenticated])
 
@@ -79,11 +88,13 @@ export default function RoomsClient({ isAuthenticated }: Props) {
     ? allRooms
     : allRooms
 
+  const showSkeleton = loading || !joinedLoaded
+
   return (
-    <div className="h-[calc(100dvh-64px)] flex flex-col bg-[#0A0A0A]">
+    <div className={ROOMS_LIST_SHELL}>
       {/* Header */}
       <div className="shrink-0 px-6 pt-6 pb-4 border-b border-white/[0.06]">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 min-h-9">
           <div className="flex items-center gap-3">
             <span className="text-xl">⚡</span>
             <h1 className="text-xl font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>Discover Rooms</h1>
@@ -124,7 +135,7 @@ export default function RoomsClient({ isAuthenticated }: Props) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {/* My Rooms */}
-        {joinedRooms.length > 0 && !search && (
+        {joinedRooms.length > 0 && !search && !showSkeleton && (
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[11px] font-bold uppercase tracking-wide text-white/25 mb-3">
               Your Rooms — {joinedRooms.length}
@@ -139,19 +150,20 @@ export default function RoomsClient({ isAuthenticated }: Props) {
 
         {/* Explore */}
         <div className="px-6 pt-5 pb-6">
-          {joinedRooms.length > 0 && !search && (
+          {joinedRooms.length > 0 && !search && !showSkeleton && (
             <h2 className="text-[11px] font-bold uppercase tracking-wide text-white/25 mb-3">
               Explore Public Rooms
             </h2>
           )}
 
-          {loading && (
-            <div className="flex justify-center py-16">
-              <Loader2 className="w-5 h-5 animate-spin text-[#B8FF4F]" />
+          {showSkeleton && (
+            <div role="status" aria-busy="true">
+              <span className="sr-only">Loading rooms</span>
+              <RoomCardGridSkeleton />
             </div>
           )}
 
-          {!loading && error && (
+          {!showSkeleton && error && (
             <div role="alert" className="flex flex-col items-center justify-center py-16 text-center">
               <h3 className="text-[15px] font-semibold text-white/80 mb-1">Couldn&apos;t load rooms</h3>
               <button
@@ -162,7 +174,7 @@ export default function RoomsClient({ isAuthenticated }: Props) {
               </button>
             </div>
           )}
-          {!loading && !error && displayRooms.length === 0 && (
+          {!showSkeleton && !error && displayRooms.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-[#1A1A1A] border border-white/[0.06] flex items-center justify-center mb-4">
                 <Hash className="w-7 h-7 text-white/25" />
@@ -174,7 +186,7 @@ export default function RoomsClient({ isAuthenticated }: Props) {
             </div>
           )}
 
-          {!loading && displayRooms.length > 0 && (
+          {!showSkeleton && displayRooms.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {displayRooms
                 .filter(r => search || !joinedIds.has(r.id))
@@ -221,7 +233,7 @@ function RoomCard({ room, isJoined }: { room: Room; isJoined: boolean }) {
           {room.type === "Private" && <Lock className="w-3 h-3 text-white/25 shrink-0" />}
         </div>
         <p className="text-[12px] text-white/40 line-clamp-2 leading-relaxed mb-3">
-          {room.description || `A ${room.sport_tag ?? "general"} betting room`}
+          {room.description || `A ${room.sport_tag ?? "general"} room`}
         </p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-[11px] text-white/30">

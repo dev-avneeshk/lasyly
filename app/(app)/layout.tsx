@@ -24,7 +24,7 @@ export default function AppLayout({
       <AuthListener />
       <Sidebar />
       <AppScrollRestorer />
-      <main data-app-scroll className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden scroll-pt-28 pb-36 md:pb-0">
+      <main data-app-scroll className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden scroll-pt-28 pb-36 md:pb-0 has-[[data-chat-shell]]:pb-0">
         <TopBar />
         {children}
       </main>
