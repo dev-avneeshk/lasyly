@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Hash, Settings, Menu, LogOut, X } from "lucide-react"
+import { Hash, Settings, Menu, LogOut, X, AlertCircle } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { createClient } from "@/lib/supabase/client"
@@ -139,10 +139,16 @@ export default function RoomPage() {
   // Distinguishes "channels not fetched yet" from "this room genuinely has no
   // channels", so the composer can explain itself instead of guessing.
   const [channelsLoaded, setChannelsLoaded] = useState(false)
+  // The channels fetch failed (non-ok or thrown). The route only fails on a
+  // real error, so an empty list here must not be shown as "no channel yet".
+  const [channelsError, setChannelsError] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   // True once the active sub-channel's first page has settled, so an empty
   // feed means "no messages" rather than "not fetched yet".
   const [messagesLoaded, setMessagesLoaded] = useState(false)
+  // The first page failed (non-ok or thrown), so an empty feed is an error,
+  // not an empty channel. Cleared on channel switch and on retry.
+  const [messagesError, setMessagesError] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [olderCursor, setOlderCursor] = useState<string | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -170,19 +176,32 @@ export default function RoomPage() {
   // Cache of user_id -> profile so incoming realtime rows (which carry no join)
   // can render an avatar/name without an extra fetch per message.
   const profileCacheRef = useRef<Map<string, ChatProfile>>(new Map())
+  // Re-runs the active sub-channel's first-page fetch (set by the messages
+  // effect, so it reuses that effect's stale-response guard).
+  const retryMessagesRef = useRef<(() => void) | null>(null)
 
   // Load (or refresh) the room's channels. On first load, auto-selects the
   // first sub-channel so the feed has something to show. Declared before the
   // load effect that calls it to avoid a temporal-dead-zone reference.
   const loadChannels = useCallback(async (selectFirst = false) => {
-    const res = await fetch(`/api/rooms/${roomId}/channels`)
-    if (!res.ok) return
-    const data = await res.json()
-    const list: Subchannel[] = data.subchannels ?? []
-    setSubchannels(list)
-    setChannelsLoaded(true)
-    if (selectFirst && list[0]) {
-      setActiveSubchannelId((prev) => prev ?? list[0].id)
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/channels`)
+      if (!res.ok) { setChannelsError(true); return }
+      const data = await res.json()
+      const list: Subchannel[] = data.subchannels ?? []
+      setSubchannels(list)
+      setChannelsError(false)
+      if (selectFirst && list[0]) {
+        setActiveSubchannelId((prev) => prev ?? list[0].id)
+      }
+    } catch {
+      // Caught here (not re-thrown) so a channels failure stays a channels-level
+      // error instead of rejecting load() and replacing the whole room.
+      setChannelsError(true)
+    } finally {
+      // Settled either way: a failed fetch must not leave the header and
+      // composer stuck on "loading"; channelsError tells them it failed.
+      setChannelsLoaded(true)
     }
   }, [roomId])
 
@@ -191,42 +210,48 @@ export default function RoomPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      // Independent reads run together (were 5 serial steps plus a second
-      // getUser): room + user + channels, then the user's members/pins/profile.
-      const [res, u] = await Promise.all([
-        fetch(`/api/rooms/${roomId}`),
-        supabase.auth.getUser(),
-        loadChannels(true), // picks the first sub-channel as active
-      ])
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || "Failed to load room."); setLoading(false); return }
-      setRoom(data)
-      setMemberCount(data.member_count ?? 0)
-      setIsMember(data.is_member ?? false)
-      const uid = u.data.user?.id ?? null
-      setUserId(uid)
-      setIsOwner(uid === data.creator_id)
-
-      if (uid) {
-        const [memberRes, pinRes, { data: profile }] = await Promise.all([
-          fetch(`/api/rooms/${roomId}/members`),
-          fetch(`/api/rooms/${roomId}/pin`),
-          supabase.from("profiles").select("username, display_name, avatar_url").eq("id", uid).single(),
+      try {
+        // Independent reads run together (were 5 serial steps plus a second
+        // getUser): room + user + channels, then the user's members/pins/profile.
+        const [res, u] = await Promise.all([
+          fetch(`/api/rooms/${roomId}`),
+          supabase.auth.getUser(),
+          loadChannels(true), // picks the first sub-channel as active
         ])
-        setCurrentUser({ id: uid, profile })
-        if (memberRes.ok) {
-          const memberData = await memberRes.json()
-          const me = (memberData.members ?? []).find((m: { id: string }) => m.id === uid)
-          if (me) setUserRole(me.role)
-          setMembers(memberData.members ?? [])
-        }
-        if (pinRes.ok) {
-          const pinData = await pinRes.json()
-          setPinnedMessages(new Set((pinData.pins ?? []).map((p: { message_id: string }) => p.message_id)))
-        }
-      }
+        const data = await res.json()
+        if (!res.ok) { setError(data.error || "Failed to load room."); return }
+        setRoom(data)
+        setMemberCount(data.member_count ?? 0)
+        setIsMember(data.is_member ?? false)
+        const uid = u.data.user?.id ?? null
+        setUserId(uid)
+        setIsOwner(uid === data.creator_id)
 
-      setLoading(false)
+        if (uid) {
+          const [memberRes, pinRes, { data: profile }] = await Promise.all([
+            fetch(`/api/rooms/${roomId}/members`),
+            fetch(`/api/rooms/${roomId}/pin`),
+            supabase.from("profiles").select("username, display_name, avatar_url").eq("id", uid).single(),
+          ])
+          setCurrentUser({ id: uid, profile })
+          if (memberRes.ok) {
+            const memberData = await memberRes.json()
+            const me = (memberData.members ?? []).find((m: { id: string }) => m.id === uid)
+            if (me) setUserRole(me.role)
+            setMembers(memberData.members ?? [])
+          }
+          if (pinRes.ok) {
+            const pinData = await pinRes.json()
+            setPinnedMessages(new Set((pinData.pins ?? []).map((p: { message_id: string }) => p.message_id)))
+          }
+        }
+      } catch {
+        // A thrown request (network drop, non-JSON body) used to skip
+        // setLoading(false) and leave the skeleton up forever.
+        setError("Failed to load room.")
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [supabase, roomId, loadChannels])
@@ -279,6 +304,7 @@ export default function RoomPage() {
     // Clear the feed on channel switch so streams don't bleed together.
     setMessages([])
     setMessagesLoaded(false)
+    setMessagesError(false)
     setHasMoreOlder(false)
     setOlderCursor(null)
 
@@ -286,10 +312,12 @@ export default function RoomPage() {
     // before this fetch resolves, don't let its result overwrite newer state.
     let ignore = false
     const fetchMessages = async (mode: "replace" | "merge" = "replace") => {
+      let failed = false
       try {
         const res = await fetch(`/api/rooms/${roomId}/messages?subchannelId=${activeSubchannelId}`)
         const data = await res.json()
-        if (ignore || !res.ok || !data.messages) return
+        if (ignore) return
+        if (!res.ok || !data.messages) { failed = true; return }
         // On a reconnect we MERGE rather than replace, so optimistic rows and
         // anything already on screen survive.
         setMessages((prev) => mergeMessages(mode === "replace" ? [] : prev, data.messages))
@@ -297,12 +325,28 @@ export default function RoomPage() {
           setHasMoreOlder(Boolean(data.hasMore))
           setOlderCursor(data.nextCursor ?? null)
         }
+      } catch {
+        failed = true
       } finally {
-        // Settled either way (ok, !ok, or a thrown/JSON error): stop the feed skeleton.
-        if (mode === "replace" && !ignore) setMessagesLoaded(true)
+        if (!ignore) {
+          if (mode === "replace") {
+            // Settled either way (ok, !ok, or a thrown/JSON error): stop the
+            // feed skeleton, and flag a failure so it isn't shown as "empty".
+            setMessagesError(failed)
+            setMessagesLoaded(true)
+          } else if (!failed) {
+            // A reconnect catch-up that succeeds also recovers a failed first page.
+            setMessagesError(false)
+          }
+        }
       }
     }
     fetchMessages("replace")
+    retryMessagesRef.current = () => {
+      setMessagesError(false)
+      setMessagesLoaded(false) // back to the skeleton while it refetches
+      void fetchMessages("replace")
+    }
 
     // Hydrate a realtime row that arrives without a profile join (broadcast/
     // postgres_changes carry the raw row). Falls back to the sender's cached
@@ -391,7 +435,11 @@ export default function RoomPage() {
       })
     })
 
-    return () => { ignore = true; if (channel) supabase.removeChannel(channel) }
+    return () => {
+      ignore = true
+      retryMessagesRef.current = null
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [supabase, roomId, activeSubchannelId])
 
   // ─── Load older messages (cursor pagination) ─────────────────────────────────
@@ -558,6 +606,7 @@ export default function RoomPage() {
   const composerNotice = useMemo(() => {
     if (!currentUser) return "Sign in to chat"
     if (!channelsLoaded) return "Loading channels..."
+    if (channelsError && !activeSub) return "Couldn't load channels"
     if (!activeSub) {
       return isAdmin
         ? "This room has no channel yet — create one to start chatting"
@@ -566,7 +615,7 @@ export default function RoomPage() {
     if (activeSub.post_policy === "admins") return "Only admins can post in this channel"
     if (!isEffectiveMember) return "Join this room to chat"
     return "You can't post in this channel"
-  }, [currentUser, channelsLoaded, activeSub, isAdmin, isEffectiveMember])
+  }, [currentUser, channelsLoaded, channelsError, activeSub, isAdmin, isEffectiveMember])
 
   // Precompute per-message "grouped" flag once per messages change (not per
   // render). A message is grouped under the previous one when it's the same
@@ -648,6 +697,16 @@ export default function RoomPage() {
   )
 
   const selectSub = (id: string) => setActiveSubchannelId(id)
+  // Realtime rows that arrive after a failed first page still render normally.
+  const showMessagesError = Boolean(activeSubchannelId) && messagesError && messages.length === 0
+  // Channels failed and there is nothing to show: an error, not "no channel yet".
+  // A failed refresh that still has the earlier list keeps showing it.
+  const showChannelsError = channelsLoaded && channelsError && !activeSub
+  const retryChannels = () => {
+    setChannelsError(false)
+    setChannelsLoaded(false) // header/composer/feed show loading while it refetches
+    void loadChannels(true)
+  }
 
   return (
     <div className={ROOM_SHELL} data-chat-shell="">
@@ -695,9 +754,11 @@ export default function RoomPage() {
               the room had no sub-channel at all. */}
           <div className="flex items-center gap-1.5 text-[15px] font-semibold text-white/90" style={{ letterSpacing: "-0.02em" }}>
             <Hash className="w-4 h-4 text-white/30" />
-            {activeSub?.name ?? (channelsLoaded
-              ? "no channel"
-              : <span aria-hidden="true" className="h-4 w-24 rounded bg-white/5 animate-pulse motion-reduce:animate-none" />)}
+            {activeSub?.name ?? (!channelsLoaded
+              ? <span aria-hidden="true" className="h-4 w-24 rounded bg-white/5 animate-pulse motion-reduce:animate-none" />
+              : showChannelsError
+                ? <span className="text-white/40">channels unavailable</span>
+                : "no channel")}
           </div>
           {activeSub?.topic && (
             <span className="hidden md:block text-[12px] text-white/30 truncate max-w-[240px] border-l border-white/[0.08] pl-3">
@@ -750,14 +811,49 @@ export default function RoomPage() {
                   </span>
                 </div>
               )}
-              {activeSubchannelId && !messagesLoaded && messages.length === 0 && (
+              {(activeSubchannelId ? !messagesLoaded : !channelsLoaded) && messages.length === 0 && (
                 <div role="status" aria-busy="true">
                   <span className="sr-only">Loading messages</span>
                   <MessageListSkeleton />
                 </div>
               )}
-              {/* No sub-channel (none exist, or channels failed) still explains itself. */}
-              {messages.length === 0 && (messagesLoaded || !activeSubchannelId) && (
+              {/* A failed first page is an error, not an empty channel. */}
+              {showMessagesError && (
+                <div role="alert" className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
+                    <AlertCircle className="w-6 h-6 text-[#F87171]/70" aria-hidden="true" />
+                  </div>
+                  <p className="text-[14px] font-semibold text-white/80">Couldn&apos;t load messages</p>
+                  <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">Check your connection and try again.</p>
+                  <button
+                    type="button"
+                    onClick={() => retryMessagesRef.current?.()}
+                    className="mt-4 px-3.5 py-1.5 rounded-lg text-[12px] font-semibold bg-[#B8FF4F] text-black transition-all"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {/* A failed channels fetch is an error, not a room without channels. */}
+              {showChannelsError && (
+                <div role="alert" className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
+                    <AlertCircle className="w-6 h-6 text-[#F87171]/70" aria-hidden="true" />
+                  </div>
+                  <p className="text-[14px] font-semibold text-white/80">Couldn&apos;t load channels</p>
+                  <p className="text-[12px] text-white/30 mt-1 max-w-[280px]">Check your connection and try again.</p>
+                  <button
+                    type="button"
+                    onClick={retryChannels}
+                    className="mt-4 px-3.5 py-1.5 rounded-lg text-[12px] font-semibold bg-[#B8FF4F] text-black transition-all"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {/* Channels loaded but none exist: explain it instead of guessing. */}
+              {messages.length === 0 && !showMessagesError && !showChannelsError &&
+                (activeSubchannelId ? messagesLoaded : channelsLoaded) && (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-3">
                     <Hash className="w-6 h-6 text-white/25" />
