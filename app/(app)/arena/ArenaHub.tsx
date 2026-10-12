@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Users, Zap, BarChart3, Trophy, ArrowRight } from "lucide-react"
+import { Users, Zap, BarChart3, Trophy, ArrowRight, Brain } from "lucide-react"
 
 /**
  * Arena hub — the single entry point for all play modes.
@@ -236,7 +236,7 @@ function ArenaCard({ sport }: { sport: Sport }) {
         </div>
 
         {/* CTA row */}
-        <div className="relative z-10 mt-6 flex items-center gap-3">
+        <div className="relative z-10 mt-6 flex flex-wrap items-center gap-3">
           <Link
             href={sport.href}
             id={`arena-enter-${sport.id}`}
@@ -251,9 +251,11 @@ function ArenaCard({ sport }: { sport: Sport }) {
           </Link>
           <Link
             href={sport.quizHref}
-            className="text-xs font-semibold text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+            id={`arena-quiz-${sport.id}`}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors duration-200 hover:border-white/40 hover:bg-white/[0.14] active:scale-[0.96]"
           >
-            or take the quiz
+            <Brain className="h-4 w-4" />
+            Take the Quiz
           </Link>
         </div>
       </div>

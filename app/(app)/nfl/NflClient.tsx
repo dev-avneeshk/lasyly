@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronRight, Bot, Trophy, ClipboardList } from "lucide-react"
+import Link from "next/link"
+import { ChevronRight, Bot, Trophy, ClipboardList, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NflPlayerCard } from "@/components/nfl/NflPlayerCard"
 import { NflBudgetPanel } from "@/components/nfl/NflBudgetPanel"
@@ -81,8 +82,16 @@ export default function NflClient() {
       <div className="relative mx-auto flex min-h-full max-w-3xl flex-col gap-8 px-4 py-10 pb-40 md:pb-10">
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-64 w-[120%] -translate-x-1/2 rounded-full bg-[var(--color-lime)]/10 blur-[120px]" />
 
+        <Link
+          href="/arena"
+          id="arena-nfl-back"
+          className="relative inline-flex w-fit items-center gap-2 text-[13px] font-semibold text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Arena
+        </Link>
+
         {/* Hero */}
-        <div className="relative text-center">
+        <div className="relative -mt-4 text-center">
           <span className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--color-lime)]">Lasyly Gridiron</span>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-5xl">
             NFL <span className="text-[var(--color-lime)]">Auction</span>

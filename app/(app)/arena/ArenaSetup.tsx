@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react"
 import Link from "next/link"
-import { Users, ChevronRight, Bot, Link2, Globe, Info, Trophy, BarChart3 } from "lucide-react"
+import { Users, ChevronRight, Bot, Link2, Globe, Info, Trophy, BarChart3, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 // Pure constants/math and pure request helpers only: both are tiny and engine-free.
 import { MIN_STAKE, STAKE_PRESETS } from "@/lib/economy/arena"
@@ -92,7 +92,14 @@ export default function ArenaSetup({
   return (
     <div className="relative mx-auto flex min-h-full max-w-3xl flex-col gap-8 px-4 py-10 pb-40 md:pb-10">
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 h-64 w-[120%] -translate-x-1/2 rounded-full bg-[var(--color-lime)]/10 blur-[120px]" />
-      <div className="relative text-center">
+      <Link
+        href="/arena"
+        id="arena-nba-back"
+        className="relative inline-flex w-fit items-center gap-2 text-[13px] font-semibold text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to Arena
+      </Link>
+      <div className="relative -mt-4 text-center">
         <span className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--color-lime)]">Lasyly Arena</span>
         <h1 className="mt-3 text-4xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-5xl">NBA <span className="text-[var(--color-lime)]">Auction</span></h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-text-muted)]">Win a live bidding war for 6 players, then watch your squad battle it out.</p>
