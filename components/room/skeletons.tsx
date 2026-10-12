@@ -94,12 +94,44 @@ export function RoomsListSkeleton() {
 
 // ─── Room view ────────────────────────────────────────────────────────────────
 
+/**
+ * Mirrors the post-FEAT-001 `BetslipCardView` (shared-prediction card) in
+ * MessageRow: a max-w-[320px] card with a header bar (label + status pill) and
+ * a meta row of exactly TWO cells (Hit rate, Entry). The Multiplier/odds cell
+ * was removed in FEAT-001, so there is intentionally no third meta cell here.
+ * Server-safe (no hooks); reuses the shared PULSE constant.
+ */
+export function BetslipCardSkeleton() {
+  return (
+    <div className="mt-1 max-w-[320px] rounded-xl border border-white/[0.08] bg-[#141414] overflow-hidden">
+      {/* Header: "Prediction" label (11px) + status pill */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.06]">
+        <div className={`h-2.5 w-20 rounded ${PULSE}`} />
+        <div className={`h-4 w-14 rounded-full ${PULSE}`} />
+      </div>
+      {/* Meta row: exactly two cells (Hit rate, Entry), no Multiplier/odds cell */}
+      <div className="px-3.5 py-3 flex items-center gap-4">
+        {["w-10", "w-14"].map((valueWidth, i) => (
+          <div key={i} className="flex flex-col gap-1.5">
+            <div className={`h-2.5 w-12 rounded ${PULSE}`} />
+            <div className={`h-3.5 ${valueWidth} rounded ${PULSE}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Mirrors the full (non-grouped) `MessageRow`: 40px avatar, name/time line, text lines. */
 export function MessageListSkeleton({ rows = 6, className = "" }: { rows?: number; className?: string }) {
   return (
     <div className={`flex flex-col gap-1 ${className}`} aria-hidden="true">
       {Array.from({ length: rows }).map((_, i) => {
         const w = MESSAGE_WIDTHS[i % MESSAGE_WIDTHS.length]
+        // Real chat feeds interleave text and shared-prediction messages;
+        // deterministically (every 3rd row, no Math.random) show a bet card so
+        // SSR and client markup stay identical.
+        const showBetslip = i % 3 === 2
         return (
           <div key={i} className="flex gap-4 px-4 py-2.5 rounded-xl mt-2 first:mt-0">
             <div className={`w-10 h-10 rounded-xl shrink-0 ${PULSE}`} />
@@ -113,6 +145,7 @@ export function MessageListSkeleton({ rows = 6, className = "" }: { rows?: numbe
                   <div className={`h-3.5 ${line} rounded ${PULSE}`} />
                 </div>
               ))}
+              {showBetslip && <BetslipCardSkeleton />}
             </div>
           </div>
         )

@@ -1,0 +1,23 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Deliverable (C): update the rooms/chat loading skeleton (components/room/skeletons.tsx) so it mirrors the new no-odds shared-prediction card produced by FEAT-001. The skeleton must stay server-safe (no 'use client', no hooks, deterministic widths, reuse the shared PULSE constant) because it is both the route loading.tsx fallback and the client components' loading state. Depends on FEAT-001 having removed the Multiplier cell from components/room/MessageRow.tsx's BetslipCardView. Independent of FEAT-002.",
+  "status": "completed",
+  "steps": [
+    "In components/room/skeletons.tsx add a `BetslipCardSkeleton` function (server-safe, reusing the existing PULSE constant) that mirrors the post-FEAT-001 BetslipCardView: a max-w-[320px] rounded card with a header bar (a label pulse + a status-pill pulse) and a meta row of TWO cells (Hit rate, Entry) and NO Multiplier/odds cell.",
+    "Update MessageListSkeleton in the same file so a deterministic subset of rows (e.g. every 3rd row by index, no Math.random) renders the BetslipCardSkeleton beneath the text lines, matching that real chat feeds interleave text and shared-prediction messages. Keep widths in the existing MESSAGE_WIDTHS deterministic pattern so SSR and client markup stay identical.",
+    "Optional but recommended: add a render guard test under __tests__/ that renders BetslipCardSkeleton and asserts it renders at most two meta cells and NO Multiplier/odds cell (guards against a Multiplier cell regressing back in)."
+  ],
+  "acceptance_criteria": [
+    "components/room/skeletons.tsx exports/defines a BetslipCardSkeleton that renders a header bar and exactly two meta-cell placeholders and no Multiplier/odds placeholder.",
+    "MessageListSkeleton interleaves the BetslipCardSkeleton deterministically (no Math.random) so server and client markup match.",
+    "The file remains server-safe: no 'use client', no React hooks, reuses the PULSE constant (so motion-reduce behavior is preserved).",
+    "Running `npx tsc --noEmit && npm run lint && npm run build && npm test` from the worktree root all pass."
+  ],
+  "verification": [
+    "From /Users/ayushkumar/development/betroom/.worktrees/experts-leaderboard run `npx tsc --noEmit && npm run lint && npm run build && npm test` and confirm all pass.",
+    "If the guard test was added, confirm it asserts no Multiplier/odds cell and passes under `npm test`."
+  ],
+  "blocked_reason": null,
+  "findings": "Added server-safe BetslipCardSkeleton to components/room/skeletons.tsx mirroring the post-FEAT-001 BetslipCardView: max-w-[320px] card, header bar (label pulse + rounded-full status-pill pulse) and a meta row of exactly TWO cells (Hit rate, Entry) with no Multiplier/odds cell. Reuses the shared PULSE constant; no 'use client', no hooks. MessageListSkeleton now interleaves BetslipCardSkeleton deterministically on every 3rd row (i % 3 === 2, no Math.random), so with the default 6 rows two cards render and SSR/client markup stay identical. Added guard tests in __tests__/rooms/skeletons.test.ts asserting the card renders a header bar + exactly two meta cells and no third (Multiplier/odds) cell, plus deterministic-markup checks for both the card and MessageListSkeleton. Verification: `npx tsc --noEmit` clean; `npm run lint` 0 errors (only pre-existing warnings in unrelated scripts/*); `npm run build` (next build --webpack) succeeds after copying the gitignored .env.local from the parent workspace (worktree lacked one — build-only, not committed); the 7 skeleton tests pass. NOTE: `npm test` shows 12 pre-existing test-file failures (all 'Cannot find package server-only') and 1 related assertion failure in __tests__/cache/isr-writes.test.ts; these reproduce on the clean baseline (git stash) with no FEAT-003 changes and are unrelated to this deliverable — root cause is 'server-only' not being installed in this worktree's node_modules."
+}
