@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   XCircle,
   Trophy,
+  Share2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { decimalOdds, formatOdds } from "@/lib/parlays/computations"
+import { ShareToRoomModal } from "@/components/parlays/ShareToRoomModal"
 import type { ParlayWithLegs, ParlayLegRow } from "@/lib/types/parlay"
 
 // ─── Sport badge styling ─────────────────────────────────────────────────────
@@ -139,6 +141,7 @@ export interface PredictionRowProps {
 
 export default function PredictionRow({ parlay }: PredictionRowProps) {
   const [showPicks, setShowPicks] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const primaryLeg = parlay.legs[0]
   const sport = primaryLeg?.sport ?? "—"
@@ -246,8 +249,17 @@ export default function PredictionRow({ parlay }: PredictionRowProps) {
         </div>
       </div>
 
-      {/* Show picks toggle */}
-      <div className="flex items-center justify-end border-t border-[var(--color-border)] px-4 py-2">
+      {/* Show picks toggle + share action */}
+      <div className="flex items-center justify-between border-t border-[var(--color-border)] px-4 py-2">
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          aria-label="Share to a room"
+          className="flex items-center gap-1 text-xs font-medium text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-lime)]"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+          Share to room
+        </button>
         <button
           type="button"
           onClick={() => setShowPicks((v) => !v)}
@@ -288,6 +300,12 @@ export default function PredictionRow({ parlay }: PredictionRowProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ShareToRoomModal
+        open={shareOpen}
+        parlayId={parlay.id}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   )
 }

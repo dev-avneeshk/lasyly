@@ -9,12 +9,14 @@ import { createClient } from "@/lib/supabase/client"
 import AdminPanel from "@/components/room/AdminPanel"
 import { MessageRow, getUserColor, getInitials, type ChatMessage } from "@/components/room/MessageRow"
 import { ChatInput } from "@/components/room/ChatInput"
+import { PredictionPickerModal } from "@/components/room/PredictionPickerModal"
 import { ChannelSidebar } from "@/components/room/ChannelSidebar"
 import ChannelManager from "@/components/room/ChannelManager"
 import { UpgradeModal } from "@/components/room/UpgradeModal"
 import { TopBetPanel } from "@/components/room/TopBetPanel"
 import { ROOM_SHELL, RoomShellSkeleton, MessageListSkeleton } from "@/components/room/skeletons"
 import { useToast } from "@/components/ui/Toast"
+import { sharePredictionToRoom } from "@/lib/chat/sharePrediction"
 import type { Subchannel } from "@/lib/types/channel"
 
 /**
@@ -148,6 +150,7 @@ export default function RoomPage() {
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [sending, setSending] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const drawerFocus = useOpenerFocus()
   // The drawer is md:hidden but modal: close it once the viewport reaches md
@@ -514,6 +517,22 @@ export default function RoomPage() {
     return false
   }, [currentUser, sending, roomId, activeSubchannelId, toast])
 
+  // Share a prediction (parlay) into this room's chat. The server inserts a
+  // betslip message and broadcasts it. Unlike a text message — whose content
+  // ships inline in the broadcast — a betslip's card is assembled server-side
+  // from the `parlays` row and carried in the broadcast's `betslip` field, so
+  // the Prediction card renders immediately for every viewer (and the sender,
+  // which adds no optimistic row) with no refetch. See lib/realtime/chat.ts.
+  const handleSharePrediction = useCallback(async (parlayId: string) => {
+    setPickerOpen(false)
+    const { ok, error } = await sharePredictionToRoom(
+      roomId,
+      parlayId,
+      activeSubchannelId ?? undefined
+    )
+    if (!ok) toast(error ?? "Couldn't share prediction.", "error")
+  }, [roomId, activeSubchannelId, toast])
+
   const handleJoinLeave = async () => {
     if (!userId) return
     setJoining(true)
@@ -799,6 +818,7 @@ export default function RoomPage() {
                 disabled={!currentUser}
                 placeholder={`Message #${activeSub?.name ?? "general"}`}
                 onSend={handleSend}
+                onPrediction={() => setPickerOpen(true)}
               />
             ) : (
               <div className="shrink-0 px-5 pb-5 pt-2">
@@ -935,6 +955,13 @@ export default function RoomPage() {
 
       {/* ─── Upgrade Modal (free-tier limits) ─── */}
       <UpgradeModal open={upgradeLimit !== null} limit={upgradeLimit} onClose={() => setUpgradeLimit(null)} />
+
+      {/* ─── Prediction Picker (share a prediction into chat) ─── */}
+      <PredictionPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={handleSharePrediction}
+      />
     </div>
   )
 }

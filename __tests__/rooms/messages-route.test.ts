@@ -11,10 +11,14 @@ const st = vi.hoisted(() => ({
   member: true as boolean,
   roomType: "Public",
   muted: false,
+  parlayOwner: true as boolean,
   inserted: null as Record<string, unknown> | null,
+  broadcasts: [] as unknown[][],
 }))
 vi.mock("@/lib/rateLimit", () => ({ checkRateLimitBatch: async () => null, RATE_LIMITS: {} }))
-vi.mock("@/lib/realtime/chat", () => ({ broadcastChatMessage: async () => {} }))
+vi.mock("@/lib/realtime/chat", () => ({
+  broadcastChatMessage: async (...args: unknown[]) => void st.broadcasts.push(args),
+}))
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: "u1" } } }) },
@@ -27,6 +31,21 @@ vi.mock("@/lib/supabase/server", () => ({
         if (t === "rooms") return { data: { id: "r1", type: st.roomType } }
         if (t === "room_members") return { data: st.member ? { id: 1 } : null, error: null }
         if (t === "room_mutes") return { data: st.muted ? { muted_until: "2999-01-01T00:00:00Z" } : null }
+        // Betslip shares look up the parlay; owner id matches u1 only when
+        // st.parlayOwner is set, otherwise it belongs to someone else.
+        if (t === "parlays")
+          return {
+            data: {
+              id: "p1",
+              user_id: st.parlayOwner ? "u1" : "u2",
+              odds: 3.5,
+              stake: 100,
+              status: "pending",
+              custom_note: "lock of the day",
+              combined_hit_rate: 62,
+            },
+            error: null,
+          }
         // Only r1's own channel resolves; any other id belongs to another room.
         if (t === "room_subchannels")
           return { data: !matched.id || matched.id === OWN_SUB ? { id: OWN_SUB } : null, error: null }
@@ -62,9 +81,18 @@ const send = (content = "hello there", subchannelId?: string) =>
     new Request("http://localhost/api/rooms/r1/messages", { method: "POST", body: JSON.stringify({ content, subchannelId }) }),
     params
   )
+const BETSLIP_ID = "33333333-3333-4333-8333-333333333333"
+const sendBetslip = (betslipId = BETSLIP_ID) =>
+  POST(
+    new Request("http://localhost/api/rooms/r1/messages", {
+      method: "POST",
+      body: JSON.stringify({ kind: "betslip", betslipId }),
+    }),
+    params
+  )
 
 beforeEach(() => {
-  Object.assign(st, { ticks: 0, inFlight: 0, maxInFlight: 0, member: true, roomType: "Public", muted: false, inserted: null })
+  Object.assign(st, { ticks: 0, inFlight: 0, maxInFlight: 0, member: true, roomType: "Public", muted: false, parlayOwner: true, inserted: null, broadcasts: [] })
 })
 
 describe("chat messages route round trips (DB-13)", () => {
@@ -91,6 +119,47 @@ describe("chat messages route round trips (DB-13)", () => {
     expect(st.inserted).toBeNull()
     expect((await send("hello there", OWN_SUB)).status).toBe(201)
     expect(st.inserted).toMatchObject({ room_id: "r1", subchannel_id: OWN_SUB })
+  })
+  it("POST shares a betslip the user owns: inserts kind='betslip' + betslip_id, 201", async () => {
+    const res = await sendBetslip()
+    expect(res.status).toBe(201)
+    expect(st.inserted).toMatchObject({ kind: "betslip", betslip_id: BETSLIP_ID })
+  })
+  // RT: the realtime card used to render blank because the broadcast carried
+  // kind/betslip_id but no hydrated `betslip` object, so the receiving client
+  // (and the sender, which adds no optimistic row) had nothing to draw. The
+  // broadcast must now carry the full Prediction card the client renders from.
+  it("POST broadcasts a betslip message carrying the hydrated Prediction card", async () => {
+    await sendBetslip()
+    expect(st.broadcasts).toHaveLength(1)
+    const [, payload] = st.broadcasts[0] as [string, Record<string, unknown>]
+    expect(payload).toMatchObject({
+      kind: "betslip",
+      betslip_id: BETSLIP_ID,
+      betslip: {
+        id: "p1",
+        odds: 3.5,
+        stake: 100,
+        status: "pending",
+        custom_note: "lock of the day",
+        combined_hit_rate: 62,
+      },
+    })
+  })
+  // A plain text message broadcasts no card (betslip must be null), so text
+  // delivery is unaffected by the betslip hydration.
+  it("POST broadcasts a text message with a null betslip card", async () => {
+    await send("hello there", OWN_SUB)
+    expect(st.broadcasts).toHaveLength(1)
+    const [, payload] = st.broadcasts[0] as [string, Record<string, unknown>]
+    expect(payload.kind).toBe("text")
+    expect(payload.betslip).toBeNull()
+  })
+  it("POST refuses a betslip owned by another user (403) and inserts nothing", async () => {
+    st.parlayOwner = false
+    const res = await sendBetslip()
+    expect(res.status).toBe(403)
+    expect(st.inserted).toBeNull()
   })
   it("GET on a public room waits 2 round trips (was 3; 4 with betslip cards)", async () => {
     const res = await GET(new Request("http://localhost/api/rooms/r1/messages"), params)

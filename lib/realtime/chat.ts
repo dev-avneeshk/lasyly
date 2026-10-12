@@ -32,6 +32,20 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 
+/**
+ * Hydrated Prediction card the client renders inline for a `kind:"betslip"`
+ * message. Mirrors the `betslip` object the GET handler assembles from the
+ * `parlays` table, so a broadcast card renders identically to a fetched one.
+ */
+export interface BroadcastBetslipCard {
+  id: string
+  odds: number | null
+  stake: number | null
+  status: string
+  custom_note: string | null
+  combined_hit_rate: number | null
+}
+
 /** Shape the client's `mergeMessages` expects from a realtime delivery. */
 export interface BroadcastChatMessage {
   id: string
@@ -41,6 +55,14 @@ export interface BroadcastChatMessage {
   user_id: string
   kind?: "text" | "betslip"
   betslip_id?: string | null
+  /**
+   * Hydrated Prediction card for `kind:"betslip"` messages. Text content ships
+   * inline in the broadcast, but betslip cards are assembled server-side from
+   * `parlays`; without this field the receiving client has nothing to render
+   * and the card shows as a blank bubble until a later refetch. Carrying it
+   * here keeps betslip delivery at parity with text, no extra round trip.
+   */
+  betslip?: BroadcastBetslipCard | null
   /** Sender's public profile, so viewers render name/avatar without a lookup. */
   profile?: { username: string | null; display_name: string | null; avatar_url: string | null } | null
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useCallback, useRef, useEffect } from "react"
-import { Plus, Smile, SendHorizonal } from "lucide-react"
+import { Plus, Smile, SendHorizonal, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type ChatInputProps = {
@@ -9,6 +9,8 @@ type ChatInputProps = {
   placeholder: string
   /** Send the trimmed message; resolving `false` (not sent) restores the draft. */
   onSend: (content: string) => Promise<boolean> | void
+  /** Open the prediction picker to share a prediction into the chat. */
+  onPrediction?: () => void
 }
 
 const MAX_LEN = 1000
@@ -23,7 +25,7 @@ const MAX_LEN = 1000
  *
  * Uses an auto-growing textarea so multi-line drafts are visible while typing.
  */
-function ChatInputBase({ disabled, placeholder, onSend }: ChatInputProps) {
+function ChatInputBase({ disabled, placeholder, onSend, onPrediction }: ChatInputProps) {
   const [value, setValue] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -77,6 +79,19 @@ function ChatInputBase({ disabled, placeholder, onSend }: ChatInputProps) {
         >
           <Plus className="w-5 h-5" />
         </button>
+
+        {onPrediction && (
+          <button
+            type="button"
+            onClick={onPrediction}
+            disabled={disabled}
+            className="w-9 h-9 shrink-0 rounded-xl text-[#B8FF4F] bg-[#B8FF4F]/[0.1] hover:bg-[#B8FF4F]/[0.18] flex items-center justify-center transition-colors disabled:opacity-40"
+            title="Share a prediction"
+            aria-label="Share a prediction"
+          >
+            <TrendingUp className="w-5 h-5" />
+          </button>
+        )}
 
         <textarea
           ref={textareaRef}

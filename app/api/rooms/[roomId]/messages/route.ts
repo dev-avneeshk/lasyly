@@ -250,7 +250,11 @@ export const POST = withSecurity(async (
   // always scoped to this room so a post can't land in another room's channel.
   const [parlayRes, memberRes, muteRes, subRes] = await Promise.all([
     isBetslip
-      ? supabase.from("parlays").select("id, user_id").eq("id", data.betslipId!).maybeSingle()
+      ? supabase
+          .from("parlays")
+          .select("id, user_id, odds, stake, status, custom_note, combined_hit_rate")
+          .eq("id", data.betslipId!)
+          .maybeSingle()
       : null,
     supabase.from("room_members").select("id").eq("room_id", roomId).eq("user_id", user.id).maybeSingle(),
     supabase
@@ -371,6 +375,22 @@ export const POST = withSecurity(async (
   // frozen, but it never fails the request — the row is already committed, and
   // clients re-fetch on (re)subscribe.
   if (subchannelId && message) {
+    // For a betslip share, carry the hydrated Prediction card in the broadcast.
+    // The GET handler assembles this from `parlays`; without it here, receiving
+    // clients (including the sender, who adds no optimistic row) would render a
+    // blank bubble until an incidental refetch. parlayRes.data was already read
+    // above for the ownership check and now also selects the card fields.
+    const card = isBetslip && parlayRes?.data
+      ? {
+          id: parlayRes.data.id,
+          odds: (parlayRes.data as { odds?: number | null }).odds ?? null,
+          stake: (parlayRes.data as { stake?: number | null }).stake ?? null,
+          status: (parlayRes.data as { status?: string }).status ?? "pending",
+          custom_note: (parlayRes.data as { custom_note?: string | null }).custom_note ?? null,
+          combined_hit_rate:
+            (parlayRes.data as { combined_hit_rate?: number | null }).combined_hit_rate ?? null,
+        }
+      : null
     await broadcastChatMessage(subchannelId, {
       id: message.id,
       content: message.content,
@@ -379,6 +399,7 @@ export const POST = withSecurity(async (
       user_id: user.id,
       kind: data.kind,
       betslip_id: isBetslip ? data.betslipId : null,
+      betslip: card,
       profile: (Array.isArray(message.profiles) ? message.profiles[0] : message.profiles) ?? null,
     })
   }
