@@ -1,0 +1,9 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Non-blocking: migration 20261007 is authored but not applied in this worktree (out of scope per plan). Apply it before the user_id reads/writes and unique indexes go live.",
+    "Non-blocking: the 23505 unique-violation race branch (account re-select then submission_key fallback) has no dedicated test case; precedence is not asserted.",
+    "Non-blocking: the branch diff bundles unrelated scores/analysis/blog/deps changes; confirm the careers commit (2158281) is isolated before merge if those are not intended."
+  ],
+  "reviewDoc": "/Users/ayushkumar/development/betroom/.worktrees/careers-already-applied/.agents/tasks/careers-already-applied/review.md"
+}
