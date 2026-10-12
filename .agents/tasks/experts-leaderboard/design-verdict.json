@@ -1,0 +1,24 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "location": "Deliverable (C) — BetslipCardSkeleton spec in components/room/skeletons.tsx",
+      "problem": "The skeleton assumes exactly two meta cells (Hit rate, Entry), but the real post-B BetslipCardView renders combined_hit_rate and stake conditionally (!= null), so the loaded card can show 0, 1, or 2 cells. The testability note asserts 'exactly two meta cells' as a regression guard, which actually only needs to guard against a Multiplier/odds cell returning.",
+      "fix": "Reword the deliverable-C test assertion to 'renders at most two meta cells and no Multiplier/odds cell', or state the skeleton intentionally models the both-fields-present case. Keep the two-cell visual."
+    },
+    {
+      "severity": "NIT",
+      "location": "Deliverable (A) — leaderboard UI columns",
+      "problem": "Columns (Win %, Wins/Settled, Net record) are the correct odds-free interpretation, but the original request said 'who won how much'. Users may expect a currency figure the board intentionally does not show.",
+      "fix": "Add in-UI copy or a tooltip clarifying 'Net = wins minus settled losses (not coins)', mirroring the planned category-copy note."
+    },
+    {
+      "severity": "NIT",
+      "location": "Deliverable (B) step 5 — app/api/betslips/route.ts",
+      "problem": "Making createBetslipSchema.odds optional/nullable and dropping it from insert is correct and internally consistent (payout no longer computed, so NaN risk removed). Residual-reference risk is low but should be confirmed.",
+      "fix": "At the end of step 6 run a repo-wide grep for '\\.odds\\b' and rely on TypeScript to confirm zero references to the deleted leaf functions, as the design already plans."
+    }
+  ],
+  "reviewDoc": "/Users/ayushkumar/development/betroom/.worktrees/experts-leaderboard/.agents/tasks/experts-leaderboard/design-review.md"
+}

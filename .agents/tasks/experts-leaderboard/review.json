@@ -1,0 +1,11 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "NIT",
+      "location": "app/api/betslips/feed/route.ts:76,202 and app/api/betslips/route.ts:85",
+      "problem": "The betslips feed route still selects and returns `payout`, and the create route's echo select still lists `odds, payout`. These are no longer rendered (BetslipCard shows only Stake), so they are dead payload fields rather than a user-facing leak. The design only required dropping `odds` from the feed payload (done) and keeps the DB columns, so this is in-spec, but surfacing an odds-derived `payout` number over the wire is slightly inconsistent with the 'no odds-derived figures leave the server' intent of deliverable B.",
+      "fix": "Optional: drop `payout` from the feed select/output object and from the create echo select to keep the API payloads odds-free end-to-end. Pure cleanup; no behavior depends on it."
+    }
+  ]
+}

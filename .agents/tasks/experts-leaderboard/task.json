@@ -1,0 +1,7 @@
+{
+  "task_id": "task-experts-leaderboard",
+  "task_description": "Three deliverables in the betroom worktree: (B) remove the odds/multiplier concept completely from the user-facing prediction/parlay product and all ranking/payout math (keep DB odds+payout columns, NO drop migration); (A) add a per-category top-predictors leaderboard to the Experts/marketplace surface alongside (not replacing) the existing tipster grid, with the exact betslip aggregation, Redis cache-aside (key experts-leaderboard:<category>, 60s TTL, in-memory fallback), and a tabbed UI table; (C) update the rooms/chat loading skeleton to mirror the new no-odds shared-prediction card. Grounded in the APPROVED design at .agents/tasks/experts-leaderboard/design.md.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
