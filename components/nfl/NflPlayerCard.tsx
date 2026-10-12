@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { motion } from "framer-motion"
 import type { NflPlayer, Position } from "@/lib/nfl/types"
 import { nflHeadshotSources as headshotSources } from "@/lib/data/headshot-paths"
@@ -11,19 +12,25 @@ function initials(name: string): string {
 }
 
 function Headshot({ player }: { player: NflPlayer }) {
-  // Stored ~15KB WebP in preference to ESPN's ~225KB press original.
-  const { src: url, onError } = useHeadshotFallback(headshotSources(player))
+  // Stored 480px xl WebP (~16KB) first; ESPN's ~225KB press original only if it
+  // is missing.
+  const { src: url, onError } = useHeadshotFallback(headshotSources(player, "xl"))
   return (
     <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/10 to-white/[0.02] ring-1 ring-white/10">
       {url ? (
-        // Plain <img> so we don't need next/image remotePatterns config.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        // next/image so the optimizer sizes the 480px source per DPR instead of
+        // shipping it raw; both hosts are already in next.config.ts
+        // remotePatterns. `sizes` is the RENDERED photo width: object-cover on
+        // the 1.38:1 photo draws it ~132 CSS px wide in the 96px box (sm+) and
+        // ~110px in the 80px box.
+        <Image
           src={url}
           alt={player.name}
+          fill
+          sizes="(min-width: 640px) 133px, 111px"
           loading="lazy"
           onError={onError}
-          className="h-full w-full object-cover object-top"
+          className="object-cover object-top"
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-2xl font-black text-[var(--color-text-muted)]">

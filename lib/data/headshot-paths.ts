@@ -13,19 +13,26 @@
 export const HEADSHOT_BUCKET = "player-headshots"
 
 /**
- * Stored size variants.
+ * Stored size variants (WebP q82, longest edge, original aspect preserved).
  *
- * `sm` (160px) is what cards use, and they are the case that matters: a props
- * page renders up to 50 avatars at 36-40 CSS px, so the difference between 4KB
- * and 9.6KB apiece is ~280KB across a full scroll. `lg` (320px) exists for
- * PlayerHero on the player detail page, which renders at 116 CSS px — one image,
- * where sharpness is worth the bytes.
+ * `sm` (160px, ~4KB) is what thumbnails use, and they are the case that matters:
+ * a props page renders up to 50 avatars at 36-40 CSS px, so the difference
+ * between 4KB and 9.6KB apiece is ~280KB across a full scroll. `lg` (320px,
+ * ~10KB) exists for PlayerHero on the player detail page, which renders at
+ * 116 CSS px — one image, where sharpness is worth the bytes.
  *
- * Both are written by the same backfill pass. `sm` is uploaded FIRST, so the
- * presence of the `lg` object implies `sm` also exists; that lets the stored
- * index be keyed on `lg` alone without risking a 404 on the card path.
+ * `xl` (480px, ~16-19KB) is for the large renders that `sm`/`lg` left soft: the
+ * arena PlayerCard (object-cover makes the photo ~219x160 CSS px), the NFL
+ * auction card, and the NFL rankings detail hero (272px tall).
+ *
+ * The sync uploads xl -> sm -> lg for a new player, so the presence of the `lg`
+ * object implies the other two exist; that lets the stored index be keyed on
+ * `lg` alone without risking a 404 on the card path. Players stored before xl
+ * existed get it from `sync-headshots.mjs --variants xl`. Client code cannot
+ * confirm an xl object exists, so it relies on `onError` -> origin; server code
+ * must check `getStoredHeadshotIds(league, "xl")` before handing out an xl URL.
  */
-export type HeadshotVariant = "sm" | "lg"
+export type HeadshotVariant = "sm" | "lg" | "xl"
 
 /**
  * Namespaces inside the bucket.
@@ -44,7 +51,9 @@ export function headshotObjectPath(
   variant: HeadshotVariant = "lg"
 ): string {
   const lg = league.toLowerCase()
-  return variant === "sm" ? `${lg}/sm/${espnId}.webp` : `${lg}/${espnId}.webp`
+  if (variant === "sm") return `${lg}/sm/${espnId}.webp`
+  if (variant === "xl") return `${lg}/xl/${espnId}.webp`
+  return `${lg}/${espnId}.webp`
 }
 
 /** Public URL for a stored headshot. Bucket is public-read, so no signing. */
@@ -76,18 +85,24 @@ export function nbaCdnHeadshotUrl(nbaId: string | number): string {
  *
  * The arena used to hot-link `cdn.nba.com` directly, which serves a 1040x760 PNG
  * (~200KB) for a card that renders at 160 CSS px. All 573 players in the pool who
- * have an id are now stored in our own bucket as ~16KB WebP, so this returns that
- * and the caller falls back to the CDN only if the object is missing.
+ * have an id are now stored in our own bucket as WebP (sm 160px ~4KB, lg 320px
+ * ~10KB, xl 480px ~16-19KB), so this returns that and the caller falls back to
+ * the CDN only if the object is missing.
+ *
+ * `variant` defaults to `sm` for thumbnails; the large card asks for `xl`.
  *
  * Returns both URLs rather than one because this runs in the browser: client
  * components cannot await the stored-object index, so they try the deterministic
  * stored path first and use `onError` to drop back to the origin. `null` id means
  * there is no photo anywhere and the UI shows initials.
  */
-export function arenaHeadshotSources(player: { nbaId?: number | null }): { stored: string | null; origin: string } | null {
+export function arenaHeadshotSources(
+  player: { nbaId?: number | null },
+  variant: HeadshotVariant = "sm"
+): { stored: string | null; origin: string } | null {
   if (!player.nbaId) return null
   return {
-    stored: storedHeadshotUrl(NBA_CDN_NAMESPACE, String(player.nbaId), "sm"),
+    stored: storedHeadshotUrl(NBA_CDN_NAMESPACE, String(player.nbaId), variant),
     origin: nbaCdnHeadshotUrl(player.nbaId),
   }
 }
@@ -97,14 +112,18 @@ export function arenaHeadshotSources(player: { nbaId?: number | null }): { store
  *
  * Same reasoning as the NBA arena: ESPN serves the full-resolution press
  * original (~225KB PNG) for a card rendered at card size, and all 3,479 NFL
- * headshots are already in our bucket as ~15KB WebP. Returns both so the client
- * component can try the stored path and drop back to ESPN via `onError` — it
- * cannot await the stored-object index in the browser.
+ * headshots are already in our bucket as WebP (sm 160px ~4KB, lg 320px ~10KB,
+ * xl 480px ~16-19KB). `variant` defaults to `sm` for thumbnails. Returns both so
+ * the client component can try the stored path and drop back to ESPN via
+ * `onError` — it cannot await the stored-object index in the browser.
  */
-export function nflHeadshotSources(player: { espnId?: number | null }): { stored: string | null; origin: string } | null {
+export function nflHeadshotSources(
+  player: { espnId?: number | null },
+  variant: HeadshotVariant = "sm"
+): { stored: string | null; origin: string } | null {
   if (!player.espnId) return null
   return {
-    stored: storedHeadshotUrl("nfl", String(player.espnId), "sm"),
+    stored: storedHeadshotUrl("nfl", String(player.espnId), variant),
     origin: espnHeadshotUrl("nfl", String(player.espnId)),
   }
 }

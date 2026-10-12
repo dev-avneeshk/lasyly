@@ -104,7 +104,9 @@ export default function NflPlayerDetail({ playerId, season }: { playerId: string
       })
       .catch(() => {})
 
-    fetch(`/api/players/headshot?name=${encodeURIComponent(name)}&team=${encodeURIComponent(team)}&sport=NFL`, { cache: "no-store" })
+    // variant=xl: the hero <img> renders 272 CSS px tall, so ask for the 480px
+    // xl object. The server returns it only when it exists, otherwise lg.
+    fetch(`/api/players/headshot?name=${encodeURIComponent(name)}&team=${encodeURIComponent(team)}&sport=NFL&variant=xl`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (!cancelled && json?.success && json.headshot) setHeadshot(json.headshot)

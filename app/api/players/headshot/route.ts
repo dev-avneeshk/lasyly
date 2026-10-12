@@ -24,9 +24,22 @@ import {
  * 3. Fall back to ESPN core search API
  *
  * Cached for 24 hours.
+ *
+ * `variant=xl` (opt-in, NFL only): when the resolved `headshot` is our stored
+ * 320px lg copy and the 480px xl object exists, return xl instead. For large
+ * renders such as the NFL rankings detail hero; every other caller keeps lg, and
+ * `headshotCropped` stays sm. Applied after the cached lookup, so the cache key
+ * and the cached value are shared with callers that do not ask for xl.
  */
 
 const HEADSHOT_CACHE_TTL = 86_400_000 // 24 hours
+
+/**
+ * Leagues where `variant=xl` may upgrade the stored lg URL. NBA is deliberately
+ * absent: its branch is out of scope here and the bucket has no `nba/` namespace
+ * (NBA photos are stored under `nbacdn`, keyed by NBA person id).
+ */
+const XL_LEAGUES = new Set(["nfl"])
 
 // ESPN headshot URL patterns per sport
 const HEADSHOT_PATTERNS: Record<string, string> = {
@@ -109,6 +122,7 @@ async function handleGET(request: Request) {
   }
 
   const sportConfig = SPORT_CONFIG[sportParam] ?? SPORT_CONFIG.nba
+  const wantXl = searchParams.get("variant") === "xl" && XL_LEAGUES.has(sportConfig.headshotKey)
 
   try {
     // v2 used accent-insensitive identity matching and invalidated cached misses
@@ -144,11 +158,32 @@ async function handleGET(request: Request) {
       return NextResponse.json({ success: false, error: "Player not found", headshot: null }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, ...result })
+    const body = wantXl ? await withXlHeadshot(result, sportConfig.headshotKey) : result
+    return NextResponse.json({ success: true, ...body })
   } catch (error) {
     console.error("Headshot fetch error:", error instanceof Error ? error.message : error)
     return NextResponse.json({ error: "Failed to fetch headshot", success: false }, { status: 500 })
   }
+}
+
+// ─── variant=xl ─────────────────────────────────────────────────────────────
+
+/**
+ * Swap our stored lg URL for the xl one when the xl object exists.
+ *
+ * Only our own lg copy is upgraded — never a team logo or an ESPN URL — and only
+ * after the xl index confirms the object, because the large consumer renders a
+ * plain <img> with no onError fallback. Anything else passes through unchanged.
+ */
+async function withXlHeadshot<T extends { espnId: string; headshot: string }>(
+  result: T,
+  league: string
+): Promise<T> {
+  if (!result.espnId || result.headshot !== storedHeadshotUrl(league, result.espnId, "lg")) return result
+  const xlIds = await getStoredHeadshotIds(league, "xl")
+  if (!xlIds.has(result.espnId)) return result
+  const xl = storedHeadshotUrl(league, result.espnId, "xl")
+  return xl ? { ...result, headshot: xl } : result
 }
 
 // ─── Strategy 1: Database lookup ────────────────────────────────────────────

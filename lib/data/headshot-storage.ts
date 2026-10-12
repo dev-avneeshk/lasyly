@@ -12,9 +12,10 @@ import { cached } from "@/lib/cache"
  * draw 25 small avatars.
  *
  * `scripts/db/sync-headshots.mjs` now downloads each photo once, scales it to fit
- * a 320px box, re-encodes as WebP (~10KB) and uploads it to the
- * `player-headshots` bucket. This module resolves which players have a stored
- * object and builds their public URL.
+ * three boxes and re-encodes each as WebP — sm 160px (~4KB) for thumbnails, lg
+ * 320px (~10KB) for PlayerHero, xl 480px (~16-19KB) for the large renders — and
+ * uploads them to the `player-headshots` bucket. This module resolves which
+ * players have a stored object and builds their public URL.
  *
  * WHY THE BUCKET IS THE SOURCE OF TRUTH
  * The object path is deterministic — `{league}/{espn_id}.webp` — so "is this
@@ -68,8 +69,30 @@ const LIST_PAGE_SIZE = 1000
  */
 const MAX_LIST_PAGES = 20
 
+/** Variants that have their own stored-id index. sm has none: lg implies it. */
+type IndexedVariant = "lg" | "xl"
+
 /**
- * The set of `espn_id`s that have a stored headshot for this league.
+ * Where each index lists and what Redis key it is cached under.
+ *
+ * lg lists the namespace root, whose listing also returns the `sm` and `xl`
+ * folder entries; the `.webp` filter below keeps those out. Its key is unchanged
+ * from before xl existed. xl lists its own folder under a separate key, so the
+ * two indexes refresh independently.
+ */
+function indexSpec(lg: string, variant: IndexedVariant): { folder: string; key: string } {
+  return variant === "xl"
+    ? { folder: `${lg}/xl`, key: `headshots-stored:xl:v1:${lg}` }
+    : {
+        folder: lg,
+        // v2 retires index entries captured mid-backfill, which held a partial
+        // bucket listing and pinned already-stored players to the ESPN fallback.
+        key: `headshots-stored:v2:${lg}`,
+      }
+}
+
+/**
+ * The set of `espn_id`s that have a stored headshot of `variant` for this league.
  *
  * Returns an ARRAY from the cached fetcher on purpose. This value round-trips
  * through Redis as JSON, and `JSON.stringify(new Set())` is `"{}"` — caching a
@@ -77,25 +100,24 @@ const MAX_LIST_PAGES = 20
  * is exactly the bug the NFL defense table hit before it was switched to plain
  * records. Callers get a Set built on this side of the cache boundary.
  */
-async function fetchStoredIds(league: string): Promise<string[]> {
+async function fetchStoredIds(league: string, variant: IndexedVariant): Promise<string[]> {
   const lg = league.toLowerCase()
+  const { folder, key } = indexSpec(lg, variant)
 
   return cached(
-    // v2 retires index entries captured mid-backfill, which held a partial
-    // bucket listing and pinned already-stored players to the ESPN fallback.
-    `headshots-stored:v2:${lg}`,
+    key,
     async () => {
       const supabase = createAdminClient()
       const ids: string[] = []
 
       for (let page = 0; page < MAX_LIST_PAGES; page++) {
-        const { data, error } = await supabase.storage.from(HEADSHOT_BUCKET).list(lg, {
+        const { data, error } = await supabase.storage.from(HEADSHOT_BUCKET).list(folder, {
           limit: LIST_PAGE_SIZE,
           offset: page * LIST_PAGE_SIZE,
         })
 
         if (error) {
-          console.error(`[headshot-storage] list failed for "${lg}":`, error.message)
+          console.error(`[headshot-storage] list failed for "${folder}":`, error.message)
           break
         }
         if (!data || data.length === 0) break
@@ -116,12 +138,20 @@ async function fetchStoredIds(league: string): Promise<string[]> {
  * Stored-headshot lookup for a league. `has(espnId)` is true when we serve that
  * player's photo ourselves.
  *
+ * `lg` (the default) is the main index: an lg object implies sm exists too, and
+ * xl as well once the xl backfill has run. `xl` lists the 480px objects on their
+ * own. Check it before any server code hands an xl URL to a plain `<img>` with
+ * no `onError` fallback; players stored before xl existed may not have one.
+ *
  * Never throws: headshots are cosmetic and must not be able to fail a props
  * response. A failure degrades to "nothing is stored", i.e. the ESPN fallback.
  */
-export async function getStoredHeadshotIds(league: string): Promise<Set<string>> {
+export async function getStoredHeadshotIds(
+  league: string,
+  variant: IndexedVariant = "lg"
+): Promise<Set<string>> {
   try {
-    return new Set(await fetchStoredIds(league))
+    return new Set(await fetchStoredIds(league, variant))
   } catch {
     return new Set()
   }

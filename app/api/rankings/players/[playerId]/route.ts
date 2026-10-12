@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { activeNbaRankingVersion } from "@/lib/rankings/nba/read"
-import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
+import { getStoredHeadshotIds, resolveHeadshotUrl, storedHeadshotUrl } from "@/lib/data/headshot-storage"
 
 const CACHE_TTL_MS = 300_000
 
@@ -229,8 +229,9 @@ async function getNflPlayerDetail(decodedId: string, season: string) {
   {
     const athleteId = overall.athlete_id ? String(overall.athlete_id) : null
     if (athleteId) {
-      const [storedIds, espnRow] = await Promise.all([
+      const [storedIds, xlIds, espnRow] = await Promise.all([
         getStoredHeadshotIds("nfl"),
+        getStoredHeadshotIds("nfl", "xl"),
         supabase
           .from("espn_players")
           .select("headshot_url")
@@ -238,14 +239,19 @@ async function getNflPlayerDetail(decodedId: string, season: string) {
           .eq("espn_id", athleteId)
           .maybeSingle(),
       ])
-      // "lg" (320px): this feeds the player detail hero, not a prop card.
-      headshotUrl = resolveHeadshotUrl(
-        "nfl",
-        athleteId,
-        (espnRow.data as any)?.headshot_url,
-        storedIds,
-        "lg"
-      )
+      // This feeds the player detail hero, which renders 272 CSS px tall: lg's
+      // 232px height is upscaled even at DPR 1, so prefer the 480px xl. The hero
+      // is a plain <img> with no onError, so emit xl only when the index has it
+      // and fall back to lg (then ESPN) otherwise.
+      headshotUrl =
+        (xlIds.has(athleteId) ? storedHeadshotUrl("nfl", athleteId, "xl") : null) ??
+        resolveHeadshotUrl(
+          "nfl",
+          athleteId,
+          (espnRow.data as any)?.headshot_url,
+          storedIds,
+          "lg"
+        )
     }
   }
 

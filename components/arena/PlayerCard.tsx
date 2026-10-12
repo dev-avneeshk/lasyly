@@ -11,21 +11,29 @@ function initials(name: string): string {
 }
 
 function Headshot({ player }: { player: SeasonPlayer }) {
-  // Our stored ~16KB WebP first, cdn.nba.com's ~200KB PNG only if it is missing.
-  const { src: url, onError } = useHeadshotFallback(headshotSources(player))
+  // Our stored 480px xl WebP (~18KB) first, cdn.nba.com's 1040x760 PNG
+  // (~200KB) only if it is missing.
+  const { src: url, onError } = useHeadshotFallback(headshotSources(player, "xl"))
 
   return (
     <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-[1.15rem] border border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(123,110,255,0.52),transparent_58%),linear-gradient(145deg,#202955,#0c1025)] sm:h-40 sm:w-40">
       {url ? (
         // next/image optimizes + edge-caches these (AVIF/WebP, 24h
-        // minimumCacheTTL). `priority` because this is the focal card of
-        // the active lot — it should never lazy-load.
+        // minimumCacheTTL). `preload` because this is the focal card of the
+        // active lot — it should never lazy-load. It is Next 16's replacement
+        // for the deprecated `priority`, with identical behaviour.
+        //
+        // `sizes` is the RENDERED photo width, not the box: object-cover on the
+        // 1.37:1 photo draws it ~219 CSS px wide in the 160px box (sm+, 640px is
+        // Tailwind's `sm`) and ~153px in the 112px box. At DPR 2 the browser
+        // picks the 640w candidate and the optimizer serves the 480px source
+        // without enlargement, which covers the ~438 device px needed.
         <Image
           src={url}
           alt={player.name}
           fill
-          sizes="160px"
-          priority
+          sizes="(min-width: 640px) 220px, 154px"
+          preload
           onError={onError}
           className="object-cover object-top [filter:contrast(1.06)_saturate(.92)]"
         />
