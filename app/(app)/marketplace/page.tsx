@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import TipstersClient from "./TipstersClient"
+import ExpertsClient from "./ExpertsClient"
 
 export const metadata: Metadata = {
   title: "Tipster Marketplace",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function TipstersPage() {
-  return <TipstersClient />
+  return <ExpertsClient />
 }

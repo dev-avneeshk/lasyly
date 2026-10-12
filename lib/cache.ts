@@ -508,6 +508,8 @@ export const CACHE_TTL = {
   leaderboard: 300_000,
   /** Tipsters: 5 minutes (expensive multi-query aggregation) */
   tipsters: 300_000,
+  /** Experts leaderboard: 60 seconds (per-category aggregation, shared) */
+  expertsLeaderboard: 60_000,
   /** News: 5 minutes (changes infrequently) */
   news: 300_000,
   /** Props/analytics: 2 minutes */

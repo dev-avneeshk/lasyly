@@ -25,7 +25,7 @@ const SORT_OPTIONS = [
   { value: "total_picks", label: "Total Picks" },
 ] as const
 
-const SPORT_FILTERS = ["All", "Football", "Basketball", "Tennis", "Cricket", "NFL", "Formula 1", "Esports", "MMA", "Boxing", "Golf"]
+export const SPORT_FILTERS = ["All", "Football", "Basketball", "Tennis", "Cricket", "NFL", "Formula 1", "Esports", "MMA", "Boxing", "Golf"]
 
 export default function TipstersClient() {
   const [tipsters, setTipsters] = useState<Tipster[]>([])
