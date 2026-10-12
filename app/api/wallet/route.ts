@@ -75,17 +75,17 @@ export const GET = withSecurity(async (request: Request) => {
     .filter((t) => t.reference_id && BETSLIP_TYPES.has(t.type))
     .map((t) => t.reference_id)
 
-  const betslipMap: Record<string, { sportsbook: string; bet_type: string; odds: number } | null> = {}
+  const betslipMap: Record<string, { sportsbook: string; bet_type: string } | null> = {}
 
   if (referenceIds.length > 0) {
     const { data: betslips } = await supabase
       .from("betslips")
-      .select("id, sportsbook, bet_type, odds")
+      .select("id, sportsbook, bet_type")
       .in("id", referenceIds)
 
     if (betslips) {
       for (const b of betslips) {
-        betslipMap[b.id] = { sportsbook: b.sportsbook, bet_type: b.bet_type, odds: b.odds }
+        betslipMap[b.id] = { sportsbook: b.sportsbook, bet_type: b.bet_type }
       }
     }
   }

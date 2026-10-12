@@ -10,7 +10,7 @@ type WalletTransaction = {
   amount: number
   status: string
   created_at: string
-  betslip?: { sportsbook: string; bet_type: string; odds: number } | null
+  betslip?: { sportsbook: string; bet_type: string } | null
 }
 
 type WalletResponse = {

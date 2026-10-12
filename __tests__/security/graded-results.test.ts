@@ -92,7 +92,9 @@ describe("betslip grading (L-12)", () => {
     st.betslip = { id: "b1", user_id: "u1", odds: 2, stake: 10, status: "Pending" }
     const res = await grade("Won")
     expect(res.status).toBe(200)
-    expect(st.updates[0]).toMatchObject({ client: "admin", values: { status: "Won", payout: 20 } })
+    expect(st.updates[0]).toMatchObject({ client: "admin", values: { status: "Won" } })
+    // Payout is no longer derived from odds on grade.
+    expect(st.updates[0].values).not.toHaveProperty("payout")
     expect(st.updates[0].filters).toContainEqual(["status", "Pending"])
     expect(st.updates[0].filters).toContainEqual(["user_id", "u1"])
   })

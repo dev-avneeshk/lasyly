@@ -13,7 +13,6 @@ import {
   Share2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { decimalOdds, formatOdds } from "@/lib/parlays/computations"
 import { ShareToRoomModal } from "@/components/parlays/ShareToRoomModal"
 import type { ParlayWithLegs, ParlayLegRow } from "@/lib/types/parlay"
 
@@ -78,23 +77,6 @@ function legLabel(leg: ParlayLegRow): string {
   return `${dir} ${leg.prop_line} ${leg.stat_category}`
 }
 
-/**
- * Net profit/loss in units for a single parlay, using the same convention as
- * computeParlayStats: won → stake × (decimal odds − 1), lost → −stake. Returns null
- * when stake/odds are missing or the parlay is still pending.
- */
-function unitResult(parlay: ParlayWithLegs): number | null {
-  if (parlay.stake == null || parlay.odds == null) return null
-  if (parlay.status === "won") return parlay.stake * (decimalOdds(parlay.odds) - 1)
-  if (parlay.status === "lost") return -parlay.stake
-  return null
-}
-
-function formatUnits(n: number): string {
-  const sign = n > 0 ? "+" : ""
-  return `${sign}${n.toFixed(2)}u`
-}
-
 // ─── Leg list (expanded picks) ───────────────────────────────────────────────
 
 function LegRow({ leg }: { leg: ParlayLegRow }) {
@@ -149,14 +131,6 @@ export default function PredictionRow({ parlay }: PredictionRowProps) {
   const status = STATUS_CONFIG[parlay.status]
   const isMulti = parlay.legs.length > 1
 
-  const units = unitResult(parlay)
-  const plClass =
-    parlay.status === "won"
-      ? "text-lime-400"
-      : parlay.status === "lost"
-        ? "text-red-400"
-        : "text-[var(--color-text-muted)]"
-
   // Headline pick text: for single picks show the pick itself, otherwise a
   // parlay summary with the first pick as context.
   const title = isMulti
@@ -206,18 +180,8 @@ export default function PredictionRow({ parlay }: PredictionRowProps) {
           </div>
         </div>
 
-        {/* Odds */}
+        {/* Stake */}
         <div className="flex shrink-0 items-center justify-between gap-6 md:justify-start">
-          <div className="flex w-16 flex-col">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
-              Odds
-            </span>
-            <span className="text-sm font-bold text-[var(--color-text-primary)]">
-              {parlay.odds != null ? formatOdds(parlay.odds) : "—"}
-            </span>
-          </div>
-
-          {/* Stake */}
           <div className="flex w-16 flex-col">
             <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
               Stake
@@ -228,7 +192,7 @@ export default function PredictionRow({ parlay }: PredictionRowProps) {
           </div>
         </div>
 
-        {/* Status + P/L + chevron */}
+        {/* Status + chevron */}
         <div className="flex shrink-0 items-center justify-between gap-4 md:justify-end">
           <span
             className={cn(
@@ -238,12 +202,6 @@ export default function PredictionRow({ parlay }: PredictionRowProps) {
           >
             {status.label}
           </span>
-
-          <div className="flex w-20 flex-col items-end">
-            <span className={cn("text-sm font-bold tabular-nums", plClass)}>
-              {units != null ? formatUnits(units) : "–"}
-            </span>
-          </div>
 
           <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
         </div>

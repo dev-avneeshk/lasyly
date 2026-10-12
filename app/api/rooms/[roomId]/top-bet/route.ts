@@ -8,15 +8,14 @@ import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
  * The room's featured bet for the right panel:
  *   1. An admin-pinned betslip message (pinned_messages -> a kind='betslip'
  *      message), if one exists.
- *   2. Otherwise the best winning shared betslip in the room (highest odds
- *      among won parlays shared as messages).
+ *   2. Otherwise the best winning shared betslip in the room (highest combined
+ *      hit rate among won parlays shared as messages).
  *
  * Degrades to { bet: null } if the channels/betslip schema isn't present.
  */
 
 type BetRow = {
   id: string
-  odds: number | null
   stake: number | null
   status: string
   combined_hit_rate: number | null
@@ -32,7 +31,6 @@ export const GET = withSecurity(async (
 
   const shape = (row: BetRow, author: string | null, pinned: boolean) => ({
     id: row.id,
-    odds: row.odds,
     stake: row.stake,
     status: row.status,
     combined_hit_rate: row.combined_hit_rate,
@@ -58,7 +56,7 @@ export const GET = withSecurity(async (
     if (pinned.length > 0) {
       const { data: pinnedParlays } = await supabase
         .from("parlays")
-        .select("id, odds, stake, status, combined_hit_rate, custom_note")
+        .select("id, stake, status, combined_hit_rate, custom_note")
         .in("id", pinned.map((m) => m.betslip_id))
       const byId = new Map((pinnedParlays ?? []).map((row) => [row.id, row]))
       for (const msg of pinned) {
@@ -85,10 +83,10 @@ export const GET = withSecurity(async (
 
     const { data: parlays } = await supabase
       .from("parlays")
-      .select("id, odds, stake, status, combined_hit_rate, custom_note")
+      .select("id, stake, status, combined_hit_rate, custom_note")
       .in("id", ids)
       .eq("status", "won")
-      .order("odds", { ascending: false })
+      .order("combined_hit_rate", { ascending: false, nullsFirst: false })
       .limit(1)
 
     const best = parlays?.[0]

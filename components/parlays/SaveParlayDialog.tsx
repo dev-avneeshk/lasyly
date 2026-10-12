@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
 import { motion, AnimatePresence } from "framer-motion"
 import { Globe, Lock, X, Loader2, Coins, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { computePayout } from "@/lib/parlays/computations"
 import type {
   SaveParlayDialogProps,
   ParlayVisibility,
@@ -16,8 +15,6 @@ import type {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const ODDS_MIN = -10000
-const ODDS_MAX = 10000
 const STAKE_MIN = 0.01
 const STAKE_MAX = 99999.99
 const NOTE_MAX_LENGTH = 280
@@ -25,28 +22,15 @@ const NOTE_MAX_LENGTH = 280
 // ─── Validation ─────────────────────────────────────────────────────────────
 
 interface ValidationErrors {
-  odds?: string
   stake?: string
   note?: string
 }
 
 function validateFields(
-  odds: string,
   stake: string,
   note: string
 ): ValidationErrors {
   const errors: ValidationErrors = {}
-
-  if (odds.trim() !== "") {
-    const oddsNum = Number(odds)
-    if (isNaN(oddsNum)) {
-      errors.odds = "Multiplier must be a valid number"
-    } else if (oddsNum < ODDS_MIN || oddsNum > ODDS_MAX) {
-      errors.odds = `Multiplier must be between ${ODDS_MIN} and ${ODDS_MAX}`
-    } else if (oddsNum > -100 && oddsNum < 1.01) {
-      errors.odds = "Multiplier must be at least 1.01 (or American odds like +150 / -110)"
-    }
-  }
 
   if (stake.trim() !== "") {
     const stakeNum = Number(stake)
@@ -75,39 +59,21 @@ export function SaveParlayDialog({
   error,
 }: SaveParlayDialogProps) {
   const [visibility, setVisibility] = useState<ParlayVisibility>("private")
-  const [odds, setOdds] = useState("")
   const [stake, setStake] = useState("")
   const [note, setNote] = useState("")
   const openerFocus = useOpenerFocus()
   const [isLogged, setIsLogged] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
 
-  // Compute potential payout when both odds and stake are valid
-  const potentialPayout = useMemo(() => {
-    const oddsNum = Number(odds)
-    const stakeNum = Number(stake)
-    if (
-      odds.trim() === "" ||
-      stake.trim() === "" ||
-      isNaN(oddsNum) ||
-      isNaN(stakeNum) ||
-      stakeNum <= 0
-    ) {
-      return null
-    }
-    return computePayout(stakeNum, oddsNum)
-  }, [odds, stake])
-
   const handleSubmit = useCallback(async () => {
     // Run validation
-    const errors = validateFields(odds, stake, note)
+    const errors = validateFields(stake, note)
     setValidationErrors(errors)
 
     if (Object.keys(errors).length > 0) {
       return
     }
 
-    const oddsValue = odds.trim() !== "" ? Number(odds) : null
     const stakeValue = stake.trim() !== "" ? Number(stake) : null
     const noteValue = note.trim() !== "" ? note.trim() : null
 
@@ -123,7 +89,7 @@ export function SaveParlayDialog({
         })
       ),
       visibility,
-      odds: oddsValue,
+      odds: null,
       stake: stakeValue,
       custom_note: noteValue,
       combined_hit_rate: combinedHitRate,
@@ -131,7 +97,7 @@ export function SaveParlayDialog({
     }
 
     await onSave(payload)
-  }, [legs, visibility, odds, stake, note, isLogged, combinedHitRate, onSave])
+  }, [legs, visibility, stake, note, isLogged, combinedHitRate, onSave])
 
   const hasMinLegs = legs.length >= 2
 
@@ -248,41 +214,6 @@ export function SaveParlayDialog({
               </button>
             </div>
 
-            {/* Odds input */}
-            <div>
-              <label
-                htmlFor="parlay-odds"
-                className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5"
-              >
-                Multiplier <span className="opacity-60">(optional)</span>
-              </label>
-              <input
-                id="parlay-odds"
-                type="text"
-                inputMode="decimal"
-                placeholder="e.g. +150 or 2.5"
-                value={odds}
-                onChange={(e) => {
-                  setOdds(e.target.value)
-                  if (validationErrors.odds) {
-                    setValidationErrors((prev) => ({ ...prev, odds: undefined }))
-                  }
-                }}
-                className={cn(
-                  "w-full h-10 rounded-lg border px-3 py-2 text-sm text-white placeholder:text-[var(--color-text-muted)] bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-lime)]/50 focus:border-transparent transition-colors",
-                  validationErrors.odds
-                    ? "border-[var(--color-danger)]"
-                    : "border-[var(--color-border)]"
-                )}
-              />
-              {validationErrors.odds && (
-                <p className="mt-1 text-xs text-[var(--color-danger)] flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {validationErrors.odds}
-                </p>
-              )}
-            </div>
-
             {/* Stake input */}
             <div>
               <label
@@ -320,18 +251,6 @@ export function SaveParlayDialog({
                 </p>
               )}
             </div>
-
-            {/* Potential payout */}
-            {potentialPayout !== null && potentialPayout > 0 && (
-              <div className="px-3 py-2 rounded-xl bg-[var(--color-lime)]/10 border border-[var(--color-lime)]/20">
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  Potential Return
-                </p>
-                <p className="text-sm font-semibold text-[var(--color-lime)]">
-                  {potentialPayout.toFixed(0)} Coins
-                </p>
-              </div>
-            )}
 
             {/* Custom note */}
             <div>

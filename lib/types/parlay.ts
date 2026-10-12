@@ -58,7 +58,6 @@ export interface ParlayStats {
   lost: number
   pending: number
   win_rate: number | null
-  net_profit_loss: number
   avg_legs: number | null
   most_common_sport: string | null
   best_streak: number

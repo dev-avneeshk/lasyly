@@ -1,7 +1,7 @@
 "use client"
 
 import { Betslip } from "@/types"
-import { MessageSquare, Share2, Flame, Copy, Lock, Unlock, TrendingUp, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react"
+import { MessageSquare, Share2, Flame, Copy, Lock, Unlock, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -73,7 +73,6 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
 
   const status = STATUS_CONFIG[betslip.status] ?? STATUS_CONFIG.Pending
   const StatusIcon = status.icon
-  const impliedProb = `${Math.round((1 / betslip.odds) * 100)}%`
   const fireCount = betslip.reactions?.fire ?? 0
 
   const handleUnlock = async () => {
@@ -204,42 +203,15 @@ export default function BetslipCard({ betslip }: BetslipCardProps) {
         )}
       </div>
 
-      {/* Odds + Stake hero section */}
-      <div className="mx-4 mb-3 px-4 py-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-widest mb-0.5">Total Odds</p>
-          <p className="text-2xl font-black text-white tracking-tight">{betslip.odds.toFixed(2)}x</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <TrendingUp className="w-3 h-3 text-[var(--color-secondary)]" />
-            <span className="text-[11px] text-[var(--color-text-muted)]">{impliedProb} implied</span>
-          </div>
-        </div>
-        <div className="h-10 w-px bg-white/10" />
-        {betslip.stake != null && (
-          <div className="text-right">
+      {/* Stake hero section */}
+      {betslip.stake != null && (
+        <div className="mx-4 mb-3 px-4 py-3 rounded-xl bg-black/20 border border-white/5 flex items-center gap-4">
+          <div>
             <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-widest mb-0.5">Stake</p>
             <p className="text-xl font-black text-white">{betslip.stake.toLocaleString()} Coins</p>
           </div>
-        )}
-        {betslip.payout != null && (
-          <>
-            <div className="h-10 w-px bg-white/10" />
-            <div className="text-right">
-              <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-widest mb-0.5">
-                {betslip.status === "Won" ? "Payout" : "Potential"}
-              </p>
-              <p
-                className={cn(
-                  "text-xl font-black",
-                  betslip.status === "Won" ? "text-[var(--color-success)]" : "text-white"
-                )}
-              >
-                {betslip.payout.toLocaleString()} Coins
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Description */}
       {betslip.description && (

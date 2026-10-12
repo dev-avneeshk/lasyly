@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { X, TrendingUp, Clock, CheckCircle2, XCircle } from "lucide-react"
 import { useOpenerFocus } from "@/components/ui/useOpenerFocus"
-import { formatOdds } from "@/lib/parlays/computations"
 import type { ParlayWithLegs, ParlayLegRow } from "@/lib/types/parlay"
 
 type PredictionPickerModalProps = {
@@ -124,9 +123,6 @@ export function PredictionPickerModal({ open, onClose, onSelect }: PredictionPic
                     <p className="mt-0.5 text-[11px] text-white/40 truncate">{subtitle(parlay)}</p>
                   )}
                   <div className="mt-2 flex items-center gap-4 text-[11px]">
-                    <span className="text-white/40">
-                      Odds <span className="font-semibold text-white/80">{parlay.odds != null ? formatOdds(parlay.odds) : "—"}</span>
-                    </span>
                     {parlay.combined_hit_rate != null && (
                       <span className="text-white/40">
                         Hit rate{" "}

@@ -52,11 +52,11 @@ export default async function ProfilePage() {
       .eq("follower_id", user.id),
     supabase
       .from("betslips")
-      .select("status, odds")
+      .select("status")
       .eq("user_id", user.id),
     supabase
       .from("parlays")
-      .select("status, odds")
+      .select("status")
       .eq("user_id", user.id)
       .eq("is_logged", false),
   ])
@@ -97,14 +97,6 @@ export default async function ProfilePage() {
 
   const winRate = resolvedCount > 0 ? Math.round((wonCount / resolvedCount) * 1000) / 10 : 0
 
-  // Average odds: combine betslips odds + parlay odds
-  const bsOddsTotal = betslips.reduce((sum, b) => sum + Number(b.odds), 0)
-  const pOddsTotal = parlays.filter((p) => p.odds != null).reduce((sum, p) => sum + Number(p.odds), 0)
-  const oddsCount = bsTotal + parlays.filter((p) => p.odds != null).length
-  const averageOdds = oddsCount > 0
-    ? Math.round(((bsOddsTotal + pOddsTotal) / oddsCount) * 100) / 100
-    : 0
-
   return (
     <ProfileClient
       profile={profile}
@@ -113,7 +105,6 @@ export default async function ProfilePage() {
         followingCount,
         totalPicks,
         winRate,
-        averageOdds,
         wonCount,
         lostCount,
         pendingCount,

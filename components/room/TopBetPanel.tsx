@@ -5,7 +5,6 @@ import { Trophy } from "lucide-react"
 
 type TopBet = {
   id: string
-  odds: number | null
   stake: number | null
   status: string
   combined_hit_rate: number | null
@@ -62,10 +61,6 @@ function TopBetPanelBase({ roomId }: { roomId: string; isAdmin: boolean }) {
             </span>
           </div>
           <div className="px-3.5 py-3 flex items-end gap-4">
-            <div>
-              <p className="text-[10px] text-white/30">Multiplier</p>
-              <p className="text-[18px] font-bold text-white/90 leading-tight">{bet.odds != null ? `${bet.odds}x` : "—"}</p>
-            </div>
             {bet.combined_hit_rate != null && (
               <div>
                 <p className="text-[10px] text-white/30">Hit rate</p>

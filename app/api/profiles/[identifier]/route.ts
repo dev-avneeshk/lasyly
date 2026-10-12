@@ -75,7 +75,7 @@ export const GET = withSecurity(async (
   // Compute betting statistics
   // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
   // A failed stats read returns empty stats, not a 500 (this route isn't cached).
-  const allBetslips = await fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id])
+  const allBetslips = await fetchAllIn<{ status: string }>(supabase, "betslips", "status", "user_id", [profile.id])
     .catch((e) => (console.error("profile stats read failed:", e?.message ?? e), []))
   const totalPicks = allBetslips.length
   // Void is a refund, not a loss: win rate is over Won + Lost only.
@@ -83,15 +83,9 @@ export const GET = withSecurity(async (
   const wonCount = allBetslips.filter((b) => b.status === "Won").length
 
   let winRate = 0
-  let averageOdds = 0
 
   if (resolvedBetslips.length > 0) {
     winRate = Math.round((wonCount / resolvedBetslips.length) * 1000) / 10
-  }
-
-  if (totalPicks > 0) {
-    const totalOdds = allBetslips.reduce((sum, b) => sum + Number(b.odds), 0)
-    averageOdds = Math.round((totalOdds / totalPicks) * 100) / 100
   }
 
   const response: Record<string, unknown> = {
@@ -109,7 +103,6 @@ export const GET = withSecurity(async (
     stats: {
       total_picks: totalPicks,
       win_rate: winRate,
-      average_odds: averageOdds,
     },
   }
 

@@ -14,7 +14,6 @@ export type ChatProfile = {
 
 export type BetslipCard = {
   id: string
-  odds: number | null
   stake: number | null
   status: string
   custom_note: string | null
@@ -65,10 +64,6 @@ function BetslipCardView({ bet }: { bet: BetslipCard }) {
         </span>
       </div>
       <div className="px-3.5 py-3 flex items-center gap-4">
-        <div>
-          <p className="text-[10px] text-white/30">Multiplier</p>
-          <p className="text-[15px] font-bold text-white/90">{bet.odds != null ? `${bet.odds}x` : "—"}</p>
-        </div>
         {bet.combined_hit_rate != null && (
           <div>
             <p className="text-[10px] text-white/30">Hit rate</p>

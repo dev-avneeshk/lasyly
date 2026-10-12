@@ -43,7 +43,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
       .eq("follower_id", profile.id),
     // Paged: a plain select stopped at 1000 rows, so heavy users got wrong stats.
     // A failed stats read shows empty stats, not the error page (nothing cached).
-    fetchAllIn<{ status: string; odds: number }>(supabase, "betslips", "status, odds", "user_id", [profile.id])
+    fetchAllIn<{ status: string }>(supabase, "betslips", "status", "user_id", [profile.id])
       .catch((e) => (console.error("profile stats read failed:", e?.message ?? e), [])),
     supabase.auth.getUser(),
   ])
@@ -59,9 +59,6 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const wonCount = betslips.filter((b) => b.status === "Won").length
   const lostCount = betslips.filter((b) => b.status === "Lost").length
   const winRate = resolved.length > 0 ? Math.round((wonCount / resolved.length) * 1000) / 10 : 0
-  const averageOdds = totalPicks > 0
-    ? Math.round((betslips.reduce((sum, b) => sum + Number(b.odds), 0) / totalPicks) * 100) / 100
-    : 0
 
   // Check if current user is following this profile
 
@@ -80,7 +77,6 @@ export default async function PublicProfilePage({ params }: PageProps) {
   let recentParlays: Array<{
     id: string
     status: string
-    odds: number | null
     created_at: string
     legs: Array<{
       id: string
@@ -95,7 +91,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   try {
     const { data: parlayData } = await supabase
       .from("parlays")
-      .select("id, status, odds, created_at, parlay_legs(id, player_name, stat_category, prop_line, direction, l10_hit_rate)")
+      .select("id, status, created_at, parlay_legs(id, player_name, stat_category, prop_line, direction, l10_hit_rate)")
       .eq("user_id", profile.id)
       .eq("visibility", "public")
       .order("created_at", { ascending: false })
@@ -105,7 +101,6 @@ export default async function PublicProfilePage({ params }: PageProps) {
       recentParlays = parlayData.map((p) => ({
         id: p.id,
         status: p.status,
-        odds: p.odds,
         created_at: p.created_at,
         legs: (p.parlay_legs as Array<{
           id: string
@@ -129,7 +124,6 @@ export default async function PublicProfilePage({ params }: PageProps) {
         followingCount,
         totalPicks,
         winRate,
-        averageOdds,
         wonCount,
         lostCount,
       }}

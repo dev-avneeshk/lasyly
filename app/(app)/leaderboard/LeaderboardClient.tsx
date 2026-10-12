@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Trophy, Target, Flame, BadgeCheck, User, TrendingUp } from "lucide-react"
+import { Trophy, Target, Flame, BadgeCheck, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type LeaderboardEntry = {
@@ -15,7 +15,6 @@ type LeaderboardEntry = {
   total_picks: number
   won_count: number
   win_rate: number
-  average_odds: number
 }
 
 type Tab = "win_rate" | "total_picks" | "streak"
@@ -180,12 +179,6 @@ export default function LeaderboardClient() {
                   <div className="text-right hidden sm:block">
                     <p className="text-xs text-[var(--color-text-muted)]">Picks</p>
                     <p className="text-sm font-bold text-[var(--color-text-primary)]">{entry.total_picks}</p>
-                  </div>
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs text-[var(--color-text-muted)]">Avg Odds</p>
-                    <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                      {entry.average_odds > 0 ? entry.average_odds.toFixed(1) : "—"}
-                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-[var(--color-text-muted)]">Win Rate</p>

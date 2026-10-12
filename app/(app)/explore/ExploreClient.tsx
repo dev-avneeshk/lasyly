@@ -536,7 +536,6 @@ type FeedPost = {
   parlay: {
     id: string
     status: string
-    odds: number | null
     legs: Array<{
       id: string
       player_name: string
@@ -586,7 +585,7 @@ function SocialFeed({ initialFeed }: { initialFeed: FeedSnapshot }) {
 
   // Share bet state
   const [showBetPicker, setShowBetPicker] = useState(false)
-  const [userParlays, setUserParlays] = useState<Array<{ id: string; status: string; odds: number | null; created_at: string; legs: Array<{ id: string; player_name: string; stat_category: string; prop_line: number; direction: string }> }>>([])
+  const [userParlays, setUserParlays] = useState<Array<{ id: string; status: string; created_at: string; legs: Array<{ id: string; player_name: string; stat_category: string; prop_line: number; direction: string }> }>>([])
   const [loadingParlays, setLoadingParlays] = useState(false)
   const [selectedParlay, setSelectedParlay] = useState<typeof userParlays[0] | null>(null)
 
@@ -985,7 +984,6 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: string) => vo
           body: JSON.stringify({
             legs,
             visibility: "private",
-            odds: post.parlay.odds ?? null,
             custom_note: `Copied from @${post.profile?.username ?? "user"}`,
           }),
         })

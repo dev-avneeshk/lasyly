@@ -1,50 +1,6 @@
 import type { ParlayWithLegs, ParlayStats } from "@/lib/types/parlay"
 
 /**
- * Compute potential payout from stake and odds.
- *
- * Convention:
- * - odds >= 100 or <= -100 → American odds
- * - otherwise → decimal multiplier
- *
- * American positive: payout = stake × (odds / 100) + stake
- * American negative: payout = stake × (100 / |odds|) + stake
- * Decimal: payout = stake × odds
- */
-export function computePayout(stake: number, odds: number): number {
-  if (odds >= 100) {
-    // Positive American odds
-    return stake * (odds / 100) + stake
-  }
-  if (odds <= -100) {
-    // Negative American odds
-    return stake * (100 / Math.abs(odds)) + stake
-  }
-  // Decimal odds (between -100 and 100 exclusive, but typically >= 1.01)
-  return stake * odds
-}
-
-/** Decimal multiplier for either convention (+150 → 2.5, -110 → 1.909, 2.5 → 2.5). */
-export const decimalOdds = (odds: number): number => computePayout(1, odds)
-
-/**
- * Format odds for display.
- *
- * - odds >= 100 → "+{odds}" (positive American)
- * - odds <= -100 → "{odds}" (negative American, already has minus)
- * - otherwise → "{odds}x" (decimal multiplier)
- */
-export function formatOdds(odds: number): string {
-  if (odds >= 100) {
-    return `+${odds}`
-  }
-  if (odds <= -100) {
-    return `${odds}`
-  }
-  return `${odds}x`
-}
-
-/**
  * Compute streak information from a list of parlays.
  *
  * - Filters to graded parlays only (won/lost; void and pending are skipped)
@@ -103,8 +59,6 @@ export function computeStreak(parlays: ParlayWithLegs[]): {
  * Excludes parlays with is_logged=true from stats computation.
  *
  * - win_rate = (won / (won + lost)) × 100 rounded to 1 decimal. null when both are 0.
- * - net_profit_loss = sum of (stake × (decimal odds - 1)) for won parlays minus sum of stake for lost parlays.
- *   Only parlays with both stake and odds defined. Rounded to 2 decimals.
  * - avg_legs = average number of legs across all parlays, rounded to 1 decimal. null if no parlays.
  * - most_common_sport = most frequent sport across all legs. If tied, use the one from the most recently resolved parlay.
  * - best_streak = longest consecutive "won" sequence ordered by resolved_at ascending
@@ -125,20 +79,6 @@ export function computeParlayStats(parlays: ParlayWithLegs[]): ParlayStats {
     won + lost === 0
       ? null
       : Math.round(((won / (won + lost)) * 100) * 10) / 10
-
-  // Net profit/loss — only parlays with both stake and odds defined
-  let profit = 0
-  let lossSum = 0
-  for (const p of statsParlays) {
-    if (p.stake != null && p.odds != null) {
-      if (p.status === "won") {
-        profit += p.stake * (decimalOdds(p.odds) - 1)
-      } else if (p.status === "lost") {
-        lossSum += p.stake
-      }
-    }
-  }
-  const net_profit_loss = Math.round((profit - lossSum) * 100) / 100
 
   // Average legs
   const avg_legs =
@@ -161,7 +101,6 @@ export function computeParlayStats(parlays: ParlayWithLegs[]): ParlayStats {
     lost,
     pending,
     win_rate,
-    net_profit_loss,
     avg_legs,
     most_common_sport,
     best_streak: best,

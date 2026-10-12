@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest"
 import {
-  computePayout,
-  formatOdds,
   computeStreak,
   computeParlayStats,
 } from "./computations"
@@ -50,64 +48,6 @@ function makeParlay(
     ...overrides,
   }
 }
-
-describe("computePayout", () => {
-  it("computes payout for positive American odds (+150)", () => {
-    // stake × (odds / 100) + stake = 100 × (150/100) + 100 = 250
-    expect(computePayout(100, 150)).toBe(250)
-  })
-
-  it("computes payout for negative American odds (-200)", () => {
-    // stake × (100 / |odds|) + stake = 100 × (100/200) + 100 = 150
-    expect(computePayout(100, -200)).toBe(150)
-  })
-
-  it("computes payout for decimal odds (2.5x)", () => {
-    // stake × odds = 100 × 2.5 = 250
-    expect(computePayout(100, 2.5)).toBe(250)
-  })
-
-  it("treats odds = 100 as positive American", () => {
-    // stake × (100/100) + stake = 100 + 100 = 200
-    expect(computePayout(100, 100)).toBe(200)
-  })
-
-  it("treats odds = -100 as negative American", () => {
-    // stake × (100/100) + stake = 100 + 100 = 200
-    expect(computePayout(100, -100)).toBe(200)
-  })
-
-  it("handles decimal odds like 1.5x", () => {
-    // stake × odds = 50 × 1.5 = 75
-    expect(computePayout(50, 1.5)).toBe(75)
-  })
-})
-
-describe("formatOdds", () => {
-  it("formats positive American odds with + prefix", () => {
-    expect(formatOdds(150)).toBe("+150")
-  })
-
-  it("formats negative American odds (already has minus)", () => {
-    expect(formatOdds(-200)).toBe("-200")
-  })
-
-  it("formats decimal odds with x suffix", () => {
-    expect(formatOdds(2.5)).toBe("2.5x")
-  })
-
-  it("formats odds = 100 as positive American", () => {
-    expect(formatOdds(100)).toBe("+100")
-  })
-
-  it("formats odds = -100 as negative American", () => {
-    expect(formatOdds(-100)).toBe("-100")
-  })
-
-  it("formats small decimal like 1.1 with x suffix", () => {
-    expect(formatOdds(1.1)).toBe("1.1x")
-  })
-})
 
 describe("computeStreak", () => {
   it("returns zeros for empty array", () => {
@@ -183,47 +123,6 @@ describe("computeParlayStats", () => {
     const stats = computeParlayStats(parlays)
     // 2 / (2 + 1) × 100 = 66.7
     expect(stats.win_rate).toBe(66.7)
-  })
-
-  it("computes net_profit_loss for won and lost parlays", () => {
-    const parlays = [
-      makeParlay({
-        status: "won",
-        stake: 100,
-        odds: 2.5,
-        resolved_at: "2024-01-01T00:00:00Z",
-      }),
-      makeParlay({
-        status: "lost",
-        stake: 50,
-        odds: 3.0,
-        resolved_at: "2024-01-02T00:00:00Z",
-      }),
-    ]
-    const stats = computeParlayStats(parlays)
-    // Won profit: 100 × (2.5 - 1) = 150
-    // Lost: 50
-    // Net: 150 - 50 = 100
-    expect(stats.net_profit_loss).toBe(100)
-  })
-
-  it("ignores parlays without stake or odds for net_profit_loss", () => {
-    const parlays = [
-      makeParlay({
-        status: "won",
-        stake: null,
-        odds: 2.5,
-        resolved_at: "2024-01-01T00:00:00Z",
-      }),
-      makeParlay({
-        status: "lost",
-        stake: 50,
-        odds: null,
-        resolved_at: "2024-01-02T00:00:00Z",
-      }),
-    ]
-    const stats = computeParlayStats(parlays)
-    expect(stats.net_profit_loss).toBe(0)
   })
 
   it("computes avg_legs correctly", () => {

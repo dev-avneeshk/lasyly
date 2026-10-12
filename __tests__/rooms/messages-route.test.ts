@@ -138,7 +138,6 @@ describe("chat messages route round trips (DB-13)", () => {
       betslip_id: BETSLIP_ID,
       betslip: {
         id: "p1",
-        odds: 3.5,
         stake: 100,
         status: "pending",
         custom_note: "lock of the day",

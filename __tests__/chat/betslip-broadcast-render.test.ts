@@ -35,7 +35,6 @@ const betslipBroadcast: BroadcastChatMessage = {
   betslip_id: "p1",
   betslip: {
     id: "p1",
-    odds: 3.5,
     stake: 100,
     status: "pending",
     custom_note: "lock of the day",
@@ -47,7 +46,7 @@ const betslipBroadcast: BroadcastChatMessage = {
 describe("betslip broadcast renders a Prediction card without a refetch", () => {
   it("a kind:'betslip' broadcast carrying the card survives hydrate and renders", () => {
     const hydrated = hydrate(betslipBroadcast as unknown as ChatMessage)
-    expect(hydrated.betslip).toMatchObject({ id: "p1", odds: 3.5, status: "pending" })
+    expect(hydrated.betslip).toMatchObject({ id: "p1", status: "pending" })
     expect(rendersBetslipCard(hydrated)).toBe(true)
   })
 

@@ -12,7 +12,6 @@ import {
   Check,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { formatOdds, computePayout } from "@/lib/parlays/computations"
 import type { ParlayBetslipCardProps, ParlayLegRow } from "@/lib/types/parlay"
 
 // --- Copy Link Button ---
@@ -239,10 +238,6 @@ function ExpandedVariant({
   "parlay" | "onStatusChange" | "onToggleExpand" | "showActions"
 >) {
   const config = STATUS_CONFIG[parlay.status]
-  const payout =
-    parlay.stake != null && parlay.odds != null
-      ? computePayout(parlay.stake, parlay.odds)
-      : null
 
   return (
     <div className="flex flex-col rounded-xl border border-zinc-800 bg-[#0f1923] overflow-hidden">
@@ -319,24 +314,6 @@ function ExpandedVariant({
           ))}
         </AnimatePresence>
       </div>
-
-      {/* Multiplier & Return section */}
-      {(parlay.odds != null || parlay.stake != null) && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
-          {parlay.odds != null && (
-            <div className="flex flex-col">
-              <span className="text-[10px] text-zinc-500 uppercase font-medium">Multiplier</span>
-              <span className="text-sm font-bold text-white">{formatOdds(parlay.odds)}</span>
-            </div>
-          )}
-          {payout != null && (
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] text-zinc-500 uppercase font-medium">Return</span>
-              <span className="text-sm font-bold text-lime-400">{payout.toFixed(0)} Coins</span>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Custom note */}
       {parlay.custom_note && (

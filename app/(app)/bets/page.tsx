@@ -200,25 +200,6 @@ export default function PredictionsPage() {
               {stats.win_rate != null ? `${Math.round(stats.win_rate)}%` : "—"}
             </span>
           </div>
-          <div className="h-10 w-px bg-[var(--color-border)]" />
-          <div className="flex flex-col">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
-              Profit / Loss
-            </span>
-            <span
-              className={cn(
-                "text-2xl font-black tabular-nums",
-                stats.net_profit_loss > 0
-                  ? "text-lime-400"
-                  : stats.net_profit_loss < 0
-                    ? "text-red-400"
-                    : "text-[var(--color-text-primary)]",
-              )}
-            >
-              {stats.net_profit_loss > 0 ? "+" : ""}
-              {stats.net_profit_loss.toFixed(1)}u
-            </span>
-          </div>
           <BarChart3 className="hidden h-9 w-9 text-[var(--color-lime)]/70 sm:block" />
         </div>
       </div>

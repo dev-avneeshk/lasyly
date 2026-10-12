@@ -126,7 +126,7 @@ export const GET = withSecurity(async (
   // Betslip cards and reactions in one round trip.
   const [{ data: parlays }, { data: reactions }] = await Promise.all([
     betslipIds.length > 0
-      ? supabase.from("parlays").select("id, odds, stake, status, custom_note, combined_hit_rate").in("id", betslipIds)
+      ? supabase.from("parlays").select("id, stake, status, custom_note, combined_hit_rate").in("id", betslipIds)
       : { data: [] },
     messageIds.length > 0
       ? supabase.from("message_reactions").select("id, message_id, user_id, emoji").in("message_id", messageIds)
@@ -252,7 +252,7 @@ export const POST = withSecurity(async (
     isBetslip
       ? supabase
           .from("parlays")
-          .select("id, user_id, odds, stake, status, custom_note, combined_hit_rate")
+          .select("id, user_id, stake, status, custom_note, combined_hit_rate")
           .eq("id", data.betslipId!)
           .maybeSingle()
       : null,
@@ -383,7 +383,6 @@ export const POST = withSecurity(async (
     const card = isBetslip && parlayRes?.data
       ? {
           id: parlayRes.data.id,
-          odds: (parlayRes.data as { odds?: number | null }).odds ?? null,
           stake: (parlayRes.data as { stake?: number | null }).stake ?? null,
           status: (parlayRes.data as { status?: string }).status ?? "pending",
           custom_note: (parlayRes.data as { custom_note?: string | null }).custom_note ?? null,

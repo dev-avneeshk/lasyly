@@ -7,8 +7,7 @@ import { handleConflict } from "@/lib/security/concurrency"
 import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
 
 // A betslip is graded once: Pending → one result. Re-grading let a tipster turn
-// old losses into wins (and keep a Won payout after moving off Won), which feeds
-// the paid-pick win rate.
+// old losses into wins, which feeds the paid-pick win rate.
 const updateStatusSchema = z.object({
   status: z.enum(["Won", "Lost", "Void", "Partial"]),
 })
@@ -40,7 +39,7 @@ export const PATCH = withSecurity(async (
   // Fetch the betslip including current status for concurrency guard
   const { data: betslip, error: fetchErr } = await supabase
     .from("betslips")
-    .select("id, user_id, odds, stake, status")
+    .select("id, user_id, stake, status")
     .eq("id", betslipId)
     .maybeSingle()
 
@@ -67,23 +66,19 @@ export const PATCH = withSecurity(async (
     return NextResponse.json({ error: "This betslip has already been graded." }, { status: 409 })
   }
 
-  // Build update payload
-  const updatePayload: { status: string; payout?: number } = { status: data.status }
+  // Build update payload. Payout is no longer derived from odds; grading only
+  // transitions status while the betslip is still Pending.
+  const updatePayload: { status: string } = { status: data.status }
 
-  // Compute payout if status is "Won" and stake is present
-  if (data.status === "Won" && betslip.stake != null && betslip.stake > 0) {
-    updatePayload.payout = Math.round(betslip.stake * betslip.odds * 100) / 100
-  }
-
-  // Service role: users have no UPDATE on betslips, so payout is always the
-  // value computed here. Only while still Pending (a racing grade gets 409).
+  // Service role: users have no UPDATE on betslips. Only while still Pending
+  // (a racing grade gets 409).
   const { data: updated, error: updateErr, count } = await createAdminClient()
     .from("betslips")
     .update(updatePayload)
     .eq("id", betslipId)
     .eq("user_id", user.id)
     .eq("status", "Pending")
-    .select("id, user_id, odds, stake, payout, status")
+    .select("id, user_id, stake, status")
 
   if (updateErr) {
     return NextResponse.json({ error: "Failed to update betslip." }, { status: 500 })

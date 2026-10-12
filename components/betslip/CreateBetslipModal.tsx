@@ -21,7 +21,6 @@ const BET_TYPES = [
 export default function CreateBetslipModal({ onClose, onCreated, roomId }: CreateBetslipModalProps) {
   const [sportsbook, setSportsbook] = useState("")
   const [betType, setBetType] = useState<string>("Single")
-  const [odds, setOdds] = useState("")
   const [stake, setStake] = useState("")
   const [description, setDescription] = useState("")
   const [matches, setMatches] = useState<string[]>([""])
@@ -62,7 +61,6 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
     const payload: Record<string, unknown> = {
       sportsbook: sportsbook.trim() || undefined,
       bet_type: betType,
-      odds: parseFloat(odds),
       matches: validMatches,
       description: description || undefined,
       stake: stake ? parseFloat(stake) : undefined,
@@ -132,33 +130,18 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
             />
           </div>
 
-          {/* Bet Type + Odds */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-white/90">Type</label>
-              <select
-                value={betType}
-                onChange={(e) => setBetType(e.target.value)}
-                className="w-full h-11 bg-black/20 border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all appearance-none"
-              >
-                {BET_TYPES.map((bt) => (
-                  <option key={bt.value} value={bt.value}>{bt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-white/90">Total Multiplier</label>
-              <Input
-                type="number"
-                step="0.01"
-                min="1.01"
-                value={odds}
-                onChange={(e) => setOdds(e.target.value)}
-                placeholder="e.g. 2.50"
-                required
-                className="bg-black/20 border-white/10 h-11"
-              />
-            </div>
+          {/* Bet Type */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/90">Type</label>
+            <select
+              value={betType}
+              onChange={(e) => setBetType(e.target.value)}
+              className="w-full h-11 bg-black/20 border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all appearance-none"
+            >
+              {BET_TYPES.map((bt) => (
+                <option key={bt.value} value={bt.value}>{bt.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Matches/Selections */}
@@ -266,7 +249,7 @@ export default function CreateBetslipModal({ onClose, onCreated, roomId }: Creat
           {/* Submit */}
           <Button
             type="submit"
-            disabled={isLoading || !odds}
+            disabled={isLoading}
             className="w-full h-12 text-base font-semibold bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-all border-none shadow-[0_0_15px_rgba(108,99,255,0.4)]"
           >
             {isLoading ? "Posting..." : "Share Pick"}

@@ -38,7 +38,7 @@ export const GET = withSecurity(async () => {
   }
 
   // CSV headers
-  const headers = ["Date", "Player", "Sport", "Stat", "Line", "Direction", "Odds", "Stake", "Status", "Payout"]
+  const headers = ["Date", "Player", "Sport", "Stat", "Line", "Direction", "Stake", "Status"]
   const rows = (betslips ?? []).map((bet) => [
     new Date(bet.created_at).toLocaleDateString("en-US"),
     bet.player_name ?? "",
@@ -46,10 +46,8 @@ export const GET = withSecurity(async () => {
     bet.stat_type ?? "",
     bet.line ?? "",
     bet.direction ?? "",
-    bet.odds ?? "",
     bet.stake ?? "",
     bet.status ?? "",
-    bet.payout ?? "",
   ])
 
   const csvContent = [

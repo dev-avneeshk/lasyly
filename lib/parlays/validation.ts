@@ -23,8 +23,6 @@ const MIN_LEGS = 2
 const MAX_LEGS = 10
 const MIN_PROP_LINE = 0.5
 const MAX_PROP_LINE = 999.5
-const MIN_ODDS = -10000
-const MAX_ODDS = 10000
 const MIN_STAKE = 0.01
 const MAX_STAKE = 99999.99
 const MAX_CUSTOM_NOTE_LENGTH = 280
@@ -84,17 +82,7 @@ export function validateCreateParlay(body: unknown): ValidationResult {
     errors.push({ field: "visibility", message: 'visibility must be "public" or "private".' })
   }
 
-  // --- Validate odds (optional) ---
-  if (payload.odds !== undefined && payload.odds !== null) {
-    if (typeof payload.odds !== "number" || isNaN(payload.odds)) {
-      errors.push({ field: "odds", message: "odds must be a number." })
-    } else if (payload.odds < MIN_ODDS || payload.odds > MAX_ODDS) {
-      errors.push({ field: "odds", message: `odds must be between ${MIN_ODDS} and ${MAX_ODDS}.` })
-    } else if (payload.odds > -100 && payload.odds < 1.01) {
-      // Neither American (±100 and beyond) nor a decimal multiplier (≥ 1.01).
-      errors.push({ field: "odds", message: "odds must be a multiplier of at least 1.01, or American odds (±100 or beyond)." })
-    }
-  }
+  // odds is accepted but ignored — it is no longer validated or surfaced.
 
   // --- Validate stake (optional) ---
   if (payload.stake !== undefined && payload.stake !== null) {

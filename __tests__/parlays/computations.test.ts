@@ -25,19 +25,3 @@ describe("parlay stats ignore void", () => {
   })
 })
 
-// L-13: P/L assumed decimal odds although American odds are accepted, so a
-// $10 win at +150 showed +$1,490.
-describe("net P/L handles American and decimal odds", () => {
-  const priced = (status: string, odds: number, stake = 10) =>
-    ({ ...p(status, 1), stake, odds }) as unknown as ParlayWithLegs
-  it.each([
-    [150, 15],
-    [-110, 9.09],
-    [2.5, 15],
-  ])("won at %s with stake 10 → %s", (odds, net) => {
-    expect(computeParlayStats([priced("won", odds)]).net_profit_loss).toBe(net)
-  })
-  it("a loss is -stake regardless of format", () => {
-    expect(computeParlayStats([priced("lost", 150)]).net_profit_loss).toBe(-10)
-  })
-})

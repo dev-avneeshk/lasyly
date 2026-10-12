@@ -39,7 +39,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
  */
 export interface BroadcastBetslipCard {
   id: string
-  odds: number | null
   stake: number | null
   status: string
   custom_note: string | null

@@ -7,7 +7,6 @@ import {
   User,
   Trophy,
   Target,
-  TrendingUp,
   Calendar,
   MapPin,
   BadgeCheck,
@@ -37,7 +36,6 @@ type Stats = {
   followingCount: number
   totalPicks: number
   winRate: number
-  averageOdds: number
   wonCount: number
   lostCount: number
 }
@@ -45,7 +43,6 @@ type Stats = {
 type RecentParlay = {
   id: string
   status: string
-  odds: number | null
   created_at: string
   legs: Array<{
     id: string
@@ -247,11 +244,6 @@ export default function PublicProfileClient({
           value={`${stats.winRate}%`}
         />
         <StatCard
-          icon={<TrendingUp className="w-4 h-4 text-blue-400" />}
-          label="Avg Odds"
-          value={stats.averageOdds > 0 ? stats.averageOdds.toFixed(2) : "—"}
-        />
-        <StatCard
           icon={<Trophy className="w-4 h-4 text-purple-400" />}
           label="Record"
           value={`${stats.wonCount}W-${stats.lostCount}L`}
@@ -297,11 +289,6 @@ export default function PublicProfileClient({
                     <span className="text-xs font-bold text-white">
                       {parlay.legs.length} Leg Parlay
                     </span>
-                    {parlay.odds && (
-                      <span className="text-xs text-[var(--color-text-muted)]">
-                        @ {parlay.odds > 0 ? `+${parlay.odds}` : parlay.odds}
-                      </span>
-                    )}
                   </div>
                   <span
                     className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${

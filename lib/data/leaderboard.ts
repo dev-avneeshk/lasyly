@@ -6,7 +6,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached, CACHE_TTL } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
-import { decimalOdds } from "@/lib/parlays/computations"
 
 export interface LeaderboardEntry {
   user_id: string
@@ -17,7 +16,6 @@ export interface LeaderboardEntry {
   total_picks: number
   won_count: number
   win_rate: number
-  average_odds: number
 }
 
 export function getLeaderboard(sortBy: "win_rate" | "total_picks"): Promise<{ leaderboard: LeaderboardEntry[] }> {
@@ -27,14 +25,14 @@ export function getLeaderboard(sortBy: "win_rate" | "total_picks"): Promise<{ le
     // Every won/lost/pending parlay, paged in id order: one unordered select
     // stopped at PostgREST's 1000-row cap and ranked users on a partial set.
     const parlaysQuery = () => supabase.from("parlays")
-    let parlays: { user_id: string; status: string; odds: number | null }[]
+    let parlays: { user_id: string; status: string }[]
     try {
       parlays = await fetchPagedParallel(
         async () =>
           (await parlaysQuery().select("id", { count: "exact", head: true }).in("status", ["won", "lost", "pending"])).count,
         async (from, to) => {
           const { data, error } = await parlaysQuery()
-            .select("user_id, status, odds")
+            .select("user_id, status")
             .in("status", ["won", "lost", "pending"])
             .order("id")
             .range(from, to)
@@ -55,19 +53,17 @@ export function getLeaderboard(sortBy: "win_rate" | "total_picks"): Promise<{ le
     }
 
     // Aggregate stats by user
-    const userStats = new Map<string, { total: number; won: number; totalOdds: number; totalPicks: number }>()
+    const userStats = new Map<string, { total: number; won: number; totalPicks: number }>()
 
     for (const parlay of parlays) {
       if (!parlay.user_id) continue
-      const existing = userStats.get(parlay.user_id) || { total: 0, won: 0, totalOdds: 0, totalPicks: 0 }
+      const existing = userStats.get(parlay.user_id) || { total: 0, won: 0, totalPicks: 0 }
 
       existing.totalPicks += 1
       if (parlay.status === "won" || parlay.status === "lost") {
         existing.total += 1
         if (parlay.status === "won") existing.won += 1
       }
-      // American (+150) and decimal (2.5) odds share the column; average as decimal.
-      existing.totalOdds += parlay.odds != null ? decimalOdds(Number(parlay.odds)) || 0 : 0
       userStats.set(parlay.user_id, existing)
     }
 
@@ -102,9 +98,6 @@ export function getLeaderboard(sortBy: "win_rate" | "total_picks"): Promise<{ le
           total_picks: s.totalPicks,
           won_count: s.won,
           win_rate: winRate(s),
-          average_odds: s.totalPicks > 0
-            ? Math.round((s.totalOdds / s.totalPicks) * 100) / 100
-            : 0,
         })
       }
     }

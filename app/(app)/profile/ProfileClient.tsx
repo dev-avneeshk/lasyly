@@ -10,7 +10,6 @@ import {
   X,
   Trophy,
   Target,
-  TrendingUp,
   Calendar,
   MapPin,
   BadgeCheck,
@@ -43,7 +42,6 @@ type Stats = {
   followingCount: number
   totalPicks: number
   winRate: number
-  averageOdds: number
   wonCount: number
   lostCount: number
   pendingCount: number
@@ -368,11 +366,6 @@ export default function ProfileClient({ profile: initialProfile, stats }: Props)
             icon={<Trophy className="w-4 h-4 text-[var(--color-success)]" />}
             label="Win Rate"
             value={`${stats.winRate}%`}
-          />
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4 text-blue-400" />}
-            label="Avg Odds"
-            value={stats.averageOdds > 0 ? stats.averageOdds.toFixed(2) : "—"}
           />
           <StatCard
             icon={<Users className="w-4 h-4 text-purple-400" />}

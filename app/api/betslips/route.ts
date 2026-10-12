@@ -9,7 +9,7 @@ const VALID_BET_TYPES = ["Single", "Accumulator", "System", "Lucky"] as const
 const createBetslipSchema = z.object({
   sportsbook: z.string().min(1).max(100),
   bet_type: z.enum(VALID_BET_TYPES),
-  odds: z.number().gt(0).lte(100000),
+  odds: z.number().gt(0).lte(100000).optional().nullable(),
   matches: z.array(z.unknown()).min(1).max(20),
   room_id: z.string().uuid().optional().nullable(),
   description: z.string().max(500).optional().nullable(),
@@ -72,7 +72,7 @@ export const POST = withSecurity(async (request: Request) => {
       user_id: user.id,
       sportsbook: data.sportsbook,
       bet_type: data.bet_type,
-      odds: data.odds,
+      odds: data.odds ?? null,
       matches: data.matches,
       room_id: data.room_id || null,
       description: data.description || null,
