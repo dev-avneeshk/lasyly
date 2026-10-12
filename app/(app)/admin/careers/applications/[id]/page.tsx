@@ -74,6 +74,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           `${app.jobTitle ?? "Unknown"} (job since removed)`
         ),
     },
+    { label: "Account", value: app.userId ? "Authenticated submission" : "—" },
     { label: "Applied", value: <time dateTime={app.createdAt}>{format(new Date(app.createdAt), "MMM d, yyyy 'at' HH:mm")}</time> },
     { label: "Consent given", value: <time dateTime={app.consentAt}>{format(new Date(app.consentAt), "MMM d, yyyy 'at' HH:mm")}</time> },
   ]

@@ -135,10 +135,30 @@ export const POST = withSecurity(
       jobTitle = job.title
     }
 
+    // Already applied? One application per account per scope (this job, or the
+    // general pool when jobId is null). Enforced for real by the partial unique
+    // indexes; this lookup turns the race-free case into a clean 409.
+    const scopedByUser = () => {
+      const q = supabase.from("careers_applications").select("reference").eq("user_id", user.id)
+      return jobId ? q.eq("job_id", jobId) : q.is("job_id", null)
+    }
+    const prior = await scopedByUser().maybeSingle()
+    if (prior.error) {
+      console.error("[careers/apply] already-applied lookup failed:", prior.error.message)
+      return fail(500, GENERIC_ERROR)
+    }
+    if (prior.data) {
+      return fail(409, "You've already applied. We have your application on file.", {
+        code: "ALREADY_APPLIED",
+        reference: prior.data.reference,
+      })
+    }
+
     const insert = await supabase
       .from("careers_applications")
       .insert({
         submission_key: submissionKey,
+        user_id: user.id,
         application_type: jobId ? "job" : "general",
         job_id: jobId,
         job_title: jobTitle,
@@ -160,8 +180,17 @@ export const POST = withSecurity(
       .single()
 
     if (insert.error) {
-      // 23505 = unique_violation: a concurrent request with the same key won.
+      // 23505 = unique_violation. A concurrent request won the race: either a
+      // same-account application (the new user_id partial indexes) or the same
+      // submission_key. Re-select by account+scope first, then by key.
       if (insert.error.code === "23505") {
+        const againByUser = await scopedByUser().maybeSingle()
+        if (againByUser.data) {
+          return fail(409, "You've already applied. We have your application on file.", {
+            code: "ALREADY_APPLIED",
+            reference: againByUser.data.reference,
+          })
+        }
         const again = await supabase
           .from("careers_applications")
           .select("reference")

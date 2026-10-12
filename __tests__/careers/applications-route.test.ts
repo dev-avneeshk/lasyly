@@ -18,15 +18,41 @@ vi.mock("@/lib/rateLimit", async (orig) => ({
 vi.mock("@/lib/careers/server", () => ({
   getActiveJobById: async () => null,
 }))
+// Mutable per-test lookup results, keyed by the first filtered column so the
+// submission_key idempotency lookup (select().eq("submission_key").maybeSingle())
+// and the already-applied scope lookup (select().eq("user_id")...maybeSingle())
+// can be controlled independently.
+let keyLookup: { data: Record<string, unknown> | null; error: unknown } = { data: null, error: null }
+let userLookup: { data: Record<string, unknown> | null; error: unknown } = { data: null, error: null }
+let insertError: { code: string; message: string } | null = null
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
-      }),
+      // Chainable select builder: records the first .eq() column, allows any
+      // further .eq()/.is() links, then .maybeSingle() resolves based on it.
+      select: () => {
+        let firstColumn: string | null = null
+        const chain: Record<string, unknown> = {}
+        chain.eq = (col: string) => {
+          if (firstColumn === null) firstColumn = col
+          return chain
+        }
+        chain.is = () => chain
+        chain.maybeSingle = async () =>
+          firstColumn === "user_id" ? userLookup : keyLookup
+        return chain
+      },
       insert: (row: Record<string, unknown>) => {
         inserted.push(row)
-        return { select: () => ({ single: async () => ({ data: { reference: "ABCD1234" }, error: null }) }) }
+        return {
+          select: () => ({
+            single: async () =>
+              insertError
+                ? { data: null, error: insertError }
+                : { data: { reference: "ABCD1234" }, error: null },
+          }),
+        }
       },
     }),
   }),
@@ -67,6 +93,9 @@ const req = (overrides: Record<string, unknown> = {}) =>
 
 beforeEach(() => {
   inserted.length = 0
+  keyLookup = { data: null, error: null }
+  userLookup = { data: null, error: null }
+  insertError = null
 })
 
 describe("POST /api/careers/applications", () => {
@@ -79,8 +108,26 @@ describe("POST /api/careers/applications", () => {
       application_type: "general",
       portfolio_url: "https://github.com/test-applicant",
       fit_answer: FIT,
+      user_id: "u1",
     })
     expect(inserted[0]).not.toHaveProperty("cv_file_url")
+  })
+
+  it("records the signed-in user_id on a first application", async () => {
+    const res = await POST(req())
+    expect(res.status).toBe(201)
+    expect(inserted).toHaveLength(1)
+    expect(inserted[0].user_id).toBe("u1")
+  })
+
+  it("returns 409 ALREADY_APPLIED and does not insert when this account already applied", async () => {
+    userLookup = { data: { reference: "PRIOR999" }, error: null }
+    const res = await POST(req())
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.code).toBe("ALREADY_APPLIED")
+    expect(body.reference).toBe("PRIOR999")
+    expect(inserted).toHaveLength(0)
   })
 
   it("rejects a javascript: portfolio link with a field error", async () => {

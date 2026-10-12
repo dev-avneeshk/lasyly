@@ -45,6 +45,8 @@ export interface Application {
   cvFileUrl: string | null
   consentAt: string
   status: ApplicationStatus
+  /** Account that submitted the application, or null (legacy row / deleted account). */
+  userId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -60,7 +62,7 @@ const JOB_COLUMNS =
   "id, title, department, location, employment_type, experience_level, description, requirements, skills, is_active, created_at, updated_at"
 
 const APPLICATION_COLUMNS =
-  "id, reference, application_type, job_id, job_title, full_name, email, phone, location, current_job_title, current_company, experience, linkedin, portfolio_url, fit_answer, github, referral_source, referral_other, cv_file_url, consent_at, status, created_at, updated_at"
+  "id, reference, application_type, job_id, job_title, full_name, email, phone, location, current_job_title, current_company, experience, linkedin, portfolio_url, fit_answer, github, referral_source, referral_other, cv_file_url, consent_at, status, user_id, created_at, updated_at"
 
 type Row = Record<string, unknown>
 
@@ -104,6 +106,7 @@ function toApplication(r: Row): Application {
     cvFileUrl: (r.cv_file_url as string | null) ?? null,
     consentAt: r.consent_at as string,
     status: r.status as ApplicationStatus,
+    userId: (r.user_id as string | null) ?? null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
   }

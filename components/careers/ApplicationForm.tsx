@@ -76,6 +76,11 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
   const [reference, setReference] = useState<string | null>(null)
   const [honeypot, setHoneypot] = useState("")
   const [auth, setAuth] = useState<AuthState>("checking")
+  // Whether this signed-in account has already applied in this scope. "idle"
+  // until auth resolves to signedIn, then "checking" while the lookup is in
+  // flight, then "done". appliedReference carries the existing reference.
+  const [applicationCheck, setApplicationCheck] = useState<"idle" | "checking" | "done">("idle")
+  const [appliedReference, setAppliedReference] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -100,6 +105,36 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
       unsubscribe?.()
     }
   }, [])
+
+  // Once signed in, ask the server whether this account has already applied in
+  // this scope. Fails open: any error just renders the form.
+  useEffect(() => {
+    if (auth !== "signedIn") {
+      // Signed out / still checking auth: reset so a later sign-in re-checks.
+      setApplicationCheck("idle")
+      setAppliedReference(null)
+      return
+    }
+    let cancelled = false
+    setApplicationCheck("checking")
+    // jobId is null for the general pool: omit the param entirely.
+    const url = jobId
+      ? `/api/careers/applications/mine?jobId=${encodeURIComponent(jobId)}`
+      : "/api/careers/applications/mine"
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { applied?: boolean; reference?: string } | null) => {
+        if (cancelled) return
+        if (data?.applied && data.reference) setAppliedReference(data.reference)
+        setApplicationCheck("done")
+      })
+      .catch(() => {
+        if (!cancelled) setApplicationCheck("done")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [auth, jobId])
 
   // One idempotency key per form instance: retries/double-clicks reuse it.
   const submissionKey = useRef<string | null>(null)
@@ -187,13 +222,22 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
         }),
       })
       const data = (await res.json().catch(() => null)) as
-        | { reference?: string; error?: string; fields?: Record<string, string> }
+        | { reference?: string; error?: string; code?: string; fields?: Record<string, string> }
         | null
 
       if (res.ok && data?.reference) {
         setReference(data.reference)
         setPhase("submitted")
         setTimeout(() => setPhase("done"), 900)
+        return
+      }
+
+      // Raced against another tab/device, or applied earlier: show the same
+      // "already applied" card instead of a generic form error.
+      if (res.status === 409 && data?.code === "ALREADY_APPLIED" && data.reference) {
+        setAppliedReference(data.reference)
+        setApplicationCheck("done")
+        setPhase("idle")
         return
       }
 
@@ -263,7 +307,9 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
   }
 
   // ── Sign-in gate ─────────────────────────────────────────────────────────────
-  if (auth === "checking") {
+  // Keep the skeleton up while auth resolves AND while the already-applied
+  // lookup is in flight, so the form never flashes before we know which to show.
+  if (auth === "checking" || (auth === "signedIn" && applicationCheck !== "done")) {
     return (
       <div
         role="status"
@@ -275,6 +321,43 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
 
   if (auth === "signedOut") {
     return <SignInGate />
+  }
+
+  // ── Already applied ──────────────────────────────────────────────────────────
+  if (appliedReference) {
+    return (
+      <section
+        aria-labelledby={id("already")}
+        className="careers-rise rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-12 sm:px-12 sm:py-16 text-center"
+      >
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-lime)]/10 text-[var(--color-lime)]">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <h2
+          id={id("already")}
+          className="text-2xl sm:text-3xl font-bold font-serif tracking-tight text-white"
+        >
+          You&apos;ve already applied
+        </h2>
+        <p className="mt-4 text-[15px] text-[var(--color-text-muted)] leading-relaxed max-w-[52ch] mx-auto">
+          We already have your application on file. There&apos;s no need to submit it again.
+        </p>
+        <div className="mt-8 inline-flex flex-col items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-8 py-4">
+          <span className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+            Application ID
+          </span>
+          <span className="mt-1 font-mono text-xl font-semibold text-white tabular-nums">#{appliedReference}</span>
+        </div>
+        <Link
+          href="/careers"
+          className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--color-lime)] px-6 py-3 text-sm font-semibold text-black transition-transform duration-300 hover:scale-[0.98] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
+        >
+          Back to Careers
+        </Link>
+      </section>
+    )
   }
 
   // ── Form ───────────────────────────────────────────────────────────────────
