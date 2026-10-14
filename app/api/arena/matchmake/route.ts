@@ -5,7 +5,7 @@ import { withSecurity, validateRequestBody, CACHE_CONTROL } from "@/lib/security
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { createGame, openNextLot } from "@/lib/arena/auction"
 import { randomSeed } from "@/lib/arena/rng"
-import { serverView } from "@/lib/arena/server"
+import { canClaimSeat, serverView } from "@/lib/arena/server"
 import { saveGame, loadGame, mutateGame } from "@/lib/arena/store"
 import {
   enqueueOpenGame,
@@ -15,7 +15,9 @@ import {
   holdUserLobby,
   trackLobby,
   untrackLobby,
+  queuePendingRefund,
 } from "@/lib/arena/matchmaking"
+import { lookupSeatName } from "@/lib/arena/identity"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
@@ -73,6 +75,11 @@ export const POST = withSecurity(async (request: Request) => {
   const [data, err] = validateRequestBody(body, matchmakeSchema)
   if (err) return err
 
+  // The caller's public seat name, looked up at most once per request: a lost
+  // step-1 race falls through to step 2 and reuses the same lookup.
+  let callerNameP: Promise<string | null> | null = null
+  const callerName = () => (callerNameP ??= lookupSeatName(user.id))
+
   // ── 0. Already waiting in your own lobby? Return it; never charge twice ──
   const heldId = await getUserLobby(user.id)
   if (heldId) {
@@ -102,13 +109,16 @@ export const POST = withSecurity(async (request: Request) => {
 
   if (openGameId) {
     // Charge the joiner's stake before claiming the seat; refund if we lose the
-    // race for it. Idempotent per (user, game).
-    const joinCharge = await chargeArenaStake({
-      userId: user.id,
-      gameId: openGameId,
-      amount: data.stake,
-      isPvp: true,
-    })
+    // race for it. Idempotent per (user, game). The name lookup runs alongside.
+    const [joinCharge, joinerName] = await Promise.all([
+      chargeArenaStake({
+        userId: user.id,
+        gameId: openGameId,
+        amount: data.stake,
+        isPvp: true,
+      }),
+      callerName(),
+    ])
     if (joinCharge === "insufficient_funds") {
       return NextResponse.json(
         { error: `Not enough coins. This match's stake is ${data.stake}.`, code: "INSUFFICIENT_FUNDS" },
@@ -120,11 +130,12 @@ export const POST = withSecurity(async (request: Request) => {
         const { game } = await mutateGame(openGameId, (g) => {
           // Authoritative re-check under the lock — the dequeue check above is a
           // fast path, this is the one that actually decides the seat.
-          if (g.guestUserId && g.guestUserId !== user.id) {
+          if (!canClaimSeat(g, user.id)) {
             throw new Error("already-full")
           }
           g.guestUserId = user.id
           g.state.isAI.P2 = false
+          if (joinerName) g.state.seatNames = { ...g.state.seatNames, P2: joinerName }
           if (g.state.status === "lobby") {
             g.state.status = "auction"
             openNextLot(g.state)
@@ -141,8 +152,12 @@ export const POST = withSecurity(async (request: Request) => {
         return NextResponse.json(participantView(serverView(game.state, "P2", game.rev)))
       } catch {
         // The game filled or vanished between the pop and the lock. Refund the
-        // stake we just charged and fall through to create our own lobby.
-        await refundArenaStake({ userId: user.id, gameId: openGameId })
+        // stake we just charged and fall through to create our own lobby. A
+        // refund that fails is queued for the jobs cron instead of being lost.
+        if ((await refundArenaStake({ userId: user.id, gameId: openGameId })) === "error") {
+          console.error("[arena] lost-race refund failed", { gameId: openGameId, userId: user.id })
+          await queuePendingRefund(openGameId, user.id)
+        }
         await removeOpenGame(openGameId)
       }
     } else {
@@ -168,13 +183,16 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json({ error: "You're already looking for a match." }, { status: 409 })
   }
 
-  // Charge the creator's stake before the lobby exists.
-  const charge = await chargeArenaStake({
-    userId: user.id,
-    gameId,
-    amount: data.stake,
-    isPvp: true,
-  })
+  // Charge the creator's stake before the lobby exists. The name lookup runs alongside.
+  const [charge, ownerName] = await Promise.all([
+    chargeArenaStake({
+      userId: user.id,
+      gameId,
+      amount: data.stake,
+      isPvp: true,
+    }),
+    callerName(),
+  ])
   if (charge === "insufficient_funds") {
     return NextResponse.json(
       { error: `Not enough coins. You need ${data.stake} to play.`, code: "INSUFFICIENT_FUNDS" },
@@ -189,6 +207,9 @@ export const POST = withSecurity(async (request: Request) => {
   state.isAI.P2 = false
   state.status = "lobby"
   state.econ = { mode: "pvp", amount: data.stake, settled: false }
+  // Public marker: only a lobby opened here can later be paired (lib/arena/botMatch.ts).
+  state.matchmadeLobby = { openedAt: Date.now() }
+  if (ownerName) state.seatNames = { P1: ownerName }
 
   try {
     await saveGame({ rev: 1, ownerUserId: user.id, guestUserId: null, state })

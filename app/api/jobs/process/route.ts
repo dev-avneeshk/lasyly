@@ -12,7 +12,7 @@
 import { NextResponse } from "next/server"
 import { processJobs } from "@/lib/queue"
 import { jobHandlers } from "@/lib/queue/handlers"
-import { sweepAbandonedLobbies } from "@/lib/arena/matchmaking"
+import { drainPendingRefunds, sweepAbandonedLobbies } from "@/lib/arena/matchmaking"
 import { isAuthorizedCron } from "@/lib/security/cronAuth"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
@@ -24,11 +24,16 @@ export const POST = withSecurity(async (request: Request) => {
   const startTime = Date.now()
 
   try {
-    const [summary, lobbiesRefunded] = await Promise.all([
+    const [summary, lobbiesRefunded, pendingRefunds] = await Promise.all([
       processJobs(jobHandlers),
       // Refund 1v1 stakes for lobbies nobody joined (they were lost before).
       sweepAbandonedLobbies().catch((err) => {
         console.error("[jobs/process] lobby sweep failed:", err)
+        return 0
+      }),
+      // Retry arena refunds whose first attempt failed (arena:refunds:pending).
+      drainPendingRefunds().catch((err) => {
+        console.error("[jobs/process] refund drain failed:", err)
         return 0
       }),
     ])
@@ -36,6 +41,7 @@ export const POST = withSecurity(async (request: Request) => {
       success: true,
       ...summary,
       lobbiesRefunded,
+      pendingRefunds,
       durationMs: Date.now() - startTime,
     })
   } catch (err: unknown) {

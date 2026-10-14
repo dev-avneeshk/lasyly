@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   // (user, game); a refund adds a refund row but leaves the stake row in place.
   staked: new Set<string>(),
   refunded: new Set<string>(),
+  /** What the refund RPC answers; "error" refunds nothing. */
+  refundResult: "completed" as "completed" | "error",
 }))
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -31,6 +33,7 @@ vi.mock("@/lib/economy/wallet", () => ({
     return "completed"
   }),
   refundArenaStake: vi.fn(async ({ userId, gameId }: { userId: string; gameId: string }) => {
+    if (h.refundResult === "error") return "error"
     h.refunded.add(`${userId}:${gameId}`)
     return "completed"
   }),
@@ -39,6 +42,14 @@ vi.mock("@/lib/realtime/arena", async (orig) => ({
   ...(await orig<typeof import("@/lib/realtime/arena")>()),
   broadcastArenaUpdate: vi.fn(async () => {}),
   registerArenaChannelMember: vi.fn(async () => true),
+}))
+vi.mock("@/lib/arena/identity", () => ({
+  lookupSeatName: vi.fn(async () => null),
+  findTakenNames: vi.fn(async () => new Set()),
+}))
+vi.mock("@/lib/arena/matchmaking", async (orig) => ({
+  ...(await orig<typeof import("@/lib/arena/matchmaking")>()),
+  queuePendingRefund: vi.fn(async () => {}),
 }))
 vi.mock("@/lib/arena/store", async (orig) => {
   const real = await orig<typeof import("@/lib/arena/store")>()
@@ -59,6 +70,7 @@ import { POST as join } from "@/app/api/arena/[gameId]/join/route"
 import { createGame } from "@/lib/arena/auction"
 import { saveGame, loadGame, _resetStore, GameBusyError, GameNotFoundError } from "@/lib/arena/store"
 import { refundArenaStake } from "@/lib/economy/wallet"
+import { queuePendingRefund } from "@/lib/arena/matchmaking"
 import { DEFAULT_CONFIG } from "@/lib/arena/types"
 
 const STAKE = 50
@@ -79,10 +91,11 @@ const netDebit = (gameId: string) => {
 
 beforeEach(() => {
   _resetStore()
-  Object.assign(h, { mutateError: null, seatFirst: null })
+  Object.assign(h, { mutateError: null, seatFirst: null, refundResult: "completed" })
   h.staked.clear()
   h.refunded.clear()
   vi.mocked(refundArenaStake).mockClear()
+  vi.mocked(queuePendingRefund).mockClear()
 })
 
 describe("arena invite join refunds the stake only when a retry can't win the seat (RA-4)", () => {
@@ -125,5 +138,30 @@ describe("arena invite join refunds the stake only when a retry can't win the se
     expect((await call("r-3")).status).toBe(200)
     expect(refundArenaStake).not.toHaveBeenCalled()
     expect(netDebit("r-3")).toBe(STAKE)
+  })
+})
+
+describe("arena invite join: a lost-race refund that fails is not lost (D-27)", () => {
+  it("logs the failed refund and queues it for the jobs cron", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    await lobby("r-6")
+    Object.assign(h, { mutateError: new GameBusyError(), seatFirst: "user-other", refundResult: "error" })
+
+    expect((await call("r-6")).status).toBe(503)
+
+    expect(refundArenaStake).toHaveBeenCalledWith({ userId: "user-guest", gameId: "r-6" })
+    expect(error).toHaveBeenCalledWith("[arena] lost-race refund failed", { gameId: "r-6", userId: "user-guest" })
+    expect(queuePendingRefund).toHaveBeenCalledTimes(1)
+    expect(queuePendingRefund).toHaveBeenCalledWith("r-6", "user-guest")
+    expect(netDebit("r-6")).toBe(STAKE) // still owed: the queued entry refunds it later
+    error.mockRestore()
+  })
+
+  it("queues nothing when the refund goes through", async () => {
+    await lobby("r-7")
+    Object.assign(h, { mutateError: new GameBusyError(), seatFirst: "user-other" })
+    expect((await call("r-7")).status).toBe(503)
+    expect(netDebit("r-7")).toBe(0)
+    expect(queuePendingRefund).not.toHaveBeenCalled()
   })
 })

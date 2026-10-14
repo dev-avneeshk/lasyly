@@ -29,6 +29,10 @@ vi.mock("@/lib/economy/wallet", () => ({
   chargeArenaStake: vi.fn(async () => "completed"),
   refundArenaStake: vi.fn(async () => "completed"),
 }))
+vi.mock("@/lib/arena/identity", () => ({
+  lookupSeatName: vi.fn(async () => null),
+  findTakenNames: vi.fn(async () => new Set()),
+}))
 vi.mock("@/lib/realtime/arena", async (orig) => {
   const real = await orig<typeof import("@/lib/realtime/arena")>()
   return {

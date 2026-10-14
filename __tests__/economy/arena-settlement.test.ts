@@ -33,6 +33,10 @@ vi.mock("@/lib/economy/wallet", () => ({
   awardCpuReward: vi.fn(async () => "completed"),
   settle1v1: vi.fn(async () => st.settleResults.shift() ?? "completed"),
 }))
+vi.mock("@/lib/arena/identity", () => ({
+  lookupSeatName: vi.fn(async () => null),
+  findTakenNames: vi.fn(async () => new Set()),
+}))
 
 import { POST as simulate } from "@/app/api/arena/[gameId]/simulate/route"
 import { GET as view } from "@/app/api/arena/[gameId]/route"

@@ -29,9 +29,10 @@
  */
 
 import { getRedisClient } from "@/lib/redis"
-import { deleteGame, mutateGame, GameNotFoundError } from "@/lib/arena/store"
+import { deleteGame, mutateGame, GameNotFoundError, type StoredGame } from "@/lib/arena/store"
 import { RELEASE_LOCK_LUA } from "@/lib/games/store"
 import { refundArenaStake } from "@/lib/economy/wallet"
+import { afterResponse } from "@/lib/background"
 
 /** One shared queue key for all open public games. */
 const QUEUE_KEY = "arena:matchmaking:open"
@@ -151,11 +152,108 @@ export async function untrackLobby(gameId: string, ownerId: string): Promise<voi
   })
 }
 
+// ─── Refunds the server owes ────────────────────────────────────────────────
+// A converted lobby's owner is refunded right after the conversion commits, and
+// a joiner who lost a seat race is refunded by the seat route. If that RPC
+// fails, the refund is retried from here until it is confirmed or terminal.
+
+export type RefundResult = Awaited<ReturnType<typeof refundArenaStake>>
+// = "completed" | "duplicate" | "nothing_to_refund" | "already_settled" | "error"
+
+/** Refunds owed and not yet confirmed: converted-lobby owners and lost-race joiners.
+ *  Member "<gameId> <userId>", score = due time (ms). The pre-feature code never reads this key. */
+const PENDING_REFUNDS_KEY = "arena:refunds:pending"
+export const BOT_REFUND_BACKSTOP_MS = 5 * 60_000 // a converted lobby's queue entry is due this long after conversion
+const PENDING_REFUND_RETRY_MS = 2 * 60_000 // an entry whose RPC errored is pushed back this far
+const REFUND_RETRY_THROTTLE_MS = 15_000
+const refundRetryKey = (gameId: string) => `arena:refund-retry:${gameId}`
+
+/** Record a refund the server owes (best effort). */
+export async function queuePendingRefund(gameId: string, userId: string, dueAt = Date.now()): Promise<void> {
+  await getRedisClient()?.zadd(PENDING_REFUNDS_KEY, { score: dueAt, member: `${gameId} ${userId}` }).catch((error) => {
+    console.error("[arena/refund] queue failed:", error)
+  })
+}
+
+/** Refund (userId, gameId) through the idempotent RPC, record the outcome, and clear its backstops once it's final. */
+export async function settlePendingRefund(gameId: string, userId: string): Promise<RefundResult> {
+  const res = await refundArenaStake({ userId, gameId })
+  if (res === "error") {
+    console.error("[arena/refund] failed", { gameId, userId }) // ids only (UUIDs), never an email (NFR-5)
+    return res // both backstops stay
+  }
+  const status = res === "completed" || res === "duplicate" ? "confirmed" : "failed"
+  if (status === "failed") console.error("[arena/refund] invariant breach", { gameId, userId, result: res }) // userId: a joiner isn't on the record
+  await mutateGame(gameId, (g) => {
+    // Only a converted record's own owner has a status to record. A lost-race joiner's refund changes nothing here.
+    if (g.ownerUserId === userId && g.state.botMatch?.refund === "pending") g.state.botMatch.refund = status
+  }).catch((e) => {
+    if (!(e instanceof GameNotFoundError)) console.warn("[arena/refund] status not recorded", { gameId })
+  })
+  await untrackLobby(gameId, userId) // a no-op unless this is the owner's lobby entry
+  await getRedisClient()?.zrem(PENDING_REFUNDS_KEY, `${gameId} ${userId}`).catch(() => {})
+  return res
+}
+
+/** The conversion's own refund. Takes the retry slot unconditionally, so the first polls don't start a parallel RPC. */
+export async function startConvertedRefund(gameId: string, ownerId: string): Promise<RefundResult> {
+  await getRedisClient()?.set(refundRetryKey(gameId), "1", { px: REFUND_RETRY_THROTTLE_MS }).catch(() => {}) // never blocks the refund
+  return settlePendingRefund(gameId, ownerId)
+}
+
+/** Retry a converted lobby's unconfirmed refund after the response, at most once per 15 s per game. Never blocks a request. */
+export function retryConvertedRefund(game: StoredGame): void {
+  if (game.state.botMatch?.refund !== "pending") return
+  const { gameId } = game.state
+  const ownerId = game.ownerUserId
+  afterResponse(async () => {
+    const redis = getRedisClient()
+    // A Redis error throws here: afterResponse logs it at warn and skips this retry. The next request or the drain retries.
+    if (redis && (await redis.set(refundRetryKey(gameId), "1", { nx: true, px: REFUND_RETRY_THROTTLE_MS })) !== "OK") return
+    await settlePendingRefund(gameId, ownerId)
+  }, "arena stake refund")
+}
+
+/**
+ * Jobs-cron drain of due pending refunds. Returns how many completed. A failed
+ * entry is pushed back PENDING_REFUND_RETRY_MS, and the run stops after 3
+ * consecutive errors.
+ */
+export async function drainPendingRefunds(now = Date.now()): Promise<number> {
+  const redis = getRedisClient()
+  if (!redis) return 0
+  const members = await redis.zrange<string[]>(PENDING_REFUNDS_KEY, 0, now, { byScore: true, offset: 0, count: 50 })
+  let refunded = 0
+  let errors = 0
+  for (const member of members) {
+    const [gameId, userId] = member.split(" ")
+    if (!gameId || !userId) {
+      await redis.zrem(PENDING_REFUNDS_KEY, member) // malformed: never written by this code
+      continue
+    }
+    const res = await settlePendingRefund(gameId, userId)
+    if (res === "error") {
+      // Back of the line, so one failing entry can't block the rest; the run stops after 3 consecutive
+      // errors so an outage isn't hammered.
+      // XX: only re-score an entry that still exists, so one another path just settled isn't re-added.
+      await redis.zadd(PENDING_REFUNDS_KEY, { xx: true }, { score: now + PENDING_REFUND_RETRY_MS, member }).catch(() => {})
+      if (++errors >= 3) break
+      continue
+    }
+    errors = 0
+    if (res === "completed") refunded++
+  }
+  return refunded
+}
+
 /**
  * Close and refund human lobbies nobody joined within LOBBY_MAX_AGE_MS.
  * Called by the jobs cron. Idempotent: the close happens under the game lock
  * (a racing join sees the seat taken and refunds itself), and the refund RPC
  * is idempotent per (user, game), so a failed pass just retries next time.
+ *
+ * A converted lobby (`botMatch`) is never closed, deleted or released here: its
+ * entry only retries a refund that is still unconfirmed, then leaves the ZSET.
  */
 export async function sweepAbandonedLobbies(now = Date.now()): Promise<number> {
   const redis = getRedisClient()
@@ -168,9 +266,17 @@ export async function sweepAbandonedLobbies(now = Date.now()): Promise<number> {
   let refunded = 0
   for (const member of members) {
     const [id, trackedOwner] = member.split(" ")
-    let owner = null as string | null
+    let owner = null as string | null // lobby-close path only
+    let converted = null as { refund: "pending" | "confirmed" | "failed"; owner: string } | null // bot-match path only
     try {
       await mutateGame(id, (g) => {
+        owner = null // reset per run: a lost CAS re-runs the mutator
+        converted = null
+        if (g.state.botMatch) {
+          // converted lobby: never close it, never write
+          converted = { refund: g.state.botMatch.refund, owner: g.ownerUserId }
+          return
+        }
         if (g.state.status !== "lobby" || (g.guestUserId && g.guestUserId !== CLOSED_SEAT)) return
         g.guestUserId = CLOSED_SEAT
         owner = g.ownerUserId
@@ -179,7 +285,19 @@ export async function sweepAbandonedLobbies(now = Date.now()): Promise<number> {
       if (!(error instanceof GameNotFoundError)) continue // busy: next sweep
       owner = trackedOwner ?? null // expired before we got to it: still never joined
     }
+    if (converted) {
+      // MUST precede `if (owner)`
+      if (converted.refund === "pending") {
+        const res = await settlePendingRefund(id, converted.owner)
+        if (res === "error") continue // keep tracked; the next sweep retries
+        if (res === "completed") refunded++
+      }
+      await removeOpenGame(id)
+      await redis.zrem(LOBBIES_KEY, member)
+      continue // never CLOSED_SEAT, deleteGame or the user-slot release
+    }
     if (owner) {
+      // existing lobby branch, unchanged
       if ((await refundArenaStake({ userId: owner, gameId: id })) === "error") continue
       refunded++
       await deleteGame(id)

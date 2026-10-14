@@ -4,11 +4,12 @@ import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame } from "@/lib/arena/store"
 import { openNextLot } from "@/lib/arena/auction"
-import { serverView } from "@/lib/arena/server"
+import { canClaimSeat, serverView } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
 import { chargeArenaStake, refundArenaStake } from "@/lib/economy/wallet"
-import { untrackLobby } from "@/lib/arena/matchmaking"
+import { queuePendingRefund, untrackLobby } from "@/lib/arena/matchmaking"
+import { lookupSeatName } from "@/lib/arena/identity"
 import type { TeamId } from "@/lib/arena/types"
 
 /**
@@ -54,11 +55,15 @@ export const POST = withSecurity(async (
     return NextResponse.json(participantView(serverView(existing.state, "P2", existing.rev)))
   }
 
-  // Only human-vs-human games with an open P2 can be joined.
+  // Only human-vs-human games with an open P2 can be joined. A taken seat is
+  // checked first, so every filled game reads the same, whoever holds P2.
+  if (existing.guestUserId) {
+    return NextResponse.json({ error: "This game is already full." }, { status: 409 })
+  }
   if (existing.state.isAI.P2) {
     return NextResponse.json({ error: "This is a CPU game and can't be joined." }, { status: 409 })
   }
-  if (existing.guestUserId) {
+  if (existing.state.status !== "lobby") {
     return NextResponse.json({ error: "This game is already full." }, { status: 409 })
   }
 
@@ -67,24 +72,27 @@ export const POST = withSecurity(async (
   // so a player who can't cover the stake never gets seated (and never blocks
   // the game). The debit is idempotent per (user, game): a retry after a
   // successful charge is a no-op, and if the seat claim below fails in a way a
-  // retry can't recover from, we refund.
+  // retry can't recover from, we refund. The seat-name lookup runs alongside.
   const stake = existing.state.econ?.amount ?? 0
-  if (stake > 0) {
-    const charge = await chargeArenaStake({
-      userId: user.id,
-      gameId,
-      amount: stake,
-      isPvp: true,
-    })
-    if (charge === "insufficient_funds") {
-      return NextResponse.json(
-        { error: `Not enough coins. This game's stake is ${stake}.`, code: "INSUFFICIENT_FUNDS" },
-        { status: 402 }
-      )
-    }
-    if (charge !== "completed" && charge !== "duplicate") {
-      return NextResponse.json({ error: "Couldn't process the stake." }, { status: 500 })
-    }
+  const [charge, joinerName] = await Promise.all([
+    stake > 0
+      ? chargeArenaStake({
+          userId: user.id,
+          gameId,
+          amount: stake,
+          isPvp: true,
+        })
+      : null,
+    lookupSeatName(user.id),
+  ])
+  if (charge === "insufficient_funds") {
+    return NextResponse.json(
+      { error: `Not enough coins. This game's stake is ${stake}.`, code: "INSUFFICIENT_FUNDS" },
+      { status: 402 }
+    )
+  }
+  if (charge !== null && charge !== "completed" && charge !== "duplicate") {
+    return NextResponse.json({ error: "Couldn't process the stake." }, { status: 500 })
   }
 
   let game
@@ -93,11 +101,12 @@ export const POST = withSecurity(async (
     ;({ game, changed } = await mutateGame(gameId, (g) => {
       // Authoritative re-check under the lock: the pre-flight read above is only
       // a fast path for friendly error messages.
-      if (g.guestUserId && g.guestUserId !== user.id) {
+      if (!canClaimSeat(g, user.id)) {
         throw new Error("This game is already full.")
       }
       g.guestUserId = user.id
       g.state.isAI.P2 = false
+      if (joinerName) g.state.seatNames = { ...g.state.seatNames, P2: joinerName }
       // Start the auction now that both seats are filled.
       if (g.state.status === "lobby") {
         g.state.status = "auction"
@@ -113,7 +122,11 @@ export const POST = withSecurity(async (
     if (stake > 0) {
       const now = await loadGame(gameId).catch(() => undefined)
       if (now === null || (now?.guestUserId && now.guestUserId !== user.id)) {
-        await refundArenaStake({ userId: user.id, gameId })
+        // A refund that fails is queued for the jobs cron instead of being lost.
+        if ((await refundArenaStake({ userId: user.id, gameId })) === "error") {
+          console.error("[arena] lost-race refund failed", { gameId, userId: user.id })
+          await queuePendingRefund(gameId, user.id)
+        }
       }
     }
     if (e instanceof Error && e.message === "This game is already full.") {

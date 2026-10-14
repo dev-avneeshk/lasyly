@@ -9,6 +9,7 @@ import { driveAI, serverView } from "@/lib/arena/server"
 import { saveGame } from "@/lib/arena/store"
 import { participantView, registerArenaChannelMember } from "@/lib/realtime/arena"
 import { trackLobby } from "@/lib/arena/matchmaking"
+import { lookupSeatName } from "@/lib/arena/identity"
 import { AVAILABLE_SEASONS } from "@/lib/arena/data"
 import { DEFAULT_CONFIG, bidIncrementForBudget, bestPersonalityForDifficulty, type ArenaGameConfig } from "@/lib/arena/types"
 import { CPU_ENTRY_COST, MAX_STAKE, MIN_STAKE, cpuWinReward } from "@/lib/economy/arena"
@@ -70,7 +71,11 @@ export const POST = withSecurity(async (request: Request) => {
   const isPvp = !vsAI
   const amount = isPvp ? (data.stake ?? MIN_STAKE) : CPU_ENTRY_COST
 
-  const charge = await chargeArenaStake({ userId: user.id, gameId, amount, isPvp })
+  // An invite lobby records the owner's public seat name; the lookup runs alongside the charge.
+  const [charge, ownerName] = await Promise.all([
+    chargeArenaStake({ userId: user.id, gameId, amount, isPvp }),
+    isPvp ? lookupSeatName(user.id) : null,
+  ])
   if (charge === "insufficient_funds") {
     return NextResponse.json(
       { error: `Not enough coins. You need ${amount} to play.`, code: "INSUFFICIENT_FUNDS" },
@@ -97,6 +102,7 @@ export const POST = withSecurity(async (request: Request) => {
     // Human vs human: hold in the lobby until P2 joins. Seat P2 is a human.
     state.isAI.P2 = false
     state.status = "lobby"
+    if (ownerName) state.seatNames = { P1: ownerName }
   }
 
   // Charged but not persisted (Redis down) → give the coins back. Safe: the

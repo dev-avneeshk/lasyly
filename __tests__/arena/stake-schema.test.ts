@@ -31,6 +31,10 @@ vi.mock("@/lib/economy/wallet", () => ({
   chargeArenaStake: vi.fn(async () => st.charge),
   refundArenaStake: vi.fn(async () => "completed"),
 }))
+vi.mock("@/lib/arena/identity", () => ({
+  lookupSeatName: vi.fn(async () => null),
+  findTakenNames: vi.fn(async () => new Set()),
+}))
 
 import { POST as create } from "@/app/api/arena/route"
 import { POST as matchmake } from "@/app/api/arena/matchmake/route"
