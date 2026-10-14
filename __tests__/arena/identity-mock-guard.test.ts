@@ -35,9 +35,26 @@ describe("identity mock guard", () => {
         path.join("arena", "join-channel-seat.test.ts"),
         path.join("arena", "join-converted.test.ts"),
         path.join("arena", "stake-schema.test.ts"),
+        path.join("arena", "pair-route.test.ts"),
+        path.join("arena", "bot-match-routes.test.ts"),
         path.join("economy", "arena-settlement.test.ts"),
+        path.join("economy", "bot-match-settlement.test.ts"),
       ]),
     )
+  })
+
+  it.each(["route", "matchmake/route", "[gameId]/join/route", "[gameId]/pair/route"])(
+    "recognizes an import of app/api/arena/%s, by alias or by relative path",
+    (route) => {
+      expect(ROUTE_IMPORT.test(`import { POST } from "@/app/api/arena/${route}"`)).toBe(true)
+      expect(ROUTE_IMPORT.test(`import { POST } from '../../app/api/arena/${route}'`)).toBe(true)
+    },
+  )
+
+  it("leaves out the arena routes that never call the identity lookups", () => {
+    for (const route of ["[gameId]/route", "[gameId]/bid/route", "[gameId]/players/route"]) {
+      expect(ROUTE_IMPORT.test(`import { GET } from "@/app/api/arena/${route}"`)).toBe(false)
+    }
   })
 
   it('every test importing the create, matchmake, join or pair route has vi.mock("@/lib/arena/identity")', () => {
