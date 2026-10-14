@@ -7,6 +7,13 @@ import { startSimulation, serverView, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
 import { settleArenaGame } from "@/lib/arena/settle"
+import { retryConvertedRefund } from "@/lib/arena/matchmaking"
+
+/**
+ * Covers the awaited payout RPC (bounded by its 30 s per-attempt deadline) and a
+ * converted lobby's deferred stake-refund retry.
+ */
+export const maxDuration = 60
 
 /**
  * POST /api/arena/[gameId]/simulate — once both rosters are complete (status
@@ -54,7 +61,13 @@ export const POST = withSecurity(async (
     startSimulation(g.state)
   })
 
+  // A no-op for a converted lobby, which never pays out: its stake is refunded instead.
   await settleArenaGame(game)
+  retryConvertedRefund(game)
+  // `changed` is true only on the lineup → complete transition, so this logs once per match.
+  if (changed && game.state.botMatch && game.state.status === "complete") {
+    console.info("[arena/fallback] completed", { gameId, winner: game.state.result?.winner })
+  }
 
   // Push the final result to the opponent so both flip to the summary together.
   if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, seat, game.rev)), "arena broadcast")

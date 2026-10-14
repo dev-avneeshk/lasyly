@@ -8,6 +8,14 @@ import { placeBid } from "@/lib/arena/auction"
 import { driveAI, serverView, serverTick, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
+import { retryConvertedRefund } from "@/lib/arena/matchmaking"
+import { runBotTurns } from "@/lib/arena/botTurns"
+
+/**
+ * Covers the deferred work a bid can start in a converted lobby: the opponent
+ * runner (≤ 20 s) and a stake-refund retry that can hang to its 30 s deadline.
+ */
+export const maxDuration = 60
 
 const bidSchema = z.object({
   amount: z.number().int().min(1).max(200),
@@ -100,6 +108,14 @@ export const POST = withSecurity(async (
     driveAI(g.state)
     serverTick(g.state)
   })
+
+  // A converted lobby's opponent never answers inside this request (driveAI is a
+  // no-op there): the clock step above only planned its move, and a runner lands
+  // it after a think delay. Its stake refund is retried here too if unconfirmed.
+  if (game.state.botMatch) {
+    if (changed && game.state.botMatch.pending) afterResponse(() => runBotTurns(gameId), "arena opponent turn")
+    retryConvertedRefund(game)
+  }
 
   // Both rejection paths below leave the stored game untouched — the store no
   // longer persists a rev bump for a mutator that changed nothing, so a refused

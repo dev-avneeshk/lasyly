@@ -3,10 +3,19 @@ import { createClient } from "@/lib/supabase/server"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { loadGame, mutateGame, needsServerTick } from "@/lib/arena/store"
-import { serverTick, serverView, seatForUser } from "@/lib/arena/server"
+import { advanceGame, serverView, seatForUser } from "@/lib/arena/server"
 import { broadcastArenaUpdate, participantView } from "@/lib/realtime/arena"
 import { afterResponse } from "@/lib/background"
 import { settleArenaGame } from "@/lib/arena/settle"
+import { retryConvertedRefund } from "@/lib/arena/matchmaking"
+import { runBotTurns } from "@/lib/arena/botTurns"
+
+/**
+ * Covers the slowest deferred work this route starts or awaits: a payout or
+ * refund RPC that runs to its 30 s deadline, and the opponent runner's 20 s
+ * budget (a converted lobby's move landed by this poll can plan the next one).
+ */
+export const maxDuration = 60
 
 /**
  * GET /api/arena/[gameId] — the current authoritative view.
@@ -23,7 +32,8 @@ import { settleArenaGame } from "@/lib/arena/settle"
  *
  * The clock only ever has real work in three situations, all captured by
  * `needsServerTick`: no lot is open, the open lot's deadline has passed, or a
- * finished auction never persisted its result. Everything else — AI responses,
+ * finished auction never persisted its result. (A converted lobby adds a
+ * fourth: its opponent's planned move is due.) Everything else — AI responses,
  * budgets, ownership — happens inside an explicit action, which locks anyway.
  *
  * So: load once (1 Redis GET). If the clock is idle, return. Only escalate to a
@@ -67,16 +77,21 @@ export const GET = withSecurity(async (
 
   // Retries a payout whose RPC failed at simulate time (no-op once settled).
   await settleArenaGame(existing)
+  // A converted lobby's stake refund that isn't confirmed yet: retried after the
+  // response, at most once per 15 s per game (a no-op for every other game).
+  retryConvertedRefund(existing)
   // Fast path: nothing for the clock to do, so don't take a lock or write.
   if (!needsServerTick(existing.state)) {
     return NextResponse.json(participantView(serverView(existing.state, viewer, existing.rev)))
   }
 
-  // The clock genuinely needs to advance (lot expired / none open). Serialize so
+  // The clock genuinely needs to advance (lot expired / none open, or a converted
+  // lobby's planned opponent move is due and no runner has landed it). Serialize so
   // concurrent polls can't double-resolve the same lot. GameBusyError and
   // GameConflictError propagate to withSecurity → 503 (+Retry-After) / 409.
+  // advanceGame is exactly serverTick for every game without a bot opponent.
   const { game, changed } = await mutateGame(gameId, (g) => {
-    serverTick(g.state)
+    advanceGame(g.state)
   })
 
   // Whichever client's poll advanced the clock (e.g. a lot's timer expired and
@@ -84,6 +99,8 @@ export const GET = withSecurity(async (
   // their own poll to notice it. View included so the other client applies it in
   // one hop rather than answering the nudge with its own GET.
   if (changed) afterResponse(() => broadcastArenaUpdate(gameId, serverView(game.state, viewer, game.rev)), "arena broadcast")
+  // The step above may have planned the opponent's next move: land it when due.
+  if (changed && game.state.botMatch?.pending) afterResponse(() => runBotTurns(gameId), "arena opponent turn")
 
   return NextResponse.json(participantView(serverView(game.state, viewer, game.rev)))
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
