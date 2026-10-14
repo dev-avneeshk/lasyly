@@ -17,7 +17,8 @@ import {
 import { decideAI } from "./ai"
 import { snapshot } from "./budget"
 import { runSimulation, difficultyEdge } from "./game"
-import type { GameResult, GameStatus, TeamId } from "./types"
+import { planBotTurn, runDueBotTurn } from "./botMatch"
+import type { ArenaGameConfig, ArenaViewEcon, GameResult, GameStatus, TeamId } from "./types"
 import type { StoredGame } from "./store"
 
 /**
@@ -30,9 +31,18 @@ export function seatForUser(game: StoredGame, userId: string): TeamId | null {
   return null
 }
 
+/** May `userId` take seat P2 now? Re-joining your own seat is idempotent. */
+export function canClaimSeat(game: StoredGame, userId: string): boolean {
+  if (game.guestUserId === userId) return true
+  return !game.guestUserId && game.state.status === "lobby" && !game.state.isAI.P2
+}
+
 /** Advance all AI seats until it's the humans' turn or the lot resolves. */
 export function driveAI(state: ArenaState, maxSteps = 20): void {
   if (state.status !== "auction") return
+  // A converted lobby's opponent never answers inside the human's request: its
+  // moves are planned by serverTick and landed later (lib/arena/botMatch.ts).
+  if (state.botMatch) return
   let steps = 0
   while (state.lot && steps++ < maxSteps) {
     let acted = false
@@ -65,6 +75,7 @@ export function serverTick(state: ArenaState, now = Date.now()): void {
   // lock, changed nothing, and asked again on the next poll — forever — while
   // the client sat on a phase it had no result to render.
   if (state.status !== "lobby" && state.status !== "auction") {
+    if (state.botMatch) state.botMatch.pending = null
     ensureResult(state)
     return
   }
@@ -74,11 +85,23 @@ export function serverTick(state: ArenaState, now = Date.now()): void {
     resolveLot(state)
   }
   driveAI(state)
+  // A bot match plans its opponent's next move instead (driveAI is a no-op there).
+  if (state.botMatch) planBotTurn(state, now)
   // If the auction just finished (resolveLot/openNextLot can flip status to
   // "lineup"), precompute + cache the sim once here — inside the mutate — so
   // it's persisted and never recomputed on polls. (Cast: TS can't see that the
   // calls above mutated `status` away from "auction".)
   if ((state.status as GameStatus) === "lineup") ensureResult(state)
+}
+
+/**
+ * The clock step plus, for a bot match, landing the opponent's move once it is
+ * due (then ticking again to resolve, open and plan after it). For any other
+ * game it is exactly `serverTick`.
+ */
+export function advanceGame(state: ArenaState, now = Date.now()): void {
+  serverTick(state, now)
+  if (state.botMatch && runDueBotTurn(state, now)) serverTick(state, now)
 }
 
 /**
@@ -106,17 +129,23 @@ export function serverView(state: ArenaState, viewer: TeamId, rev: number) {
   // Read-only: never simulate here. The result is computed once inside a
   // mutate (serverTick → lineup, or startSimulation) and persisted on state.
   const result = state.result ?? null
+  // A bot match is shown exactly like a real 1v1: no AI seat, the lobby's own
+  // config, and only the friendly coin record. The flag itself never leaves.
+  const paired = state.botMatch
+  const config: ArenaGameConfig = paired ? { ...state.config, ...paired.shownConfig } : state.config
+  const isAI: Record<TeamId, boolean> = paired ? { P1: false, P2: false } : state.isAI
+  const names: Record<TeamId, string | null> = { P1: state.seatNames?.P1 ?? null, P2: state.seatNames?.P2 ?? null }
   return {
     rev,
     gameId: state.gameId,
     season: state.season,
     status: state.status,
-    config: state.config,
+    config,
     viewer,
     lot: state.lot,
     lotDeadline: state.lotDeadline,
     passed: state.passed,
-    isAI: state.isAI,
+    isAI,
     rosters: state.rosters,
     results: state.results,
     history: state.history.slice(-20),
@@ -131,7 +160,22 @@ export function serverView(state: ArenaState, viewer: TeamId, rev: number) {
     },
     result,
     completedAt: state.completedAt,
-    econ: state.econ ?? null,
+    econ: viewEcon(state),
+    names,
+  }
+}
+
+/** The view's coin record: stored `econ` as is, or a friendly match's refund state. */
+function viewEcon(state: ArenaState): ArenaViewEcon | null {
+  const econ = state.econ
+  if (!econ) return null
+  const paired = state.botMatch
+  if (!paired) return econ
+  return {
+    mode: "friendly",
+    amount: econ.amount,
+    // null: the refund ended in a terminal failure, so no coin claim is made.
+    returned: paired.refund === "confirmed" ? true : paired.refund === "pending" ? false : null,
   }
 }
 

@@ -82,6 +82,8 @@ export function _resetStore(): void {
 export function needsServerTick(state: ArenaState, now = Date.now()): boolean {
   if (state.status === "auction") {
     if (!state.lot) return true
+    // A bot match's planned opponent move is due (its runner may have died).
+    if (state.botMatch?.pending && now >= state.botMatch.pending.dueAt) return true
     return state.lotDeadline !== null && now >= state.lotDeadline
   }
   // Defensive: any post-auction phase missing its result (e.g. the process died

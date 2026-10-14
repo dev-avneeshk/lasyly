@@ -162,6 +162,15 @@ export const DEFAULT_CONFIG: ArenaGameConfig = {
 /** Player-facing CPU difficulty. */
 export type AIDifficulty = "easy" | "medium" | "hard"
 
+/**
+ * The coin record as views carry it. Staked and CPU games pass their stored
+ * `econ` through; a friendly match reports only whether the stake came back
+ * (`returned: null` = the refund ended in a terminal failure).
+ */
+export type ArenaViewEcon =
+  | { mode: "cpu" | "pvp"; amount: number; cpuReward?: number; settled?: boolean }
+  | { mode: "friendly"; amount: number; returned: boolean | null }
+
 /** Preset budgets exposed in the lobby, each a distinct "league". */
 export const BUDGET_PRESETS = [25, 50, 100] as const
 export type BudgetPreset = (typeof BUDGET_PRESETS)[number]

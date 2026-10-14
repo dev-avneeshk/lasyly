@@ -8,6 +8,8 @@
  */
 
 import {
+  type AIDifficulty,
+  type AIPersonality,
   type ArenaGameConfig,
   type AuctionLot,
   type AuctionResult,
@@ -84,6 +86,25 @@ export interface ArenaState {
     cpuReward?: number
     /** True once the coin reward/payout for this game has been settled. */
     settled?: boolean
+  }
+  /** Public marker: present only on lobbies created by matchmake step 2. */
+  matchmadeLobby?: { openedAt: number } // server ms at lobby creation
+  /** Public display name per seat, recorded (sanitized) when the seat is taken. */
+  seatNames?: Partial<Record<TeamId, string>>
+  /** Bot-match flag: present only on a converted lobby. Never sent to clients. */
+  botMatch?: {
+    /** Server ms of the commit. */
+    convertedAt: number
+    /** convertedAt − matchmadeLobby.openedAt. */
+    waitedMs: number
+    /** Stake refund state. */
+    refund: "pending" | "confirmed" | "failed"
+    /** The lobby's own values, shown in views. */
+    shownConfig: { difficulty: AIDifficulty; aiPersonality: AIPersonality }
+    /** The opponent's next move. */
+    pending: { dueAt: number; key: string; kind: "bid" | "pass" } | null
+    /** lotKey of the last move consumed. */
+    lastKey: string | null
   }
 }
 

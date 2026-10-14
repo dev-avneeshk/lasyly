@@ -8,6 +8,7 @@ import { XP_REWARDS, stakePayout } from "@/lib/economy/arena"
  *   cpu → the human (P1) beat the CPU? pay cpuReward + win XP; else 0 + play XP.
  *   pvp → pay the winning seat's human 2*stake*0.9; both get play XP, winner
  *         gets the extra win XP.
+ *   bot match (a converted lobby) → nothing, ever: no payout, CPU reward or XP.
  *
  * The flag is set only after the RPC confirms: setting it first (inside the
  * simulate lock) lost the payout for good when the RPC failed. The RPCs are
@@ -18,6 +19,11 @@ import { XP_REWARDS, stakePayout } from "@/lib/economy/arena"
  */
 export async function settleArenaGame(game: StoredGame): Promise<void> {
   const { state } = game
+  if (state.botMatch) {
+    // A converted lobby never pays out: the owner's stake is refunded instead (settlePendingRefund, lib/arena/matchmaking.ts).
+    if (state.econ && !state.econ.settled) console.error("[arena/fallback] settlement guard breached", { gameId: state.gameId })
+    return
+  }
   const econ = state.econ
   if (state.status !== "complete" || !state.result || !econ || econ.settled) return
 
