@@ -96,7 +96,7 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
       </section>
 
       <section className="hidden rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 p-3.5 shadow-[0_18px_34px_rgba(0,0,0,0.16)] lg:block">
-        <h2 className="text-[11px] font-black uppercase tracking-[0.04em] text-[#f1f4fb]">{isYou ? "Your roster" : `${label} roster`}</h2>
+        <h2 className="truncate text-[11px] font-black uppercase tracking-[0.04em] text-[#f1f4fb]">{isYou ? "Your roster" : `${label} roster`}</h2>
         <div className="mt-3 space-y-1.5">
           {ROSTER_SLOTS.map((slot) => {
             const owned = roster.slots[slot]

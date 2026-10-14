@@ -47,7 +47,7 @@ export function SoldStamp({
         }}
         exit={{ scale: 1.2, opacity: 0, rotate: -7, transition: { duration: 0.2 } }}
         transition={{ duration: 0.4, times: [0, 0.55, 0.8, 1], ease: "easeOut" }}
-        className="relative"
+        className="relative max-w-full"
       >
         <div className="relative rounded-xl border-4 border-[var(--color-lime)] bg-black/85 px-7 py-4 text-center shadow-[0_0_50px_-8px_rgba(212,255,0,0.85)]">
           <span className="pointer-events-none absolute inset-1 rounded-lg border border-[var(--color-lime)]/40" />
@@ -56,7 +56,8 @@ export function SoldStamp({
           </div>
           <div className="mt-1.5 text-base font-black text-white">{name}</div>
           <div className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            {winnerLabel} · <span className="text-[var(--color-lime)]">${price}</span>
+            {/* inline-block: max-width and overflow don't apply to a plain inline span. A long name truncates; the price stays visible. */}
+            <span className="inline-block max-w-[12rem] truncate align-bottom">{winnerLabel}</span> · <span className="text-[var(--color-lime)]">${price}</span>
           </div>
         </div>
       </motion.div>

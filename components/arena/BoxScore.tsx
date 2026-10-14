@@ -14,11 +14,11 @@ export function BoxScore({ result, team, label }: { result: GameResult; team: Te
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60">
-      <div className="flex items-center justify-between bg-white/[0.03] px-4 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-black uppercase tracking-wide text-[var(--color-lime)]">{label}</span>
+      <div className="flex items-center justify-between gap-3 bg-white/[0.03] px-4 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-black uppercase tracking-wide text-[var(--color-lime)]">{label}</span>
           {overtimeLabel && (
-            <span className="rounded bg-[var(--color-warning)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--color-warning)]">
+            <span className="shrink-0 rounded bg-[var(--color-warning)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--color-warning)]">
               {overtimeLabel}
             </span>
           )}

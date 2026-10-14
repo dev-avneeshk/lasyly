@@ -165,8 +165,9 @@ export function GameSummary({
 
 function AnalysisCard({ title, points, tone }: { title: string; points: GameResult["analysis"][TeamId]; tone: "win" | "lose" }) {
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-5">
-      <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-[var(--color-text-primary)]">{title}</h3>
+    <div className="min-w-0 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-5">
+      {/* "Why <name> Won/Lost": a long name wraps instead of pushing the card wider than the grid. */}
+      <h3 className="mb-3 break-words text-sm font-black uppercase tracking-wide text-[var(--color-text-primary)]">{title}</h3>
       <ul className="space-y-2 text-sm">
         {points.map((p, i) => (
           <li key={i} className="flex items-start gap-2 text-[var(--color-text-muted)]">
