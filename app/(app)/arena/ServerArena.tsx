@@ -11,19 +11,58 @@ import { SimulationScreen } from "@/components/arena/SimulationScreen"
 import { GameSummary } from "@/components/arena/GameSummary"
 import { SoldStamp } from "@/components/arena/SoldStamp"
 import { SimHandoff } from "@/components/arena/SimHandoff"
+import { MatchedBanner } from "@/components/arena/MatchedBanner"
 import { useAutoSimulate } from "@/lib/hooks/useAutoSimulate"
 import type { ArenaServerView } from "@/lib/arena/server"
 import type { ArenaState } from "@/lib/arena/auction"
 import type { TeamId } from "@/lib/arena/types"
 import { useArenaServer } from "./useArenaServer"
 import { cn, formatMoney } from "@/lib/utils"
-import { stakeTerms } from "@/lib/arena/clientRequests"
+import { coinChipText, friendlyCoinNote, matchedLine, shouldAnnounceMatch, stakeTerms, MATCHED_BANNER_MS } from "@/lib/arena/clientRequests"
 
 function asState(view: ArenaServerView): ArenaState {
   return { gameId: view.gameId, seed: 0, season: view.season, config: view.config, status: view.status, queue: [], lot: view.lot, passed: view.passed, rosters: view.rosters, isAI: view.isAI, history: [], results: view.results, lotDeadline: view.lotDeadline, completedAt: view.completedAt }
 }
 
-export function ServerArena({ server, labelFor }: { server: ReturnType<typeof useArenaServer>; labelFor: (seat: TeamId) => string }) {
+type ServerArenaProps = { server: ReturnType<typeof useArenaServer>; labelFor: (seat: TeamId) => string }
+
+/**
+ * A server-authoritative game, every phase. With `announceMatch` (a global
+ * match, either seat) it also shows the matched banner once per game, when the
+ * auction opens: the owner's lobby → auction flip, or a joiner's first view.
+ * Invites and reloads (JoinClient) never pass it.
+ *
+ * The banner wraps every phase, the waiting room included, so its live region
+ * already exists before the text appears.
+ */
+export function ServerArena({ server, labelFor, announceMatch }: ServerArenaProps & { announceMatch?: boolean }) {
+  const { view, viewer } = server
+  const [banner, setBanner] = useState<string | null>(null)
+  const announcedForRef = useRef<string | null>(null)
+  // Cleared only on unmount, so re-renders and effect re-runs can't cut the banner short.
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const gameId = view?.gameId
+  const status = view?.status
+  const opponentName = view?.names?.[viewer === "P1" ? "P2" : "P1"] ?? null
+
+  useEffect(() => {
+    if (!shouldAnnounceMatch({ announce: announceMatch, status, gameId, announcedFor: announcedForRef.current })) return
+    announcedForRef.current = gameId ?? null
+    setBanner(matchedLine(opponentName))
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => setBanner(null), MATCHED_BANNER_MS)
+  }, [announceMatch, gameId, status, opponentName])
+  useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }, [])
+
+  return (
+    <div data-testid="server-arena">
+      <MatchedBanner text={banner} />
+      <ServerArenaBody server={server} labelFor={labelFor} />
+    </div>
+  )
+}
+
+function ServerArenaBody({ server, labelFor }: ServerArenaProps) {
   const { view, viewer, error } = server
   const [timeLeft, setTimeLeft] = useState(0)
   const [revealed, setRevealed] = useState(false)
@@ -84,10 +123,14 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
 
   if (!view || !state) return <div className="flex items-center justify-center py-20 text-[var(--color-text-muted)]"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Connecting…</div>
   // Coin stake for a 1v1, from the server's own econ record (never client input).
+  // pvp only: a friendly match's waiting room and summary keep no stake line.
   const stakeOutcome = view.econ?.mode === "pvp" && view.econ.amount > 0 ? { stake: view.econ.amount, ...stakeTerms(view.econ.amount) } : undefined
+  // The auction header's chip ("25-coin stake" / "Friendly match") and a friendly
+  // match's summary line, both picked from the server's econ field.
+  const coinChip = coinChipText(view.econ)
 
   if (view.status === "lobby") return <WaitingRoom gameId={view.gameId} error={error} isPublic={server.isPublicLobby} stake={stakeOutcome} />
-  if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={revealDone} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} stakeOutcome={stakeOutcome} />
+  if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={revealDone} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} stakeOutcome={stakeOutcome} coinNote={friendlyCoinNote(view.econ)} />
   // "lineup" OR a phase that claims the game is running but carries no result:
   // both mean we're still waiting on the handoff. The second case used to fall
   // through to the auction renderer with `lot === null` and paint an empty board.
@@ -96,7 +139,7 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-10 pb-40 md:pb-10">
         <h2 className="text-3xl font-black text-[var(--color-text-primary)]">Rosters set</h2>
         <p className="text-sm text-[var(--color-text-muted)]">Both lineups are locked. Tipping off…</p>
-        <div className="grid w-full gap-4 md:grid-cols-2"><BudgetPanel team="P1" label={labelFor("P1")} budget={view.budgets.P1} roster={view.rosters.P1} isAI={view.isAI.P1} /><BudgetPanel team="P2" label={labelFor("P2")} budget={view.budgets.P2} roster={view.rosters.P2} isAI={view.isAI.P2} /></div>
+        <div className="grid w-full gap-4 md:grid-cols-2"><BudgetPanel team="P1" label={labelFor("P1")} budget={view.budgets.P1} roster={view.rosters.P1} isAI={view.isAI.P1} isYou={viewer === "P1"} /><BudgetPanel team="P2" label={labelFor("P2")} budget={view.budgets.P2} roster={view.rosters.P2} isAI={view.isAI.P2} isYou={viewer === "P2"} /></div>
         <SimHandoff autoSim={autoSim} />
       </div>
     )
@@ -111,7 +154,7 @@ export function ServerArena({ server, labelFor }: { server: ReturnType<typeof us
   const tone = lot?.highBidder === viewer ? "#d4ff00" : lot?.highBidder ? "#f3c66e" : "#aab4c6"
   const status = lot?.highBidder === viewer ? "You lead. Opponent is deciding." : lot?.highBidder ? `${labelFor(opponent)} leads. Your move.` : "Opening bid. Make an offer."
 
-  return <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-[19rem] md:px-6 md:pb-40 lg:pb-8">{error && <div className="mt-3 rounded-lg bg-[var(--color-danger)]/10 px-3 py-2 text-center text-sm text-[var(--color-danger)]">{error}</div>}<div className="mb-4 grid grid-cols-2 gap-3 lg:hidden"><BudgetPanel team={viewer} label={labelFor(viewer)} budget={view.budgets[viewer]} roster={view.rosters[viewer]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === viewer} /><BudgetPanel team={opponent} label={labelFor(opponent)} budget={view.budgets[opponent]} roster={view.rosters[opponent]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === opponent} isAI={view.isAI[opponent]} /></div><div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.83fr)_minmax(24rem,1.32fr)_minmax(0,0.83fr)] lg:gap-5"><div className="hidden lg:order-1 lg:block lg:pt-1"><BudgetPanel team={viewer} label={labelFor(viewer)} budget={view.budgets[viewer]} roster={view.rosters[viewer]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === viewer} /></div><main className="order-1 flex min-w-0 flex-col items-center gap-3 lg:order-2">{lot && <section className="flex w-full items-center gap-3 rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 px-3.5 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.16)]"><div className="relative h-12 w-12 shrink-0"><svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90"><circle cx="28" cy="28" r={radius} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="4" /><motion.circle cx="28" cy="28" r={radius} fill="none" stroke={urgent ? "var(--color-danger)" : "#d4ff00"} strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} animate={{ strokeDashoffset: circumference * (1 - pct) }} transition={{ ease: "linear", duration: 1 }} /></svg><span className={cn("absolute inset-0 grid place-items-center text-base font-black tabular-nums", urgent ? "text-[var(--color-danger)]" : "text-[#f4f6fb]")}>{timeSec}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8f9ab0]"><span className="flex items-center gap-2"><span>Lot {view.results.length + 1}</span>{stakeOutcome && <span className="rounded-full border border-[#d4ff00]/40 px-1.5 py-px text-[#d4ff00]">{stakeOutcome.stake}-coin stake</span>}</span><span>Current bid</span></div><div className="mt-1 flex items-end justify-between gap-3"><strong className="truncate text-xs font-bold" style={{ color: tone }}>{status}</strong><span className="text-xl font-black leading-none tabular-nums text-[#d4ff00]">${formatMoney(lot.currentBid)}</span></div></div></section>}<div className="relative w-full"><div className={cn("transition-[filter] duration-200", justSold && "blur-[2px]")}><AnimatePresence mode="wait">{lot && <PlayerCard key={lot.player.id} player={lot.player} />}</AnimatePresence></div><AnimatePresence>{justSold && <SoldStamp name={justSold.name} winnerLabel={labelFor(justSold.winner)} price={justSold.price} />}</AnimatePresence></div>{lot && <div className="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-20 border-t border-white/10 bg-[var(--color-background)]/95 px-4 pb-3 pt-3 backdrop-blur-xl md:bottom-0 md:pb-[calc(1rem+env(safe-area-inset-bottom))] lg:static lg:z-auto lg:w-full lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"><div className="mx-auto w-full max-w-md lg:max-w-none"><BidControls state={state} humanSeat={viewer} minRaise={view.minRaise[viewer]} onBid={server.bid} onMax={() => { const max = view.budgets[viewer].maxAffordable; if (max > (lot?.currentBid ?? 0)) server.bid(max) }} onPass={() => server.pass()} /></div></div>}</main><div className="hidden lg:order-3 lg:block lg:pt-1"><BudgetPanel team={opponent} label={labelFor(opponent)} budget={view.budgets[opponent]} roster={view.rosters[opponent]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === opponent} isAI={view.isAI[opponent]} /></div></div><AnimatePresence>{lastResult && <motion.p key={lastResult.playerId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 text-center text-sm text-[var(--color-text-muted)]">Last sold: <span className="font-semibold text-[var(--color-text-primary)]">{lastResult.playerName}</span> to {labelFor(lastResult.winner)} for ${formatMoney(lastResult.price)}</motion.p>}</AnimatePresence></div>
+  return <div className="relative mx-auto max-w-[1280px] px-4 py-5 pb-[19rem] md:px-6 md:pb-40 lg:pb-8">{error && <div className="mt-3 rounded-lg bg-[var(--color-danger)]/10 px-3 py-2 text-center text-sm text-[var(--color-danger)]">{error}</div>}<div className="mb-4 grid grid-cols-2 gap-3 lg:hidden"><BudgetPanel team={viewer} label={labelFor(viewer)} budget={view.budgets[viewer]} roster={view.rosters[viewer]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === viewer} isYou /><BudgetPanel team={opponent} label={labelFor(opponent)} budget={view.budgets[opponent]} roster={view.rosters[opponent]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === opponent} isAI={view.isAI[opponent]} isYou={false} /></div><div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.83fr)_minmax(24rem,1.32fr)_minmax(0,0.83fr)] lg:gap-5"><div className="hidden lg:order-1 lg:block lg:pt-1"><BudgetPanel team={viewer} label={labelFor(viewer)} budget={view.budgets[viewer]} roster={view.rosters[viewer]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === viewer} isYou /></div><main className="order-1 flex min-w-0 flex-col items-center gap-3 lg:order-2">{lot && <section className="flex w-full items-center gap-3 rounded-[1.1rem] border border-white/[0.08] bg-[#11141e]/90 px-3.5 py-3 shadow-[0_14px_32px_rgba(0,0,0,0.16)]"><div className="relative h-12 w-12 shrink-0"><svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90"><circle cx="28" cy="28" r={radius} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="4" /><motion.circle cx="28" cy="28" r={radius} fill="none" stroke={urgent ? "var(--color-danger)" : "#d4ff00"} strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} animate={{ strokeDashoffset: circumference * (1 - pct) }} transition={{ ease: "linear", duration: 1 }} /></svg><span className={cn("absolute inset-0 grid place-items-center text-base font-black tabular-nums", urgent ? "text-[var(--color-danger)]" : "text-[#f4f6fb]")}>{timeSec}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8f9ab0]"><span className="flex items-center gap-2"><span>Lot {view.results.length + 1}</span>{coinChip && <span className="rounded-full border border-[#d4ff00]/40 px-1.5 py-px text-[#d4ff00]">{coinChip}</span>}</span><span>Current bid</span></div><div className="mt-1 flex items-end justify-between gap-3"><strong className="truncate text-xs font-bold" style={{ color: tone }}>{status}</strong><span className="text-xl font-black leading-none tabular-nums text-[#d4ff00]">${formatMoney(lot.currentBid)}</span></div></div></section>}<div className="relative w-full"><div className={cn("transition-[filter] duration-200", justSold && "blur-[2px]")}><AnimatePresence mode="wait">{lot && <PlayerCard key={lot.player.id} player={lot.player} />}</AnimatePresence></div><AnimatePresence>{justSold && <SoldStamp name={justSold.name} winnerLabel={labelFor(justSold.winner)} price={justSold.price} />}</AnimatePresence></div>{lot && <div className="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-20 border-t border-white/10 bg-[var(--color-background)]/95 px-4 pb-3 pt-3 backdrop-blur-xl md:bottom-0 md:pb-[calc(1rem+env(safe-area-inset-bottom))] lg:static lg:z-auto lg:w-full lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"><div className="mx-auto w-full max-w-md lg:max-w-none"><BidControls state={state} humanSeat={viewer} minRaise={view.minRaise[viewer]} onBid={server.bid} onMax={() => { const max = view.budgets[viewer].maxAffordable; if (max > (lot?.currentBid ?? 0)) server.bid(max) }} onPass={() => server.pass()} /></div></div>}</main><div className="hidden lg:order-3 lg:block lg:pt-1"><BudgetPanel team={opponent} label={labelFor(opponent)} budget={view.budgets[opponent]} roster={view.rosters[opponent]} currentBid={lot?.currentBid} isHighBidder={lot?.highBidder === opponent} isAI={view.isAI[opponent]} isYou={false} /></div></div><AnimatePresence>{lastResult && <motion.p key={lastResult.playerId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 text-center text-sm text-[var(--color-text-muted)]">Last sold: <span className="font-semibold text-[var(--color-text-primary)]">{lastResult.playerName}</span> to {labelFor(lastResult.winner)} for ${formatMoney(lastResult.price)}</motion.p>}</AnimatePresence></div>
 }
 
 function WaitingRoom({ gameId, error, isPublic, stake }: { gameId: string; error: string | null; isPublic: boolean; stake?: { stake: number; payout: number } }) {

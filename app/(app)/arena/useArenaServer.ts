@@ -42,10 +42,20 @@ import {
   createRequest,
   joinRequest,
   matchmakeRequest,
+  newPairPlan,
+  nextPairPlan,
+  pairRequest,
   parseArenaError,
   parseHeldLobby,
+  parsePairResponse,
+  shouldRequestPair,
+  unparkPairPlan,
+  PAIR_PARK_PROBE_MS,
+  PAIR_REQUEST_TIMEOUT_MS,
   type ArenaErrorCode,
   type HeldLobby,
+  type PairPlan,
+  type PairStep,
 } from "@/lib/arena/clientRequests"
 
 type View = ArenaServerView
@@ -77,11 +87,12 @@ interface ApiResult<T> {
   body: T
 }
 
-async function api<T = View>(url: string, body?: unknown): Promise<ApiResult<T>> {
+async function api<T = View>(url: string, body?: unknown, opts?: { signal?: AbortSignal }): Promise<ApiResult<T>> {
   const res = await fetch(url, {
     method: body === undefined ? "GET" : "POST",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: opts?.signal,
   })
 
   const json = await res.json().catch(() => ({}))
@@ -140,6 +151,13 @@ export function useArenaServer() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const backoffRef = useRef(0)
   const idleLobbyPolls = useRef(0)
+  // The owner's pair schedule for the public lobby on screen (see "Pairing"
+  // below). Held in a ref, keyed by gameId, so effect re-runs and StrictMode's
+  // double mount share one request sequence per lobby.
+  const pairPlanRef = useRef<PairPlan | null>(null)
+  const pairInFlightRef = useRef(false)
+  // Bumped whenever the plan changes, only to re-run the arming effect.
+  const [pairTick, setPairTick] = useState(0)
 
   useEffect(() => {
     viewRef.current = view
@@ -576,6 +594,75 @@ export function useArenaServer() {
     }
   }, [gameId, channelName, isComplete, supabase, pollOnce, applyRemote])
 
+  // ── Pairing ────────────────────────────────────────────────────────────────
+  // While the owner sits in their public "Finding an opponent…" room, ask the
+  // server to pair the lobby once nobody has joined in time: one POST /pair
+  // about 15 s in, then retries until the server gives a definitive answer.
+  // The server decides everything (age, ownership, a real joiner who got there
+  // first); every client-side decision is a pure helper in clientRequests.ts.
+  //
+  //   - one request at a time (pairInFlightRef, reset in `finally`), each with
+  //     its own 10 s deadline
+  //   - only while the tab is visible; the listener fires a due request on return
+  //   - after 8 counted failures the plan parks: one probe when the tab becomes
+  //     visible again, and one every 60 s while it stays visible
+  //   - a response for a plan that reset() or a new lobby replaced is dropped
+  //   - a 200 goes through the monotonic apply(), so a real joiner's broadcast
+  //     racing the response can't move the board backwards
+  const wantsPair = shouldRequestPair({ publicLobby, status: view?.status, viewer: view?.viewer })
+
+  const firePair = useCallback(async () => {
+    const plan = pairPlanRef.current
+    if (!plan || plan.done || plan.parked || pairInFlightRef.current) return
+    if (document.visibilityState !== "visible") return // the visibility listener fires it on return
+    pairInFlightRef.current = true
+    let step: PairStep
+    try {
+      const req = pairRequest(plan.gameId)
+      const res = await api(req.url, req.body, { signal: AbortSignal.timeout(PAIR_REQUEST_TIMEOUT_MS) })
+      step = parsePairResponse(res.status, res.body, res.retryAfterMs, plan.attempts)
+    } catch {
+      step = parsePairResponse(null, null, null, plan.attempts) // network error, abort or timeout
+    } finally {
+      pairInFlightRef.current = false // always, so nothing can wedge the loop
+    }
+    if (pairPlanRef.current === plan) {
+      pairPlanRef.current = nextPairPlan(plan, step, Date.now(), Math.random)
+      if (step.kind === "apply") apply(step.view as View)
+      else if (step.kind === "stop" && step.error) setError(step.error)
+    }
+    // Always: the arming effect skips while a request is in flight, and a newer
+    // plan may be waiting for this one to settle.
+    setPairTick((t) => t + 1)
+  }, [apply])
+
+  useEffect(() => {
+    if (!wantsPair || !gameId) return
+    let plan = pairPlanRef.current
+    if (plan?.gameId !== gameId) plan = pairPlanRef.current = newPairPlan(gameId, Date.now(), Math.random)
+    if (plan.done || pairInFlightRef.current) return // the in-flight request bumps pairTick when it settles
+    const visible = () => document.visibilityState === "visible"
+    const probe = () => {
+      const current = pairPlanRef.current
+      if (!visible() || !current?.parked) return
+      pairPlanRef.current = unparkPairPlan(current, Date.now())
+      setPairTick((t) => t + 1)
+    }
+    const timer = plan.parked ? undefined : setTimeout(() => void firePair(), Math.max(0, plan.fireAt - Date.now()))
+    const interval = plan.parked ? setInterval(probe, PAIR_PARK_PROBE_MS) : undefined
+    const onVisibility = () => {
+      if (!visible()) return
+      if (pairPlanRef.current?.parked) probe()
+      else if (Date.now() >= (pairPlanRef.current?.fireAt ?? Infinity)) void firePair()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [wantsPair, gameId, pairTick, firePair])
+
   const reset = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
@@ -583,6 +670,7 @@ export function useArenaServer() {
     idleLobbyPolls.current = 0
     lastRevRef.current = -1
     viewerRef.current = "P1"
+    pairPlanRef.current = null
     setView(null)
     setGameId(null)
     setChannelName(null)

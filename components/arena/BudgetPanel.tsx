@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Cpu, Wallet } from "lucide-react"
+import { Cpu, User, Wallet } from "lucide-react"
 import type { BudgetSnapshot } from "@/lib/arena/budget"
 import type { RosterState, RosterSlot, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { ROSTER_SLOTS } from "@/lib/arena/types"
@@ -27,7 +27,7 @@ function MiniHeadshot({ player }: { player: SeasonPlayer }) {
   )
 }
 
-export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBidder, isAI }: {
+export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBidder, isAI, isYou: isYouProp }: {
   team: TeamId
   label: string
   budget: BudgetSnapshot
@@ -35,8 +35,14 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
   currentBid?: number
   isHighBidder?: boolean
   isAI?: boolean
+  /**
+   * Whether this is the viewer's own panel. Defaults to `label === "You"`;
+   * ServerArena passes it explicitly, so an opponent whose name is literally
+   * "You" can't take over the viewer's panel.
+   */
+  isYou?: boolean
 }) {
-  const isYou = label === "You"
+  const isYou = isYouProp ?? label === "You"
 
   return (
     <aside data-team={team} className="flex w-full flex-col gap-3">
@@ -51,7 +57,7 @@ export function BudgetPanel({ team, label, budget, roster, currentBid, isHighBid
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/[0.06] text-[#e7ebf5] lg:hidden">
-              {isYou ? <Wallet className="h-3.5 w-3.5" /> : <Cpu className="h-3.5 w-3.5" />}
+              {isYou ? <Wallet className="h-3.5 w-3.5" /> : isAI ? <Cpu className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
             </span>
             <h2 className="truncate text-[11px] font-black uppercase tracking-[0.04em] text-[#f1f4fb]">{isYou ? "Wallet" : label}</h2>
             {isAI && <span className="rounded bg-[#5442c7]/40 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#c3bdff]">AI</span>}

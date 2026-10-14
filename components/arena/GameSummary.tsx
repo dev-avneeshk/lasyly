@@ -16,6 +16,7 @@ export function GameSummary({
   onNewAuction,
   onExit,
   stakeOutcome,
+  coinNote,
 }: {
   result: GameResult
   humanSeat: TeamId
@@ -30,6 +31,8 @@ export function GameSummary({
    * CPU games. `commission` is the house's actual cut (0 at small stakes).
    */
   stakeOutcome?: { stake: number; payout: number; commission: number }
+  /** A neutral coin line shown in the stake line's place when there is no stake outcome (a friendly match). */
+  coinNote?: string | null
 }) {
   const humanWon = result.winner === humanSeat
   const label = (t: TeamId) => (t === "P1" ? p1Label : p2Label)
@@ -87,11 +90,13 @@ export function GameSummary({
             {humanWon && <p className="text-[11px] text-[var(--color-text-muted)]">Payouts can take a moment to show in your wallet.</p>}
           </div>
         )}
+        {!stakeOutcome && coinNote && <p className="mt-1 text-sm font-semibold text-[var(--color-text-muted)]">{coinNote}</p>}
         <div className="mt-2 flex items-center gap-2 rounded-full bg-white/5 px-4 py-1.5 text-sm">
           <Trophy className="h-4 w-4 text-[var(--color-lime)]" />
           <span className="text-[var(--color-text-muted)]">MVP</span>
           <span className="font-bold text-[var(--color-text-primary)]">{result.mvp.name}</span>
-          <span className="text-xs text-[var(--color-text-muted)]">({label(result.mvp.team)})</span>
+          {/* inline-block: max-width and overflow don't apply to a plain inline span. */}
+          <span className="text-xs text-[var(--color-text-muted)]">(<span className="inline-block max-w-[10rem] truncate align-bottom">{label(result.mvp.team)}</span>)</span>
         </div>
       </motion.div>
 
@@ -110,7 +115,7 @@ export function GameSummary({
           <ul className="space-y-2 text-sm text-[var(--color-text-muted)]">
             {result.matchupNotes.map((m, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="mt-0.5 rounded bg-[var(--color-lime)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-[var(--color-lime)]">
+                <span className="mt-0.5 max-w-[12rem] shrink-0 truncate rounded bg-[var(--color-lime)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-[var(--color-lime)]">
                   {label(m.favors)}
                 </span>
                 {m.text}

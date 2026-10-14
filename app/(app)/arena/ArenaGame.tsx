@@ -19,6 +19,7 @@ import { ServerArena } from "./ServerArena"
 import type { ArenaLaunch } from "./ArenaSetup"
 import type { Season, SeasonPlayer, TeamId } from "@/lib/arena/types"
 import { getSeasonPlayers } from "@/lib/arena/data"
+import { seatLabel } from "@/lib/arena/clientRequests"
 import { cn } from "@/lib/utils"
 import { Hourglass } from "lucide-react"
 
@@ -55,7 +56,8 @@ export default function ArenaGame({
   const game = useArenaGame()
   const server = useArenaServer()
   const { state, result } = game
-  const serverLabelFor = (seat: TeamId) => (seat === server.viewer ? "You" : "Opponent")
+  // "You", or the opponent's public name from the server view ("Opponent" when none is recorded).
+  const serverLabelFor = (seat: TeamId) => seatLabel(seat, server.viewer, server.view?.names)
 
   // Fire the chosen game mode exactly once, on mount. The config is fixed for
   // the lifetime of this component — changing it means going back to setup.
@@ -102,7 +104,8 @@ export default function ArenaGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.simulate])
 
-  if (server.view) return <ServerArena server={server} labelFor={serverLabelFor} />
+  // A global match announces itself to both seats; a private room doesn't.
+  if (server.view) return <ServerArena server={server} labelFor={serverLabelFor} announceMatch={launch.kind === "global"} />
 
   // No local game and no server view yet. Previously the setup screen stayed on
   // screen through this window (it owned `server.connecting` / `server.error`);

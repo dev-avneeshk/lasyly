@@ -8,6 +8,7 @@ import { ServerArena } from "../ServerArena"
 import { useArenaServer } from "../useArenaServer"
 import { useWalletBalance } from "../useWalletBalance"
 import type { TeamId } from "@/lib/arena/types"
+import { seatLabel } from "@/lib/arena/clientRequests"
 
 /** Server-computed facts about an invite, so the joiner sees the stake before paying. */
 export type JoinPreview = {
@@ -40,8 +41,9 @@ export default function JoinClient({ gameId, preview }: { gameId: string; previe
     joined.current = true
     server.join(gameId)
   }, [gameId, server, needsConfirm])
-  const labelFor = (seat: TeamId) => (seat === server.viewer ? "You" : "Opponent")
+  const labelFor = (seat: TeamId) => seatLabel(seat, server.viewer, server.view?.names)
 
+  // No announceMatch: invites and reloads show no matched banner.
   if (server.view) return <ServerArena server={server} labelFor={labelFor} />
 
   if (server.error) {
