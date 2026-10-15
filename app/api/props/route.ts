@@ -296,7 +296,10 @@ export const GET = withSecurity(async (request: Request) => {
       : [stat]
 
     const filterKey = `${minMinutes}-${vsOpponent ? "1" : "0"}-${withoutPlayer.toLowerCase().replace(/\s+/g, "_")}`
-    const nbaCacheKey = `nba-props:${stat}:${direction}:${matchup ?? "all"}:${todayDate}:${filterKey}`
+    // v2: the engine now emits `gameId` on each lastGames entry (for the
+    // DB-backed boxscore popup). Versioned so stale route-level blobs that
+    // predate the id are not served.
+    const nbaCacheKey = `nba-props:v2:${stat}:${direction}:${matchup ?? "all"}:${todayDate}:${filterKey}`
 
     // The precompute cron only covers the default slate (all stats, both
     // directions, no filters/search/matchup). Bespoke views recompute live.

@@ -23,7 +23,8 @@ import { OpponentSummaryRow } from "@/components/analysis/OpponentSummaryRow"
 import MatchDetailModal from "@/components/scores/MatchDetailModal"
 import { useToast } from "@/components/ui/Toast"
 import { resolveBoxscoreMatch } from "@/lib/scores/resolveGameEvent"
-import type { LiveMatch } from "@/types"
+import type { LiveMatch, MatchSummary } from "@/types"
+import type { NbaBoxscore } from "@/lib/scores/nbaBoxscore"
 import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
 import { ComposedChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts"
 
@@ -36,7 +37,7 @@ interface PropData {
   propLine: number
   l5Avg: number
   l10Avg: number
-  lastGames: { value: number; overLine: boolean; date: string; opponent: string; minutes?: number; eventId?: string }[]
+  lastGames: { value: number; overLine: boolean; date: string; opponent: string; minutes?: number; eventId?: string; gameId?: string }[]
   hitRate: { over: number; total: number; label: string }
   trend: "up" | "down" | "neutral"
   trendPct: number
@@ -135,6 +136,9 @@ export default function PlayerDashboardPage() {
   // Boxscore popup opened by clicking a performance-chart bar (NBA & NFL only).
   const [boxscoreMatch, setBoxscoreMatch] = useState<LiveMatch | null>(null)
   const [boxscoreLoading, setBoxscoreLoading] = useState(false)
+  // NBA only: boxscore read straight from our DB, fed to the modal so it skips
+  // ESPN. Null for NFL (which resolves an ESPN event id instead).
+  const [boxscoreSummary, setBoxscoreSummary] = useState<MatchSummary | null>(null)
 
   // Track mobile breakpoint for chart display
   useEffect(() => {
@@ -474,13 +478,56 @@ export default function PlayerDashboardPage() {
   // other sport the chart stays non-interactive — no broken popup.
   const isBoxscoreSport = sportParam === "NBA" || sportParam === "NFL"
 
-  // Resolve the clicked bar's game to a LiveMatch, then open the modal. A game
-  // we can't match (e.g. an old NBA date outside ESPN's scoreboard window) is a
-  // graceful no-op; the modal itself handles the no-boxscore-available case.
+  // Open the clicked bar's boxscore. NBA reads from OUR DB by game id (works for
+  // every stored game, old ones included); NFL still resolves an ESPN event id.
+  // A toast is shown only on a genuine fetch/DB failure.
   const handleGameClick = async (game: PerformanceGame) => {
     if (boxscoreLoading) return
     setBoxscoreLoading(true)
     try {
+      if (sportParam === "NBA") {
+        setBoxscoreSummary(null)
+        if (!game.gameId) {
+          toast("Boxscore unavailable for this game", "info")
+          return
+        }
+        try {
+          const res = await fetch(`/api/nba/boxscore/${game.gameId}`)
+          if (!res.ok) throw new Error("Failed")
+          const json = (await res.json()) as { success?: boolean; data?: NbaBoxscore }
+          if (!json.success || !json.data) throw new Error("No data")
+          const box = json.data
+          // Build the modal header from our DB game, and feed the shaped
+          // boxscore so the modal renders player stat lines without ESPN.
+          const match: LiveMatch = {
+            id: `nba-box-${game.gameId}`,
+            league: "NBA",
+            sport: "Basketball",
+            status: "Finished",
+            homeTeam: box.homeTeam,
+            awayTeam: box.awayTeam,
+            homeScore: box.homeScore,
+            awayScore: box.awayScore,
+            homeLogo: getTeamLogoUrl(box.homeTeam, "NBA") ?? undefined,
+            awayLogo: getTeamLogoUrl(box.awayTeam, "NBA") ?? undefined,
+          }
+          const summary: MatchSummary = {
+            eventId: match.id,
+            boxscore: {
+              teams: [],
+              players: box.players,
+            },
+          }
+          setBoxscoreSummary(summary)
+          setBoxscoreMatch(match)
+        } catch {
+          toast("Boxscore unavailable for this game", "info")
+        }
+        return
+      }
+
+      // NFL (and any other resolvable sport): stored ESPN event id.
+      setBoxscoreSummary(null)
       const match = await resolveBoxscoreMatch({
         sport: sportParam,
         playerTeam: prop.team,
@@ -498,10 +545,6 @@ export default function PlayerDashboardPage() {
       })
       if (match) {
         setBoxscoreMatch(match)
-      } else if (sportParam === "NBA") {
-        // NBA is the only path that can return null (scoreboard not resolved /
-        // fetch failed). Give the user feedback instead of a silent no-op.
-        toast("Boxscore unavailable for this game", "info")
       }
     } finally {
       setBoxscoreLoading(false)
@@ -2074,7 +2117,14 @@ export default function PlayerDashboardPage() {
 
       {/* Boxscore popup — opened by clicking a bar in the performance chart.
           Self-handles its own loading / no-data states. */}
-      <MatchDetailModal match={boxscoreMatch} onClose={() => setBoxscoreMatch(null)} />
+      <MatchDetailModal
+        match={boxscoreMatch}
+        presuppliedSummary={boxscoreSummary}
+        onClose={() => {
+          setBoxscoreMatch(null)
+          setBoxscoreSummary(null)
+        }}
+      />
     </div>
   )
 }

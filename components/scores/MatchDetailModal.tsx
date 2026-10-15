@@ -11,6 +11,12 @@ import { alignHomeAway, orderHomeFirst } from "@/lib/scores/alignTeams"
 interface MatchDetailModalProps {
   match: LiveMatch | null
   onClose: () => void
+  /**
+   * Pre-supplied summary (NBA): when provided, the modal renders this instead of
+   * fetching from ESPN. Used by the player-analysis boxscore popup, which builds
+   * the summary from our own DB. NFL leaves this undefined and still fetches.
+   */
+  presuppliedSummary?: MatchSummary | null
 }
 
 type Tab = "summary" | "boxscore" | "stats" | "standings"
@@ -100,7 +106,7 @@ function TeamLogo({ url, name, color, size = "lg" }: { url?: string; name: strin
   )
 }
 
-export default function MatchDetailModal({ match, onClose }: MatchDetailModalProps) {
+export default function MatchDetailModal({ match, onClose, presuppliedSummary }: MatchDetailModalProps) {
   const [summary, setSummary] = useState<MatchSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState(false)
@@ -119,6 +125,10 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
       // Individual sports always show summary; team sports show stats when live/finished
       if (match.status === "Not Started" || INDIVIDUAL_SPORTS.has(match.sport)) {
         setActiveTab("summary")
+      } else if (presuppliedSummary && !presuppliedSummary.boxscore?.teams?.length) {
+        // Our DB boxscore (NBA) carries player stat lines but no team-stat
+        // comparison, so open straight to the Box Score tab.
+        setActiveTab("boxscore")
       } else {
         setActiveTab("stats")
       }
@@ -147,7 +157,12 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
   }, [])
 
   useEffect(() => {
-    if (match?.eventId) {
+    // Pre-supplied summary (NBA from our DB): render it directly, never ESPN.
+    if (presuppliedSummary) {
+      setSummary(presuppliedSummary)
+      setFetchError(false)
+      setLoading(false)
+    } else if (match?.eventId) {
       fetchSummary(match.eventId, match.league)
     } else if (match) {
       // No eventId — try using the match id as eventId
@@ -158,7 +173,7 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
       setSummary(null)
       setFetchError(false)
     }
-  }, [match?.eventId, match?.league, match?.id, fetchSummary])
+  }, [match?.eventId, match?.league, match?.id, fetchSummary, presuppliedSummary])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -182,8 +197,13 @@ export default function MatchDetailModal({ match, onClose }: MatchDetailModalPro
   const venue = summary?.venue || match.venue
   const isUpcoming = match.status === "Not Started"
 
+  // A pre-supplied DB boxscore (NBA) only has player stat lines, so expose just
+  // the Box Score tab — team-stat / standings tabs would render empty.
+  const isDbBoxscore = !!presuppliedSummary && !presuppliedSummary.boxscore?.teams?.length
   const tabs: { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] = isUpcoming
     ? [{ id: "summary", label: "Preview", icon: <Clock className="h-3.5 w-3.5" />, show: true }]
+    : isDbBoxscore
+    ? [{ id: "boxscore", label: "Box Score", icon: <BarChart3 className="h-3.5 w-3.5" />, show: true }]
     : getTabsForSport(match.sport)
   const visibleTabs = tabs.filter((t) => t.show)
 

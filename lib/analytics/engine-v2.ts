@@ -61,6 +61,8 @@ export interface GraphDataPoint {
   overLine: boolean
   /** Minutes played in this game */
   minutes: number
+  /** nba_games UUID for the game, so a clicked chart bar can open its boxscore. */
+  gameId?: string
 }
 
 /**
@@ -115,6 +117,8 @@ export interface BatchPlayerGameRow {
   statValue: number
   minutes: number
   position: string | null
+  /** nba_games UUID (= nba_player_stats.game_id) for this game. */
+  gameId?: string
 }
 
 /**
@@ -387,7 +391,7 @@ function fetchSlateRows(teams: string[], cutoff: string): Promise<Record<string,
     async (from, to) => {
       const { data, error } = await supabase
         .from("nba_player_stats")
-        .select(`id, player_name, team, opponent, position, minutes, ${SLATE_STAT_COLUMNS.join(", ")}, nba_games!inner(game_date, home_team, away_team)`)
+        .select(`id, player_name, team, opponent, position, minutes, game_id, ${SLATE_STAT_COLUMNS.join(", ")}, nba_games!inner(game_date, home_team, away_team)`)
         .in("team", teams)
         .gte("nba_games.game_date", cutoff)
         .order("nba_games(game_date)", { ascending: false })
@@ -450,6 +454,7 @@ export async function fetchBatchPlayerStats(
       statValue,
       minutes: parseMinutes(row.minutes),
       position: row.position ?? null,
+      gameId: row.game_id ?? undefined,
     }
 
     if (!playerMap.has(playerName)) {
@@ -638,6 +643,7 @@ export function buildGraphData(
     opponent: game.opponent,
     overLine: game.statValue >= propLine,
     minutes: game.minutes,
+    gameId: game.gameId,
   }))
 }
 
@@ -734,7 +740,10 @@ export async function computeMatchupScopedProps(
   // two-team result was served (and precomputed) as the full slate. v2 drops
   // entries written under the old key.
   const matchupSuffix = matchup ? `:m${matchup.toUpperCase()}` : ""
-  const cacheKey = `matchup-props:v2:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
+  // v3: lastGames now carries `gameId` (nba_games UUID) so a clicked chart bar
+  // can open that game's DB-backed boxscore. Bumped from v2 so stale blobs that
+  // predate the id are not served.
+  const cacheKey = `matchup-props:v3:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
 
   // 3 minutes, matching PROPS_TTL.nba in /api/props.
   //
@@ -1227,6 +1236,7 @@ async function computeMatchupScopedPropsUncached(
         date: gd.date,
         opponent: gd.opponent,
         minutes: gd.minutes,
+        gameId: gd.gameId,
       })),
       hitRate: {
         over: overCount,

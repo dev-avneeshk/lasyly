@@ -2,37 +2,12 @@
  * Unit tests for lib/scores/resolveGameEvent.
  *
  * The resolver maps a clicked performance-chart bar to a LiveMatch the boxscore
- * modal can open. NFL carries a stored ESPN event id (synchronous); NBA resolves
- * the event from the ESPN scoreboard for the game date by opponent abbreviation.
+ * modal can open. Only NFL goes through here now (it carries a stored ESPN event
+ * id, resolved synchronously). NBA reads its boxscore from our own DB by game id
+ * elsewhere, so it is not resolved here; any other sport returns null.
  */
 import { describe, it, expect, vi, afterEach } from "vitest"
 import { resolveBoxscoreMatch } from "@/lib/scores/resolveGameEvent"
-import type { LiveMatch } from "@/types"
-
-const nbaScoreboard: LiveMatch[] = [
-  {
-    id: "espn-401",
-    eventId: "401584690",
-    league: "NBA",
-    sport: "Basketball",
-    status: "Finished",
-    homeTeam: "Oklahoma City Thunder",
-    awayTeam: "Denver Nuggets",
-    homeScore: 120,
-    awayScore: 110,
-  },
-  {
-    id: "espn-402",
-    eventId: "401584691",
-    league: "NBA",
-    sport: "Basketball",
-    status: "Finished",
-    homeTeam: "Los Angeles Lakers",
-    awayTeam: "Boston Celtics",
-    homeScore: 101,
-    awayScore: 99,
-  },
-]
 
 describe("resolveBoxscoreMatch", () => {
   afterEach(() => {
@@ -100,16 +75,10 @@ describe("resolveBoxscoreMatch", () => {
     vi.unstubAllGlobals()
   })
 
-  it("resolves the correct NBA event by opponent abbreviation", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ data: nbaScoreboard, success: true }),
-      }))
-    )
+  it("returns null for NBA without fetching (boxscore comes from our DB)", async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal("fetch", fetchSpy)
 
-    // Player faced DEN (Denver Nuggets) — should resolve the first event.
     const match = await resolveBoxscoreMatch({
       sport: "NBA",
       playerTeam: "OKC",
@@ -117,51 +86,8 @@ describe("resolveBoxscoreMatch", () => {
       date: "2025-10-21",
     })
 
-    expect(match?.eventId).toBe("401584690")
-    expect(match?.status).toBe("Finished")
-
-    vi.unstubAllGlobals()
-  })
-
-  it("queries the scoreboard with the date converted to YYYYMMDD and Basketball", async () => {
-    const fetchSpy = vi.fn(async (_url: string) => ({
-      ok: true,
-      json: async () => ({ data: nbaScoreboard }),
-    }))
-    vi.stubGlobal("fetch", fetchSpy)
-
-    await resolveBoxscoreMatch({
-      sport: "NBA",
-      playerTeam: "LAL",
-      opponent: "BOS",
-      date: "2025-10-21",
-    })
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    const url = String(fetchSpy.mock.calls[0][0])
-    expect(url).toContain("date=20251021")
-    expect(url).toContain("sport=Basketball")
-
-    vi.unstubAllGlobals()
-  })
-
-  it("returns null when no scoreboard event matches the opponent", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ data: nbaScoreboard }),
-      }))
-    )
-
-    const match = await resolveBoxscoreMatch({
-      sport: "NBA",
-      playerTeam: "MIA",
-      opponent: "PHX", // not in the scoreboard
-      date: "2025-10-21",
-    })
-
     expect(match).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
 
     vi.unstubAllGlobals()
   })
@@ -179,24 +105,6 @@ describe("resolveBoxscoreMatch", () => {
 
     expect(match).toBeNull()
     expect(fetchSpy).not.toHaveBeenCalled()
-
-    vi.unstubAllGlobals()
-  })
-
-  it("returns null gracefully when the scoreboard fetch fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({ ok: false, json: async () => ({}) }))
-    )
-
-    const match = await resolveBoxscoreMatch({
-      sport: "NBA",
-      playerTeam: "OKC",
-      opponent: "DEN",
-      date: "2025-10-21",
-    })
-
-    expect(match).toBeNull()
 
     vi.unstubAllGlobals()
   })

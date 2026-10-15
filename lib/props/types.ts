@@ -22,6 +22,8 @@ export interface GameResult {
   minutes?: number
   /** ESPN event id for the game, when the source carries one (NFL). */
   eventId?: string
+  /** nba_games UUID for the game (NBA), so a clicked bar can open its boxscore. */
+  gameId?: string
 }
 
 export interface HitRate {

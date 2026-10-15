@@ -22,6 +22,8 @@ export interface PerformanceGame {
   minutes?: number
   /** ESPN event id for the game, when available (NFL). */
   eventId?: string
+  /** nba_games UUID for the game (NBA), used to open its DB-backed boxscore. */
+  gameId?: string
 }
 
 interface PerformanceCardProps {
@@ -134,6 +136,7 @@ export function PerformanceCard({
         minutes: game.minutes ?? 0,
         date: game.date,
         eventId: game.eventId,
+        gameId: game.gameId,
       })),
     [games]
   )
@@ -308,6 +311,7 @@ export function PerformanceCard({
                             opponent: String(point.opponent ?? ""),
                             minutes: point.minutes,
                             eventId: point.eventId,
+                            gameId: point.gameId,
                           })
                         }
                       : undefined
