@@ -17,6 +17,7 @@ export function GameSummary({
   onExit,
   stakeOutcome,
   coinNote,
+  friendly,
 }: {
   result: GameResult
   humanSeat: TeamId
@@ -33,6 +34,14 @@ export function GameSummary({
   stakeOutcome?: { stake: number; payout: number; commission: number }
   /** A neutral coin line shown in the stake line's place when there is no stake outcome (a friendly match). */
   coinNote?: string | null
+  /**
+   * A friendly/practice match (view.econ.mode === "friendly"): it pays no
+   * winnings and the stake is returned. The verdict is reframed so a win does
+   * not read as a competitive coin win, and a loss does not read as a lost
+   * stake. Derived at the call site from the sanctioned econ projection — the
+   * internal botMatch flag never reaches this component.
+   */
+  friendly?: boolean
 }) {
   const humanWon = result.winner === humanSeat
   const label = (t: TeamId) => (t === "P1" ? p1Label : p2Label)
@@ -64,11 +73,20 @@ export function GameSummary({
         animate={{ opacity: 1, scale: 1 }}
         className={cn(
           "flex flex-col items-center gap-2 rounded-3xl border p-8 text-center",
-          humanWon ? "border-[var(--color-lime)]/60 shadow-[0_0_60px_-18px_rgba(212,255,0,0.6)]" : "border-[var(--color-danger)]/40"
+          friendly
+            ? "border-[var(--color-border)]"
+            : humanWon
+              ? "border-[var(--color-lime)]/60 shadow-[0_0_60px_-18px_rgba(212,255,0,0.6)]"
+              : "border-[var(--color-danger)]/40"
         )}
       >
-        <span className={cn("text-4xl font-black uppercase tracking-tight", humanWon ? "text-[var(--color-lime)]" : "text-[var(--color-danger)]")}>
-          {humanWon ? "You Win" : "You Lose"}
+        <span
+          className={cn(
+            "text-4xl font-black uppercase tracking-tight",
+            friendly ? "text-[var(--color-text-primary)]" : humanWon ? "text-[var(--color-lime)]" : "text-[var(--color-danger)]"
+          )}
+        >
+          {friendly ? (humanWon ? "Practice win" : "Practice loss") : humanWon ? "You Win" : "You Lose"}
         </span>
         <div className="flex items-center gap-4 text-5xl font-black tabular-nums">
           <span className={result.winner === "P1" ? "text-[var(--color-lime)]" : "text-[var(--color-text-muted)]"}>{result.finalScore.p1}</span>

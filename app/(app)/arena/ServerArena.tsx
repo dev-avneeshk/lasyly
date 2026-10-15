@@ -130,7 +130,7 @@ function ServerArenaBody({ server, labelFor }: ServerArenaProps) {
   const coinChip = coinChipText(view.econ)
 
   if (view.status === "lobby") return <WaitingRoom gameId={view.gameId} error={error} isPublic={server.isPublicLobby} stake={stakeOutcome} />
-  if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={revealDone} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} stakeOutcome={stakeOutcome} coinNote={friendlyCoinNote(view.econ)} />
+  if (view.status === "complete" && view.result) return !revealed ? <SimulationScreen result={view.result} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onDone={revealDone} /> : <GameSummary result={view.result} humanSeat={viewer} p1Label={labelFor("P1")} p2Label={labelFor("P2")} onRematch={server.reset} onNewAuction={server.reset} onExit={server.reset} stakeOutcome={stakeOutcome} coinNote={friendlyCoinNote(view.econ)} friendly={view.econ?.mode === "friendly"} />
   // "lineup" OR a phase that claims the game is running but carries no result:
   // both mean we're still waiting on the handoff. The second case used to fall
   // through to the auction renderer with `lot === null` and paint an empty board.
