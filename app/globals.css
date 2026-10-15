@@ -519,3 +519,18 @@
     scroll-behavior: smooth;
   }
 }
+
+/* ── Performance chart (components/analysis/PerformanceCard) ──────────────── */
+/* Clicking a recharts bar focuses its SVG shape, which the browser paints with
+   a blue focus ring (and a tap highlight on touch). Suppress it SCOPED to this
+   chart only — never a global `*:focus{outline:none}`, which would break
+   keyboard-focus visibility everywhere else. */
+.perf-chart :focus,
+.perf-chart :focus-visible {
+  outline: none;
+}
+.perf-chart svg,
+.perf-chart .recharts-bar-rectangle,
+.perf-chart .recharts-bar-rectangle path {
+  -webkit-tap-highlight-color: transparent;
+}

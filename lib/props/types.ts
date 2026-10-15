@@ -20,6 +20,8 @@ export interface GameResult {
   date: string
   opponent: string
   minutes?: number
+  /** ESPN event id for the game, when the source carries one (NFL). */
+  eventId?: string
 }
 
 export interface HitRate {

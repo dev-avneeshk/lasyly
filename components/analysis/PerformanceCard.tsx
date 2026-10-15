@@ -20,6 +20,8 @@ export interface PerformanceGame {
   date: string
   opponent: string
   minutes?: number
+  /** ESPN event id for the game, when available (NFL). */
+  eventId?: string
 }
 
 interface PerformanceCardProps {
@@ -34,6 +36,12 @@ interface PerformanceCardProps {
   sampleLabel: string
   /** Rendered instead of the chart when there are no games. */
   emptyState?: React.ReactNode
+  /**
+   * Fired when a bar is clicked, with the clicked game. When omitted, bars are
+   * not interactive (default cursor, no handler) — the page passes this only
+   * for sports whose boxscore can be resolved (NBA, NFL).
+   */
+  onGameClick?: (game: PerformanceGame) => void
 }
 
 /**
@@ -115,6 +123,7 @@ export function PerformanceCard({
   onThresholdChange,
   sampleLabel,
   emptyState,
+  onGameClick,
 }: PerformanceCardProps) {
   const chartData = useMemo(
     () =>
@@ -124,6 +133,7 @@ export function PerformanceCard({
         value: game.value,
         minutes: game.minutes ?? 0,
         date: game.date,
+        eventId: game.eventId,
       })),
     [games]
   )
@@ -200,7 +210,7 @@ export function PerformanceCard({
             )}
           </div>
         ) : (
-          <div className="w-full h-[300px]">
+          <div className="perf-chart w-full h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 22, right: 44, left: 4, bottom: 26 }}>
                 <XAxis
@@ -280,6 +290,28 @@ export function PerformanceCard({
                   radius={[3, 3, 0, 0]}
                   maxBarSize={30}
                   isAnimationActive={false}
+                  cursor={onGameClick ? "pointer" : "default"}
+                  onClick={
+                    onGameClick
+                      ? (data: unknown) => {
+                          // Recharts passes the clicked bar's datum (our chartData
+                          // entry, sometimes nested under `payload`). Map it back
+                          // to a PerformanceGame for the click handler.
+                          const d = data as {
+                            payload?: (typeof chartData)[number]
+                          } & Partial<(typeof chartData)[number]>
+                          const point = d.payload ?? d
+                          if (point?.date === undefined && point?.opponent === undefined) return
+                          onGameClick({
+                            value: Number(point.value ?? 0),
+                            date: String(point.date ?? ""),
+                            opponent: String(point.opponent ?? ""),
+                            minutes: point.minutes,
+                            eventId: point.eventId,
+                          })
+                        }
+                      : undefined
+                  }
                   label={(labelProps: {
                     x?: string | number
                     y?: string | number

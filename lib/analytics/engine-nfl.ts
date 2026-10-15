@@ -146,7 +146,7 @@ const TD_COLUMNS = ["pass_td", "rush_td", "rec_td"] as const
  * names collide and disagree across the two tables — see fetchHeadshotMap.
  */
 const SELECT_COLUMN_LIST = [
-  "player_name", "athlete_id", "team", "opponent", "position", "game_date",
+  "player_name", "athlete_id", "team", "opponent", "position", "game_date", "game_id",
   "pass_yds", "rush_yds", "rec_yds",
   "pass_td", "rush_td", "rec_td",
   "rec", "rush_att", "pass_int", "sacks",
@@ -787,11 +787,12 @@ async function fetchPlayerStats(teams: string[]): Promise<NFLPlayerRows> {
   // the teams came out of the games query.
   const teamsKey = [...teams].sort().join(",")
 
-  // v2: the cached value is now the columnar PackedPlayerRows shape, and it holds
-  // materially more history. Entries written by the previous version are a
-  // different type AND truncated data, so they must not be read back.
+  // v3: the packed column set now includes `game_id` (the ESPN event id used to
+  // open a boxscore from the chart). v2 blobs lack that column, so they must not
+  // be read back. (v2 note: the cached value is the columnar PackedPlayerRows
+  // shape holding materially more history than v1.)
   const packed = await cached<PackedPlayerRows>(
-    `nfl-player-rows:v2:${cutoff}:${teamsKey}`,
+    `nfl-player-rows:v3:${cutoff}:${teamsKey}`,
     async () => {
       const supabase = createAdminClient()
 
@@ -984,12 +985,19 @@ export async function computeNFLProps(
     // Build lastGames + graphData (align dates/opponents with values)
     const dates = rawRows.map((r) => (r.game_date as string) ?? "")
     const opponents = rawRows.map((r) => (r.opponent as string) ?? team)
+    // nfl_games.id is the ESPN event id, stored on each stat row as game_id —
+    // thread it through so a clicked bar can open that game's boxscore.
+    const eventIds = rawRows.map((r) => {
+      const id = r.game_id
+      return id === null || id === undefined ? undefined : String(id)
+    })
 
     const lastGames: GameResult[] = values.slice(0, 15).map((v, i) => ({
       value: v,
       overLine: v >= propLine,
       date: dates[i] ?? "",
       opponent: opponents[i] ?? team,
+      eventId: eventIds[i],
     }))
 
     const graphData = values

@@ -18,8 +18,11 @@ import { NFLMatchupPanels } from "@/components/analysis/NFLMatchupPanels"
 import { PlayerHero } from "@/components/analysis/PlayerHero"
 import { MatchupBanner } from "@/components/analysis/MatchupBanner"
 import { PropControls } from "@/components/analysis/PropControls"
-import { PerformanceCard } from "@/components/analysis/PerformanceCard"
+import { PerformanceCard, type PerformanceGame } from "@/components/analysis/PerformanceCard"
 import { OpponentSummaryRow } from "@/components/analysis/OpponentSummaryRow"
+import MatchDetailModal from "@/components/scores/MatchDetailModal"
+import { resolveBoxscoreMatch } from "@/lib/scores/resolveGameEvent"
+import type { LiveMatch } from "@/types"
 import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
 import { ComposedChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts"
 
@@ -32,7 +35,7 @@ interface PropData {
   propLine: number
   l5Avg: number
   l10Avg: number
-  lastGames: { value: number; overLine: boolean; date: string; opponent: string; minutes?: number }[]
+  lastGames: { value: number; overLine: boolean; date: string; opponent: string; minutes?: number; eventId?: string }[]
   hitRate: { over: number; total: number; label: string }
   trend: "up" | "down" | "neutral"
   trendPct: number
@@ -127,6 +130,9 @@ export default function PlayerDashboardPage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null)
   const matchupPanelsRef = useRef<HTMLDivElement | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  // Boxscore popup opened by clicking a performance-chart bar (NBA & NFL only).
+  const [boxscoreMatch, setBoxscoreMatch] = useState<LiveMatch | null>(null)
+  const [boxscoreLoading, setBoxscoreLoading] = useState(false)
 
   // Track mobile breakpoint for chart display
   useEffect(() => {
@@ -460,6 +466,31 @@ export default function PlayerDashboardPage() {
   const filteredHistory = gameHistory.slice(-timeRangeNum)
   const overCount = filteredHistory.filter(g => g.value >= threshold).length
   const totalGames = filteredHistory.length
+
+  // Boxscore popup is only wired for sports whose game can be resolved to an
+  // ESPN event: NBA (resolved at click time) and NFL (stored event id). For any
+  // other sport the chart stays non-interactive — no broken popup.
+  const isBoxscoreSport = sportParam === "NBA" || sportParam === "NFL"
+
+  // Resolve the clicked bar's game to a LiveMatch, then open the modal. A game
+  // we can't match (e.g. an old NBA date outside ESPN's scoreboard window) is a
+  // graceful no-op; the modal itself handles the no-boxscore-available case.
+  const handleGameClick = async (game: PerformanceGame) => {
+    if (boxscoreLoading) return
+    setBoxscoreLoading(true)
+    try {
+      const match = await resolveBoxscoreMatch({
+        sport: sportParam,
+        playerTeam: prop.team,
+        opponent: game.opponent,
+        date: game.date,
+        eventId: game.eventId,
+      })
+      if (match) setBoxscoreMatch(match)
+    } finally {
+      setBoxscoreLoading(false)
+    }
+  }
 
   // Limit game-by-game charts to 5 on mobile, full list on desktop
   const chartGameBreakdown = gameBreakdown
@@ -819,6 +850,7 @@ export default function PlayerDashboardPage() {
             games={filteredHistory}
             threshold={threshold}
             onThresholdChange={setThreshold}
+            onGameClick={isBoxscoreSport ? handleGameClick : undefined}
             sampleLabel={`Last ${totalGames || timeRange.replace("L", "")} Games`}
             emptyState={
               <div className="flex flex-col items-center gap-1 text-center">
@@ -2023,6 +2055,10 @@ export default function PlayerDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Boxscore popup — opened by clicking a bar in the performance chart.
+          Self-handles its own loading / no-data states. */}
+      <MatchDetailModal match={boxscoreMatch} onClose={() => setBoxscoreMatch(null)} />
     </div>
   )
 }
