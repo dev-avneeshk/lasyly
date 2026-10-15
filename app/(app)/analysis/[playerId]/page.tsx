@@ -21,6 +21,7 @@ import { PropControls } from "@/components/analysis/PropControls"
 import { PerformanceCard, type PerformanceGame } from "@/components/analysis/PerformanceCard"
 import { OpponentSummaryRow } from "@/components/analysis/OpponentSummaryRow"
 import MatchDetailModal from "@/components/scores/MatchDetailModal"
+import { useToast } from "@/components/ui/Toast"
 import { resolveBoxscoreMatch } from "@/lib/scores/resolveGameEvent"
 import type { LiveMatch } from "@/types"
 import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
@@ -81,6 +82,7 @@ export default function PlayerDashboardPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { toast } = useToast()
   const playerId = decodeURIComponent(params.playerId as string)
   const statParam = searchParams.get("stat") ?? "pts"
   const teamParam = searchParams.get("team") ?? ""
@@ -485,8 +487,22 @@ export default function PlayerDashboardPage() {
         opponent: game.opponent,
         date: game.date,
         eventId: game.eventId,
+        // Real team identity so the NFL modal header shows the two teams
+        // (names/logos/colors) instead of placeholder abbreviations.
+        playerTeamName: teamMeta.name ?? undefined,
+        playerTeamLogo: teamMeta.logoUrl ?? undefined,
+        playerTeamColor: teamMeta.color ?? undefined,
+        opponentName: opponentMeta?.name ?? undefined,
+        opponentLogo: opponentMeta?.logoUrl ?? undefined,
+        opponentColor: opponentMeta?.color ?? undefined,
       })
-      if (match) setBoxscoreMatch(match)
+      if (match) {
+        setBoxscoreMatch(match)
+      } else if (sportParam === "NBA") {
+        // NBA is the only path that can return null (scoreboard not resolved /
+        // fetch failed). Give the user feedback instead of a silent no-op.
+        toast("Boxscore unavailable for this game", "info")
+      }
     } finally {
       setBoxscoreLoading(false)
     }

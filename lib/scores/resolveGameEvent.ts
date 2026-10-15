@@ -18,7 +18,7 @@
  */
 
 import type { LiveMatch } from "@/types"
-import { NBA_TEAM_FULL_NAME } from "@/lib/constants/teams"
+import { NBA_TEAM_FULL_NAME, getTeamLogoUrl } from "@/lib/constants/teams"
 import { normalizeTeamName } from "@/lib/scores/alignTeams"
 
 export interface ResolveBoxscoreArgs {
@@ -32,6 +32,18 @@ export interface ResolveBoxscoreArgs {
   date: string
   /** ESPN event id when the source carries one (NFL). */
   eventId?: string
+  /** Real player-team name for the modal header (NFL). Falls back to the abbr. */
+  playerTeamName?: string
+  /** Real player-team logo url for the modal header (NFL). */
+  playerTeamLogo?: string | null
+  /** Real player-team color for the modal header wash (NFL). */
+  playerTeamColor?: string | null
+  /** Real opponent name for the modal header (NFL). Falls back to the abbr. */
+  opponentName?: string
+  /** Real opponent logo url for the modal header (NFL). */
+  opponentLogo?: string | null
+  /** Real opponent color for the modal header wash (NFL). */
+  opponentColor?: string | null
 }
 
 /** `YYYY-MM-DD` → `YYYYMMDD` for the scoreboard query param. */
@@ -54,9 +66,23 @@ function matchInvolvesOpponent(match: LiveMatch, opponentAbbr: string): boolean 
 }
 
 export async function resolveBoxscoreMatch(args: ResolveBoxscoreArgs): Promise<LiveMatch | null> {
-  const { sport, playerTeam, opponent, date, eventId } = args
+  const {
+    sport,
+    playerTeam,
+    opponent,
+    date,
+    eventId,
+    playerTeamName,
+    playerTeamLogo,
+    playerTeamColor,
+    opponentName,
+    opponentLogo,
+    opponentColor,
+  } = args
 
-  // NFL (path a): stored ESPN event id → open directly.
+  // NFL (path a): stored ESPN event id → open directly. The modal header reads
+  // team identity entirely from this LiveMatch, so thread real names/logos/colors
+  // (falling back to the stored abbreviations) instead of bare abbreviations.
   if (eventId && sport === "NFL") {
     return {
       id: `perf-${eventId}`,
@@ -64,8 +90,12 @@ export async function resolveBoxscoreMatch(args: ResolveBoxscoreArgs): Promise<L
       league: "NFL",
       sport: "American Football",
       status: "Finished",
-      homeTeam: playerTeam,
-      awayTeam: opponent,
+      homeTeam: playerTeamName || playerTeam,
+      awayTeam: opponentName || opponent,
+      homeLogo: playerTeamLogo ?? getTeamLogoUrl(playerTeam, "NFL") ?? undefined,
+      awayLogo: opponentLogo ?? getTeamLogoUrl(opponent, "NFL") ?? undefined,
+      homeColor: playerTeamColor ?? undefined,
+      awayColor: opponentColor ?? undefined,
       homeScore: 0,
       awayScore: 0,
     }

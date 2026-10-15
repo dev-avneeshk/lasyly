@@ -60,6 +60,42 @@ describe("resolveBoxscoreMatch", () => {
       homeTeam: "SEA",
       awayTeam: "SF",
     })
+    // With no real names passed, logos still resolve from the abbreviation.
+    expect(match?.homeLogo).toBeTruthy()
+    expect(match?.awayLogo).toBeTruthy()
+
+    vi.unstubAllGlobals()
+  })
+
+  it("threads real NFL team identity (names/logos/colors) into the modal header", async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal("fetch", fetchSpy)
+
+    const match = await resolveBoxscoreMatch({
+      sport: "NFL",
+      playerTeam: "SEA",
+      opponent: "SF",
+      date: "2025-09-21",
+      eventId: "401772510",
+      playerTeamName: "Seattle Seahawks",
+      playerTeamLogo: "https://logos.example/sea.png",
+      playerTeamColor: "#002244",
+      opponentName: "San Francisco 49ers",
+      opponentLogo: "https://logos.example/sf.png",
+      opponentColor: "#AA0000",
+    })
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(match).toMatchObject({
+      eventId: "401772510",
+      league: "NFL",
+      homeTeam: "Seattle Seahawks",
+      awayTeam: "San Francisco 49ers",
+      homeLogo: "https://logos.example/sea.png",
+      awayLogo: "https://logos.example/sf.png",
+      homeColor: "#002244",
+      awayColor: "#AA0000",
+    })
 
     vi.unstubAllGlobals()
   })
