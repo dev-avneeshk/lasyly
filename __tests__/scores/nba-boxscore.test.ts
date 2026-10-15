@@ -67,8 +67,8 @@ describe("shapeNbaBoxscore", () => {
   it("splits players onto the correct team by tri-code", () => {
     const box = shapeNbaBoxscore(game, players)
 
-    const homeNames = box.players[0].athletes.map((a) => a.name)
-    const awayNames = box.players[1].athletes.map((a) => a.name)
+    const homeNames = box.players[0].categories[0].athletes.map((a) => a.name)
+    const awayNames = box.players[1].categories[0].athletes.map((a) => a.name)
 
     expect(homeNames).toEqual(expect.arrayContaining(["LeBron James", "Anthony Davis"]))
     expect(awayNames).toEqual(expect.arrayContaining(["Jayson Tatum", "Jaylen Brown"]))
@@ -79,15 +79,15 @@ describe("shapeNbaBoxscore", () => {
     const box = shapeNbaBoxscore(game, players)
 
     // Labels order is stable.
-    expect(box.players[0].labels).toEqual(["MIN", "PTS", "REB", "AST", "STL", "BLK", "TO", "FG", "FT"])
+    expect(box.players[0].categories[0].labels).toEqual(["MIN", "PTS", "REB", "AST", "STL", "BLK", "TO", "FG", "FT"])
 
     // Highest scorer first within each team.
-    const lebron = box.players[0].athletes[0]
+    const lebron = box.players[0].categories[0].athletes[0]
     expect(lebron.name).toBe("LeBron James")
     // MIN from "36:12" -> "36", shooting splits as made-attempt.
     expect(lebron.stats).toEqual(["36", "30", "8", "10", "2", "1", "4", "11-20", "5-6"])
 
-    const davis = box.players[0].athletes[1]
+    const davis = box.players[0].categories[0].athletes[1]
     // Numeric minutes rounded.
     expect(davis.stats[0]).toBe("34")
   })
@@ -95,7 +95,7 @@ describe("shapeNbaBoxscore", () => {
   it("keeps both teams present even if one side has no rows", () => {
     const box = shapeNbaBoxscore(game, players.filter((p) => p.team === "LAL"))
     expect(box.players).toHaveLength(2)
-    expect(box.players[0].athletes.length).toBe(2)
-    expect(box.players[1].athletes.length).toBe(0)
+    expect(box.players[0].categories[0].athletes.length).toBe(2)
+    expect(box.players[1].categories[0].athletes.length).toBe(0)
   })
 })

@@ -599,62 +599,73 @@ function BoxScoreTab({ players }: { players: NonNullable<MatchSummary["boxscore"
         </div>
       )}
 
-      {/* Player stats table */}
-      {players[expandedTeam] && (
-        <div className="rounded-xl border border-white/5 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-white/5">
-                  <th className="text-left px-3 py-2.5 text-white/50 font-semibold sticky left-0 bg-[var(--color-surface)] min-w-[130px] z-10">
-                    Player
-                  </th>
-                  {players[expandedTeam].labels.map((label, li) => (
-                    <th key={li} className="text-center px-2 py-2.5 text-white/50 font-semibold min-w-[40px] whitespace-nowrap">
-                      {label}
+      {/* Player stats tables — one sub-table per stat category. NBA has a single
+          unnamed category (renders as one plain table, identical to before); NFL
+          has several (Passing, Rushing, Receiving, …) each with its own heading. */}
+      {players[expandedTeam] && players[expandedTeam].categories.map((category, ci) => {
+        const showHeading =
+          !!category.name && players[expandedTeam].categories.length > 1
+        return (
+          <div key={ci} className="rounded-xl border border-white/5 overflow-hidden">
+            {showHeading && (
+              <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white/70 bg-white/5">
+                {category.name}
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-white/5">
+                    <th className="text-left px-3 py-2.5 text-white/50 font-semibold sticky left-0 bg-[var(--color-surface)] min-w-[130px] z-10">
+                      Player
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {players[expandedTeam].athletes.map((athlete, ai) => (
-                  <tr
-                    key={ai}
-                    className={cn(
-                      "border-t border-white/5 transition-colors hover:bg-white/[0.03]",
-                      ai === 0 && "bg-[var(--color-primary)]/5"
-                    )}
-                  >
-                    <td className="px-3 py-2.5 sticky left-0 bg-[var(--color-surface)] z-10">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white/90 font-semibold truncate max-w-[90px]">
-                          {athlete.name}
-                        </span>
-                        {athlete.position && (
-                          <span className="text-[9px] font-medium text-white/30 bg-white/5 rounded px-1 py-0.5">
-                            {athlete.position}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {athlete.stats.map((stat, si) => (
-                      <td
-                        key={si}
-                        className={cn(
-                          "text-center px-2 py-2.5 tabular-nums",
-                          si === 0 ? "text-white/80 font-semibold" : "text-white/60"
-                        )}
-                      >
-                        {stat}
-                      </td>
+                    {category.labels.map((label, li) => (
+                      <th key={li} className="text-center px-2 py-2.5 text-white/50 font-semibold min-w-[40px] whitespace-nowrap">
+                        {label}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {category.athletes.map((athlete, ai) => (
+                    <tr
+                      key={ai}
+                      className={cn(
+                        "border-t border-white/5 transition-colors hover:bg-white/[0.03]",
+                        ai === 0 && "bg-[var(--color-primary)]/5"
+                      )}
+                    >
+                      <td className="px-3 py-2.5 sticky left-0 bg-[var(--color-surface)] z-10">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/90 font-semibold truncate max-w-[90px]">
+                            {athlete.name}
+                          </span>
+                          {athlete.position && (
+                            <span className="text-[9px] font-medium text-white/30 bg-white/5 rounded px-1 py-0.5">
+                              {athlete.position}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {athlete.stats.map((stat, si) => (
+                        <td
+                          key={si}
+                          className={cn(
+                            "text-center px-2 py-2.5 tabular-nums",
+                            si === 0 ? "text-white/80 font-semibold" : "text-white/60"
+                          )}
+                        >
+                          {stat}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })}
     </div>
   )
 }

@@ -3,7 +3,8 @@
  * payload the player-analysis boxscore popup renders. ESPN is not consulted.
  *
  * Output choice: a `MatchSummary`-compatible `boxscore.players` array (two teams,
- * each with `labels` + `athletes[].stats`, plus a `homeAway` flag) so it can feed
+ * each with a single stat `categories[0]` holding `labels` + `athletes[].stats`,
+ * plus a `homeAway` flag) so it can feed
  * the existing `MatchDetailModal` / `BoxScoreTab` via `orderHomeFirst` with no new
  * modal. The route (app/api/nba/boxscore/[gameId]) also returns the final score and
  * team identity so the page can build the modal's `LiveMatch` header.
@@ -48,8 +49,12 @@ export interface NbaPlayerStatRow {
 export interface NbaBoxscoreTeam {
   team: string
   homeAway: "home" | "away"
-  labels: string[]
-  athletes: Array<{ name: string; position?: string; stats: string[] }>
+  /** NBA has a single unnamed stat category per team (matches the shared type). */
+  categories: Array<{
+    name?: string
+    labels: string[]
+    athletes: Array<{ name: string; position?: string; stats: string[] }>
+  }>
 }
 
 export interface NbaBoxscore {
@@ -123,8 +128,7 @@ function buildTeam(
   return {
     team: toAbbr(teamFullName),
     homeAway,
-    labels: [...STAT_LABELS],
-    athletes,
+    categories: [{ name: undefined, labels: [...STAT_LABELS], athletes }],
   }
 }
 

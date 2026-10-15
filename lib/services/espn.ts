@@ -609,32 +609,52 @@ function mapESPNSummary(data: any, eventId: string): MatchSummary {
         }
       }
 
-      // Extract player stats
+      // Extract player stats. ESPN groups players by team, and each team carries
+      // an array of stat categories (NBA: one; NFL: passing, rushing, receiving,
+      // defense, kicking, …). Emit ONE entry per team, keyed by that group's own
+      // team.displayName, so both tabs always show the two real teams — and
+      // iterate every category so no player/category is dropped.
       if (Array.isArray(boxscore.players)) {
         for (const playerGroup of boxscore.players) {
           const teamName = playerGroup?.team?.displayName ?? ""
           const statistics = playerGroup?.statistics
-          if (Array.isArray(statistics) && statistics.length > 0) {
-            const statBlock = statistics[0] // Primary stat category
-            const labels = statBlock?.labels ?? []
-            const athletes: Array<{ name: string; position?: string; stats: string[] }> = []
+          const categories: Array<{
+            name?: string
+            labels: string[]
+            athletes: Array<{ name: string; position?: string; stats: string[] }>
+          }> = []
 
-            if (Array.isArray(statBlock?.athletes)) {
-              for (const athlete of statBlock.athletes.slice(0, 10)) { // Top 10 players
-                if (athlete?.athlete?.displayName) {
-                  athletes.push({
-                    name: athlete.athlete.displayName,
-                    position: athlete.athlete.position?.abbreviation ?? undefined,
-                    stats: athlete.stats ?? [],
-                  })
+          if (Array.isArray(statistics)) {
+            for (const statBlock of statistics) {
+              const labels = statBlock?.labels ?? []
+              const athletes: Array<{ name: string; position?: string; stats: string[] }> = []
+
+              if (Array.isArray(statBlock?.athletes)) {
+                for (const athlete of statBlock.athletes) {
+                  if (athlete?.athlete?.displayName) {
+                    athletes.push({
+                      name: athlete.athlete.displayName,
+                      position: athlete.athlete.position?.abbreviation ?? undefined,
+                      stats: athlete.stats ?? [],
+                    })
+                  }
                 }
               }
-            }
 
-            if (athletes.length > 0) {
-              teamStats.players.push({ team: teamName, ...identity(playerGroup), labels, athletes })
+              // Keep only categories that actually have players.
+              if (athletes.length > 0) {
+                categories.push({
+                  name: statBlock?.name ?? statBlock?.text ?? undefined,
+                  labels,
+                  athletes,
+                })
+              }
             }
           }
+
+          // Always push the team entry (even with empty categories) so the
+          // selector shows the correct second team name.
+          teamStats.players.push({ team: teamName, ...identity(playerGroup), categories })
         }
       }
 

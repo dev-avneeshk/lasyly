@@ -102,11 +102,19 @@ export type MatchSummary = {
       teamId?: string
       abbreviation?: string
       homeAway?: "home" | "away"
-      labels: string[]
-      athletes: Array<{
-        name: string
-        position?: string
-        stats: string[]
+      /**
+       * One or more stat categories per team. NBA has a single unnamed category;
+       * NFL has several (passing, rushing, receiving, defense, etc.), each with
+       * its own labels and athletes.
+       */
+      categories: Array<{
+        name?: string
+        labels: string[]
+        athletes: Array<{
+          name: string
+          position?: string
+          stats: string[]
+        }>
       }>
     }>
   }
