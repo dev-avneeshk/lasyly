@@ -61,6 +61,8 @@ const TABLES = [
   "room_audit_log",
   "parlays",
   "profiles",
+  "soccer_matches",
+  "soccer_match_stats",
 ]
 
 // Functions are probed with deliberately non-existent UUIDs. We only care

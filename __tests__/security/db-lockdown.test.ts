@@ -26,4 +26,7 @@ describe.skipIf(!hasPg)("DB privilege lockdown (local Postgres)", () => {
   it("REV-17: arena refunds are refused once anyone was paid for the game; money paths still work", () => {
     expect(run("test-reference-id-text.sh")).toContain("all checks passed")
   })
+  it("soccer_match_stats: public read, service-only writes, idempotent upsert, cascade", () => {
+    expect(run("test-soccer-match-stats-rls.sh")).toContain("all checks passed")
+  })
 })

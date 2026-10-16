@@ -77,3 +77,4 @@ load-tests/results.csv
 
 # local git worktrees
 .worktrees/
+lib/data/big5_detailed_stats_all.csv
