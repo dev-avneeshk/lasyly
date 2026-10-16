@@ -43,6 +43,14 @@ export function todayIso(): string {
   return toLocalIso(new Date())
 }
 
+/**
+ * Returns today's date in US Eastern Time as YYYY-MM-DD.
+ * NBA games are scheduled in ET, so we use ET to match game_date in the database.
+ */
+export function getTodayET(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
+}
+
 /** Shifts a local `YYYY-MM-DD` by a number of days. */
 export function shiftIso(iso: string, days: number): string {
   const date = parseLocalIso(iso)

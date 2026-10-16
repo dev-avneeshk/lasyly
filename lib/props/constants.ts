@@ -31,8 +31,10 @@ export const SOCCER_STAT_FILTERS: StatFilter[] = [
   { key: "team_totalGoals", label: "Team Goals", sport: "all" },
   { key: "team_matchGoals", label: "Match Goals", sport: "all" },
   { key: "team_cards", label: "Cards", sport: "all" },
-  // NOTE: "Corners" removed — ESPN's soccer boxscore feed does not expose
-  // corner-kick data, so the filter could never return props.
+  { key: "team_corners", label: "Corners", sport: "all" },
+  { key: "team_shots", label: "Shots", sport: "all" },
+  { key: "team_shotsOnTarget", label: "Shots on Target", sport: "all" },
+  { key: "team_fouls", label: "Fouls", sport: "all" },
 ]
 
 export const NFL_STAT_FILTERS: StatFilter[] = [
@@ -91,6 +93,9 @@ export const STAT_LABELS: Record<string, string> = {
   team_corners: "Corners",
   team_cards: "Cards",
   team_matchGoals: "Match Goals",
+  team_shots: "Shots",
+  team_shotsOnTarget: "Shots on Target",
+  team_fouls: "Fouls",
   // NFL
   YDS: "Yards",
   TD: "Touchdowns",

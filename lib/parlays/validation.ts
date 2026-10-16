@@ -38,7 +38,7 @@ const VALID_SPORTS: readonly string[] = ["NBA", "Tennis", "Soccer", "NFL", "NHL"
 const VALID_STAT_CATEGORIES: Record<string, readonly string[]> = {
   NBA: ["pts", "trb", "ast", "tp", "fg", "fga", "ft", "fta", "stl", "blk", "tov", "pra"],
   Tennis: ["aces", "double_faults", "win_pct", "first_serve_pct", "sets_won", "games_won"],
-  Soccer: ["team_totalGoals", "team_matchGoals", "team_cards", "team_corners", "totalGoals", "goalAssists", "totalShots", "shotsOnTarget", "foulsCommitted", "yellowCards", "saves"],
+  Soccer: ["team_totalGoals", "team_matchGoals", "team_cards", "team_corners", "team_shots", "team_shotsOnTarget", "team_fouls", "totalGoals", "goalAssists", "totalShots", "shotsOnTarget", "foulsCommitted", "yellowCards", "saves"],
   NFL: ["YDS", "TD", "REC", "CAR", "INT", "SACKS"],
   NHL: ["G", "A", "SOG", "+/-", "HT", "BS", "TK", "PIM"],
 }

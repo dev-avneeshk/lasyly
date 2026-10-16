@@ -24,6 +24,8 @@ export interface GameResult {
   eventId?: string
   /** nba_games UUID for the game (NBA), so a clicked bar can open its boxscore. */
   gameId?: string
+  /** `{league}/{season}/{matchNo}` for Big-5 soccer, so a clicked bar can open its match stats. */
+  matchKey?: string
 }
 
 export interface HitRate {

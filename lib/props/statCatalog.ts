@@ -45,6 +45,7 @@ export const VALID_SOCCER_STATS = new Set([
   "saves", "appearances",
   // Team props
   "team_totalGoals", "team_corners", "team_cards", "team_matchGoals",
+  "team_shots", "team_shotsOnTarget", "team_fouls",
 ])
 
 /** Valid NFL stat categories. */

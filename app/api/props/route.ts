@@ -5,14 +5,15 @@ import { computeEnhancedProps } from "@/lib/analytics/engine"
 import { computeMatchupScopedProps, isValidMatchupFormat } from "@/lib/analytics/engine-v2"
 import { computeESPNProps, ESPNSport } from "@/lib/analytics/engine-espn"
 import { computeNFLProps } from "@/lib/analytics/engine-nfl"
-import { computeTeamProps, TeamPropStat } from "@/lib/analytics/engine-team-props"
+import { computeTeamProps, isTeamPropStat, TeamPropStat } from "@/lib/analytics/engine-team-props"
+import { getTodayET } from "@/lib/props/dates"
+import { getSoccerSlateTeams } from "@/lib/soccer/slate"
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
 import { resolveNBAHeadshots } from "@/lib/analytics/nba-headshots"
 import { AdvancedFilterState } from "@/lib/analytics/types"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
 import { getClientIp } from "@/lib/security/clientIp"
-import { createAdminClient } from "@/lib/supabase/admin"
 import {
   VALID_SPORTS,
   VALID_NBA_STATS,
@@ -79,14 +80,6 @@ const TEAM_ABBREVIATIONS = new Set([
 // which made some props impossible to log.
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Returns today's date in US Eastern Time as YYYY-MM-DD.
- * NBA games are scheduled in ET, so we use ET to match game_date in the database.
- */
-function getTodayET(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
-}
 
 /**
  * Max age of a precomputed slate we'll trust before treating it as absent and
@@ -544,8 +537,7 @@ export const GET = withSecurity(async (request: Request) => {
   // ─── ESPN Sports Path: Soccer, NHL ──────────────────────────────────────────
   if (sport === "Soccer" || sport === "NHL") {
     // Check if this is a team prop stat (Soccer only)
-    const TEAM_PROP_STATS = new Set(["team_totalGoals", "team_corners", "team_cards", "team_matchGoals"])
-    const isTeamProp = sport === "Soccer" && TEAM_PROP_STATS.has(stat)
+    const isTeamProp = sport === "Soccer" && isTeamPropStat(stat)
 
     // Soccer is TEAM PROPS ONLY — always route through team props engine
     if (sport === "Soccer") {
@@ -556,30 +548,12 @@ export const GET = withSecurity(async (request: Request) => {
       const todayET = getTodayET()
 
       // Cached: this gate is a small query, but it sat outside the cache below,
-      // so every soccer props request paid for it even on a cache hit.
+      // so every soccer props request paid for it even on a cache hit. Big-5
+      // leagues with no ESPN fixture fall back to teams with a recent imported
+      // match (lib/soccer/slate.ts).
       const soccerTeamNames = await cached(
-        `soccer-slate:${todayET}`,
-        async () => {
-          const windowEnd = new Date(`${todayET}T00:00:00Z`)
-          windowEnd.setUTCDate(windowEnd.getUTCDate() + 3)
-          const windowEndStr = windowEnd.toISOString().split("T")[0]
-          const adminClient = createAdminClient()
-          const { data } = await adminClient
-            .from("espn_games")
-            .select("home_team, away_team")
-            .in("league", ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "usa.1"])
-            .gte("match_date", todayET)
-            .lte("match_date", windowEndStr)
-            .in("status", ["scheduled", "in_progress"])
-            .limit(80)
-
-          const names: string[] = []
-          for (const g of data ?? []) {
-            if (g.home_team) names.push(g.home_team)
-            if (g.away_team) names.push(g.away_team)
-          }
-          return [...new Set(names)]
-        },
+        `soccer-slate:v2:${todayET}`,
+        () => getSoccerSlateTeams(todayET),
         PROPS_TTL.soccerSlate
       )
 
@@ -603,22 +577,28 @@ export const GET = withSecurity(async (request: Request) => {
 
       // Map "all" and player stat keys to team prop equivalents
       const soccerTeamStatsMap: Record<string, string[]> = {
-        all: ["team_totalGoals", "team_matchGoals", "team_cards"],
+        all: [
+          "team_totalGoals", "team_matchGoals", "team_cards", "team_corners",
+          "team_shots", "team_shotsOnTarget", "team_fouls",
+        ],
         totalGoals: ["team_totalGoals"],
         goalAssists: ["team_totalGoals"],
-        totalShots: ["team_totalGoals"],
-        shotsOnTarget: ["team_totalGoals"],
-        foulsCommitted: ["team_cards"],
+        totalShots: ["team_shots"],
+        shotsOnTarget: ["team_shotsOnTarget"],
+        foulsCommitted: ["team_fouls"],
         yellowCards: ["team_cards"],
         saves: ["team_totalGoals"],
         team_totalGoals: ["team_totalGoals"],
         team_matchGoals: ["team_matchGoals"],
         team_cards: ["team_cards"],
         team_corners: ["team_corners"],
+        team_shots: ["team_shots"],
+        team_shotsOnTarget: ["team_shotsOnTarget"],
+        team_fouls: ["team_fouls"],
       }
       const teamStatsToFetch = soccerTeamStatsMap[stat] ?? ["team_totalGoals"]
 
-      const teamCacheKey = `team-props:soccer:${stat}:${search}`
+      const teamCacheKey = `team-props:soccer:v2:${stat}:${Math.min(limit, 100)}:${search}`
       const teamResults = await cached(teamCacheKey, () =>
         Promise.all(
           teamStatsToFetch.map((ts) =>
