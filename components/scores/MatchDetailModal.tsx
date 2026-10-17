@@ -7,6 +7,8 @@ import { LiveMatch, MatchSummary } from "@/types"
 import { cn } from "@/lib/utils"
 import { formatMatchTime, formatDay, formatDateReadable, formatTime } from "@/lib/datetime"
 import { alignHomeAway, orderHomeFirst } from "@/lib/scores/alignTeams"
+import { INDIVIDUAL_SPORTS, getInitialModalTab, getModalTabs, type ModalTabId } from "@/lib/scores/modalTabs"
+import PeriodStatsTab from "@/components/scores/PeriodStatsTab"
 
 interface MatchDetailModalProps {
   match: LiveMatch | null
@@ -19,7 +21,7 @@ interface MatchDetailModalProps {
   presuppliedSummary?: MatchSummary | null
 }
 
-type Tab = "summary" | "boxscore" | "stats" | "standings"
+type Tab = ModalTabId
 
 function isLive(status: string): boolean {
   return (
@@ -35,33 +37,12 @@ function isLive(status: string): boolean {
   )
 }
 
-// ─── Sport-specific tab configuration ────────────────────────────────────────
+// ─── Tab icons (tab rules live in lib/scores/modalTabs) ──────────────────────
 
-// Sports that are individual (no team stats or box score)
-const INDIVIDUAL_SPORTS = new Set(["Tennis", "MMA", "Golf", "F1"])
-
-// Sports where box scores (individual player stats) make sense
-const BOX_SCORE_SPORTS = new Set(["Basketball", "American Football", "Hockey", "Baseball"])
-
-function getTabsForSport(
-  sport: string
-): { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] {
-  if (INDIVIDUAL_SPORTS.has(sport)) {
-    // Individual sports: match info only
-    return [
-      { id: "summary", label: "Match Info", icon: <Clock className="h-3.5 w-3.5" />, show: true },
-    ]
-  }
-
-  // Team sports: show relevant tabs
-  // Only show Box Score for sports that actually have player-level stats
-  const showBoxScore = BOX_SCORE_SPORTS.has(sport)
-
-  return [
-    { id: "stats", label: "Team Stats", icon: <Users2 className="h-3.5 w-3.5" />, show: true },
-    { id: "boxscore", label: "Box Score", icon: <BarChart3 className="h-3.5 w-3.5" />, show: showBoxScore },
-    { id: "standings", label: "Standings", icon: <Clock className="h-3.5 w-3.5" />, show: true },
-  ]
+function TabIcon({ id }: { id: Tab }) {
+  if (id === "stats") return <Users2 className="h-3.5 w-3.5" />
+  if (id === "boxscore") return <BarChart3 className="h-3.5 w-3.5" />
+  return <Clock className="h-3.5 w-3.5" />
 }
 
 function TeamLogo({ url, name, color, size = "lg" }: { url?: string; name: string; color?: string; size?: "sm" | "lg" }) {
@@ -122,16 +103,7 @@ export default function MatchDetailModal({ match, onClose, presuppliedSummary }:
   useEffect(() => {
     if (match) {
       triggerRef.current = document.activeElement
-      // Individual sports always show summary; team sports show stats when live/finished
-      if (match.status === "Not Started" || INDIVIDUAL_SPORTS.has(match.sport)) {
-        setActiveTab("summary")
-      } else if (presuppliedSummary && !presuppliedSummary.boxscore?.teams?.length) {
-        // Our DB boxscore (NBA) carries player stat lines but no team-stat
-        // comparison, so open straight to the Box Score tab.
-        setActiveTab("boxscore")
-      } else {
-        setActiveTab("stats")
-      }
+      setActiveTab(getInitialModalTab(match, presuppliedSummary))
     }
   }, [match])
 
@@ -195,17 +167,13 @@ export default function MatchDetailModal({ match, onClose, presuppliedSummary }:
 
   const live = isLive(match.status)
   const venue = summary?.venue || match.venue
-  const isUpcoming = match.status === "Not Started"
 
-  // A pre-supplied DB boxscore (NBA) only has player stat lines, so expose just
-  // the Box Score tab — team-stat / standings tabs would render empty.
-  const isDbBoxscore = !!presuppliedSummary && !presuppliedSummary.boxscore?.teams?.length
-  const tabs: { id: Tab; label: string; icon: React.ReactNode; show: boolean }[] = isUpcoming
-    ? [{ id: "summary", label: "Preview", icon: <Clock className="h-3.5 w-3.5" />, show: true }]
-    : isDbBoxscore
-    ? [{ id: "boxscore", label: "Box Score", icon: <BarChart3 className="h-3.5 w-3.5" />, show: true }]
-    : getTabsForSport(match.sport)
-  const visibleTabs = tabs.filter((t) => t.show)
+  // Tab rules (upcoming preview, soccer match stats, NBA DB boxscore, per-sport
+  // lists) live in lib/scores/modalTabs so they're unit-tested.
+  const visibleTabs = getModalTabs(match, presuppliedSummary)
+  // Big-5 soccer match stats from our DB. Read the prop first so there's no
+  // one-frame "Team stats not available" flash before `summary` is set.
+  const periodStats = (presuppliedSummary ?? summary)?.periodStats
 
   // ESPN lists boxscore entries away-first; bind them to the header's sides
   // (home left, away right) by flag/name rather than array position.
@@ -355,7 +323,7 @@ export default function MatchDetailModal({ match, onClose, presuppliedSummary }:
                       : "text-white/45 hover:text-white/75 hover:bg-white/[0.04]"
                   )}
                 >
-                  {tab.icon}
+                  <TabIcon id={tab.id} />
                   <span className="truncate">{tab.label}</span>
                 </button>
               ))}
@@ -407,7 +375,17 @@ export default function MatchDetailModal({ match, onClose, presuppliedSummary }:
           )}
 
           {!loading && !fetchError && activeTab === "stats" && (
-            alignedTeams ? (
+            periodStats ? (
+              <PeriodStatsTab
+                periods={periodStats}
+                homeTeam={match.homeTeam}
+                awayTeam={match.awayTeam}
+                homeLogo={match.homeLogo}
+                awayLogo={match.awayLogo}
+                homeColor={match.homeColor}
+                awayColor={match.awayColor}
+              />
+            ) : alignedTeams ? (
               <TeamStatsTab
                 home={alignedTeams.home}
                 away={alignedTeams.away}

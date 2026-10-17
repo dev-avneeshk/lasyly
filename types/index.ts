@@ -118,6 +118,24 @@ export type MatchSummary = {
       }>
     }>
   }
+  /**
+   * Per-period match stats (Big-5 soccer, from our DB). When defined (even `[]`)
+   * the modal shows a single "Match Stats" tab. Display text is pre-formatted.
+   */
+  periodStats?: Array<{
+    period: "FT" | "1H" | "2H"
+    label: string
+    groups: Array<{
+      group: string
+      stats: Array<{
+        label: string
+        home: string
+        away: string
+        homeValue: number | null
+        awayValue: number | null
+      }>
+    }>
+  }>
 }
 
 export type ChatMessage = {

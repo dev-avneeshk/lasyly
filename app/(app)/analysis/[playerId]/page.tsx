@@ -25,6 +25,8 @@ import { useToast } from "@/components/ui/Toast"
 import { resolveBoxscoreMatch } from "@/lib/scores/resolveGameEvent"
 import type { LiveMatch, MatchSummary } from "@/types"
 import type { NbaBoxscore } from "@/lib/scores/nbaBoxscore"
+import { buildSoccerModalData, type SoccerMatchStats } from "@/lib/scores/soccerMatchStats"
+import { parseMatchKey } from "@/lib/soccer/big5"
 import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
 import { ComposedChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts"
 
@@ -37,7 +39,7 @@ interface PropData {
   propLine: number
   l5Avg: number
   l10Avg: number
-  lastGames: { value: number; overLine: boolean; date: string; opponent: string; minutes?: number; eventId?: string; gameId?: string }[]
+  lastGames: { value: number; overLine: boolean; date: string; opponent: string; minutes?: number; eventId?: string; gameId?: string; matchKey?: string }[]
   hitRate: { over: number; total: number; label: string }
   trend: "up" | "down" | "neutral"
   trendPct: number
@@ -166,10 +168,11 @@ export default function PlayerDashboardPage() {
     "BLK": "blk",
     "STL": "stl",
   }
-  // For NBA, map display stat names to API params. For other sports, use the stat param directly.
+  // For NBA, map display stat names to API params. Tennis and Soccer refetch on
+  // stat-tab change. For other sports, use the stat param directly.
   const fetchStat = sportParam === "NBA"
     ? (statApiMap[activeStat] ?? statParam)
-    : isTennis ? activeStat : statParam
+    : (isTennis || sportParam === "Soccer") ? activeStat : statParam
 
   // Fetch the prop data for this player
   useEffect(() => {
@@ -473,10 +476,10 @@ export default function PlayerDashboardPage() {
   const overCount = filteredHistory.filter(g => g.value >= threshold).length
   const totalGames = filteredHistory.length
 
-  // Boxscore popup is only wired for sports whose game can be resolved to an
-  // ESPN event: NBA (resolved at click time) and NFL (stored event id). For any
-  // other sport the chart stays non-interactive — no broken popup.
-  const isBoxscoreSport = sportParam === "NBA" || sportParam === "NFL"
+  // Boxscore popup is only wired for sports whose game can be resolved: NBA (our
+  // DB by game id), NFL (stored ESPN event id) and Soccer (our DB by Big-5 match
+  // key). For any other sport the chart stays non-interactive — no broken popup.
+  const isBoxscoreSport = sportParam === "NBA" || sportParam === "NFL" || sportParam === "Soccer"
 
   // Open the clicked bar's boxscore. NBA reads from OUR DB by game id (works for
   // every stored game, old ones included); NFL still resolves an ESPN event id.
@@ -485,6 +488,30 @@ export default function PlayerDashboardPage() {
     if (boxscoreLoading) return
     setBoxscoreLoading(true)
     try {
+      // Soccer (Big-5): match stats from OUR DB, keyed by the bar's matchKey.
+      // ESPN-fallback bars carry no matchKey, so they get the toast instead.
+      if (sportParam === "Soccer") {
+        setBoxscoreSummary(null)
+        const key = game.matchKey ? parseMatchKey(game.matchKey) : null
+        if (!key) {
+          toast("Match stats unavailable for this game", "info")
+          return
+        }
+        try {
+          // The key parts are already regex-validated, so no encoding is needed.
+          const res = await fetch(`/api/soccer/match-stats/${key.league}/${key.season}/${key.matchNo}`)
+          if (!res.ok) throw new Error("Failed")
+          const json = (await res.json()) as { success?: boolean; data?: SoccerMatchStats }
+          if (!json.success || !json.data) throw new Error("No data")
+          const { match, summary } = buildSoccerModalData(json.data)
+          setBoxscoreSummary(summary)
+          setBoxscoreMatch(match)
+        } catch {
+          toast("Match stats unavailable for this game", "info")
+        }
+        return
+      }
+
       if (sportParam === "NBA") {
         setBoxscoreSummary(null)
         if (!game.gameId) {
@@ -567,7 +594,11 @@ export default function PlayerDashboardPage() {
     ? sportParam === "Soccer" ? [
         { key: "team_totalGoals", label: "Team Goals", propLine: activeStat === "team_totalGoals" ? prop.propLine : null },
         { key: "team_matchGoals", label: "Match Goals", propLine: activeStat === "team_matchGoals" ? prop.propLine : null },
+        { key: "team_corners", label: "Corners", propLine: activeStat === "team_corners" ? prop.propLine : null },
         { key: "team_cards", label: "Cards", propLine: activeStat === "team_cards" ? prop.propLine : null },
+        { key: "team_shots", label: "Shots", propLine: activeStat === "team_shots" ? prop.propLine : null },
+        { key: "team_shotsOnTarget", label: "Shots on Target", propLine: activeStat === "team_shotsOnTarget" ? prop.propLine : null },
+        { key: "team_fouls", label: "Fouls", propLine: activeStat === "team_fouls" ? prop.propLine : null },
       ]
       : sportParam === "NFL" ? [
         { key: "YDS", label: "Yards", propLine: activeStat === "YDS" ? prop.propLine : null },

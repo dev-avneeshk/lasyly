@@ -24,6 +24,8 @@ export interface PerformanceGame {
   eventId?: string
   /** nba_games UUID for the game (NBA), used to open its DB-backed boxscore. */
   gameId?: string
+  /** Big-5 soccer match key ("{league}/{season}/{matchNo}"), used to open its match stats. */
+  matchKey?: string
 }
 
 interface PerformanceCardProps {
@@ -41,7 +43,7 @@ interface PerformanceCardProps {
   /**
    * Fired when a bar is clicked, with the clicked game. When omitted, bars are
    * not interactive (default cursor, no handler) — the page passes this only
-   * for sports whose boxscore can be resolved (NBA, NFL).
+   * for sports whose boxscore can be resolved (NBA, NFL, Soccer).
    */
   onGameClick?: (game: PerformanceGame) => void
 }
@@ -137,6 +139,7 @@ export function PerformanceCard({
         date: game.date,
         eventId: game.eventId,
         gameId: game.gameId,
+        matchKey: game.matchKey,
       })),
     [games]
   )
@@ -312,6 +315,7 @@ export function PerformanceCard({
                             minutes: point.minutes,
                             eventId: point.eventId,
                             gameId: point.gameId,
+                            matchKey: point.matchKey,
                           })
                         }
                       : undefined
