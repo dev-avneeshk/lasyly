@@ -96,7 +96,7 @@ export function createSupabaseNovigStore(): NovigStore {
         const { data, error } = await db()
           .from("novig_prop_lines")
           .upsert(rows.slice(i, i + INSERT_CHUNK), {
-            onConflict: "canonical_event_id,player_key,market_key",
+            onConflict: "canonical_event_id,bookmaker,player_key,market_key",
             ignoreDuplicates: true,
           })
           .select("player_key")

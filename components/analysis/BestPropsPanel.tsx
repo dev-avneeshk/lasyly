@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ArrowDown, ArrowUp, Target } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
+import { BOOK_LABELS } from "@/lib/novig/markets"
 import type { EnhancedPropCardData } from "@/lib/analytics/types"
 import type { MarketEdge } from "@/lib/props/market-edge"
 import { PlayerPhoto } from "@/components/props/PlayerPhoto"
@@ -33,7 +34,7 @@ function formatEdge(edge: number): string {
 }
 
 /**
- * Top props scored against the real Novig line: best hit rate on either side,
+ * Top props scored against the real sportsbook line: best hit rate on either side,
  * and the biggest edges on the over and on the under (the player's shrunk hit
  * rate beats the no-vig price, and the projection agrees).
  *
@@ -55,7 +56,7 @@ export function BestPropsPanel({ best }: BestPropsPanelProps) {
           Best props vs the line
         </h2>
         <p className="hidden sm:block text-[11px] text-[var(--color-text-muted)]/70">
-          Scored against Novig prices · last 10 games
+          Scored against sportsbook prices · last 10 games
         </p>
       </div>
 
@@ -149,13 +150,14 @@ function BestRow({
   const statLabel = STAT_LABELS[prop.statCategory] ?? prop.statCategory
   const sideLabel = edge.side === "over" ? "Over" : "Under"
   const headshotUrl = (prop as unknown as { headshotUrl?: string | null }).headshotUrl ?? null
+  const book = BOOK_LABELS[edge.book] ?? edge.book
 
   return (
     <li>
       <Link
         href={propDetailHref(prop)}
         className="group flex items-center gap-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lime)]/50 rounded-lg"
-        aria-label={`${rank}. ${prop.player} ${sideLabel} ${prop.propLine} ${statLabel}, hit ${edge.hits} of ${edge.games}, Novig ${formatPrice(edge.price)}, edge ${formatEdge(edge.edge)}`}
+        aria-label={`${rank}. ${prop.player} ${sideLabel} ${prop.propLine} ${statLabel}, hit ${edge.hits} of ${edge.games}, ${book} ${formatPrice(edge.price)}, edge ${formatEdge(edge.edge)}`}
       >
         <span className="w-4 shrink-0 text-center text-[11px] font-bold tabular-nums text-[var(--color-text-muted)]">
           {rank}
@@ -169,7 +171,7 @@ function BestRow({
             <span className={cn("font-bold", edge.side === "over" ? "text-[var(--color-lime)]" : "text-[var(--color-danger)]")}>
               {sideLabel} {prop.propLine}
             </span>{" "}
-            {statLabel} · {formatPrice(edge.price)}
+            {statLabel} · {formatPrice(edge.price)} {book}
           </p>
         </div>
         <div className="shrink-0 text-right leading-tight">

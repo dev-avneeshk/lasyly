@@ -5,7 +5,7 @@
  *   1. nba_games slate for today's ET date (empty -> no_slate, 0 calls)
  *   2. free /events -> needed games (today ET, > 10 min to tip, in nba_games)
  *   3. drop games that already have a novig_prop_events marker (none left -> 0 paid calls)
- *   4. ONE sport-wide props call (bookmakers=novig, 7 markets); next page only on
+ *   4. ONE sport-wide props call (all stored books, 7 markets); next page only on
  *      x-result-has-more, at most maxPagesPerQuery pages
  *   5. per-event follow-ups ONLY when a needed game is still missing AND the
  *      response was truncated/degraded, at most maxFollowupsPerRun
@@ -20,6 +20,7 @@ import { ParlayApiError, type NovigPropsPage, type ParlayApiClient } from "./par
 import { matchPlayer, type PlayerPools } from "./names"
 import { assignRowsToEvents, DEFAULT_MIN_LEAD_MS, etDateOf, parseCommenceTime, selectNeededEvents } from "./plan"
 import { selectMainLines } from "./selectMainLine"
+import { isStoredBook } from "./markets"
 import type {
   NeededEvent,
   NovigIngestStatus,
@@ -183,7 +184,7 @@ export async function runNovigIngest(options: RunNovigIngestOptions): Promise<No
 
   /** Store lines, then the capture marker, for each needed event that has Novig rows. */
   async function storeCaptured(rows: NovigRow[], events: NeededEvent[]): Promise<void> {
-    const novigRows = rows.filter((r) => r.bookmaker === "novig")
+    const novigRows = rows.filter((r) => isStoredBook(r.bookmaker))
     const byEvent = assignRowsToEvents(novigRows, events.filter((e) => !captured.has(e.canonicalEventId)))
     for (const event of events) {
       const eventRows = byEvent.get(event.canonicalEventId)
@@ -200,6 +201,7 @@ export async function runNovigIngest(options: RunNovigIngestOptions): Promise<No
         const match = matchPlayer(m.player, pools)
         return {
           canonical_event_id: event.canonicalEventId,
+          bookmaker: m.bookmaker,
           player_key: m.playerKey,
           market_key: m.marketKey,
           stat: m.stat,

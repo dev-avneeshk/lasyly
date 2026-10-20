@@ -47,8 +47,8 @@ describe("20261020_novig_prop_lines.sql", () => {
     expect(flat).not.toMatch(/GRANT [^;]*novig_ingest_runs/i)
   })
 
-  it("keys lines on (event, player, market) and constrains stat/line/match_method", () => {
-    expect(flat).toContain("PRIMARY KEY (canonical_event_id, player_key, market_key)")
+  it("keys lines on (event, book, player, market) and constrains stat/line/match_method", () => {
+    expect(flat).toContain("PRIMARY KEY (canonical_event_id, bookmaker, player_key, market_key)")
     expect(flat).toContain("CHECK (stat IN ('pts','trb','ast','tp','stl','blk','tov'))")
     expect(flat).toContain("CHECK (line > 0)")
     expect(flat).toContain("CHECK (match_method IN ('exact','alias','fuzzy','unmatched'))")

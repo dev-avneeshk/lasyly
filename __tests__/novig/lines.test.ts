@@ -68,7 +68,7 @@ beforeEach(() => {
 
 describe("novig lines cache key + TTL", () => {
   it("is versioned per slate date, 10 minutes", () => {
-    expect(novigLinesCacheKey("2026-10-20")).toBe("novig-lines:v1:2026-10-20")
+    expect(novigLinesCacheKey("2026-10-20")).toBe("novig-lines:v2:2026-10-20")
     expect(NOVIG_LINES_TTL_MS).toBe(600_000)
   })
 })
@@ -79,7 +79,7 @@ describe("resolvePropLine", () => {
     const index = buildNovigLineIndex(await getNovigLinesForSlate("2026-10-20"))
     expect(resolvePropLine("Jayson Tatum", "pts", 24, index)).toEqual({
       propLine: 26.5,
-      lineSource: "novig",
+      lineSource: "market",
       marketLine: { book: "novig", line: 26.5, overPrice: -104, underPrice: -106, capturedAt: "2026-10-20T16:00:05Z" },
     })
     expect(db.tables).toEqual(["novig_prop_lines"])
@@ -112,13 +112,14 @@ describe("resolvePropLine", () => {
       },
     ]
     const index = buildNovigLineIndex(await getNovigLinesForSlate("2026-10-20"))
-    expect(resolvePropLine("Nikola Jokic", "trb", 10, index)).toMatchObject({ propLine: 12.5, lineSource: "novig" })
-    expect(resolvePropLine("JAREN JACKSON", "blk", 2, index)).toMatchObject({ propLine: 1.5, lineSource: "novig" })
+    expect(resolvePropLine("Nikola Jokic", "trb", 10, index)).toMatchObject({ propLine: 12.5, lineSource: "market" })
+    expect(resolvePropLine("JAREN JACKSON", "blk", 2, index)).toMatchObject({ propLine: 1.5, lineSource: "market" })
   })
 
   it("finds a line by the matched Betroom name and by the Novig spelling", () => {
     const index = buildNovigLineIndex([
       {
+        bookmaker: "novig",
         stat: "pts",
         novigPlayer: "Ronald Holland",
         betroomPlayerName: "Ron Holland",
@@ -186,12 +187,44 @@ describe("invalidateNovigReadCaches", () => {
   it("drops the lines, engine, route and precomputed-slate caches for the date", async () => {
     await invalidateNovigReadCaches("2026-10-20")
     expect(vi.mocked(cache.invalidateCache).mock.calls.map((c) => c[0]).sort()).toEqual([
-      "novig-lines:v1:2026-10-20",
+      "novig-lines:v2:2026-10-20",
       "precomputed-slate:NBA:all:all:2026-10-20",
     ])
     expect(vi.mocked(cache.invalidateCachePrefix).mock.calls.map((c) => c[0]).sort()).toEqual([
-      "matchup-props:v4:NBA:",
-      "nba-props:v3:",
+      "matchup-props:v5:NBA:",
+      "nba-props:v4:",
     ])
+  })
+})
+
+describe("multi-book lines", () => {
+  const entry = (bookmaker: string, line: number, overPrice: number, underPrice: number) => ({
+    bookmaker,
+    stat: "pts",
+    novigPlayer: "Jayson Tatum",
+    betroomPlayerName: "Jayson Tatum",
+    line,
+    overPrice,
+    underPrice,
+    capturedAt: "2026-10-20T16:00:05Z",
+  })
+
+  it("prefers the sharpest book when several price the same player/stat", () => {
+    const index = buildNovigLineIndex([entry("draftkings", 27.5, -110, -110), entry("pinnacle", 26.5, -105, -115), entry("novig", 26.5, -104, -106)])
+    expect(resolvePropLine("Jayson Tatum", "pts", 24, index)).toMatchObject({
+      propLine: 26.5,
+      lineSource: "market",
+      marketLine: { book: "pinnacle", overPrice: -105, underPrice: -115 },
+    })
+  })
+
+  it("skips a lopsided alternate line and falls back to the next book", () => {
+    const index = buildNovigLineIndex([entry("pinnacle", 34.5, 257, -335), entry("draftkings", 30.5, -110, -110)])
+    expect(resolvePropLine("Jayson Tatum", "pts", 24, index).marketLine).toMatchObject({ book: "draftkings", line: 30.5 })
+  })
+
+  it("uses the average when every book's line is lopsided", () => {
+    const index = buildNovigLineIndex([entry("pinnacle", 34.5, 257, -335)])
+    expect(resolvePropLine("Jayson Tatum", "pts", 24, index)).toMatchObject({ propLine: 24, lineSource: "average" })
   })
 })

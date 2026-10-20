@@ -2,14 +2,14 @@
  * Minimal ParlayAPI client for the Novig ingest.
  *
  *   getNbaEvents()       GET /sports/basketball_nba/events             (free)
- *   getNbaNovigProps()   GET /sports/basketball_nba/props?bookmakers=novig&markets=<7>&limit=10000&offset=<n>[&eventId=]
+ *   getNbaNovigProps()   GET /sports/basketball_nba/props?bookmakers=<BOOKMAKERS>&markets=<7>&limit=10000&offset=<n>[&eventId=]
  *                        (3 credits per call/page)
  *
  * The API key travels only in the X-API-Key header. Logs carry the path and
  * query only, never the key or the headers object.
  */
 import { z } from "zod"
-import { REQUESTED_MARKETS } from "./markets"
+import { BOOKMAKERS, REQUESTED_MARKETS } from "./markets"
 import type { NovigRow, ParlayEvent } from "./types"
 
 export const PARLAY_API_BASE_URL = "https://parlay-api.com/v1"
@@ -193,7 +193,7 @@ export function createParlayApiClient(options: ParlayApiClientOptions): ParlayAp
     async getNbaNovigProps({ offset, eventId }) {
       // Market keys are [a-z_] only, so the commas stay literal.
       let query =
-        `bookmakers=novig&markets=${REQUESTED_MARKETS.join(",")}` +
+        `bookmakers=${BOOKMAKERS.join(",")}&markets=${REQUESTED_MARKETS.join(",")}` +
         `&limit=${PROPS_PAGE_LIMIT}&offset=${Math.max(0, Math.trunc(offset))}`
       if (eventId) query += `&eventId=${encodeURIComponent(eventId)}`
       const { body, headers } = await get(`/sports/basketball_nba/props?${query}`)

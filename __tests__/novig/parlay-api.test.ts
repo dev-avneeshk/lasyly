@@ -28,7 +28,7 @@ describe("ParlayAPI client", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     const [url, init] = fetchImpl.mock.calls[0]
     expect(String(url)).toBe(
-      "https://parlay-api.com/v1/sports/basketball_nba/props?bookmakers=novig" +
+      "https://parlay-api.com/v1/sports/basketball_nba/props?bookmakers=pinnacle,novig,prophetx,draftkings,fanduel,betmgm,caesars,espnbet,fanatics,betrivers,fliff" +
         "&markets=player_points,player_rebounds,player_assists,player_threes,player_steals,player_blocks,player_turnovers" +
         "&limit=10000&offset=0",
     )

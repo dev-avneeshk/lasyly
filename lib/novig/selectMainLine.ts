@@ -1,14 +1,14 @@
 /**
- * Picks one "main" Novig line per (event, player, stat) from the alt-line
- * ladder ParlayAPI returns.
+ * Picks one "main" line per (event, bookmaker, player, stat) from the alt-line
+ * ladder ParlayAPI returns, for every stored book (see BOOKMAKERS).
  *
- * Only FULL-game Novig rows with BOTH prices as valid American odds count. The
+ * Only FULL-game rows from a stored book with BOTH prices as valid American odds count. The
  * main line is the one whose no-vig over probability is closest to 50%, ties
  * broken by lower vig, then lower line. Rows with negative vig or vig above
  * MAX_VIG are dropped: without that guard the fixture picks stale quotes such as
  * Cade Cunningham rebounds 3.5 at -335/-292 (51% vig).
  */
-import { mapMarketKey, MARKET_ALIASES, type NovigStat } from "./markets"
+import { isStoredBook, mapMarketKey, MARKET_ALIASES, type Bookmaker, type NovigStat } from "./markets"
 import { normalizePersonName } from "./names"
 import type { NovigRow } from "./types"
 
@@ -29,7 +29,9 @@ export interface MainLine {
   /** canonical_event_id when present, else event_id. */
   eventKey: string
   canonicalEventId: string | null
-  /** Raw Novig name of the chosen row. */
+  /** Book that posted this line. */
+  bookmaker: Bookmaker
+  /** Raw (book's) player name of the chosen row. */
   player: string
   /** normalizePersonName(player) (alias NOT applied; that's matching's job). */
   playerKey: string
@@ -60,11 +62,12 @@ function isBetter(a: MainLine, b: MainLine): boolean {
   return a.line < b.line
 }
 
-/** One main line per (event, normalized player, stat); groups with no usable row are omitted. */
+/** One main line per (event, book, normalized player, stat); groups with no usable row are omitted. */
 export function selectMainLines(rows: NovigRow[]): MainLine[] {
   const best = new Map<string, MainLine>()
   for (const row of rows) {
-    if (row.bookmaker !== "novig" || row.period !== "FULL") continue
+    const bookmaker = row.bookmaker
+    if (!isStoredBook(bookmaker) || row.period !== "FULL") continue
     const stat = mapMarketKey(row.market_key)
     if (!stat) continue
     if (typeof row.line !== "number" || !Number.isFinite(row.line) || row.line <= 0) continue
@@ -79,6 +82,7 @@ export function selectMainLines(rows: NovigRow[]): MainLine[] {
     const candidate: MainLine = {
       eventKey: eventKeyOf(row),
       canonicalEventId: row.canonical_event_id ?? null,
+      bookmaker,
       player: row.player,
       playerKey,
       stat,
@@ -90,7 +94,7 @@ export function selectMainLines(rows: NovigRow[]): MainLine[] {
       fairOver: pOver / (pOver + pUnder),
       lastUpdate: row.last_update ?? null,
     }
-    const groupKey = `${candidate.eventKey}|${playerKey}|${stat}`
+    const groupKey = `${candidate.eventKey}|${bookmaker}|${playerKey}|${stat}`
     const current = best.get(groupKey)
     if (!current || isBetter(candidate, current)) best.set(groupKey, candidate)
   }

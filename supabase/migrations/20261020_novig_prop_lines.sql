@@ -1,9 +1,11 @@
--- Novig NBA player-prop main lines, captured ONCE per game from ParlayAPI by
+-- NBA player-prop main lines from Novig and the other two-way books ParlayAPI
+-- carries (Pinnacle, ProphetX, DraftKings, FanDuel, ... see lib/novig/markets.ts
+-- BOOKMAKERS), one main line per book. Captured ONCE per game from ParlayAPI by
 -- /api/cron/ingest-novig-lines (lib/novig/ingest.ts, service role). The NBA
 -- props engine uses the stored line as the prop line and falls back to the L10
 -- average when a (player, stat) has no Novig line.
 --   novig_prop_events: capture marker per game (a row = never refetched)
---   novig_prop_lines:  one main line per (game, player, market), insert-only
+--   novig_prop_lines:  one main line per (game, book, player, market), insert-only
 --   novig_ingest_runs: per-run log (paid calls, credits), service role only
 -- Additive; undo with: DROP TABLE public.novig_prop_lines, public.novig_prop_events, public.novig_ingest_runs;
 BEGIN;
@@ -22,6 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_novig_prop_events_date ON public.novig_prop_event
 
 CREATE TABLE IF NOT EXISTS public.novig_prop_lines (
   canonical_event_id  TEXT NOT NULL,
+  bookmaker           TEXT NOT NULL DEFAULT 'novig' CHECK (bookmaker ~ '^[a-z0-9_]+$'), -- ParlayAPI book key
   player_key          TEXT NOT NULL,       -- normalizePersonName(novig_player)
   market_key          TEXT NOT NULL,       -- Novig market_key, e.g. player_points
   stat                TEXT NOT NULL CHECK (stat IN ('pts','trb','ast','tp','stl','blk','tov')),
@@ -40,7 +43,7 @@ CREATE TABLE IF NOT EXISTS public.novig_prop_lines (
   novig_last_update   TIMESTAMPTZ,
   source              TEXT NOT NULL DEFAULT 'novig' CHECK (source = 'novig'),
   captured_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (canonical_event_id, player_key, market_key)
+  PRIMARY KEY (canonical_event_id, bookmaker, player_key, market_key)
 );
 -- Read path: WHERE game_date = $1 ORDER BY PK (paged)
 CREATE INDEX IF NOT EXISTS idx_novig_prop_lines_date ON public.novig_prop_lines (game_date);

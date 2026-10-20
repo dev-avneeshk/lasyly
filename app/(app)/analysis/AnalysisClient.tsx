@@ -92,7 +92,7 @@ export default function AnalysisClient({
   // ─── Matchup state (NBA + NFL) ─────────────────────────────────────────────
   const [selectedMatchup, setSelectedMatchup] = useState<string | null>(null)
   const [todayGames, setTodayGames] = useState<TodayGame[]>(cachedProps?.todayGames ?? [])
-  // NBA: top props scored against the Novig line (null until the API returns them).
+  // NBA: top props scored against sportsbook lines (null until the API returns them).
   const [best, setBest] = useState<BestPropsData | null>(cachedProps?.best ?? null)
 
   // ─── Presentation state ─────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ export default function AnalysisClient({
     }
     switch (sortBy) {
       case "edge":
-        // Props priced by Novig first, biggest edge first; the rest keep hit-rate order.
+        // Props on a sportsbook line first, biggest edge first; the rest keep hit-rate order.
         return list.sort((a, b) => {
           const ea = a.marketEdge?.edge ?? null
           const eb = b.marketEdge?.edge ?? null
@@ -957,7 +957,7 @@ export default function AnalysisClient({
         )}
 
         {/* Section heading + count */}
-        {/* Top props scored against the real Novig line (NBA, when lines exist) */}
+        {/* Top props scored against real sportsbook lines (NBA, when lines exist) */}
         {!loading && <BestPropsPanel best={visibleBest} />}
 
         <div className="flex items-baseline justify-between gap-3 -mb-1">

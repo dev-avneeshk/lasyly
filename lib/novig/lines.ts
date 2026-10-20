@@ -16,6 +16,7 @@ import { cached, invalidateCache, invalidateCachePrefix } from "@/lib/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { normalizePersonName } from "./names"
 import { isBalancedMarket } from "@/lib/props/market-edge"
+import { bookRank } from "./markets"
 
 export const NOVIG_LINES_TTL_MS = 10 * 60_000
 
@@ -25,11 +26,14 @@ const PAGE_SIZE = 1000
 const MAX_PAGES = 20
 
 export function novigLinesCacheKey(date: string): string {
-  return `novig-lines:v1:${date}`
+  // v2: entries carry the bookmaker (multi-book ingest).
+  return `novig-lines:v2:${date}`
 }
 
 /** One stored main line, trimmed to what the read path needs. */
 export interface StoredNovigLine {
+  /** Book that posted the line (pinnacle, novig, draftkings, ...). */
+  bookmaker: string
   stat: string
   novigPlayer: string
   betroomPlayerName: string | null
@@ -40,7 +44,8 @@ export interface StoredNovigLine {
 }
 
 export interface NovigMarketLine {
-  book: "novig"
+  /** Book whose line this is (the sharpest book that priced this player/stat). */
+  book: string
   line: number
   overPrice: number
   underPrice: number
@@ -51,11 +56,12 @@ export type NovigLineIndex = Map<string, NovigMarketLine>
 
 export interface ResolvedPropLine {
   propLine: number
-  lineSource: "novig" | "average"
+  lineSource: "market" | "average"
   marketLine: NovigMarketLine | null
 }
 
 interface NovigLineRow {
+  bookmaker: string | null
   line: number | string | null
   over_price: number | string | null
   under_price: number | string | null
@@ -65,7 +71,7 @@ interface NovigLineRow {
   betroom_player_name: string | null
 }
 
-const SELECT_COLUMNS = "line,over_price,under_price,captured_at,stat,novig_player,betroom_player_name"
+const SELECT_COLUMNS = "bookmaker,line,over_price,under_price,captured_at,stat,novig_player,betroom_player_name"
 
 /** Number(null) is 0, so nulls and blanks must become NaN explicitly. */
 function toNumber(v: number | string | null): number {
@@ -80,6 +86,7 @@ function toEntry(row: NovigLineRow): StoredNovigLine | null {
   if (!Number.isFinite(line) || line <= 0) return null
   if (!Number.isFinite(overPrice) || !Number.isFinite(underPrice)) return null
   return {
+    bookmaker: row.bookmaker ?? "novig",
     stat: row.stat,
     novigPlayer: row.novig_player,
     betroomPlayerName: row.betroom_player_name ?? null,
@@ -101,6 +108,7 @@ async function fetchNovigLinesUncached(date: string): Promise<StoredNovigLine[]>
       .select(SELECT_COLUMNS)
       .eq("game_date", date)
       .order("canonical_event_id", { ascending: true })
+      .order("bookmaker", { ascending: true })
       .order("player_key", { ascending: true })
       .order("market_key", { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
@@ -141,7 +149,7 @@ function indexKey(name: string, stat: string): string {
 export function buildNovigLineIndex(entries: readonly StoredNovigLine[]): NovigLineIndex {
   const index: NovigLineIndex = new Map()
   const toMarket = (e: StoredNovigLine): NovigMarketLine => ({
-    book: "novig",
+    book: e.bookmaker,
     line: e.line,
     overPrice: e.overPrice,
     underPrice: e.underPrice,
@@ -150,7 +158,11 @@ export function buildNovigLineIndex(entries: readonly StoredNovigLine[]): NovigL
   // Lopsided markets (e.g. SGA PTS 34.5 at +257/−335) are alternate/ladder
   // lines, not the main line. Showing one as "the" line would mislead, so those
   // players keep the L10-average line instead.
-  const usable = entries.filter((e) => isBalancedMarket(e.overPrice, e.underPrice))
+  // Several books can price the same player/stat; the sharpest book wins
+  // (bookRank: Pinnacle, then Novig, ProphetX, the US books, Fliff).
+  const usable = entries
+    .filter((e) => isBalancedMarket(e.overPrice, e.underPrice))
+    .sort((a, b) => bookRank(a.bookmaker) - bookRank(b.bookmaker))
   for (const e of usable) {
     const key = indexKey(e.betroomPlayerName ?? e.novigPlayer, e.stat)
     if (!index.has(key)) index.set(key, toMarket(e))
@@ -171,7 +183,7 @@ export function resolvePropLine(
   index: NovigLineIndex,
 ): ResolvedPropLine {
   const market = index.get(indexKey(playerName, statColumn))
-  if (market) return { propLine: market.line, lineSource: "novig", marketLine: market }
+  if (market) return { propLine: market.line, lineSource: "market", marketLine: market }
   return { propLine: averageLine, lineSource: "average", marketLine: null }
 }
 
@@ -183,8 +195,8 @@ export function resolvePropLine(
 export async function invalidateNovigReadCaches(date: string): Promise<void> {
   await Promise.all([
     invalidateCache(novigLinesCacheKey(date)),
-    invalidateCachePrefix("matchup-props:v4:NBA:"),
-    invalidateCachePrefix("nba-props:v3:"),
+    invalidateCachePrefix("matchup-props:v5:NBA:"),
+    invalidateCachePrefix("nba-props:v4:"),
     invalidateCache(`precomputed-slate:NBA:all:all:${date}`),
   ])
 }

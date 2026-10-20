@@ -90,3 +90,31 @@ describe("selectMainLines rules", () => {
     expect(main).toMatchObject({ stat: "tp", marketKey: "player_threes" })
   })
 })
+
+describe("selectMainLines across books", () => {
+  const r = (bookmaker: string, line: number, over: number, under: number): NovigRow => ({
+    canonical_event_id: "evt",
+    bookmaker,
+    period: "FULL",
+    player: "Test Player",
+    market_key: "player_points",
+    line,
+    over_price: over,
+    under_price: under,
+  })
+
+  it("keeps one main line per book, and ignores DFS and unlisted books", () => {
+    const lines = selectMainLines([
+      r("pinnacle", 20.5, -110, -110),
+      r("pinnacle", 24.5, 200, -260),
+      r("draftkings", 21.5, -115, -105),
+      r("prizepicks", 20.5, 100, -100),
+      r("underdog", 20.5, -120, -110),
+      r("bovada", 19.5, -110, -110),
+    ])
+    expect(lines.map((l) => [l.bookmaker, l.line]).sort()).toEqual([
+      ["draftkings", 21.5],
+      ["pinnacle", 20.5],
+    ])
+  })
+})

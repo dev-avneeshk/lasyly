@@ -1,11 +1,12 @@
 /**
- * Scoring props against the market (Novig) line.
+ * Scoring props against the market line.
  *
- * A prop only has a market view when its line came from Novig (lineSource
- * "novig", marketLine set). For those:
+ * A prop only has a market view when its line came from a sportsbook
+ * (lineSource "market", marketLine set: Pinnacle, Novig, DraftKings, ...).
+ * For those:
  *
  * - Market probability: the no-vig probability of the recommended side, from
- *   Novig's over/under prices (multiplicative de-vig).
+ *   the book's over/under prices (multiplicative de-vig).
  * - Model probability: the recommended side's hit rate over the last games,
  *   shrunk toward the market probability with a prior worth PRIOR_GAMES games.
  *   Raw hit rates are noisy (8/10 is not an 80% bet), so the market acts as
@@ -35,8 +36,10 @@ export interface MarketEdge {
   hits: number
   /** Sample size (last games, up to 10). */
   games: number
-  /** American price for `side` on Novig. */
+  /** American price for `side` at `book`. */
   price: number
+  /** Book that posted the line and price. */
+  book: string
   /** Projection minus line; positive favours the over. Null without a projection. */
   projectionGap: number | null
   /** Whether the projection sits on the same side of the line as `side`. */
@@ -75,14 +78,14 @@ export interface EdgeInput {
   propLine: number
   direction?: "over" | "under"
   hitRate?: { over: number; total: number } | null
-  lineSource?: "novig" | "average"
-  marketLine?: { overPrice: number; underPrice: number } | null
+  lineSource?: "market" | "average"
+  marketLine?: { book?: string; overPrice: number; underPrice: number } | null
   projection?: { projection: number } | null
 }
 
 /** The market view of a prop, or null when its line is not a market line. */
 export function computeMarketEdge(prop: EdgeInput): MarketEdge | null {
-  if (prop.lineSource !== "novig" || !prop.marketLine) return null
+  if (prop.lineSource !== "market" || !prop.marketLine) return null
   const games = prop.hitRate?.total ?? 0
   if (games <= 0) return null
   const fair = noVigProbabilities(prop.marketLine.overPrice, prop.marketLine.underPrice)
@@ -108,6 +111,7 @@ export function computeMarketEdge(prop: EdgeInput): MarketEdge | null {
     hits,
     games,
     price: side === "over" ? prop.marketLine.overPrice : prop.marketLine.underPrice,
+    book: prop.marketLine.book ?? "market",
     projectionGap,
     projectionAgrees,
   }

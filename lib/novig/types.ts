@@ -3,7 +3,7 @@
  * ingest writes, and the store interface (implemented by the Supabase store in
  * store.ts and the in-memory store in memoryStore.ts).
  */
-import type { NovigStat } from "./markets"
+import type { Bookmaker, NovigStat } from "./markets"
 import type { MatchMethod, PlayerPools } from "./names"
 
 /** One entry of GET /v1/sports/basketball_nba/events (free). */
@@ -55,6 +55,8 @@ export interface SlateGame {
 /** public.novig_prop_lines row. */
 export interface NovigLineRecord {
   canonical_event_id: string
+  /** Book that posted the line (one main line per book per player/market). */
+  bookmaker: Bookmaker
   player_key: string
   market_key: string
   stat: NovigStat

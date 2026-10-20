@@ -42,6 +42,62 @@ export const REQUESTED_MARKETS = [
   "player_turnovers",
 ] as const
 
+/**
+ * Books whose prop lines are stored, in the order a line is preferred when
+ * several books price the same player/stat (sharpest first).
+ *
+ * Only real two-way markets: DFS apps (PrizePicks, Underdog, Sleeper, Pick6)
+ * pay flat multipliers, so their "prices" are not probabilities and they are
+ * excluded. Bovada is excluded too: its main-line pick disagreed with
+ * Pinnacle by more than a point on 77 of 133 shared props (2026-10-20 sample),
+ * which reads as alt-ladder noise rather than a consensus line.
+ *
+ * Measured on 2026-10-20 (BOS@DET, PHI@NYK, OKC@SAS): Novig alone gave 138
+ * usable main lines; these books together gave 176 (+38, mostly stl/blk/pts).
+ */
+export const BOOKMAKERS = [
+  "pinnacle",
+  "novig",
+  "prophetx",
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "caesars",
+  "espnbet",
+  "fanatics",
+  "betrivers",
+  "fliff",
+] as const
+
+export type Bookmaker = (typeof BOOKMAKERS)[number]
+
+const BOOK_RANK: ReadonlyMap<string, number> = new Map(BOOKMAKERS.map((b, i) => [b, i]))
+
+/** True for a bookmaker key we store. */
+export function isStoredBook(book: string | null | undefined): book is Bookmaker {
+  return !!book && BOOK_RANK.has(book)
+}
+
+/** Preference rank of a book (lower wins); unknown books sort last. */
+export function bookRank(book: string): number {
+  return BOOK_RANK.get(book) ?? BOOKMAKERS.length
+}
+
+/** Display names for the card label ("Pinnacle line"). */
+export const BOOK_LABELS: Readonly<Record<string, string>> = {
+  pinnacle: "Pinnacle",
+  novig: "Novig",
+  prophetx: "ProphetX",
+  draftkings: "DraftKings",
+  fanduel: "FanDuel",
+  betmgm: "BetMGM",
+  caesars: "Caesars",
+  espnbet: "ESPN BET",
+  fanatics: "Fanatics",
+  betrivers: "BetRivers",
+  fliff: "Fliff",
+}
+
 /** Maps a market_key (canonical or alias) to an engine stat, or null when unmapped. */
 export function mapMarketKey(key: string | null | undefined): NovigStat | null {
   if (!key) return null

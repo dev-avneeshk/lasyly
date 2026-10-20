@@ -101,7 +101,7 @@ describe("runNovigIngest", () => {
     })
     expect(h.store.state.events.get(BOS_DET)).toMatchObject({ line_count: 44, home_team: "DET", away_team: "BOS", game_date: "2026-10-20" })
     expect(h.store.state.events.size).toBe(1)
-    const tatum = h.store.state.lines.get(`${BOS_DET}|jayson tatum|player_points`)
+    const tatum = h.store.state.lines.get(`${BOS_DET}|novig|jayson tatum|player_points`)
     expect(tatum).toMatchObject({ line: 26.5, over_price: -104, under_price: -106, stat: "pts", match_method: "exact", betroom_player_name: "Jayson Tatum" })
     expect(h.store.state.runs[0]).toMatchObject({ status: "ok", paid_calls: 1, credits_used: 3, credits_remaining: 991 })
   })
@@ -226,6 +226,7 @@ describe("runNovigIngest", () => {
   it("(j) a second run over the same store makes 0 paid calls and never overwrites lines", async () => {
     const seeded: NovigLineRecord = {
       canonical_event_id: BOS_DET,
+      bookmaker: "novig",
       player_key: "jayson tatum",
       market_key: "player_points",
       stat: "pts",
@@ -246,7 +247,7 @@ describe("runNovigIngest", () => {
     const h = harness([ok(), ok()], { slateGames: DET_ONLY, lines: [seeded] })
     const r1 = await h.run()
     expect(r1).toMatchObject({ status: "ok", paidCalls: 1, rowsInserted: 43, capturedEvents: 1 })
-    expect(h.store.state.lines.get(`${BOS_DET}|jayson tatum|player_points`)?.line).toBe(99.5)
+    expect(h.store.state.lines.get(`${BOS_DET}|novig|jayson tatum|player_points`)?.line).toBe(99.5)
 
     const r2 = await h.run()
     expect(r2).toMatchObject({ status: "nothing_missing", paidCalls: 0, rowsInserted: 0 })

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, ArrowRight, Bookmark, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
+import { BOOK_LABELS } from "@/lib/novig/markets"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { formatGameDayTime } from "@/lib/props/dates"
 import { resolveMatchup } from "@/lib/props/matchup"
@@ -57,9 +58,10 @@ export function PropCardCompact({
 
   const goToDetail = () => router.push(href)
 
-  // NBA props carry lineSource: the stored Novig main line, or the L10 average.
+  // NBA props carry lineSource: a stored sportsbook main line, or the L10 average.
   // Other sports leave it unset and keep the plain "Target" label.
-  const isNovigLine = prop.lineSource === "novig"
+  const isMarketLine = prop.lineSource === "market"
+  const bookLabel = isMarketLine ? (BOOK_LABELS[prop.marketLine?.book ?? ""] ?? "Market") : null
 
   return (
     <article
@@ -68,7 +70,7 @@ export function PropCardCompact({
       className="group h-full flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-4 transition-colors hover:border-[var(--color-lime)]/40 cursor-pointer"
       role="link"
       tabIndex={0}
-      aria-label={`${prop.player} ${statLabel} ${isNovigLine ? "Novig line" : "target"} ${prop.propLine} — view details`}
+      aria-label={`${prop.player} ${statLabel} ${bookLabel ? `${bookLabel} line` : "target"} ${prop.propLine} — view details`}
       onClick={(e) => {
         const target = e.target as HTMLElement
         if (target.closest("button") || target.closest("a")) return
@@ -156,9 +158,9 @@ export function PropCardCompact({
         <div className="min-w-0">
           <p
             className="text-[11px] font-semibold text-[var(--color-text-muted)]"
-            title={prop.lineSource === "average" ? "Line from L10 average (no Novig line)" : undefined}
+            title={prop.lineSource === "average" ? "Line from L10 average (no sportsbook line)" : undefined}
           >
-            {statLabel} · {isNovigLine ? "Novig line" : "Target"}
+            {statLabel} · {bookLabel ? `${bookLabel} line` : "Target"}
           </p>
           <p className="text-[30px] font-extrabold leading-none tracking-[-0.02em] text-[var(--color-text-primary)] tabular-nums">
             {prop.propLine}

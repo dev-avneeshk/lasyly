@@ -11,6 +11,7 @@
 #   - the ingest's insert (service role, ON CONFLICT on the PK DO NOTHING) is
 #     store-once: a duplicate key keeps one row with the ORIGINAL line
 #   - CHECK constraints refuse an unmapped stat ('pra') and a zero line
+#   - two books can each store their own line for the same player/market
 #
 # The data dir stays inside the workspace (scratch rule) and is removed on exit.
 # Postgres listens on 127.0.0.1 only (no unix socket: workspace paths are too
@@ -115,12 +116,18 @@ check "line insert ON CONFLICT DO NOTHING twice keeps 1 row with the original li
 INSERT INTO public.novig_prop_lines ($LINE_COLS)
 VALUES ('249f6ad5667cc3b1', 'jayson tatum', 'player_points', 'pts', '2026-10-20', '2026-10-20T19:00:00Z',
   'DET', 'BOS', 'Jayson Tatum', 'exact', 27.5, -110, -110, 0.0476)
-  ON CONFLICT (canonical_event_id, player_key, market_key) DO NOTHING;
+  ON CONFLICT (canonical_event_id, bookmaker, player_key, market_key) DO NOTHING;
 INSERT INTO public.novig_prop_lines ($LINE_COLS)
 VALUES ('249f6ad5667cc3b1', 'jayson tatum', 'player_points', 'pts', '2026-10-20', '2026-10-20T19:00:00Z',
   'DET', 'BOS', 'Jayson Tatum', 'exact', 28.5, -110, -110, 0.0476)
-  ON CONFLICT (canonical_event_id, player_key, market_key) DO NOTHING;
+  ON CONFLICT (canonical_event_id, bookmaker, player_key, market_key) DO NOTHING;
 SELECT count(*), max(line) FROM public.novig_prop_lines WHERE player_key = 'jayson tatum' AND market_key = 'player_points';")"
+check "a second book stores its own line for the same player/market" "2" "$(as service_role "
+INSERT INTO public.novig_prop_lines (bookmaker, $LINE_COLS)
+VALUES ('pinnacle', '249f6ad5667cc3b1', 'jayson tatum', 'player_points', 'pts', '2026-10-20', '2026-10-20T19:00:00Z',
+  'DET', 'BOS', 'Jayson Tatum', 'exact', 26.5, -105, -115, 0.0398)
+  ON CONFLICT (canonical_event_id, bookmaker, player_key, market_key) DO NOTHING;
+SELECT count(*) FROM public.novig_prop_lines WHERE player_key = 'jayson tatum' AND market_key = 'player_points';")"
 check "event marker ON CONFLICT DO NOTHING keeps the original line_count" "1|44" "$(as service_role "
 INSERT INTO public.novig_prop_events ($EVENT_COLS)
 VALUES ('249f6ad5667cc3b1', '2026-10-20', '2026-10-20T19:00:00Z', 'DET', 'BOS', 0)

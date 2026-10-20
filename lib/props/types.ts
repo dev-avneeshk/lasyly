@@ -15,15 +15,16 @@ export interface PropCardData {
   matchup: string
   sport: "NBA" | "Tennis" | "Soccer" | "NFL" | "NHL"
   /**
-   * Where `propLine` came from (NBA only): the stored Novig main line, or the
-   * L10 average when no Novig line exists. Absent for other sports.
+   * Where `propLine` came from (NBA only): a stored sportsbook main line
+   * (marketLine.book says which), or the L10 average when no book priced it.
+   * Absent for other sports.
    */
-  lineSource?: "novig" | "average"
-  /** The L10-average line, kept even when a Novig line replaced it (NBA only). */
+  lineSource?: "market" | "average"
+  /** The L10-average line, kept even when a market line replaced it (NBA only). */
   averageLine?: number
-  /** The stored Novig market line behind `propLine`, null when it is the average (NBA only). */
-  marketLine?: { book: "novig"; line: number; overPrice: number; underPrice: number; capturedAt: string } | null
-  /** Recommended side scored against the Novig price; null without a market line (NBA only). */
+  /** The stored market line behind `propLine`, null when it is the average (NBA only). */
+  marketLine?: { book: string; line: number; overPrice: number; underPrice: number; capturedAt: string } | null
+  /** Recommended side scored against the book's price; null without a market line (NBA only). */
   marketEdge?: MarketEdge | null
 }
 

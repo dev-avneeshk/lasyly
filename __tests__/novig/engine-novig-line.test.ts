@@ -130,7 +130,7 @@ describe("engine-v2 prop line source", () => {
     const lebron = props.find((p) => p.player === "LeBron James")!
     expect(lebron).toMatchObject({
       propLine: 31.5,
-      lineSource: "novig",
+      lineSource: "market",
       averageLine: 27.5,
       marketLine: { book: "novig", line: 31.5, overPrice: -110, underPrice: -110, capturedAt: "2026-10-20T16:00:05Z" },
       hitRate: { over: 0, total: 8 },

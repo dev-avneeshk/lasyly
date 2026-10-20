@@ -784,9 +784,10 @@ export async function computeMatchupScopedProps(
   // can open that game's DB-backed boxscore.
   // v4: NBA props use the stored Novig main line when present and carry
   // lineSource/averageLine/marketLine. Bumped so stale blobs without them are
-  // not served. lib/novig/lines.ts invalidates `matchup-props:v4:NBA:` after an
+  // not served. v5: lines can come from any stored book (marketLine.book,
+  // lineSource "market"). lib/novig/lines.ts invalidates `matchup-props:v5:NBA:` after an
   // ingest stores new lines; keep the two in sync.
-  const cacheKey = `matchup-props:v4:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
+  const cacheKey = `matchup-props:v5:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
 
   // 3 minutes, matching PROPS_TTL.nba in /api/props.
   //
@@ -1063,7 +1064,7 @@ async function computeMatchupScopedPropsUncached(
     // games are sorted most recent first
     const statValues = games.map((g) => g.statValue)
 
-    // Compute prop line: the stored Novig main line when present, else the L10
+    // Compute prop line: the stored market main line (sharpest book) when present, else the L10
     // average. Everything below (graph overLine, hit rate, direction gate,
     // projection agreement) uses this line.
     const averageLine = computePropLine(statValues)
@@ -1217,8 +1218,8 @@ async function computeMatchupScopedPropsUncached(
       venue: upcomingVenue,
       restDays,
       minutesProjection,
-      // Layer 3 (edge vs the book) runs only when the line is a real Novig line.
-      bookLine: lineSource === "novig" ? propLine : null,
+      // Layer 3 (edge vs the book) runs only when the line is a real market line.
+      bookLine: lineSource === "market" ? propLine : null,
     })
 
     // ─── Direction & Quality from Projection + Hit Rate (PRIMARY) ────────

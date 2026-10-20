@@ -34,8 +34,8 @@ export interface MemoryNovigStore extends NovigStore {
   readonly state: MemoryNovigState
 }
 
-const lineKey = (l: Pick<NovigLineRecord, "canonical_event_id" | "player_key" | "market_key">) =>
-  `${l.canonical_event_id}|${l.player_key}|${l.market_key}`
+const lineKey = (l: Pick<NovigLineRecord, "canonical_event_id" | "bookmaker" | "player_key" | "market_key">) =>
+  `${l.canonical_event_id}|${l.bookmaker}|${l.player_key}|${l.market_key}`
 
 export function createMemoryNovigStore(
   seed: MemoryNovigStoreSeed = {},
