@@ -55,7 +55,7 @@ export default async function AnalysisPage({
     <AnalysisClient
       isAuthenticated={isAuthenticated}
       initialSearch={search ?? ""}
-      initialSport={sport ?? "NFL"}
+      initialSport={sport ?? "NBA"}
     />
   )
 }

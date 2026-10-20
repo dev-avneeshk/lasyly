@@ -27,7 +27,7 @@ const VIEW_MODE_STORAGE_KEY = "lasyly:props-view-mode"
 
 function normalizeSport(value?: string): Sport {
   const match = SPORTS.find((s) => s.toLowerCase() === (value ?? "").toLowerCase())
-  return match ?? "NFL"
+  return match ?? "NBA"
 }
 
 /** L10 hit rate as a 0–100 number, falling back to the base hit rate. */

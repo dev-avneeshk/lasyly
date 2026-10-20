@@ -12,7 +12,7 @@ const primaryNav = [
   { icon: Compass, href: "/explore", label: "Explore" },
   { icon: Trophy, href: "/scores", label: "Scores" },
   { icon: Newspaper, href: "/news", label: "News" },
-  { icon: Target, href: "/analysis?sport=NFL", label: "Props" },
+  { icon: Target, href: "/analysis?sport=NBA", label: "Props" },
 ]
 
 const moreNav = [
@@ -128,7 +128,7 @@ export default function BottomNav() {
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.35)] pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch justify-around px-2 pt-2 pb-1.5">
           {primaryNav.map((item) => {
-            // hrefs may carry a query (e.g. "/analysis?sport=NFL"); match the
+            // hrefs may carry a query (e.g. "/analysis?sport=NBA"); match the
             // path portion only since pathname excludes the query string.
             const isActive = pathname.startsWith(item.href.split("?")[0])
             return (

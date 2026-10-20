@@ -2,9 +2,11 @@
 
 import { useCallback, useMemo } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { TOP_BAR_SPORTS } from "@/components/layout/TopBarSportTabs"
 import { buildDayWindow, getSeasonInfo, shiftIso } from "@/lib/props/dates"
 
 interface PropsHeaderProps {
@@ -58,6 +60,32 @@ export function PropsHeader({ sport, selectedDate, todayIso, onDateChange }: Pro
           <span className="text-[var(--color-lime)]/50">•</span> Opportunity
         </p>
       </div>
+
+      {/* Sport switcher — always visible, so switching sport doesn't depend on
+          the top-bar tabs (which are hidden below md). */}
+      <nav
+        aria-label="Props sport"
+        className="-mx-1 flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-1"
+      >
+        {TOP_BAR_SPORTS.map((s) => {
+          const isActive = s.toLowerCase() === sport.toLowerCase()
+          return (
+            <Link
+              key={s}
+              href={`/analysis?sport=${s}`}
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "shrink-0 h-9 px-4 rounded-full border text-[13px] font-bold tracking-wide flex items-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lime)]/50",
+                isActive
+                  ? "bg-[var(--color-lime)] border-[var(--color-lime)] text-black shadow-[0_0_18px_rgba(212,255,0,0.22)]"
+                  : "border-[var(--color-border)] bg-[var(--color-surface)]/70 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:border-white/20"
+              )}
+            >
+              {s}
+            </Link>
+          )
+        })}
+      </nav>
 
       {/* Title + controls */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
