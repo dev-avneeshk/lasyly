@@ -72,6 +72,52 @@ interface SampleFiltersProps {
     active: boolean
     onToggle: () => void
   }
+  /** Minimum-minutes selector. Omit to hide. */
+  minutesFilter?: {
+    options: SeasonOption[]
+    value: string
+    onChange: (value: string) => void
+  }
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+  highlighted,
+}: {
+  label: string
+  value: string
+  options: SeasonOption[]
+  onChange: (value: string) => void
+  highlighted?: boolean
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        className={cn(
+          "appearance-none h-[38px] pl-3.5 pr-9 rounded-xl border bg-[var(--color-surface-elevated)]/40 text-[12px] font-bold outline-none hover:border-white/20 focus:border-[var(--color-lime)]/60 transition-colors cursor-pointer",
+          highlighted
+            ? "border-[var(--color-lime)]/40 text-[var(--color-lime)]"
+            : "border-[var(--color-border)] text-white"
+        )}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} className="bg-[var(--color-surface-elevated)] text-white">
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        aria-hidden
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] pointer-events-none"
+      />
+    </div>
+  )
 }
 
 /**
@@ -86,6 +132,7 @@ export function SampleFilters({
   activeSeason,
   onSeasonChange,
   opponentFilter,
+  minutesFilter,
 }: SampleFiltersProps) {
   const showSeasons = !!seasons && seasons.length > 0 && !!onSeasonChange
 
@@ -143,24 +190,24 @@ export function SampleFilters({
 
       {/* Season / season type */}
       {showSeasons && (
-        <div className="relative">
-          <select
-            value={activeSeason}
-            onChange={(e) => onSeasonChange?.(e.target.value)}
-            aria-label="Season"
-            className="appearance-none h-[38px] pl-3.5 pr-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/40 text-[12px] font-bold text-white outline-none hover:border-white/20 focus:border-[var(--color-lime)]/60 transition-colors cursor-pointer"
-          >
-            {seasons!.map((season) => (
-              <option key={season.value} value={season.value} className="bg-[var(--color-surface-elevated)]">
-                {season.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            aria-hidden
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] pointer-events-none"
-          />
-        </div>
+        <FilterSelect
+          label="Season"
+          value={activeSeason ?? ""}
+          options={seasons!}
+          onChange={(v) => onSeasonChange?.(v)}
+          highlighted={activeSeason !== undefined && activeSeason !== seasons![0]?.value}
+        />
+      )}
+
+      {/* Minimum minutes */}
+      {minutesFilter && (
+        <FilterSelect
+          label="Minutes"
+          value={minutesFilter.value}
+          options={minutesFilter.options}
+          onChange={minutesFilter.onChange}
+          highlighted={minutesFilter.value !== minutesFilter.options[0]?.value}
+        />
       )}
     </div>
   )

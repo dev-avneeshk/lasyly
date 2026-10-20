@@ -315,6 +315,8 @@ export default function PlayerDashboardPage() {
   // Chart filters (NBA): season type and games vs the upcoming opponent.
   const [chartSeasonType, setChartSeasonType] = useState<SeasonTypeFilter>("all")
   const [vsOpponentOnly, setVsOpponentOnly] = useState(false)
+  // Minimum minutes played; 0 = any. Drops blowouts / foul-trouble games.
+  const [minMinutes, setMinMinutes] = useState(0)
 
   // Whether `prop` (line, projection, matchup grade) belongs to the active tab.
   // False for combo tabs and stats the engine has no line for, or briefly while
@@ -585,7 +587,7 @@ export default function PlayerDashboardPage() {
   // filters. `prop.lastGames` is the fallback until it loads, and only when it
   // belongs to the active tab.
   const opponentFilterAbbr = sportParam === "NBA" && /^[A-Z]{2,4}$/.test(opponentAbbr) ? opponentAbbr : null
-  const nbaChartFiltered = sportParam === "NBA" && (vsOpponentOnly || chartSeasonType !== "all")
+  const nbaChartFiltered = sportParam === "NBA" && (vsOpponentOnly || chartSeasonType !== "all" || minMinutes > 0)
   // Shared by the chart and Filtered Averages so both follow the same filters.
   const nbaFilteredGames = sportParam === "NBA" && gameLog
     ? gameLog
@@ -593,10 +595,12 @@ export default function PlayerDashboardPage() {
           chartSeasonType === "all" ? true : chartSeasonType === "playoffs" ? g.isPlayoff : !g.isPlayoff
         )
         .filter(g => !vsOpponentOnly || !opponentFilterAbbr || g.opponent === opponentFilterAbbr)
+        .filter(g => g.minutes >= minMinutes)
     : null
   const nbaFilterLabel = [
     vsOpponentOnly && opponentFilterAbbr ? `vs ${opponentFilterAbbr}` : null,
     chartSeasonType === "regular" ? "Regular season" : chartSeasonType === "playoffs" ? "Playoffs" : null,
+    minMinutes > 0 ? `${minMinutes}+ min` : null,
   ].filter(Boolean).join(" · ") || "All games"
   let gameHistory: PerformanceGame[]
   if (nbaFilteredGames) {
@@ -856,7 +860,9 @@ export default function PlayerDashboardPage() {
       {/* Chart directly under the hero, with injuries + averages in the sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Performance chart + window metrics */}
-        <div className={cn((isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
+        {/* Left column: chart, then the matchup banner + grade strip fill the
+            space beside the taller sidebar instead of taking a full row. */}
+        <div className={cn("flex flex-col gap-4 min-w-0", (isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
           <PerformanceCard
             statLabel={statLabel}
             games={filteredHistory}
@@ -887,6 +893,16 @@ export default function PlayerDashboardPage() {
                   : sportParam === "NBA"
                   ? (value) => setChartSeasonType(value as SeasonTypeFilter)
                   : undefined}
+                minutesFilter={sportParam === "NBA"
+                  ? {
+                      options: [0, 15, 20, 25, 30, 35].map((m) => ({
+                        value: String(m),
+                        label: m === 0 ? "Any minutes" : `${m}+ min`,
+                      })),
+                      value: String(minMinutes),
+                      onChange: (v) => setMinMinutes(Number(v)),
+                    }
+                  : undefined}
                 opponentFilter={opponentFilterAbbr
                   ? {
                       label: `vs ${opponentFilterAbbr}`,
@@ -901,6 +917,7 @@ export default function PlayerDashboardPage() {
               vsOpponentOnly && opponentFilterAbbr ? `vs ${opponentFilterAbbr}` : null,
               sportParam === "NBA" && chartSeasonType === "regular" ? "Regular season" : null,
               sportParam === "NBA" && chartSeasonType === "playoffs" ? "Playoffs" : null,
+              sportParam === "NBA" && minMinutes > 0 ? `${minMinutes}+ min` : null,
             ].filter(Boolean).join(" · ")}
             emptyState={
               <div className="flex flex-col items-center gap-1 text-center">
@@ -908,12 +925,12 @@ export default function PlayerDashboardPage() {
                   {sportParam === "NBA"
                     ? (gameLog === null && nbaChartFiltered
                         ? "Loading games…"
-                        : `No ${chartSeasonType === "playoffs" ? "playoff " : chartSeasonType === "regular" ? "regular-season " : ""}games${vsOpponentOnly && opponentFilterAbbr ? ` vs ${opponentFilterAbbr}` : ""}`)
+                        : `No ${chartSeasonType === "playoffs" ? "playoff " : chartSeasonType === "regular" ? "regular-season " : ""}games${vsOpponentOnly && opponentFilterAbbr ? ` vs ${opponentFilterAbbr}` : ""}${minMinutes > 0 ? ` with ${minMinutes}+ min` : ""}`)
                     : `No games in ${nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}`}
                 </span>
                 {sportParam === "NBA" && nbaChartFiltered && gameLog !== null && (
                   <button
-                    onClick={() => { setVsOpponentOnly(false); setChartSeasonType("all") }}
+                    onClick={() => { setVsOpponentOnly(false); setChartSeasonType("all"); setMinMinutes(0) }}
                     className="text-xs text-[var(--color-lime)] hover:underline"
                   >
                     Clear filters
@@ -927,6 +944,50 @@ export default function PlayerDashboardPage() {
               </div>
             }
           />
+
+          {/* Upcoming fixture. Self-hides when we can't identify the opponent. */}
+          <MatchupBanner
+            team={teamMeta}
+            opponent={opponentMeta}
+            nextGame={profile?.nextGame ?? null}
+          />
+
+          {/* Matchup grade strip. The teams themselves are in <MatchupBanner />, so
+              this keeps only what the banner can't show: the engine's defensive
+              grade, pace read and head-to-head record. */}
+          {propMatchesActive && prop?.defensiveMatchup && (() => {
+            const dm = prop.defensiveMatchup
+            const gradeColor = dm.grade === "A" || dm.grade === "B" ? "bg-emerald-500/20 text-emerald-400"
+              : dm.grade === "C" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+            const sr = prop.seriesRecord ?? seriesRecord
+            const gradeLabel: Record<string, string> = { A: "Elite matchup", B: "Good matchup", C: "Neutral matchup", D: "Tough matchup", F: "Avoid" }
+            return (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+                <span className={cn("text-base font-black px-2.5 py-1 rounded-lg shrink-0", gradeColor)}>{dm.grade}</span>
+                <div className="leading-tight min-w-0">
+                  <div className="text-sm font-bold text-white">{gradeLabel[dm.grade] ?? "Matchup"}</div>
+                  <div className="text-[10px] text-[var(--color-text-muted)]">
+                    {dm.opponentTeam} allows <span className="text-white font-semibold tabular-nums">{dm.statAllowedPerGame}</span> {prop.statCategory}/g · league avg {dm.leagueAverage}
+                  </div>
+                </div>
+                <div className="ml-auto flex items-center gap-1.5 text-[10px] shrink-0">
+                  {dm.rank != null && dm.rankOf != null && (
+                    <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]" title="Rank 1 = allows the most">
+                      Rank <span className="text-white font-semibold tabular-nums">#{dm.rank}/{dm.rankOf}</span>
+                    </span>
+                  )}
+                  <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+                    Pace <span className="text-white font-semibold capitalize">{dm.paceRating}</span>
+                  </span>
+                  {sr && (sr.team + sr.opponent) > 0 && (
+                    <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
+                      H2H <span className="text-white font-semibold tabular-nums">{sr.team}-{sr.opponent}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Sidebar — injury report + filtered averages (NBA only) */}
@@ -991,50 +1052,6 @@ export default function PlayerDashboardPage() {
         </aside>
         )}
       </div>
-
-      {/* Upcoming fixture. Self-hides when we can't identify the opponent. */}
-      <MatchupBanner
-        team={teamMeta}
-        opponent={opponentMeta}
-        nextGame={profile?.nextGame ?? null}
-      />
-
-      {/* Matchup grade strip. The teams themselves are in <MatchupBanner />, so
-          this keeps only what the banner can't show: the engine's defensive
-          grade, pace read and head-to-head record. */}
-      {propMatchesActive && prop?.defensiveMatchup && (() => {
-        const dm = prop.defensiveMatchup
-        const gradeColor = dm.grade === "A" || dm.grade === "B" ? "bg-emerald-500/20 text-emerald-400"
-          : dm.grade === "C" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
-        const sr = prop.seriesRecord ?? seriesRecord
-        const gradeLabel: Record<string, string> = { A: "Elite matchup", B: "Good matchup", C: "Neutral matchup", D: "Tough matchup", F: "Avoid" }
-        return (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-            <span className={cn("text-base font-black px-2.5 py-1 rounded-lg shrink-0", gradeColor)}>{dm.grade}</span>
-            <div className="leading-tight min-w-0">
-              <div className="text-sm font-bold text-white">{gradeLabel[dm.grade] ?? "Matchup"}</div>
-              <div className="text-[10px] text-[var(--color-text-muted)]">
-                {dm.opponentTeam} allows <span className="text-white font-semibold tabular-nums">{dm.statAllowedPerGame}</span> {prop.statCategory}/g · league avg {dm.leagueAverage}
-              </div>
-            </div>
-            <div className="ml-auto flex items-center gap-1.5 text-[10px] shrink-0">
-              {dm.rank != null && dm.rankOf != null && (
-                <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]" title="Rank 1 = allows the most">
-                  Rank <span className="text-white font-semibold tabular-nums">#{dm.rank}/{dm.rankOf}</span>
-                </span>
-              )}
-              <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
-                Pace <span className="text-white font-semibold capitalize">{dm.paceRating}</span>
-              </span>
-              {sr && (sr.team + sr.opponent) > 0 && (
-                <span className="px-2 py-1 rounded-md bg-white/[0.04] text-[var(--color-text-muted)]">
-                  H2H <span className="text-white font-semibold tabular-nums">{sr.team}-{sr.opponent}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )
-      })()}
 
       {/* Splits Panel — Shooting / Points / Efficiency (NBA only) */}
       {!isESPNSport && !isTennis && rollingAverages && (

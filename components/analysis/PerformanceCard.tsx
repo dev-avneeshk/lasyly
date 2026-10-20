@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef, useState } from "react"
 import {
   Bar,
   Cell,
@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { BarChart3, ChevronDown, ChevronUp } from "lucide-react"
+import { BarChart3, ChevronDown, ChevronUp, GripHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatGameTime } from "@/lib/props/dates"
 
@@ -63,6 +63,33 @@ const TONE_CLASSES: Record<"red" | "orange" | "green", { box: string; text: stri
   red: { box: "border-red-500/35 bg-red-500/[0.10]", text: "text-red-400" },
   orange: { box: "border-orange-500/35 bg-orange-500/[0.10]", text: "text-orange-400" },
   green: { box: "border-emerald-500/35 bg-emerald-500/[0.10]", text: "text-emerald-400" },
+}
+
+// Chart geometry. The drag handle maps pointer Y to a value with these, so they
+// must match the ComposedChart margins / XAxis height below.
+const CHART_HEIGHT = 300
+const MARGIN = { top: 22, right: 44, left: 4, bottom: 26 }
+const X_AXIS_HEIGHT = 38
+const Y_AXIS_WIDTH = 28
+const PLOT_TOP = MARGIN.top
+const PLOT_BOTTOM = CHART_HEIGHT - MARGIN.bottom - X_AXIS_HEIGHT
+
+/** A round axis maximum and its ticks, so value <-> pixel mapping is exact. */
+function niceScale(maxValue: number): { max: number; ticks: number[] } {
+  const raw = Math.max(1, maxValue * 1.12)
+  const roughStep = raw / 4
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)))
+  const step = [1, 2, 2.5, 3, 5, 10].map((m) => m * mag).find((s) => s >= roughStep) ?? 10 * mag
+  const wholeStep = Math.max(1, Math.round(step))
+  const max = Math.ceil(raw / wholeStep) * wholeStep
+  const ticks: number[] = []
+  for (let t = 0; t <= max; t += wholeStep) ticks.push(t)
+  return { max, ticks }
+}
+
+/** Lines sit on the half, never below 0.5. */
+function snapLine(value: number, max: number): number {
+  return Math.min(max, Math.max(0.5, Math.round(value * 2) / 2))
 }
 
 /**
@@ -167,6 +194,28 @@ export function PerformanceCard({
 
   const dateLabels = useMemo(() => chartData.map((d) => d.dateLabel), [chartData])
 
+  // Axis scale from the data only (not the threshold), so dragging the line
+  // never rescales the chart under the pointer.
+  const scale = useMemo(
+    () => niceScale(Math.max(0, ...chartData.map((d) => d.value))),
+    [chartData]
+  )
+  const chartRef = useRef<HTMLDivElement | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const lineY = PLOT_TOP + (1 - Math.min(threshold, scale.max) / scale.max) * (PLOT_BOTTOM - PLOT_TOP)
+
+  const valueFromPointer = (clientY: number): number | null => {
+    const rect = chartRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    const y = clientY - rect.top
+    const ratio = 1 - (y - PLOT_TOP) / (PLOT_BOTTOM - PLOT_TOP)
+    return snapLine(ratio * scale.max, scale.max)
+  }
+  const handlePointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const v = valueFromPointer(e.clientY)
+    if (v != null && v !== threshold) onThresholdChange(v)
+  }
+
   const overCount = games.filter((g) => g.value >= threshold).length
   const total = games.length
   const overPct = total > 0 ? Math.round((overCount / total) * 100) : 0
@@ -237,15 +286,60 @@ export function PerformanceCard({
             )}
           </div>
         ) : (
-          <div className="perf-chart w-full h-[300px]">
+          <div ref={chartRef} className="perf-chart relative w-full" style={{ height: CHART_HEIGHT }}>
+            {/* Drag handle for the target line. Pointer drag or arrow keys, in 0.5 steps. */}
+            <div
+              role="slider"
+              tabIndex={0}
+              aria-label="Target line"
+              aria-valuemin={0.5}
+              aria-valuemax={scale.max}
+              aria-valuenow={threshold}
+              title="Drag to move the line"
+              className="group absolute z-10 cursor-ns-resize touch-none outline-none"
+              style={{ top: lineY - 9, left: MARGIN.left + Y_AXIS_WIDTH, right: 0, height: 18 }}
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId)
+                setDragging(true)
+                handlePointer(e)
+              }}
+              onPointerMove={(e) => { if (dragging) handlePointer(e) }}
+              onPointerUp={(e) => {
+                e.currentTarget.releasePointerCapture(e.pointerId)
+                setDragging(false)
+              }}
+              onPointerCancel={() => setDragging(false)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+                  e.preventDefault()
+                  onThresholdChange(snapLine(threshold + 0.5, scale.max))
+                } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+                  e.preventDefault()
+                  onThresholdChange(snapLine(threshold - 0.5, scale.max))
+                }
+              }}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-black tabular-nums transition-colors",
+                  dragging
+                    ? "bg-[var(--color-lime)] text-black"
+                    : "bg-[var(--color-surface-elevated)] text-white border border-white/15 group-hover:border-[var(--color-lime)]/60 group-focus-visible:border-[var(--color-lime)]"
+                )}
+              >
+                <GripHorizontal className="w-3 h-3 opacity-70" />
+                {threshold}
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 22, right: 44, left: 4, bottom: 26 }}>
+              <ComposedChart data={chartData} margin={MARGIN}>
                 <XAxis
                   dataKey="opponent"
                   axisLine={false}
                   tickLine={false}
                   interval={0}
-                  height={38}
+                  height={X_AXIS_HEIGHT}
                   tick={(tickProps) => (
                     <DualTick {...tickProps} dateByOpponentIndex={dateLabels} compact={chartData.length > 18} />
                   )}
@@ -254,21 +348,17 @@ export function PerformanceCard({
                   tick={{ fill: "var(--color-text-muted)", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
-                  domain={[0, "auto"]}
-                  width={28}
+                  domain={[0, scale.max]}
+                  ticks={scale.ticks}
+                  width={Y_AXIS_WIDTH}
                   allowDecimals={false}
                 />
+                {/* The value pill lives on the drag handle above, so no label here. */}
                 <ReferenceLine
-                  y={threshold}
-                  stroke="rgba(255,255,255,0.28)"
+                  y={Math.min(threshold, scale.max)}
+                  stroke={dragging ? "var(--color-lime)" : "rgba(255,255,255,0.35)"}
+                  strokeWidth={dragging ? 1.5 : 1}
                   strokeDasharray="4 4"
-                  label={{
-                    value: String(threshold),
-                    position: "right",
-                    fill: "var(--color-text-primary)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
                 />
                 <Tooltip
                   // ComposedChart draws the hover cursor as a vertical line; hide it.
