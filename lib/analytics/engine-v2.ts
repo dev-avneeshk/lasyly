@@ -216,7 +216,7 @@ const NBA_STAT_COLUMNS: Record<string, string> = {
 // ─── Batch Data Fetching Functions ──────────────────────────────────────────
 
 /** Maps full team names to 3-letter abbreviations (nba_games stores full names, nba_player_stats uses abbreviations) */
-const TEAM_NAME_TO_ABBR: Record<string, string> = {
+export const TEAM_NAME_TO_ABBR: Record<string, string> = {
   "Atlanta Hawks": "ATL",
   "Boston Celtics": "BOS",
   "Brooklyn Nets": "BKN",

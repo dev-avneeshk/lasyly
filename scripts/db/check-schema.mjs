@@ -63,6 +63,9 @@ const TABLES = [
   "profiles",
   "soccer_matches",
   "soccer_match_stats",
+  "novig_prop_events",
+  "novig_prop_lines",
+  "novig_ingest_runs",
 ]
 
 // Functions are probed with deliberately non-existent UUIDs. We only care

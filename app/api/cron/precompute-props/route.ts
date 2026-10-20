@@ -19,17 +19,16 @@
  * Authorization: requires CRON_SECRET in the Authorization header.
  */
 import { NextResponse } from "next/server"
-import { computeMatchupScopedProps } from "@/lib/analytics/engine-v2"
 import { computeNFLProps } from "@/lib/analytics/engine-nfl"
 import { writePrecomputedProps, prunePrecomputedProps } from "@/lib/data/computed-props"
+import { precomputeNbaDefaultSlate } from "@/lib/data/precompute-nba"
 import { isAuthorizedCron } from "@/lib/security/cronAuth"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 
 // This job runs the full slate compute for two sports; give it headroom.
 export const maxDuration = 300
 
-/** Default stat sets — must match the `stat=all` fan-out in /api/props. */
-const NBA_DEFAULT_STATS = ["pts", "trb", "ast", "tp", "stl", "blk"] as const
+/** Default stat set — must match the `stat=all` fan-out in /api/props (NBA's lives in lib/data/precompute-nba.ts). */
 const NFL_DEFAULT_STATS = ["YDS", "TD", "REC", "CAR"] as const
 
 /** ET slate date (matches getTodayET in /api/props). */
@@ -50,34 +49,11 @@ export const GET = withSecurity(
     const skipped: string[] = []
 
     // ─── NBA: default stat=all / direction=all slate ─────────────────────────
-    // The endpoint computes each stat with direction "over" (it filters
-    // over/under downstream from a result that carries both), so we do the same
-    // and store the per-stat results array under direction "all".
-    try {
-      const nbaResults = await Promise.all(
-        NBA_DEFAULT_STATS.map((s) =>
-          computeMatchupScopedProps("NBA", s, {
-            direction: "over",
-            todayDate,
-          })
-        )
-      )
-      const nbaCount = nbaResults.reduce((n, r) => n + r.props.length, 0)
-      // Never store an EMPTY slate. The endpoint treats a precomputed row as
-      // authoritative for up to 6 hours, so writing zero props — which is what
-      // the engine legitimately returns on an off-day or mid-scrape — would pin
-      // the props page to "no props" long after real data was available. Skipping
-      // the write leaves the endpoint computing live, which self-corrects.
-      if (nbaCount === 0) {
-        skipped.push("NBA:all:all (engine returned 0 props — off-day or no slate)")
-      } else {
-        const ok = await writePrecomputedProps("NBA", "all", "all", todayDate, nbaCount, nbaResults)
-        if (ok) written["NBA:all:all"] = nbaCount
-        else errors.push("NBA write failed")
-      }
-    } catch (e) {
-      errors.push(`NBA compute failed: ${e instanceof Error ? e.message : String(e)}`)
-    }
+    // Shared with /api/cron/ingest-novig-lines (lib/data/precompute-nba.ts).
+    const nba = await precomputeNbaDefaultSlate(todayDate)
+    if (nba.written !== undefined) written["NBA:all:all"] = nba.written
+    if (nba.skipped) skipped.push(nba.skipped)
+    if (nba.error) errors.push(nba.error)
 
     // ─── NFL: default stat=all / direction=all slate ─────────────────────────
     try {

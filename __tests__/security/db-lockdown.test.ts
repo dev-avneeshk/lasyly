@@ -29,4 +29,7 @@ describe.skipIf(!hasPg)("DB privilege lockdown (local Postgres)", () => {
   it("soccer_match_stats: public read, service-only writes, idempotent upsert, cascade", () => {
     expect(run("test-soccer-match-stats-rls.sh")).toContain("all checks passed")
   })
+  it("novig_prop_lines: public read of lines/events, service-only writes and run log, store-once insert, CHECKs", () => {
+    expect(run("test-novig-prop-lines-rls.sh")).toContain("all checks passed")
+  })
 })

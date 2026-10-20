@@ -1,0 +1,12 @@
+{
+  "x-requests-last": "3",
+  "x-requests-remaining": "991",
+  "x-requests-used": "9",
+  "x-result-has-more": "false",
+  "x-result-limit": "10000",
+  "x-result-offset": "0",
+  "x-result-page-size": "2467",
+  "x-result-row-count": "2467",
+  "x-result-truncated": "true",
+  "x-result-truncated-hint": "Returned 2467 rows. At least one book in this query writes more prop rows per hour than one query reads, so this response was built from that book's most recent writes only and can be missing props, and whole games, that the book is still pricing. Narrowing with ?markets= brings more of that book's board inside the read window. Treat this header as the authority on completeness: x-result-has-more and the row count describe what was read, not the whole market."
+}

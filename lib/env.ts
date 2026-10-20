@@ -33,6 +33,8 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   YOUTUBE_API_KEY: z.string().optional(),
   SPORTS_API_KEY: z.string().optional(),
+  // Optional: ParlayAPI key for the Novig prop-lines ingest cron. Server-only.
+  PARLAY_API_KEY: z.string().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
