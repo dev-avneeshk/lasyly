@@ -289,21 +289,31 @@ export const GET = withSecurity(async (request: Request) => {
       : [stat]
 
     const filterKey = `${minMinutes}-${vsOpponent ? "1" : "0"}-${withoutPlayer.toLowerCase().replace(/\s+/g, "_")}`
-    // v2: the engine now emits `gameId` on each lastGames entry (for the
-    // DB-backed boxscore popup). Versioned so stale route-level blobs that
-    // predate the id are not served.
-    const nbaCacheKey = `nba-props:v2:${stat}:${direction}:${matchup ?? "all"}:${todayDate}:${filterKey}`
 
-    // The precompute cron only covers the default slate (all stats, both
-    // directions, no filters/search/matchup). Bespoke views recompute live.
-    const nbaDefaultSlate =
+    const noBespokeFilters =
       stat === "all" &&
       direction === "all" &&
-      !matchup &&
       search.length < 2 &&
       minMinutes === 0 &&
       !vsOpponent &&
       !withoutPlayer.trim()
+
+    // Selecting a game on the default view is just the full slate narrowed to
+    // two teams: each player's prop depends only on his own games and his
+    // opponent, never on which other teams are in the batch. So serve it from
+    // the full slate (precomputed, or already warm from the page load) and
+    // filter, instead of a fresh engine run that took ~5s cold.
+    const matchupFromSlate = !!matchup && noBespokeFilters
+    const engineMatchup = matchupFromSlate ? undefined : matchup
+
+    // v2: the engine now emits `gameId` on each lastGames entry (for the
+    // DB-backed boxscore popup). Versioned so stale route-level blobs that
+    // predate the id are not served.
+    const nbaCacheKey = `nba-props:v2:${stat}:${direction}:${engineMatchup ?? "all"}:${todayDate}:${filterKey}`
+
+    // The precompute cron only covers the default slate (all stats, both
+    // directions, no filters/search/matchup). Bespoke views recompute live.
+    const nbaDefaultSlate = noBespokeFilters && !engineMatchup
 
     const results = await readOrComputeSlate(
       nbaDefaultSlate,
@@ -315,7 +325,7 @@ export const GET = withSecurity(async (request: Request) => {
           nbaStatsToFetch.map((s) =>
             computeMatchupScopedProps("NBA", s, {
               direction: direction === "all" ? "over" : direction,
-              matchup,
+              matchup: engineMatchup,
               todayDate,
               minMinutes,
               vsOpponent,
@@ -327,7 +337,11 @@ export const GET = withSecurity(async (request: Request) => {
     )
 
     // Merge all props, deduplicate by id, take todayGames from first result
-    const allProps = results.flatMap((r) => r.props)
+    let allProps = results.flatMap((r) => r.props)
+    if (matchupFromSlate && matchup) {
+      const matchupTeams = new Set(matchup.toUpperCase().split("-"))
+      allProps = allProps.filter((p) => matchupTeams.has((p.team ?? "").toUpperCase()))
+    }
     const todayGames = results[0]?.todayGames ?? []
     const fallbackMode = results[0]?.fallbackMode ?? false
     const computeTimeMs = Math.max(...results.map((r) => r.computeTimeMs))

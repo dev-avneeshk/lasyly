@@ -165,7 +165,15 @@ export default function AnalysisClient({
   }, [todayGames])
 
   const sortedProps = useMemo(() => {
-    const list = [...props]
+    // Narrow to the selected game on the client too. Selecting a game used to
+    // leave every game's cards on screen until the matchup request returned
+    // (seconds on a cold cache); filtering what's already loaded makes the
+    // switch instant, and the server's fuller list replaces it when it lands.
+    let list = [...props]
+    if (selectedMatchup) {
+      const teams = new Set(selectedMatchup.toUpperCase().split("-"))
+      list = list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
+    }
     switch (sortBy) {
       case "hitRate":
         return list.sort((a, b) => l10HitRateOf(b) - l10HitRateOf(a))
@@ -185,7 +193,7 @@ export default function AnalysisClient({
           return l10HitRateOf(b) - l10HitRateOf(a)
         })
     }
-  }, [props, sortBy])
+  }, [props, sortBy, selectedMatchup])
 
   // ─── Reset stat when sport changes ──────────────────────────────────────────
   useEffect(() => {
