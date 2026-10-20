@@ -87,11 +87,13 @@ export function FilteredAverages({ games, statKey, statLabel, filterLabel }: Fil
   const l5 = games ? games.slice(-5) : []
 
   const statMetric: Metric = {
-    key: statKey,
+    // Prefixed so it can never share a React key with a support row (e.g. 3PM).
+    key: `stat:${statKey}`,
     label: statLabel,
     compute: (g) => avg(g, (x) => nbaStatValue(x, statKey) ?? 0),
   }
-  const rows = [statMetric, ...SUPPORT_METRICS]
+  // Drop the support row that duplicates the active stat.
+  const rows = [statMetric, ...SUPPORT_METRICS.filter((m) => m.key !== statKey.toUpperCase())]
   const loading = games === null
 
   return (
