@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { Plus, BookmarkPlus, Trophy, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
-import { BOOK_LABELS } from "@/lib/novig/markets"
+import { formatMultiplier } from "@/lib/props/prop-value"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { HitRateBars } from "@/components/props/HitRateBars"
 import { MatchupBadge } from "@/components/props/MatchupBadge"
@@ -109,10 +109,9 @@ export function PropCard({
       {/* Prop Line + Projection */}
       <div className="mb-3">
         <span className="text-2xl font-bold text-white">{prop.propLine}</span>
-        {/* NBA: the line is a stored sportsbook main line (otherwise the L10 average). */}
-        {prop.lineSource === "market" && (
-          <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-            {BOOK_LABELS[prop.marketLine?.book ?? ""] ?? "Market"}
+        {prop.propValue?.multiplier != null && (
+          <span className="ml-1.5 rounded-md border border-[var(--color-lime)]/60 px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-lime)]">
+            {formatMultiplier(prop.propValue.multiplier)}
           </span>
         )}
         <span className="text-sm text-[var(--color-text-muted)] ml-2">{STAT_LABELS[prop.statCategory] ?? prop.statCategory.toUpperCase()}</span>

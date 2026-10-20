@@ -1,144 +1,159 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Check, ChevronDown, LayoutGrid, List } from "lucide-react"
+import { ChevronDown, LayoutGrid, Table2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type PropSortKey = "popularity" | "chance" | "edge" | "hitRate" | "confidence" | "line" | "name"
-export type PropViewMode = "grid" | "list"
+export type PropSortKey = "value" | "chance" | "hitRate" | "multiplier" | "projection" | "name"
+export type PropViewMode = "table" | "grid"
+export type PositionFilter = "all" | "G" | "F" | "C"
+export type SideFilter = "all" | "over" | "under"
 
 export const SORT_OPTIONS: { key: PropSortKey; label: string }[] = [
-  { key: "popularity", label: "Popularity" },
+  { key: "value", label: "Best Value" },
   { key: "chance", label: "Chance to Hit" },
-  { key: "edge", label: "Edge vs Line" },
-  { key: "hitRate", label: "Hit Rate" },
-  { key: "confidence", label: "Confidence" },
-  { key: "line", label: "Target (High–Low)" },
+  { key: "hitRate", label: "Hit Rate (L10)" },
+  { key: "multiplier", label: "Multiplier" },
+  { key: "projection", label: "Projection vs Line" },
   { key: "name", label: "Player (A–Z)" },
 ]
 
 interface PropsToolbarProps {
-  /** Search field, supplied by the page so the toolbar stays presentational. */
-  children: React.ReactNode
+  teams: string[]
+  team: string
+  onTeamChange: (team: string) => void
+  /** Omit to hide the position select (sports without positions). */
+  position?: PositionFilter
+  onPositionChange?: (position: PositionFilter) => void
+  side: SideFilter
+  onSideChange: (side: SideFilter) => void
   sortBy: PropSortKey
   onSortChange: (key: PropSortKey) => void
   viewMode: PropViewMode
   onViewModeChange: (mode: PropViewMode) => void
+  /** Right-hand slot, e.g. the advanced Filters button. */
+  children?: React.ReactNode
+}
+
+function Select<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  prefix,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+  prefix?: string
+}) {
+  const active = options.find((o) => o.value === value)
+  return (
+    <label className="relative flex h-9 min-w-[150px] items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]/70 pl-3 pr-8 text-[12px] hover:border-white/20 focus-within:border-[var(--color-lime)]/60 transition-colors cursor-pointer">
+      <span className="sr-only">{label}</span>
+      <span aria-hidden className="truncate">
+        {prefix && <span className="text-[var(--color-text-muted)]">{prefix} </span>}
+        <span className="font-semibold text-[var(--color-text-primary)]">{active?.label}</span>
+      </span>
+      <ChevronDown aria-hidden className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-[var(--color-text-muted)]" />
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} className="bg-[var(--color-surface-elevated)] text-white">
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
 }
 
 export function PropsToolbar({
-  children,
+  teams,
+  team,
+  onTeamChange,
+  position,
+  onPositionChange,
+  side,
+  onSideChange,
   sortBy,
   onSortChange,
   viewMode,
   onViewModeChange,
+  children,
 }: PropsToolbarProps) {
-  const [sortOpen, setSortOpen] = useState(false)
-  const sortRef = useRef<HTMLDivElement>(null)
-  const activeLabel = SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "Popularity"
-
-  useEffect(() => {
-    if (!sortOpen) return
-    function onPointerDown(e: MouseEvent) {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false)
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setSortOpen(false)
-    }
-    document.addEventListener("mousedown", onPointerDown)
-    document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown)
-      document.removeEventListener("keydown", onKeyDown)
-    }
-  }, [sortOpen])
-
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-      <div className="flex-1 min-w-0">{children}</div>
+    <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          label="Team"
+          value={team}
+          onChange={onTeamChange}
+          options={[{ value: "all", label: "All Teams" }, ...teams.map((t) => ({ value: t, label: t }))]}
+        />
+        {position !== undefined && onPositionChange && (
+          <Select<PositionFilter>
+            label="Position"
+            value={position}
+            onChange={onPositionChange}
+            options={[
+              { value: "all", label: "All Positions" },
+              { value: "G", label: "Guards" },
+              { value: "F", label: "Forwards" },
+              { value: "C", label: "Centers" },
+            ]}
+          />
+        )}
+        <Select<SideFilter>
+          label="Side"
+          value={side}
+          onChange={onSideChange}
+          options={[
+            { value: "all", label: "Overs & Unders" },
+            { value: "over", label: "Overs only" },
+            { value: "under", label: "Unders only" },
+          ]}
+        />
+        <Select<PropSortKey>
+          label="Sort by"
+          prefix="Sort by:"
+          value={sortBy}
+          onChange={onSortChange}
+          options={SORT_OPTIONS.map((o) => ({ value: o.key, label: o.label }))}
+        />
+      </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        {/* Sort */}
-        <div ref={sortRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setSortOpen((v) => !v)}
-            aria-expanded={sortOpen}
-            aria-haspopup="menu"
-            className="flex items-center gap-2 h-11 px-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 hover:border-white/20 transition-colors"
-          >
-            <span className="text-xs text-[var(--color-text-muted)]">Sort by</span>
-            <span className="text-xs font-bold text-[var(--color-text-primary)]">{activeLabel}</span>
-            <ChevronDown
-              className={cn(
-                "w-3.5 h-3.5 text-[var(--color-text-muted)] transition-transform",
-                sortOpen && "rotate-180"
-              )}
-            />
-          </button>
-
-          {sortOpen && (
-            <div
-              role="menu"
-              className="absolute top-full right-0 mt-2 z-40 min-w-[196px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.55)]"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={sortBy === option.key}
-                  onClick={() => {
-                    onSortChange(option.key)
-                    setSortOpen(false)
-                  }}
-                  className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-[var(--color-text-muted)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-colors"
-                >
-                  {option.label}
-                  {sortBy === option.key && <Check className="w-3.5 h-3.5 text-[var(--color-lime)]" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* View mode */}
+      <div className="flex items-center gap-2">
         <div
-          className="flex items-center gap-1 h-11 p-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/70"
+          className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-1"
           role="group"
-          aria-label="Card layout"
+          aria-label="Layout"
         >
-          <button
-            type="button"
-            onClick={() => onViewModeChange("list")}
-            aria-pressed={viewMode === "list"}
-            aria-label="Detailed list view"
-            title="Detailed view — hit-rate windows, matchup grade, sentiment and AI notes"
-            className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center transition-colors",
-              viewMode === "list"
-                ? "bg-[var(--color-lime)] text-black"
-                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-white/5"
-            )}
-          >
-            <List className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange("grid")}
-            aria-pressed={viewMode === "grid"}
-            aria-label="Compact grid view"
-            title="Compact view"
-            className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center transition-colors",
-              viewMode === "grid"
-                ? "bg-[var(--color-lime)] text-black"
-                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-white/5"
-            )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
+          {([
+            { mode: "table", label: "Table View", Icon: Table2 },
+            { mode: "grid", label: "Card View", Icon: LayoutGrid },
+          ] as const).map(({ mode, label, Icon }) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onViewModeChange(mode)}
+              aria-pressed={viewMode === mode}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors",
+                viewMode === mode
+                  ? "border border-[var(--color-lime)]/60 bg-[var(--color-lime)]/10 text-[var(--color-lime)]"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
+        {children}
       </div>
     </div>
   )

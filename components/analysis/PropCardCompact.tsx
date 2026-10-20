@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, ArrowRight, Bookmark, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
-import { BOOK_LABELS } from "@/lib/novig/markets"
+import { formatMultiplier } from "@/lib/props/prop-value"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { formatGameDayTime } from "@/lib/props/dates"
 import { resolveMatchup } from "@/lib/props/matchup"
@@ -45,10 +45,11 @@ export function PropCardCompact({
   const kickoff = formatGameDayTime(gameTime)
   const { opponent, prefix: venuePrefix } = useMemo(() => resolveMatchup(prop), [prop])
 
-  // `lastGames` is most-recent-first; the sparkline reads left-to-right in time.
+  // Most recent games, read left-to-right in time. Sorted by date because the
+  // engines disagree on `lastGames` order (NBA is oldest-first).
   const spark = useMemo(() => {
-    const games = prop.lastGames ?? []
-    return games.slice(0, SPARK_GAMES).reverse()
+    const games = [...(prop.lastGames ?? [])].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+    return games.slice(-SPARK_GAMES)
   }, [prop.lastGames])
 
   const sparkMax = useMemo(() => {
@@ -58,10 +59,8 @@ export function PropCardCompact({
 
   const goToDetail = () => router.push(href)
 
-  // NBA props carry lineSource: a stored sportsbook main line, or the L10 average.
-  // Other sports leave it unset and keep the plain "Target" label.
-  const isMarketLine = prop.lineSource === "market"
-  const bookLabel = isMarketLine ? (BOOK_LABELS[prop.marketLine?.book ?? ""] ?? "Market") : null
+  // Payout multiplier for the scored side, when the line is priced.
+  const multiplier = prop.propValue?.multiplier ?? null
 
   return (
     <article
@@ -70,7 +69,7 @@ export function PropCardCompact({
       className="group h-full flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-4 transition-colors hover:border-[var(--color-lime)]/40 cursor-pointer"
       role="link"
       tabIndex={0}
-      aria-label={`${prop.player} ${statLabel} ${bookLabel ? `${bookLabel} line` : "target"} ${prop.propLine} — view details`}
+      aria-label={`${prop.player} ${statLabel} line ${prop.propLine}${multiplier ? `, ${formatMultiplier(multiplier)}` : ""} — view details`}
       onClick={(e) => {
         const target = e.target as HTMLElement
         if (target.closest("button") || target.closest("a")) return
@@ -156,14 +155,19 @@ export function PropCardCompact({
       {/* Target */}
       <div className="mt-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p
-            className="text-[11px] font-semibold text-[var(--color-text-muted)]"
-            title={prop.lineSource === "average" ? "Line from L10 average (no sportsbook line)" : undefined}
-          >
-            {statLabel} · {bookLabel ? `${bookLabel} line` : "Target"}
+          <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">
+            {statLabel} · Line
           </p>
-          <p className="text-[30px] font-extrabold leading-none tracking-[-0.02em] text-[var(--color-text-primary)] tabular-nums">
+          <p className="flex items-center gap-2 text-[30px] font-extrabold leading-none tracking-[-0.02em] text-[var(--color-text-primary)] tabular-nums">
             {prop.propLine}
+            {multiplier !== null && (
+              <span
+                className="rounded-md border border-[var(--color-lime)]/60 bg-[var(--color-lime)]/[0.08] px-1.5 py-0.5 text-[11px] font-bold tracking-normal text-[var(--color-lime)]"
+                title="Payout per unit if it hits"
+              >
+                {formatMultiplier(multiplier)}
+              </span>
+            )}
           </p>
         </div>
 

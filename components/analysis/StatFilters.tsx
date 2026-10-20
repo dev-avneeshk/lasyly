@@ -57,7 +57,7 @@ export function StatFilters({
 
   const pillClass = (isActive: boolean) =>
     cn(
-      "shrink-0 h-8 px-4 rounded-full text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5",
+      "shrink-0 h-8 px-3.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5",
       isActive
         ? "bg-[var(--color-lime)] text-black"
         : "border border-[var(--color-border)] bg-[var(--color-surface)]/70 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:border-white/20"

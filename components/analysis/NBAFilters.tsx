@@ -40,13 +40,14 @@ export function NBAFilters({ values, onChange, teammates }: NBAFiltersProps) {
   }
 
   return (
-    <div className="w-full">
+    <div className="relative">
       {/* Toggle Button */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all border",
+          "flex h-9 items-center gap-2 px-3 rounded-lg text-xs font-semibold transition-all border",
           activeCount > 0
             ? "bg-[var(--color-lime)]/10 text-[var(--color-lime)] border-[var(--color-lime)]/30"
             : "bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-white hover:border-white/20"
@@ -64,7 +65,7 @@ export function NBAFilters({ values, onChange, teammates }: NBAFiltersProps) {
 
       {/* Filter Panel */}
       {expanded && (
-        <div className="mt-3 p-4 rounded-2xl bg-[var(--color-surface)]/80 border border-[var(--color-border)] backdrop-blur-sm animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="absolute right-0 top-full z-40 mt-2 w-[min(92vw,640px)] p-4 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] shadow-[0_16px_40px_rgba(0,0,0,0.55)] animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold text-white uppercase tracking-wider">NBA Filters</span>
             {activeCount > 0 && (

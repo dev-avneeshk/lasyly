@@ -1,4 +1,5 @@
 import type { MarketEdge } from "@/lib/props/market-edge"
+import type { PropValue } from "@/lib/props/prop-value"
 
 export interface PropCardData {
   id: string
@@ -26,6 +27,10 @@ export interface PropCardData {
   marketLine?: { book: string; line: number; overPrice: number; underPrice: number; capturedAt: string } | null
   /** Recommended side scored against the book's price; null without a market line (NBA only). */
   marketEdge?: MarketEdge | null
+  /** Multi-factor chance, payout multiplier and expected value (see lib/props/prop-value). */
+  propValue?: PropValue | null
+  /** Recent games vs tonight's opponent in this stat, oldest first (NBA). */
+  h2h?: { date: string; value: number }[]
 }
 
 export interface GameResult {

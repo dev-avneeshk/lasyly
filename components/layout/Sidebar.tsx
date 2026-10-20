@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 // import put 177 KB of supabase-js on the critical path of every route under
 // app/(app) to serve one click that most sessions never make.
 import { getSupabaseClient } from "@/lib/supabase/lazy-client"
+import { PredictorCard } from "@/components/layout/PredictorCard"
 
 type NavLeaf = { icon: typeof Compass; label: string; href: string; comingSoon: boolean }
 
@@ -113,6 +114,10 @@ export default function Sidebar() {
 
       {/* Bottom section */}
       <div className="mt-auto space-y-2">
+        {/* My Predictor (props added on the Props page) */}
+        <div className="pb-2">
+          <PredictorCard collapsed={collapsed} />
+        </div>
         {/* Logout */}
         <button
           type="button"

@@ -21,6 +21,8 @@ interface GameStripProps {
   todayIso: string
   selectedMatchup?: string | null
   onSelectMatchup?: (matchup: string | null) => void
+  /** Header variant: small time-first cards, no section label. */
+  compact?: boolean
 }
 
 interface StripItem {
@@ -115,15 +117,16 @@ function buildItems(games: Game[], todayGames: TodayGame[]): StripItem[] {
   }))
 }
 
-function TeamMark({ logo, abbr }: { logo: string | null; abbr: string }) {
+function TeamMark({ logo, abbr, small }: { logo: string | null; abbr: string; small?: boolean }) {
+  const size = small ? "w-5 h-5" : "w-6 h-6"
   if (logo) {
     // Logos come from several ESPN CDN hosts and are tiny; a plain img keeps
     // the strip cheap to render while scrolling.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logo} alt="" className="w-6 h-6 object-contain shrink-0" />
+    return <img src={logo} alt="" className={cn(size, "object-contain shrink-0")} />
   }
   return (
-    <span className="w-6 h-6 shrink-0 rounded-md bg-white/10 text-[8px] font-bold text-white/60 flex items-center justify-center">
+    <span className={cn(size, "shrink-0 rounded-md bg-white/10 text-[8px] font-bold text-white/60 flex items-center justify-center")}>
       {abbr.slice(0, 3)}
     </span>
   )
@@ -139,6 +142,7 @@ export function GameStrip({
   todayIso,
   selectedMatchup = null,
   onSelectMatchup,
+  compact = false,
 }: GameStripProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -174,8 +178,8 @@ export function GameStrip({
   }
 
   return (
-    <section className="flex flex-col gap-2.5" aria-label="Games">
-      <div className="flex items-center justify-between gap-3">
+    <section className={cn("flex flex-col gap-2.5 min-w-0", compact && "gap-0")} aria-label="Games">
+      <div className={cn("flex items-center justify-between gap-3", compact && "sr-only")}>
         <h2
           className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]"
           suppressHydrationWarning
@@ -197,14 +201,14 @@ export function GameStrip({
         <div
           ref={scrollerRef}
           onScroll={updateScrollAffordances}
-          className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
+          className={cn("flex overflow-x-auto scrollbar-hide scroll-smooth", compact ? "gap-2 px-9" : "gap-3 pb-1")}
         >
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[72px] w-[190px] shrink-0 animate-pulse rounded-xl bg-white/5" />
+              <div key={i} className={cn("shrink-0 animate-pulse rounded-xl bg-white/5", compact ? "h-[56px] w-[112px]" : "h-[72px] w-[190px]")} />
             ))
           ) : items.length === 0 ? (
-            <div className="flex items-center justify-center h-[72px] w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/40">
+            <div className={cn("flex items-center justify-center w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/40", compact ? "h-[56px]" : "h-[72px]")}>
               <p className="text-sm text-[var(--color-text-muted)]">No games scheduled</p>
             </div>
           ) : (
@@ -212,7 +216,37 @@ export function GameStrip({
               const isSelected = !!item.matchupKey && item.matchupKey === selectedMatchup
               const selectable = !!item.matchupKey && !!onSelectMatchup
 
-              const content = (
+              const statusLabel =
+                item.status === "live"
+                  ? "LIVE"
+                  : item.status === "final"
+                    ? item.awayScore != null && item.homeScore != null
+                      ? `FINAL ${item.awayScore}-${item.homeScore}`
+                      : "FINAL"
+                    : item.time
+
+              const content = compact ? (
+                <>
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold",
+                      item.status === "live" ? "text-[var(--color-lime)]" : "text-[var(--color-text-primary)]"
+                    )}
+                    suppressHydrationWarning
+                  >
+                    {statusLabel}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <TeamMark logo={item.awayLogo} abbr={item.awayAbbr} small />
+                    <span className="text-[9px] font-bold leading-[1.05] text-[var(--color-text-muted)] text-left">
+                      {item.awayAbbr}
+                      <br />
+                      {item.homeAbbr}
+                    </span>
+                    <TeamMark logo={item.homeLogo} abbr={item.homeAbbr} small />
+                  </span>
+                </>
+              ) : (
                 <>
                   <div className="flex items-center justify-center gap-2 w-full">
                     <TeamMark logo={item.awayLogo} abbr={item.awayAbbr} />
@@ -246,7 +280,8 @@ export function GameStrip({
               )
 
               const baseClass = cn(
-                "shrink-0 flex flex-col items-center justify-center gap-1.5 min-w-[190px] h-[72px] px-4 rounded-xl border transition-colors",
+                "shrink-0 flex flex-col items-center justify-center rounded-xl border transition-colors",
+                compact ? "gap-1 min-w-[112px] h-[56px] px-2.5" : "gap-1.5 min-w-[190px] h-[72px] px-4",
                 isSelected
                   ? "border-[var(--color-lime)] bg-[var(--color-lime)]/10"
                   : "border-[var(--color-border)] bg-[var(--color-surface)]/70",
@@ -278,22 +313,24 @@ export function GameStrip({
         </div>
 
         {/* Edge scroll affordances */}
-        {canScrollLeft && (
+        {(canScrollLeft || (compact && items.length > 0)) && (
           <button
+            disabled={!canScrollLeft}
             type="button"
             onClick={() => scrollBy(-1)}
             aria-label="Scroll games left"
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-8 h-8 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 disabled:opacity-30 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
         )}
-        {canScrollRight && (
+        {(canScrollRight || (compact && items.length > 0)) && (
           <button
+            disabled={!canScrollRight}
             type="button"
             onClick={() => scrollBy(1)}
             aria-label="Scroll games right"
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 w-8 h-8 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 disabled:opacity-30 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

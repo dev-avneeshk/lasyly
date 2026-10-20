@@ -35,6 +35,8 @@ interface ParlayBuilderProps {
   onClear: () => void
   onDirectionToggle?: (propId: string, newDirection: "over" | "under") => void
   isAuthenticated?: boolean
+  /** Bump to open the sheet from outside (e.g. the sidebar's My Predictor card). */
+  openSignal?: number
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -43,9 +45,12 @@ const MAX_LEGS = 10
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, isAuthenticated }: ParlayBuilderProps) {
+export function ParlayBuilder({ state, onRemoveLeg, onClear, onDirectionToggle, isAuthenticated, openSignal = 0 }: ParlayBuilderProps) {
   const { legs, combinedHitRate, overlappingDates, isVisible } = state
   const [isOpen, setIsOpen] = useState(false)
+  useEffect(() => {
+    if (openSignal > 0) setIsOpen(true)
+  }, [openSignal])
   const openerFocus = useOpenerFocus()
 
   // Save dialog state (Task 8.1)

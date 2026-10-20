@@ -11,17 +11,20 @@ import { todayIso as resolveTodayIso } from "@/lib/props/dates"
 import { shareProp } from "@/lib/props/share"
 import { PropsHeader } from "@/components/analysis/PropsHeader"
 import { GameStrip } from "@/components/analysis/GameStrip"
-import { BestPropsPanel, type BestPropsData } from "@/components/analysis/BestPropsPanel"
+import { TopValueProps, type BestPropsData } from "@/components/analysis/TopValueProps"
+import { PropsTable, type GameInfo } from "@/components/analysis/PropsTable"
 import { StatFilters } from "@/components/analysis/StatFilters"
 import { PropCardGrid } from "@/components/analysis/PropCardGrid"
 import { PlayerSearch } from "@/components/analysis/PlayerSearch"
-import { PropsToolbar, PropSortKey, PropViewMode } from "@/components/analysis/PropsToolbar"
+import { PropsToolbar, type PropSortKey, type PropViewMode, type PositionFilter } from "@/components/analysis/PropsToolbar"
 import { NBAFilters, NBAFilterValues } from "@/components/analysis/NBAFilters"
 import { ParlayBuilder, ParlayLeg, ParlayState, canAddToParlay } from "@/components/props/ParlayBuilder"
 import { AuthRequiredDialog } from "@/components/auth/AuthGate"
 import { StatsPanel } from "@/components/props/StatsPanel"
 import { TodayGame } from "@/lib/analytics/engine-v2"
 import { cachedFetch, readCache } from "@/lib/clientCache"
+import { headshotOf, positionGroups, positionOf, projectionOf, sideOf, sideRecord } from "@/lib/props/display"
+import { getPredictorLegs, setPredictorLegs, OPEN_PREDICTOR_EVENT } from "@/lib/props/predictorStore"
 
 const SPORTS = ["NBA", "Tennis", "Soccer", "NFL", "NHL"] as const
 type Sport = (typeof SPORTS)[number]
@@ -134,14 +137,21 @@ export default function AnalysisClient({
   const [best, setBest] = useState<BestPropsData | null>(cachedProps?.best ?? null)
 
   // ─── Presentation state ─────────────────────────────────────────────────────
-  const [sortBy, setSortBy] = useState<PropSortKey>("popularity")
-  const [viewMode, setViewMode] = useState<PropViewMode>("grid")
+  const [sortBy, setSortBy] = useState<PropSortKey>("value")
+  const [viewMode, setViewMode] = useState<PropViewMode>("table")
+  const [teamFilter, setTeamFilter] = useState("all")
+  const [positionFilter, setPositionFilter] = useState<PositionFilter>("all")
+  // Rows ticked in the table, for adding several props at once.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const tableRef = useRef<HTMLDivElement | null>(null)
 
   // Restore the last used layout after mount (avoids a hydration mismatch).
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
-      if (saved === "grid" || saved === "list") setViewMode(saved)
+      // "list" was the old detailed card view; it now maps to the table.
+      if (saved === "grid" || saved === "table") setViewMode(saved)
+      else if (saved === "list") setViewMode("table")
     } catch {
       // localStorage unavailable (private mode) — keep the default.
     }
@@ -163,6 +173,21 @@ export default function AnalysisClient({
     overlappingDates: 0,
     isVisible: false,
   })
+  // Opens the parlay sheet when bumped (sidebar "My Predictor" card).
+  const [predictorOpenSignal, setPredictorOpenSignal] = useState(0)
+
+  // Restore My Predictor legs from this tab's session after mount, and open the
+  // sheet when the sidebar card asks (directly, or via /analysis#predictor).
+  useEffect(() => {
+    const stored = getPredictorLegs()
+    if (stored.length > 0) {
+      setParlayState((prev) => (prev.legs.length > 0 ? prev : { ...prev, legs: stored, isVisible: true }))
+      if (window.location.hash === "#predictor") setPredictorOpenSignal((n) => n + 1)
+    }
+    const open = () => setPredictorOpenSignal((n) => n + 1)
+    window.addEventListener(OPEN_PREDICTOR_EVENT, open)
+    return () => window.removeEventListener(OPEN_PREDICTOR_EVENT, open)
+  }, [])
 
   // ─── AI Writeup state ───────────────────────────────────────────────────────
   const [aiWriteups, setAiWriteups] = useState<
@@ -230,46 +255,46 @@ export default function AnalysisClient({
       const teams = new Set(selectedMatchup.toUpperCase().split("-"))
       list = list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
     }
+    if (teamFilter !== "all") {
+      list = list.filter((p) => (p.team ?? "").toUpperCase() === teamFilter)
+    }
+    if (positionFilter !== "all") {
+      list = list.filter((p) => positionGroups(positionOf(p)).has(positionFilter))
+    }
+    const chanceOf = (p: EnhancedPropCardData) =>
+      p.propValue?.chance ?? ((p as unknown as { probability?: number }).probability ?? 0)
     switch (sortBy) {
       case "chance":
-        // Props on a sportsbook line first, highest chance of success first.
-        return list.sort((a, b) => {
-          const ca = a.marketEdge?.modelProb ?? null
-          const cb = b.marketEdge?.modelProb ?? null
-          if (ca !== null && cb !== null) return cb - ca
-          if (ca !== null) return -1
-          if (cb !== null) return 1
-          return l10HitRateOf(b) - l10HitRateOf(a)
-        })
-      case "edge":
-        // Props on a sportsbook line first, biggest edge first; the rest keep hit-rate order.
-        return list.sort((a, b) => {
-          const ea = a.marketEdge?.edge ?? null
-          const eb = b.marketEdge?.edge ?? null
-          if (ea !== null && eb !== null) return eb - ea
-          if (ea !== null) return -1
-          if (eb !== null) return 1
-          return l10HitRateOf(b) - l10HitRateOf(a)
-        })
+        return list.sort((a, b) => chanceOf(b) - chanceOf(a))
       case "hitRate":
-        return list.sort((a, b) => l10HitRateOf(b) - l10HitRateOf(a))
-      case "confidence":
-        return list.sort((a, b) => (b.confidence?.stars ?? 0) - (a.confidence?.stars ?? 0))
-      case "line":
-        return list.sort((a, b) => b.propLine - a.propLine)
+        return list.sort((a, b) => sideRecord(b).pct - sideRecord(a).pct || chanceOf(b) - chanceOf(a))
+      case "multiplier":
+        return list.sort((a, b) => (b.propValue?.multiplier ?? 0) - (a.propValue?.multiplier ?? 0))
+      case "projection": {
+        // Distance of the projection past the line on the shown side, relative to the line.
+        const gap = (p: EnhancedPropCardData) => {
+          const proj = projectionOf(p)
+          if (proj == null || p.propLine <= 0) return -Infinity
+          const diff = sideOf(p) === "over" ? proj - p.propLine : p.propLine - proj
+          return diff / p.propLine
+        }
+        return list.sort((a, b) => gap(b) - gap(a))
+      }
       case "name":
         return list.sort((a, b) => a.player.localeCompare(b.player))
-      case "popularity":
+      case "value":
       default:
+        // Priced props by expected value; unpriced ones after, by chance.
         return list.sort((a, b) => {
-          const byVotes = (b.sentiment?.totalVotes ?? 0) - (a.sentiment?.totalVotes ?? 0)
-          if (byVotes !== 0) return byVotes
-          const byConfidence = (b.confidence?.stars ?? 0) - (a.confidence?.stars ?? 0)
-          if (byConfidence !== 0) return byConfidence
-          return l10HitRateOf(b) - l10HitRateOf(a)
+          const va = a.propValue?.value ?? null
+          const vb = b.propValue?.value ?? null
+          if (va !== null && vb !== null && vb !== va) return vb - va
+          if (va !== null && vb === null) return -1
+          if (va === null && vb !== null) return 1
+          return chanceOf(b) - chanceOf(a)
         })
     }
-  }, [props, sortBy, selectedMatchup])
+  }, [props, sortBy, selectedMatchup, teamFilter, positionFilter])
 
   const visibleBest = useMemo<BestPropsData | null>(() => {
     if (!best || sport !== "NBA") return null
@@ -278,6 +303,27 @@ export default function AnalysisClient({
     const keep = (list: EnhancedPropCardData[]) => list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
     return { top: keep(best.top), overs: keep(best.overs), unders: keep(best.unders) }
   }, [best, sport, selectedMatchup])
+
+  /** Team abbreviation -> tonight's game, for the table's matchup column. */
+  const gameByTeam = useMemo(() => {
+    const map: Record<string, GameInfo> = {}
+    for (const g of todayGames) {
+      const info = { home: g.homeTeam.toUpperCase(), away: g.awayTeam.toUpperCase(), time: g.gameTime || null }
+      map[info.home] = info
+      map[info.away] = info
+    }
+    return map
+  }, [todayGames])
+
+  const teamOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const g of todayGames) {
+      set.add(g.awayTeam.toUpperCase())
+      set.add(g.homeTeam.toUpperCase())
+    }
+    if (set.size === 0) for (const p of props) if (p.team) set.add(p.team.toUpperCase())
+    return [...set].sort()
+  }, [todayGames, props])
 
   // ─── Reset stat when sport changes ──────────────────────────────────────────
   // Runs on mount too; only a real sport change may clear the selected game,
@@ -290,6 +336,11 @@ export default function AnalysisClient({
     if (sportChanged) setSelectedMatchup(null)
     setDirectionToggle("all")
     setNbaFilters({ minMinutes: 0, vsOpponent: false, withoutPlayer: "" })
+    if (sportChanged) {
+      setTeamFilter("all")
+      setPositionFilter("all")
+      setSelectedIds(new Set())
+    }
 
     // Try to read cached data for the new sport to avoid skeleton flash
     const sportPropsCache = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[]; best?: BestPropsData }>(`/api/props?sport=${sport}&stat=all&direction=all`)
@@ -683,6 +734,119 @@ export default function AnalysisClient({
     }
   }, [parlayState.legs])
 
+  // Mirror legs into the shared predictor store (sidebar card + persistence).
+  // Skips the first run so the empty initial state can't wipe stored legs
+  // before the restore effect has loaded them.
+  const predictorSyncReadyRef = useRef(false)
+  useEffect(() => {
+    if (!predictorSyncReadyRef.current) {
+      predictorSyncReadyRef.current = true
+      return
+    }
+    const byId = new Map(props.map((p) => [p.id, p]))
+    const previous = new Map(getPredictorLegs().map((l) => [l.propId, l]))
+    setPredictorLegs(
+      parlayState.legs.map((leg) => {
+        const prop = byId.get(leg.propId)
+        const prev = previous.get(leg.propId)
+        return {
+          ...leg,
+          headshotUrl: (prop ? headshotOf(prop) : prev?.headshotUrl) ?? null,
+          team: prop?.team ?? prev?.team,
+        }
+      })
+    )
+  }, [parlayState.legs, props])
+
+  /** Table "+" button: adds the prop on its side, or removes it if already added. */
+  const handleTableAdd = useCallback(
+    (prop: EnhancedPropCardData, direction: "over" | "under") => {
+      if (parlayPropIds.has(prop.id)) {
+        void handleRemoveLeg(prop.id)
+        return
+      }
+      void handleAddToParlay(prop, direction)
+    },
+    [parlayPropIds, handleRemoveLeg, handleAddToParlay]
+  )
+
+  /** Adds every ticked row in one go (one parlay-stats request). */
+  const handleAddSelected = useCallback(async () => {
+    if (!isAuthenticated) {
+      setShowAuthDialog(true)
+      return
+    }
+    let legs = [...parlayState.legs]
+    let skipped = 0
+    for (const prop of sortedProps) {
+      if (!selectedIds.has(prop.id) || legs.some((l) => l.propId === prop.id)) continue
+      const check = canAddToParlay(legs, prop.id, prop.player, prop.statCategory)
+      if (!check.canAdd) {
+        skipped++
+        continue
+      }
+      const direction = sideOf(prop)
+      legs = [
+        ...legs,
+        {
+          propId: prop.id,
+          player: prop.player,
+          statCategory: prop.statCategory,
+          propLine: prop.propLine,
+          direction,
+          l10HitRate: sideRecord(prop).pct,
+          isWeakLink: false,
+          sport: prop.sport ?? sport,
+        },
+      ]
+    }
+    setSelectedIds(new Set())
+    if (skipped > 0) setDuplicateToast(`${skipped} prop${skipped === 1 ? "" : "s"} skipped (duplicate or limit reached)`)
+    setParlayState((prev) => ({ ...prev, legs, isVisible: legs.length > 0 }))
+    if (legs.length < 2) return
+    try {
+      const res = await fetch("/api/props/parlay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ legs: legs.map((l) => ({ propId: l.propId, direction: l.direction })) }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setParlayState((prev) => ({
+        ...prev,
+        combinedHitRate: data.combinedHitRate,
+        overlappingDates: data.overlappingDates ?? 0,
+        legs: prev.legs.map((leg) => {
+          const legData = data.legs?.find((l: { propId: string }) => l.propId === leg.propId)
+          return legData
+            ? { ...leg, l10HitRate: legData.l10HitRate ?? leg.l10HitRate, isWeakLink: legData.isWeakLink ?? false, correlationFlag: legData.correlationFlag }
+            : leg
+        }),
+      }))
+    } catch {
+      // Keep the optimistic legs.
+    }
+  }, [isAuthenticated, parlayState.legs, sortedProps, selectedIds, sport])
+
+  const toggleSelect = useCallback((propId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(propId)) next.delete(propId)
+      else next.add(propId)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(
+    (select: boolean) => setSelectedIds(select ? new Set(sortedProps.map((p) => p.id)) : new Set()),
+    [sortedProps]
+  )
+
+  const showAllByValue = useCallback(() => {
+    setSortBy("value")
+    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [])
+
   const handleClearParlay = useCallback(() => {
     setParlayState({
       legs: [],
@@ -920,7 +1084,8 @@ export default function AnalysisClient({
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  const statFilters = sport === "NBA" ? NBA_STAT_FILTERS
+  const statFilters = sport === "NBA"
+    ? NBA_STAT_FILTERS.map((f) => ({ ...f, label: f.key === "all" ? "All Props" : f.key === "tp" ? "Threes" : f.label }))
     : sport === "Soccer" ? SOCCER_STAT_FILTERS
     : sport === "NFL" ? NFL_STAT_FILTERS
     : sport === "NHL" ? NHL_STAT_FILTERS
@@ -940,17 +1105,19 @@ export default function AnalysisClient({
           selectedDate={selectedDate}
           todayIso={todayIso}
           onDateChange={setSelectedDate}
-        />
-
-        {/* Games for the selected date — also the per-game props filter on NBA/NFL */}
-        <GameStrip
-          games={games}
-          todayGames={sport === "NBA" || sport === "NFL" ? todayGames : []}
-          loading={gamesLoading}
-          selectedDate={selectedDate}
-          todayIso={todayIso}
-          selectedMatchup={selectedMatchup}
-          onSelectMatchup={sport === "NBA" || sport === "NFL" ? selectMatchup : undefined}
+          games={
+            /* Games for the selected date — also the per-game props filter on NBA/NFL */
+            <GameStrip
+              compact
+              games={games}
+              todayGames={sport === "NBA" || sport === "NFL" ? todayGames : []}
+              loading={gamesLoading}
+              selectedDate={selectedDate}
+              todayIso={todayIso}
+              selectedMatchup={selectedMatchup}
+              onSelectMatchup={sport === "NBA" || sport === "NFL" ? selectMatchup : undefined}
+            />
+          }
         />
 
         {!isToday && (
@@ -961,90 +1128,103 @@ export default function AnalysisClient({
           </p>
         )}
 
-        {/* Stat filters + over/under direction */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <StatFilters filters={statFilters} activeStat={stat} onStatChange={setStat} />
-          </div>
+        {/* Stat chips */}
+        <StatFilters filters={statFilters} activeStat={stat} onStatChange={setStat} visibleCount={10} />
 
-          <div
-            className="flex items-center gap-1 shrink-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-1 w-fit"
-            role="group"
-            aria-label="Direction filter"
-          >
-            {(["all", "over", "under"] as const).map((dir) => (
-              <button
-                key={dir}
-                type="button"
-                onClick={() => handleDirectionToggle(dir)}
-                aria-pressed={directionToggle === dir}
-                className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold capitalize transition-colors ${
-                  directionToggle === dir
-                    ? dir === "over"
-                      ? "bg-[var(--color-lime)]/20 text-[var(--color-lime)]"
-                      : dir === "under"
-                        ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
-                        : "bg-white/10 text-white"
-                    : "text-[var(--color-text-muted)] hover:text-white"
-                }`}
-              >
-                {dir}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Search + sort + layout */}
+        {/* Team / position / side / sort + layout + advanced filters */}
         <PropsToolbar
+          teams={teamOptions}
+          team={teamFilter}
+          onTeamChange={setTeamFilter}
+          position={sport === "NBA" ? positionFilter : undefined}
+          onPositionChange={sport === "NBA" ? setPositionFilter : undefined}
+          side={directionToggle}
+          onSideChange={handleDirectionToggle}
           sortBy={sortBy}
           onSortChange={setSortBy}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
         >
-          <PlayerSearch sport={sport} initialQuery={initialSearch} />
+          {sport === "NBA" && <NBAFilters values={nbaFilters} onChange={setNbaFilters} />}
         </PropsToolbar>
 
-        {/* NBA Advanced Filters */}
-        {sport === "NBA" && (
-          <NBAFilters values={nbaFilters} onChange={setNbaFilters} />
+        {initialSearch && (
+          <div className="max-w-md">
+            <PlayerSearch sport={sport} initialQuery={initialSearch} />
+          </div>
         )}
 
-        {/* Section heading + count */}
-        {/* Top props scored against real sportsbook lines (NBA, when lines exist) */}
-        {!loading && <BestPropsPanel best={visibleBest} />}
+        {/* Highest expected value on the slate (NBA, priced lines) */}
+        {!loading && <TopValueProps best={visibleBest} onViewAll={showAllByValue} />}
 
-        <div className="flex items-baseline justify-between gap-3 -mb-1">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-            {selectedMatchup ? "Selected Game" : "All Players"}
-          </h2>
-          {!loading && (
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] tabular-nums">
-              {sortedProps.length.toLocaleString()} {sortedProps.length === 1 ? "Prop" : "Props"}
-            </p>
+        <div ref={tableRef} className="flex flex-col gap-3 scroll-mt-24">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              {selectedMatchup ? "Selected Game" : "All Players"}
+            </h2>
+            <div className="flex items-center gap-3">
+              {selectedIds.size > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-[11px] font-semibold text-[var(--color-text-muted)] hover:text-white"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddSelected}
+                    className="h-8 rounded-lg bg-[var(--color-lime)] px-3 text-[12px] font-bold text-black hover:brightness-110"
+                  >
+                    Add {selectedIds.size} to My Predictor
+                  </button>
+                </>
+              )}
+              {!loading && (
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] tabular-nums">
+                  {sortedProps.length.toLocaleString()} {sortedProps.length === 1 ? "Prop" : "Props"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {viewMode === "table" ? (
+            <PropsTable
+              props={sortedProps}
+              loading={loading}
+              gameByTeam={gameByTeam}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              addedIds={parlayPropIds}
+              onAdd={handleTableAdd}
+              addDisabled={parlayFull}
+              emptyMessage={emptyMessage}
+            />
+          ) : (
+            <PropCardGrid
+              props={sortedProps}
+              loading={loading}
+              viewMode="grid"
+              gameTimeByTeam={gameTimeByTeam}
+              onAddToParlay={handleAddToParlay}
+              onLogPick={handleLogPick}
+              savedPropIds={savedPickIds}
+              onShare={handleShare}
+              onVote={handleVote}
+              onAIExpand={handleAIExpand}
+              onCorrelationTap={handleCorrelationTap}
+              onAIRetry={handleAIRetry}
+              onPropCardClick={handlePropCardClick}
+              isAuthenticated={isAuthenticated}
+              parlayPropIds={parlayPropIds}
+              parlayFull={parlayFull}
+              aiWriteups={aiWriteups}
+              emptyMessage={emptyMessage}
+            />
           )}
         </div>
-
-        {/* Props Grid */}
-        <PropCardGrid
-          props={sortedProps}
-          loading={loading}
-          viewMode={viewMode}
-          gameTimeByTeam={gameTimeByTeam}
-          onAddToParlay={handleAddToParlay}
-          onLogPick={handleLogPick}
-          savedPropIds={savedPickIds}
-          onShare={handleShare}
-          onVote={handleVote}
-          onAIExpand={handleAIExpand}
-          onCorrelationTap={handleCorrelationTap}
-          onAIRetry={handleAIRetry}
-          onPropCardClick={handlePropCardClick}
-          isAuthenticated={isAuthenticated}
-          parlayPropIds={parlayPropIds}
-          parlayFull={parlayFull}
-          aiWriteups={aiWriteups}
-          emptyMessage={emptyMessage}
-        />
       </div>
 
       {/* Parlay Builder Bottom Sheet */}
@@ -1054,6 +1234,7 @@ export default function AnalysisClient({
         onClear={handleClearParlay}
         onDirectionToggle={handleParlayLegDirectionToggle}
         isAuthenticated={isAuthenticated}
+        openSignal={predictorOpenSignal}
       />
 
       {/* Stats Reference Panel */}

@@ -10,7 +10,8 @@ import { getTodayET } from "@/lib/props/dates"
 import { getSoccerSlateTeams } from "@/lib/soccer/slate"
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
 import { resolveNBAHeadshots } from "@/lib/analytics/nba-headshots"
-import { computeMarketEdge, rankBestProps, type MarketEdge } from "@/lib/props/market-edge"
+import { computePropValue, rankByValue, type PropValue } from "@/lib/props/prop-value"
+import { attachNbaH2H } from "@/lib/props/nba-h2h"
 import { AdvancedFilterState } from "@/lib/analytics/types"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
@@ -396,16 +397,21 @@ export const GET = withSecurity(async (request: Request) => {
       })
     }
 
-    // ─── Market view (Novig) ────────────────────────────────────────────────
-    // Props whose line is a stored Novig main line get a market edge: the
-    // recommended side's (shrunk) hit rate vs the no-vig price. Copy-on-write,
-    // since these objects can come straight from a cached slate.
-    filtered = filtered.map((p: any) => ({ ...p, marketEdge: computeMarketEdge(p) }))
+    // ─── Multi-factor value ─────────────────────────────────────────────────
+    // Each prop gets a blended chance per side (form on the line, projection,
+    // priced line, matchup, minutes trend) and, when a book priced the line, a
+    // payout multiplier and expected value. The side and probability follow
+    // the blend. Copy-on-write: these objects can come from a cached slate.
+    filtered = filtered.map((p: any) => {
+      const propValue = computePropValue(p)
+      if (!propValue) return { ...p, propValue: null }
+      return { ...p, propValue, direction: propValue.side, probability: propValue.chance }
+    })
 
     // Best lists are ranked over the whole qualifying slate (or the selected
     // game), before the direction toggle, search and the display limit, so a
     // top pick is never missing just because it ranked 51st by probability.
-    const best = rankBestProps(filtered as Array<{ id: string; marketEdge: MarketEdge | null }>)
+    const best = rankByValue(filtered as Array<{ id: string; player?: string; propValue: PropValue | null }>)
 
     // Apply direction filter at API level
     if (direction && direction !== "all") {
@@ -449,7 +455,9 @@ export const GET = withSecurity(async (request: Request) => {
     // one. Writing through would mutate the cache in place. The values are
     // identical either way, so this is defensive, but it keeps "nothing mutates
     // a cached value" true as an invariant instead of an accident.
-    let withHeadshots = limited
+    // Head-to-head history vs tonight's opponent, for the table's H2H column.
+    const limitedWithH2H = await attachNbaH2H(limited as any[])
+    let withHeadshots = limitedWithH2H
     let bestWithHeadshots = best
     const bestProps = [...best.top, ...best.overs, ...best.unders] as any[]
     if (limited.length > 0 || bestProps.length > 0) {
@@ -458,7 +466,7 @@ export const GET = withSecurity(async (request: Request) => {
       )
       const attach = (prop: any) =>
         prop.headshotUrl ? prop : { ...prop, headshotUrl: headshots[prop.player] ?? null }
-      withHeadshots = limited.map(attach)
+      withHeadshots = limitedWithH2H.map(attach)
       bestWithHeadshots = {
         top: best.top.map(attach),
         overs: best.overs.map(attach),
