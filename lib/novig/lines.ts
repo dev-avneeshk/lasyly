@@ -15,6 +15,7 @@ import "server-only"
 import { cached, invalidateCache, invalidateCachePrefix } from "@/lib/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { normalizePersonName } from "./names"
+import { isBalancedMarket } from "@/lib/props/market-edge"
 
 export const NOVIG_LINES_TTL_MS = 10 * 60_000
 
@@ -146,11 +147,15 @@ export function buildNovigLineIndex(entries: readonly StoredNovigLine[]): NovigL
     underPrice: e.underPrice,
     capturedAt: e.capturedAt,
   })
-  for (const e of entries) {
+  // Lopsided markets (e.g. SGA PTS 34.5 at +257/−335) are alternate/ladder
+  // lines, not the main line. Showing one as "the" line would mislead, so those
+  // players keep the L10-average line instead.
+  const usable = entries.filter((e) => isBalancedMarket(e.overPrice, e.underPrice))
+  for (const e of usable) {
     const key = indexKey(e.betroomPlayerName ?? e.novigPlayer, e.stat)
     if (!index.has(key)) index.set(key, toMarket(e))
   }
-  for (const e of entries) {
+  for (const e of usable) {
     if (!e.betroomPlayerName) continue
     const key = indexKey(e.novigPlayer, e.stat)
     if (!index.has(key)) index.set(key, toMarket(e))

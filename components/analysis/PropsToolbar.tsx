@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react"
 import { Check, ChevronDown, LayoutGrid, List } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type PropSortKey = "popularity" | "hitRate" | "confidence" | "line" | "name"
+export type PropSortKey = "popularity" | "edge" | "hitRate" | "confidence" | "line" | "name"
 export type PropViewMode = "grid" | "list"
 
 export const SORT_OPTIONS: { key: PropSortKey; label: string }[] = [
   { key: "popularity", label: "Popularity" },
+  { key: "edge", label: "Edge vs Line" },
   { key: "hitRate", label: "Hit Rate" },
   { key: "confidence", label: "Confidence" },
   { key: "line", label: "Target (High–Low)" },

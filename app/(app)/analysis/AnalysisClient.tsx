@@ -9,6 +9,7 @@ import { todayIso as resolveTodayIso } from "@/lib/props/dates"
 import { shareProp } from "@/lib/props/share"
 import { PropsHeader } from "@/components/analysis/PropsHeader"
 import { GameStrip } from "@/components/analysis/GameStrip"
+import { BestPropsPanel, type BestPropsData } from "@/components/analysis/BestPropsPanel"
 import { StatFilters } from "@/components/analysis/StatFilters"
 import { PropCardGrid } from "@/components/analysis/PropCardGrid"
 import { PlayerSearch } from "@/components/analysis/PlayerSearch"
@@ -79,7 +80,7 @@ export default function AnalysisClient({
   const isToday = selectedDate === todayIso
 
   // Try to read cached props/games on mount to skip skeleton
-  const cachedProps = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[] }>(`/api/props?sport=${normalizeSport(initialSport)}&stat=all&direction=all`)
+  const cachedProps = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[]; best?: BestPropsData }>(`/api/props?sport=${normalizeSport(initialSport)}&stat=all&direction=all`)
   const cachedGames = readCache<{ games?: Game[] }>(`/api/props/games?sport=${normalizeSport(initialSport)}`)
 
   const [props, setProps] = useState<EnhancedPropCardData[]>(cachedProps?.props ?? [])
@@ -91,6 +92,8 @@ export default function AnalysisClient({
   // ─── Matchup state (NBA + NFL) ─────────────────────────────────────────────
   const [selectedMatchup, setSelectedMatchup] = useState<string | null>(null)
   const [todayGames, setTodayGames] = useState<TodayGame[]>(cachedProps?.todayGames ?? [])
+  // NBA: top props scored against the Novig line (null until the API returns them).
+  const [best, setBest] = useState<BestPropsData | null>(cachedProps?.best ?? null)
 
   // ─── Presentation state ─────────────────────────────────────────────────────
   const [sortBy, setSortBy] = useState<PropSortKey>("popularity")
@@ -190,6 +193,16 @@ export default function AnalysisClient({
       list = list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
     }
     switch (sortBy) {
+      case "edge":
+        // Props priced by Novig first, biggest edge first; the rest keep hit-rate order.
+        return list.sort((a, b) => {
+          const ea = a.marketEdge?.edge ?? null
+          const eb = b.marketEdge?.edge ?? null
+          if (ea !== null && eb !== null) return eb - ea
+          if (ea !== null) return -1
+          if (eb !== null) return 1
+          return l10HitRateOf(b) - l10HitRateOf(a)
+        })
       case "hitRate":
         return list.sort((a, b) => l10HitRateOf(b) - l10HitRateOf(a))
       case "confidence":
@@ -210,6 +223,14 @@ export default function AnalysisClient({
     }
   }, [props, sortBy, selectedMatchup])
 
+  const visibleBest = useMemo<BestPropsData | null>(() => {
+    if (!best || sport !== "NBA") return null
+    if (!selectedMatchup) return best
+    const teams = new Set(selectedMatchup.toUpperCase().split("-"))
+    const keep = (list: EnhancedPropCardData[]) => list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
+    return { hitRate: keep(best.hitRate), overs: keep(best.overs), unders: keep(best.unders) }
+  }, [best, sport, selectedMatchup])
+
   // ─── Reset stat when sport changes ──────────────────────────────────────────
   useEffect(() => {
     setStat(DEFAULT_STATS[sport])
@@ -218,7 +239,8 @@ export default function AnalysisClient({
     setNbaFilters({ minMinutes: 0, vsOpponent: false, withoutPlayer: "" })
 
     // Try to read cached data for the new sport to avoid skeleton flash
-    const sportPropsCache = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[] }>(`/api/props?sport=${sport}&stat=all&direction=all`)
+    const sportPropsCache = readCache<{ props?: EnhancedPropCardData[]; todayGames?: TodayGame[]; best?: BestPropsData }>(`/api/props?sport=${sport}&stat=all&direction=all`)
+    setBest(sportPropsCache?.best ?? null)
     const sportGamesCache = readCache<{ games?: Game[] }>(`/api/props/games?sport=${sport}`)
 
     if (sportPropsCache?.props?.length) {
@@ -317,12 +339,13 @@ export default function AnalysisClient({
       const url = `/api/props?${params.toString()}`
       // 2 minutes, matching the server-side props TTL. A shorter client TTL just
       // sends requests the server answers from its own cache anyway.
-      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; todayGames?: (TodayGame & { gameDate?: string })[] }>(url, 120_000)
+      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; best?: BestPropsData; todayGames?: (TodayGame & { gameDate?: string })[] }>(url, 120_000)
 
       // A newer request has started — discard this result rather than clobbering it.
       if (requestId !== propsRequestIdRef.current) return
 
       setProps(data.props ?? [])
+      setBest(data.best ?? null)
       // Extract todayGames for NBA + NFL (both drive the matchup filter).
       if ((sport === "NBA" || sport === "NFL") && data.todayGames) {
         // NFL engine returns { homeTeam, awayTeam, gameDate, status };
@@ -934,6 +957,9 @@ export default function AnalysisClient({
         )}
 
         {/* Section heading + count */}
+        {/* Top props scored against the real Novig line (NBA, when lines exist) */}
+        {!loading && <BestPropsPanel best={visibleBest} />}
+
         <div className="flex items-baseline justify-between gap-3 -mb-1">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
             {selectedMatchup ? "Selected Game" : "All Players"}

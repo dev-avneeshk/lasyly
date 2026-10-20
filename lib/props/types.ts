@@ -1,3 +1,5 @@
+import type { MarketEdge } from "@/lib/props/market-edge"
+
 export interface PropCardData {
   id: string
   player: string
@@ -21,6 +23,8 @@ export interface PropCardData {
   averageLine?: number
   /** The stored Novig market line behind `propLine`, null when it is the average (NBA only). */
   marketLine?: { book: "novig"; line: number; overPrice: number; underPrice: number; capturedAt: string } | null
+  /** Recommended side scored against the Novig price; null without a market line (NBA only). */
+  marketEdge?: MarketEdge | null
 }
 
 export interface GameResult {

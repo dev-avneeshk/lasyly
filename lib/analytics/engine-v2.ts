@@ -1217,7 +1217,8 @@ async function computeMatchupScopedPropsUncached(
       venue: upcomingVenue,
       restDays,
       minutesProjection,
-      bookLine: null, // We don't have book lines — stop after Step 2
+      // Layer 3 (edge vs the book) runs only when the line is a real Novig line.
+      bookLine: lineSource === "novig" ? propLine : null,
     })
 
     // ─── Direction & Quality from Projection + Hit Rate (PRIMARY) ────────
