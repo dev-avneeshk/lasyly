@@ -44,9 +44,9 @@ async function isRealUser(): Promise<boolean> {
 export default async function AnalysisPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; sport?: string }>
+  searchParams: Promise<{ search?: string; sport?: string; game?: string }>
 }) {
-  const [isAuthenticated, { search, sport }] = await Promise.all([
+  const [isAuthenticated, { search, sport, game }] = await Promise.all([
     isRealUser(),
     searchParams,
   ])
@@ -56,6 +56,7 @@ export default async function AnalysisPage({
       isAuthenticated={isAuthenticated}
       initialSearch={search ?? ""}
       initialSport={sport ?? "NBA"}
+      initialMatchup={game}
     />
   )
 }

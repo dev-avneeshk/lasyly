@@ -191,8 +191,8 @@ describe("invalidateNovigReadCaches", () => {
       "precomputed-slate:NBA:all:all:2026-10-20",
     ])
     expect(vi.mocked(cache.invalidateCachePrefix).mock.calls.map((c) => c[0]).sort()).toEqual([
-      "matchup-props:v5:NBA:",
-      "nba-props:v4:",
+      "matchup-props:v6:NBA:",
+      "nba-props:v5:",
     ])
   })
 })

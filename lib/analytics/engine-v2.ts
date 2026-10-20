@@ -14,6 +14,7 @@ import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { buildNovigLineIndex, getNovigLinesForSlate, resolvePropLine, type NovigLineIndex } from "@/lib/novig/lines"
 import { parsePosition, Position } from "./position"
+import { regularSeasonEnd } from "@/lib/props/nbaGameLog"
 import {
   computeProbability,
   computePropLine,
@@ -417,6 +418,65 @@ function fetchSlateRows(teams: string[], cutoff: string): Promise<Record<string,
 }
 
 /**
+ * Dates of play-in and playoff games, which props must ignore: playoff
+ * minutes and roles differ from the regular season (stars play ~40 minutes,
+ * benches shrink), so mixing them in skews every line and hit rate.
+ *
+ * nba_games has no game-type column. Within April–June of a season's end
+ * year, the regular season ends on the last date with a full slate
+ * (>= REGULAR_SEASON_MIN_GAMES_PER_DAY games); every game after it is play-in
+ * or playoffs. Restricting the search to April–June keeps ordinary light
+ * regular-season days (a 3-game Tuesday in November) from being misread.
+ */
+async function fetchPlayoffDates(since: string): Promise<Set<string>> {
+  const dates = await cached(
+    `nba-playoff-dates:v1:${since}`,
+    async () => {
+      const supabase = createAdminClient()
+      const today = new Date().toISOString().split("T")[0]
+      const rows: { game_date: string; season: string | null }[] = []
+      for (let from = 0; from < 20_000; from += 1000) {
+        const { data, error } = await supabase
+          .from("nba_games")
+          .select("game_date, season")
+          .gte("game_date", since)
+          .lte("game_date", today)
+          .order("game_date", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, from + 999)
+        if (error) throw new Error(`nba_games playoff scan failed: ${error.message}`)
+        rows.push(...((data ?? []) as { game_date: string; season: string | null }[]))
+        if (!data || data.length < 1000) break
+      }
+      const bySeason = new Map<string, string[]>()
+      for (const r of rows) {
+        if (!r.season) continue
+        const endYear = Number(r.season.split("-")[0]) + 1
+        if (!Number.isFinite(endYear)) continue
+        // Only the April–June stretch of the season's end year can hold playoffs.
+        if (r.game_date < `${endYear}-04-01` || r.game_date > `${endYear}-06-30`) continue
+        const list = bySeason.get(r.season) ?? []
+        list.push(r.game_date)
+        bySeason.set(r.season, list)
+      }
+      const playoff: string[] = []
+      for (const list of bySeason.values()) {
+        const end = regularSeasonEnd(list)
+        if (!end) continue
+        for (const d of new Set(list)) if (d > end) playoff.push(d)
+      }
+      return playoff
+    },
+    12 * 60 * 60_000
+  ).catch((e) => {
+    // Fail open to the previous behaviour rather than emptying the slate.
+    console.error("[engine-v2] playoff-date lookup failed:", e instanceof Error ? e.message : e)
+    return [] as string[]
+  })
+  return new Set(dates)
+}
+
+/**
  * Lookback window for player game logs.
  *
  * In-season this is the last 90 days. That breaks at the start of a season:
@@ -457,7 +517,14 @@ export async function fetchBatchPlayerStats(
   // his current team: a player who changed teams over the summer must drop off
   // his old team's slate once he plays for the new one. Size is comparable to
   // an in-season 90-day read (~10-17k rows), within fetchSlateRows' cap.
-  const data = await fetchSlateRows(window.carryOver ? ALL_NBA_TEAMS : teams, window.cutoff)
+  const [allRows, playoffDates] = await Promise.all([
+    fetchSlateRows(window.carryOver ? ALL_NBA_TEAMS : teams, window.cutoff),
+    fetchPlayoffDates(window.cutoff),
+  ])
+  // Regular-season games only (see fetchPlayoffDates).
+  const data = playoffDates.size === 0
+    ? allRows
+    : allRows.filter((row) => !playoffDates.has((row as { nba_games?: { game_date?: string } }).nba_games?.game_date ?? ""))
 
 
   if (data.length === 0) {
@@ -785,9 +852,9 @@ export async function computeMatchupScopedProps(
   // v4: NBA props use the stored Novig main line when present and carry
   // lineSource/averageLine/marketLine. Bumped so stale blobs without them are
   // not served. v5: lines can come from any stored book (marketLine.book,
-  // lineSource "market"). lib/novig/lines.ts invalidates `matchup-props:v5:NBA:` after an
+  // lineSource "market"). v6: playoff games excluded. lib/novig/lines.ts invalidates `matchup-props:v6:NBA:` after an
   // ingest stores new lines; keep the two in sync.
-  const cacheKey = `matchup-props:v5:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
+  const cacheKey = `matchup-props:v6:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
 
   // 3 minutes, matching PROPS_TTL.nba in /api/props.
   //

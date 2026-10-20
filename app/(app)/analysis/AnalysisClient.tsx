@@ -61,12 +61,21 @@ type AnalysisClientProps = {
   initialSearch?: string
   /** Sport from the `?sport=` param — the top-bar tabs drive this. */
   initialSport?: string
+  /** Selected game from the `?game=` param (e.g. "DET-BOS"), so Back restores it. */
+  initialMatchup?: string
+}
+
+/** A `HOME-AWAY` matchup key, or null for anything else in the URL. */
+function parseMatchup(value?: string | null): string | null {
+  const v = (value ?? "").toUpperCase()
+  return /^[A-Z]{2,3}-[A-Z]{2,3}$/.test(v) ? v : null
 }
 
 export default function AnalysisClient({
   isAuthenticated,
   initialSearch = "",
   initialSport,
+  initialMatchup,
 }: AnalysisClientProps) {
   // ─── Core state ─────────────────────────────────────────────────────────────
   // Sport is derived from the URL rather than held in state, so the top-bar
@@ -90,7 +99,23 @@ export default function AnalysisClient({
   const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   // ─── Matchup state (NBA + NFL) ─────────────────────────────────────────────
-  const [selectedMatchup, setSelectedMatchup] = useState<string | null>(null)
+  // Seeded from `?game=` and written back to it, so opening a player and
+  // pressing Back returns to the same game instead of the full slate.
+  const [selectedMatchup, setSelectedMatchup] = useState<string | null>(() => parseMatchup(initialMatchup))
+
+  const selectMatchup = useCallback((matchup: string | null) => {
+    setSelectedMatchup(matchup)
+    try {
+      const url = new URL(window.location.href)
+      if (matchup) url.searchParams.set("game", matchup)
+      else url.searchParams.delete("game")
+      // replaceState (not router.replace): updates this history entry without
+      // a server round-trip, and Next keeps useSearchParams in sync.
+      window.history.replaceState(window.history.state, "", url.toString())
+    } catch {
+      // URL APIs unavailable: the selection still works, it just won't persist.
+    }
+  }, [])
   const [todayGames, setTodayGames] = useState<TodayGame[]>(cachedProps?.todayGames ?? [])
   // NBA: top props scored against sportsbook lines (null until the API returns them).
   const [best, setBest] = useState<BestPropsData | null>(cachedProps?.best ?? null)
@@ -242,9 +267,14 @@ export default function AnalysisClient({
   }, [best, sport, selectedMatchup])
 
   // ─── Reset stat when sport changes ──────────────────────────────────────────
+  // Runs on mount too; only a real sport change may clear the selected game,
+  // otherwise the game restored from `?game=` would be wiped immediately.
+  const lastSportRef = useRef(sport)
   useEffect(() => {
+    const sportChanged = lastSportRef.current !== sport
+    lastSportRef.current = sport
     setStat(DEFAULT_STATS[sport])
-    setSelectedMatchup(null)
+    if (sportChanged) setSelectedMatchup(null)
     setDirectionToggle("all")
     setNbaFilters({ minMinutes: 0, vsOpponent: false, withoutPlayer: "" })
 
@@ -907,7 +937,7 @@ export default function AnalysisClient({
           selectedDate={selectedDate}
           todayIso={todayIso}
           selectedMatchup={selectedMatchup}
-          onSelectMatchup={sport === "NBA" || sport === "NFL" ? setSelectedMatchup : undefined}
+          onSelectMatchup={sport === "NBA" || sport === "NFL" ? selectMatchup : undefined}
         />
 
         {!isToday && (
