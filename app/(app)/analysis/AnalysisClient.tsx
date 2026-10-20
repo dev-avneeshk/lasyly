@@ -1,5 +1,7 @@
 "use client"
 
+import { useSearchParams } from "next/navigation"
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { AlertTriangle, CheckCircle, XCircle, Info } from "lucide-react"
 import { Game } from "@/lib/props/types"
@@ -101,7 +103,14 @@ export default function AnalysisClient({
   // ─── Matchup state (NBA + NFL) ─────────────────────────────────────────────
   // Seeded from `?game=` and written back to it, so opening a player and
   // pressing Back returns to the same game instead of the full slate.
-  const [selectedMatchup, setSelectedMatchup] = useState<string | null>(() => parseMatchup(initialMatchup))
+  //
+  // Read from the live URL, not only the server prop: Back restores Next's
+  // cached render from before the game was picked (its `initialMatchup` is
+  // stale) while the URL itself carries `?game=`.
+  const liveSearchParams = useSearchParams()
+  const [selectedMatchup, setSelectedMatchup] = useState<string | null>(
+    () => parseMatchup(liveSearchParams.get("game")) ?? parseMatchup(initialMatchup)
+  )
 
   const selectMatchup = useCallback((matchup: string | null) => {
     setSelectedMatchup(matchup)
