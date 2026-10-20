@@ -307,9 +307,11 @@ export const GET = withSecurity(async (request: Request) => {
     const engineMatchup = matchupFromSlate ? undefined : matchup
 
     // v2: the engine now emits `gameId` on each lastGames entry (for the
-    // DB-backed boxscore popup). Versioned so stale route-level blobs that
-    // predate the id are not served.
-    const nbaCacheKey = `nba-props:v2:${stat}:${direction}:${engineMatchup ?? "all"}:${todayDate}:${filterKey}`
+    // DB-backed boxscore popup).
+    // v3: NBA props carry lineSource/averageLine/marketLine (stored Novig
+    // line or L10 average). Versioned so stale route-level blobs are not
+    // served; lib/novig/lines.ts invalidates `nba-props:v3:` after an ingest.
+    const nbaCacheKey = `nba-props:v3:${stat}:${direction}:${engineMatchup ?? "all"}:${todayDate}:${filterKey}`
 
     // The precompute cron only covers the default slate (all stats, both
     // directions, no filters/search/matchup). Bespoke views recompute live.

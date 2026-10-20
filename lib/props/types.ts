@@ -12,6 +12,15 @@ export interface PropCardData {
   trendPct: number
   matchup: string
   sport: "NBA" | "Tennis" | "Soccer" | "NFL" | "NHL"
+  /**
+   * Where `propLine` came from (NBA only): the stored Novig main line, or the
+   * L10 average when no Novig line exists. Absent for other sports.
+   */
+  lineSource?: "novig" | "average"
+  /** The L10-average line, kept even when a Novig line replaced it (NBA only). */
+  averageLine?: number
+  /** The stored Novig market line behind `propLine`, null when it is the average (NBA only). */
+  marketLine?: { book: "novig"; line: number; overPrice: number; underPrice: number; capturedAt: string } | null
 }
 
 export interface GameResult {

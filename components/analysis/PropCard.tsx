@@ -53,6 +53,7 @@ export function PropCard({
   return (
     <div
       id={`prop-card-${prop.id}`}
+      data-line-source={prop.lineSource ?? "average"}
       className="bg-[var(--color-surface)]/60 border border-[var(--color-border)] rounded-2xl p-5 transition-all h-full flex flex-col cursor-pointer hover:border-[var(--color-lime)]/40"
       onClick={(e) => {
         const target = e.target as HTMLElement
@@ -107,6 +108,12 @@ export function PropCard({
       {/* Prop Line + Projection */}
       <div className="mb-3">
         <span className="text-2xl font-bold text-white">{prop.propLine}</span>
+        {/* NBA: the line is the stored Novig main line (otherwise the L10 average). */}
+        {prop.lineSource === "novig" && (
+          <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+            Novig
+          </span>
+        )}
         <span className="text-sm text-[var(--color-text-muted)] ml-2">{STAT_LABELS[prop.statCategory] ?? prop.statCategory.toUpperCase()}</span>
         <span className={cn(
           "ml-2 text-xs font-semibold px-1.5 py-0.5 rounded",

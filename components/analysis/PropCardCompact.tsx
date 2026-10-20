@@ -57,13 +57,18 @@ export function PropCardCompact({
 
   const goToDetail = () => router.push(href)
 
+  // NBA props carry lineSource: the stored Novig main line, or the L10 average.
+  // Other sports leave it unset and keep the plain "Target" label.
+  const isNovigLine = prop.lineSource === "novig"
+
   return (
     <article
       id={`prop-card-${prop.id}`}
+      data-line-source={prop.lineSource ?? "average"}
       className="group h-full flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-4 transition-colors hover:border-[var(--color-lime)]/40 cursor-pointer"
       role="link"
       tabIndex={0}
-      aria-label={`${prop.player} ${statLabel} target ${prop.propLine} — view details`}
+      aria-label={`${prop.player} ${statLabel} ${isNovigLine ? "Novig line" : "target"} ${prop.propLine} — view details`}
       onClick={(e) => {
         const target = e.target as HTMLElement
         if (target.closest("button") || target.closest("a")) return
@@ -149,7 +154,12 @@ export function PropCardCompact({
       {/* Target */}
       <div className="mt-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-[var(--color-text-muted)]">{statLabel} · Target</p>
+          <p
+            className="text-[11px] font-semibold text-[var(--color-text-muted)]"
+            title={prop.lineSource === "average" ? "Line from L10 average (no Novig line)" : undefined}
+          >
+            {statLabel} · {isNovigLine ? "Novig line" : "Target"}
+          </p>
           <p className="text-[30px] font-extrabold leading-none tracking-[-0.02em] text-[var(--color-text-primary)] tabular-nums">
             {prop.propLine}
           </p>

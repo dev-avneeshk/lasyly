@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { precomputeNbaDefaultSlate } from "@/lib/data/precompute-nba"
 import { runNovigIngest } from "@/lib/novig/ingest"
+import { invalidateNovigReadCaches } from "@/lib/novig/lines"
 import { createParlayApiClient, getParlayApiKey } from "@/lib/novig/parlayApi"
 import { etDateOf } from "@/lib/novig/plan"
 import { createSupabaseNovigStore } from "@/lib/novig/store"
@@ -109,6 +110,9 @@ export const GET = withSecurity(
       const result = await runNovigIngest({ api: createParlayApiClient({ apiKey }), store })
       let precompute: Awaited<ReturnType<typeof precomputeNbaDefaultSlate>> | null = null
       if (result.rowsInserted > 0) {
+        // Drop every cache holding pre-ingest (average) lines first, so the
+        // precompute below and the next page load read the new Novig lines.
+        await invalidateNovigReadCaches(result.slateDate)
         precompute = await precomputeNbaDefaultSlate(result.slateDate)
       }
       const httpStatus = HTTP_STATUS[result.status]

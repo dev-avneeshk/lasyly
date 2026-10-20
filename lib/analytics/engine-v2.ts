@@ -12,6 +12,7 @@ import { PropCardData } from "@/lib/props/types"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
+import { buildNovigLineIndex, getNovigLinesForSlate, resolvePropLine, type NovigLineIndex } from "@/lib/novig/lines"
 import { parsePosition, Position } from "./position"
 import {
   computeProbability,
@@ -780,9 +781,12 @@ export async function computeMatchupScopedProps(
   // entries written under the old key.
   const matchupSuffix = matchup ? `:m${matchup.toUpperCase()}` : ""
   // v3: lastGames now carries `gameId` (nba_games UUID) so a clicked chart bar
-  // can open that game's DB-backed boxscore. Bumped from v2 so stale blobs that
-  // predate the id are not served.
-  const cacheKey = `matchup-props:v3:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
+  // can open that game's DB-backed boxscore.
+  // v4: NBA props use the stored Novig main line when present and carry
+  // lineSource/averageLine/marketLine. Bumped so stale blobs without them are
+  // not served. lib/novig/lines.ts invalidates `matchup-props:v4:NBA:` after an
+  // ingest stores new lines; keep the two in sync.
+  const cacheKey = `matchup-props:v4:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
 
   // 3 minutes, matching PROPS_TTL.nba in /api/props.
   //
@@ -824,6 +828,11 @@ async function computeMatchupScopedPropsUncached(
 
   // Step 1: Fetch today's games
   const todayGames = await fetchTodayGames(today)
+
+  // Stored Novig main lines for today's slate (NBA only; cached, [] on any
+  // error). Players without one keep the L10-average line below.
+  const novigIndex: NovigLineIndex =
+    sport === "NBA" ? buildNovigLineIndex(await getNovigLinesForSlate(today)) : new Map()
 
   // Step 2: Determine which teams to query
   let teams: string[]
@@ -1054,8 +1063,11 @@ async function computeMatchupScopedPropsUncached(
     // games are sorted most recent first
     const statValues = games.map((g) => g.statValue)
 
-    // Compute prop line
-    const propLine = computePropLine(statValues)
+    // Compute prop line: the stored Novig main line when present, else the L10
+    // average. Everything below (graph overLine, hit rate, direction gate,
+    // projection agreement) uses this line.
+    const averageLine = computePropLine(statValues)
+    const { propLine, lineSource, marketLine } = resolvePropLine(playerName, statColumn, averageLine, novigIndex)
     if (propLine <= 0) continue
 
     // Compute averages
@@ -1284,6 +1296,9 @@ async function computeMatchupScopedPropsUncached(
       trendPct,
       matchup: opponentTeam,
       sport: "NBA",
+      lineSource,
+      averageLine,
+      marketLine,
       position: position ?? "N/A",
       probability: bestProbability,
       direction: bestDirection,
