@@ -17,8 +17,8 @@ interface PlayerHeroProps {
   line: number
   /** Model projection for the active stat, when the engine produced one. */
   projection: number | null
-  /** Side the model favours — gets the accent treatment. */
-  recommended?: "over" | "under"
+  /** Side the model favours — gets the accent treatment. Null highlights neither. */
+  recommended?: "over" | "under" | null
   onBack: () => void
 }
 

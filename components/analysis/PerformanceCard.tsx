@@ -248,7 +248,8 @@ export function PerformanceCard({
                   }}
                 />
                 <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                  // ComposedChart draws the hover cursor as a vertical line; hide it.
+                  cursor={false}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null
                     const point = payload[0].payload as (typeof chartData)[number]

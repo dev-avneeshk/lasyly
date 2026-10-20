@@ -28,6 +28,12 @@ import type { NbaBoxscore } from "@/lib/scores/nbaBoxscore"
 import { buildSoccerModalData, type SoccerMatchStats } from "@/lib/scores/soccerMatchStats"
 import { parseMatchKey } from "@/lib/soccer/big5"
 import type { PlayerProfile, TeamMeta } from "@/lib/analytics/player-profile"
+import {
+  derivedLine,
+  nbaStatValue,
+  type NbaGameLogEntry,
+  type SeasonTypeFilter,
+} from "@/lib/props/nbaGameLog"
 import { ComposedChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts"
 
 interface PropData {
@@ -174,26 +180,73 @@ export default function PlayerDashboardPage() {
     ? (statApiMap[activeStat] ?? statParam)
     : (isTennis || sportParam === "Soccer") ? activeStat : statParam
 
+  // NBA tabs that can carry an engine prop line. Other combo tabs have none:
+  // their chart comes from the game log and the target is derived from it.
+  const nbaPropStatMap: Record<string, string> = {
+    "PTS": "pts",
+    "AST": "ast",
+    "REB": "trb",
+    "BLK": "blk",
+    "STL": "stl",
+    "PTS+AST+REB": "pra",
+  }
+  const propFetchStat: string | null = sportParam === "NBA"
+    ? (nbaPropStatMap[activeStat] ?? null)
+    : fetchStat
+  // Which player+sport the current `prop` belongs to. When it matches, a
+  // refetch is a stat-tab switch and must not swap the page for the skeleton.
+  const loadedForRef = useRef<string | null>(null)
+
   // Fetch the prop data for this player
   useEffect(() => {
     // A quick stat/sport toggle must not let the older response land last.
     let ignore = false
+    const loadKey = `${playerId}|${sportParam}`
+    const isSwitch = loadedForRef.current === loadKey
+    const playerSearch = playerId.replace(/-/g, " ")
+    const matchesPlayer = (p: PropData) => {
+      const slug = p.player.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+      return p.id === playerId || slug === playerId || p.id.startsWith(playerId) || slug.includes(playerId)
+    }
+
+    if (isSwitch) {
+      // Stat-tab switch: keep the page rendered. The chart already has the
+      // new stat from the game log (NBA); this only swaps in the line.
+      if (!propFetchStat) return
+      const url = `/api/props?sport=${sportParam}&stat=${propFetchStat}&search=${encodeURIComponent(playerSearch)}`
+      cachedFetch<{ props?: PropData[] }>(url, 30_000)
+        .then(data => {
+          if (ignore) return
+          const props = data.props ?? []
+          // NBA: only accept the exact stat, never another stat's line.
+          const found = sportParam === "NBA"
+            ? props.find(p => matchesPlayer(p) && p.statCategory?.toLowerCase() === propFetchStat)
+            : (props.find(matchesPlayer) || props[0])
+          if (found) {
+            setProp(found)
+            setThreshold(found.propLine)
+          }
+        })
+        .catch(() => {})
+      return () => { ignore = true }
+    }
+
     setLoading(true)
     // Include search param to find the specific player/team
-    const playerSearch = playerId.replace(/-/g, " ")
-    const url = `/api/props?sport=${sportParam}&stat=${fetchStat}&search=${encodeURIComponent(playerSearch)}`
+    const url = `/api/props?sport=${sportParam}&stat=${propFetchStat ?? "all"}&search=${encodeURIComponent(playerSearch)}`
     // Cache for 30 seconds — same data as the analysis page
     cachedFetch<{ props?: PropData[] }>(url, 30_000)
       .then(data => {
         if (ignore) return
         const props = data.props ?? []
         // Find matching prop by player slug or id
-        const found = props.find((p: PropData) => {
-          const slug = p.player.toLowerCase().replace(/[^a-z0-9]+/g, "-")
-          return p.id === playerId || slug === playerId || p.id.startsWith(playerId) || slug.includes(playerId)
-        }) || props[0]
+        const found =
+          props.find(p => matchesPlayer(p) && p.statCategory?.toLowerCase() === propFetchStat) ||
+          props.find(matchesPlayer) ||
+          props[0]
 
         if (found) {
+          loadedForRef.current = loadKey
           setProp(found)
           setThreshold(found.propLine)
           setLoading(false)
@@ -210,6 +263,7 @@ export default function PlayerDashboardPage() {
               }) || fallbackProps[0]
 
               if (fallbackFound) {
+                loadedForRef.current = loadKey
                 setProp(fallbackFound)
                 setThreshold(fallbackFound.propLine)
               }
@@ -220,7 +274,44 @@ export default function PlayerDashboardPage() {
       })
       .catch(() => { if (!ignore) setLoading(false) })
     return () => { ignore = true }
-  }, [playerId, fetchStat, sportParam])
+    // propFetchStat is derived from activeStat; a switch only refetches the line.
+  }, [playerId, propFetchStat, sportParam])
+
+  // NBA game log: every stat per game, loaded once per player so stat tabs,
+  // combos and the vs-opponent / season-type filters switch instantly.
+  const [gameLog, setGameLog] = useState<NbaGameLogEntry[] | null>(null)
+  useEffect(() => {
+    if (sportParam !== "NBA" || !prop?.player) return
+    let ignore = false
+    cachedFetch<{ games?: NbaGameLogEntry[] }>(
+      `/api/props/game-log?player=${encodeURIComponent(prop.player)}`,
+      600_000
+    )
+      .then(data => { if (!ignore) setGameLog(data.games ?? null) })
+      .catch(() => { if (!ignore) setGameLog(null) })
+    return () => { ignore = true }
+  }, [prop?.player, sportParam])
+
+  // Chart filters (NBA): season type and games vs the upcoming opponent.
+  const [chartSeasonType, setChartSeasonType] = useState<SeasonTypeFilter>("all")
+  const [vsOpponentOnly, setVsOpponentOnly] = useState(false)
+
+  // Whether `prop` (line, projection, matchup grade) belongs to the active tab.
+  // False for combo tabs and stats the engine has no line for, or briefly while
+  // a switched tab's line is loading.
+  const propMatchesActive =
+    sportParam !== "NBA" ||
+    (!!prop && prop.statCategory?.toLowerCase() === nbaPropStatMap[activeStat])
+
+  // No line for this tab: derive the target from the last 10 games.
+  useEffect(() => {
+    if (propMatchesActive || !gameLog?.length) return
+    const values = gameLog
+      .slice(-10)
+      .map(g => nbaStatValue(g, activeStat))
+      .filter((v): v is number => v != null)
+    setThreshold(derivedLine(values))
+  }, [propMatchesActive, gameLog, activeStat])
 
   // Fetch rolling averages from stats-reference endpoint (NBA only)
   useEffect(() => {
@@ -468,9 +559,34 @@ export default function PlayerDashboardPage() {
   // of it without sorting selected the OLDEST games for "L5" and plotted the
   // chart backwards in time. Sorting by date makes the window correct for every
   // sport regardless of the source ordering.
-  let gameHistory = [...prop.lastGames].sort((a, b) =>
-    (a.date ?? "").localeCompare(b.date ?? "")
-  )
+  //
+  // NBA prefers the game log, which has every stat per game (so tab switches
+  // and combo tabs are exact) and supports the season-type / vs-opponent
+  // filters. `prop.lastGames` is the fallback until it loads, and only when it
+  // belongs to the active tab.
+  const opponentFilterAbbr = sportParam === "NBA" && /^[A-Z]{2,4}$/.test(opponentAbbr) ? opponentAbbr : null
+  const nbaChartFiltered = sportParam === "NBA" && (vsOpponentOnly || chartSeasonType !== "all")
+  let gameHistory: PerformanceGame[]
+  if (sportParam === "NBA" && gameLog) {
+    gameHistory = gameLog
+      .filter(g =>
+        chartSeasonType === "all" ? true : chartSeasonType === "playoffs" ? g.isPlayoff : !g.isPlayoff
+      )
+      .filter(g => !vsOpponentOnly || !opponentFilterAbbr || g.opponent === opponentFilterAbbr)
+      .map(g => ({
+        value: nbaStatValue(g, activeStat) ?? 0,
+        date: g.date,
+        opponent: g.opponent,
+        minutes: g.minutes,
+        gameId: g.gameId,
+      }))
+  } else if (propMatchesActive && !nbaChartFiltered) {
+    gameHistory = [...prop.lastGames]
+      .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+      .map(g => ({ ...g, date: g.date ?? "" }))
+  } else {
+    gameHistory = []
+  }
   // NFL season filter: a season spans two calendar years (e.g. 2025 → Sep 2025..Feb 2026).
   if (sportParam === "NFL" && nflSeason !== "all") {
     const y = parseInt(nflSeason, 10)
@@ -695,9 +811,9 @@ export default function PlayerDashboardPage() {
         teamName={teamMeta.name}
         teamColor={teamMeta.color}
         bio={profile?.bio ? { ...profile.bio, position: heroPosition } : (heroPosition ? { position: heroPosition, jerseyNumber: null, height: null, weight: null, age: null } : null)}
-        line={prop.propLine}
-        projection={projectionValue}
-        recommended={(prop as { direction?: "over" | "under" }).direction ?? "over"}
+        line={propMatchesActive ? prop.propLine : threshold}
+        projection={propMatchesActive ? projectionValue : null}
+        recommended={propMatchesActive ? ((prop as { direction?: "over" | "under" }).direction ?? "over") : null}
         onBack={() => router.push("/analysis")}
       />
 
@@ -715,10 +831,25 @@ export default function PlayerDashboardPage() {
               { value: "2025", label: "2025-26" },
               { value: "2024", label: "2024-25" },
             ]
+          : sportParam === "NBA"
+          ? [
+              { value: "all", label: "All games" },
+              { value: "regular", label: "Regular season" },
+              { value: "playoffs", label: "Playoffs" },
+            ]
           : undefined}
-        activeSeason={sportParam === "NFL" ? nflSeason : undefined}
+        activeSeason={sportParam === "NFL" ? nflSeason : sportParam === "NBA" ? chartSeasonType : undefined}
         onSeasonChange={sportParam === "NFL"
           ? (value) => setNflSeason(value as "all" | "2025" | "2024")
+          : sportParam === "NBA"
+          ? (value) => setChartSeasonType(value as SeasonTypeFilter)
+          : undefined}
+        opponentFilter={opponentFilterAbbr
+          ? {
+              label: `vs ${opponentFilterAbbr}`,
+              active: vsOpponentOnly,
+              onToggle: () => setVsOpponentOnly((v) => !v),
+            }
           : undefined}
       />
 
@@ -732,12 +863,29 @@ export default function PlayerDashboardPage() {
             threshold={threshold}
             onThresholdChange={setThreshold}
             onGameClick={isBoxscoreSport ? handleGameClick : undefined}
-            sampleLabel={`Last ${totalGames || timeRange.replace("L", "")} Games`}
+            sampleLabel={[
+              `Last ${totalGames || timeRange.replace("L", "")} ${totalGames === 1 ? "Game" : "Games"}`,
+              vsOpponentOnly && opponentFilterAbbr ? `vs ${opponentFilterAbbr}` : null,
+              sportParam === "NBA" && chartSeasonType === "regular" ? "Regular season" : null,
+              sportParam === "NBA" && chartSeasonType === "playoffs" ? "Playoffs" : null,
+            ].filter(Boolean).join(" · ")}
             emptyState={
               <div className="flex flex-col items-center gap-1 text-center">
                 <span className="text-sm text-[var(--color-text-muted)]">
-                  No games in {nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}
+                  {sportParam === "NBA"
+                    ? (gameLog === null && nbaChartFiltered
+                        ? "Loading games…"
+                        : `No ${chartSeasonType === "playoffs" ? "playoff " : chartSeasonType === "regular" ? "regular-season " : ""}games${vsOpponentOnly && opponentFilterAbbr ? ` vs ${opponentFilterAbbr}` : ""}`)
+                    : `No games in ${nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}`}
                 </span>
+                {sportParam === "NBA" && nbaChartFiltered && gameLog !== null && (
+                  <button
+                    onClick={() => { setVsOpponentOnly(false); setChartSeasonType("all") }}
+                    className="text-xs text-[var(--color-lime)] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
                 {sportParam === "NFL" && nflSeason !== "all" && (
                   <button onClick={() => setNflSeason("all")} className="text-xs text-[var(--color-lime)] hover:underline">
                     Show all seasons
@@ -903,7 +1051,7 @@ export default function PlayerDashboardPage() {
       {/* Matchup grade strip. The teams themselves are in <MatchupBanner />, so
           this keeps only what the banner can't show: the engine's defensive
           grade, pace read and head-to-head record. */}
-      {prop?.defensiveMatchup && (() => {
+      {propMatchesActive && prop?.defensiveMatchup && (() => {
         const dm = prop.defensiveMatchup
         const gradeColor = dm.grade === "A" || dm.grade === "B" ? "bg-emerald-500/20 text-emerald-400"
           : dm.grade === "C" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"

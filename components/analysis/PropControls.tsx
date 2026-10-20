@@ -25,6 +25,12 @@ interface PropControlsProps {
   seasons?: SeasonOption[]
   activeSeason?: string
   onSeasonChange?: (value: string) => void
+  /** Toggle that limits the sample to games vs the upcoming opponent. Omit to hide. */
+  opponentFilter?: {
+    label: string
+    active: boolean
+    onToggle: () => void
+  }
 }
 
 /**
@@ -41,6 +47,7 @@ export function PropControls({
   seasons,
   activeSeason,
   onSeasonChange,
+  opponentFilter,
 }: PropControlsProps) {
   const showSeasons = !!seasons && seasons.length > 0 && !!onSeasonChange
 
@@ -80,7 +87,24 @@ export function PropControls({
         })}
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        {/* vs upcoming opponent */}
+        {opponentFilter && (
+          <button
+            type="button"
+            onClick={opponentFilter.onToggle}
+            aria-pressed={opponentFilter.active}
+            className={cn(
+              "h-[42px] px-3.5 rounded-xl border text-[12px] font-bold transition-colors",
+              opponentFilter.active
+                ? "border-[var(--color-lime)]/40 bg-[var(--color-lime)]/[0.08] text-[var(--color-lime)]"
+                : "border-[var(--color-border)] bg-[var(--color-surface)]/70 text-[var(--color-text-muted)] hover:text-white hover:border-white/20"
+            )}
+          >
+            {opponentFilter.label}
+          </button>
+        )}
+
         {/* Sample window */}
         <div
           className="flex items-center gap-1 p-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/70"
