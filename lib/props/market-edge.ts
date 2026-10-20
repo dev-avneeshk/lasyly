@@ -122,41 +122,63 @@ function round3(n: number): number {
 }
 
 export interface BestPropLists<T> {
-  /** Highest hit rate against the market line (either side). */
-  hitRate: T[]
-  /** Biggest positive edge on the over, projection agreeing. */
+  /** Highest chance of success on either side. */
+  top: T[]
+  /** Highest chance of success on the over. */
   overs: T[]
-  /** Biggest positive edge on the under, projection agreeing. */
+  /** Highest chance of success on the under. */
   unders: T[]
 }
 
 /**
- * The three "best" lists from a slate. Props must already carry `marketEdge`
- * (see attachMarketEdge); props without a market line are ignored.
+ * Whether a prop can appear in a "best" list: a real sportsbook line, a big
+ * enough sample, the player's record on this line beats the book's price
+ * (edge > 0), and the projection lands on the same side. Props where the
+ * signals disagree are left out even when one of them looks strong.
  */
-export function rankBestProps<T extends { id: string; marketEdge?: MarketEdge | null }>(
+export function qualifiesForBest(edge: MarketEdge | null | undefined): edge is MarketEdge {
+  return !!edge && edge.games >= MIN_GAMES_FOR_BEST && edge.edge > 0 && edge.projectionAgrees
+}
+
+/** Highest chance of success first; ties go to the bigger edge, then the bigger sample. */
+function byChance(a: MarketEdge, b: MarketEdge): number {
+  if (b.modelProb !== a.modelProb) return b.modelProb - a.modelProb
+  if (b.edge !== a.edge) return b.edge - a.edge
+  return b.games - a.games
+}
+
+/**
+ * The three "best" lists from a slate, ranked by chance of success (modelProb:
+ * the player's record on the book's line, shrunk toward the book's no-vig
+ * price). Only props on a real sportsbook line (from ParlayAPI) can qualify,
+ * and each player appears at most once per list (his best prop), so one player
+ * cannot fill a list.
+ */
+export function rankBestProps<T extends { id: string; player?: string; marketEdge?: MarketEdge | null }>(
   props: readonly T[],
   size: number = BEST_LIST_SIZE
 ): BestPropLists<T> {
-  const scored = props.filter(
-    (p): p is T & { marketEdge: MarketEdge } => !!p.marketEdge && p.marketEdge.games >= MIN_GAMES_FOR_BEST
-  )
+  const scored = props
+    .filter((p): p is T & { marketEdge: MarketEdge } => qualifiesForBest(p.marketEdge))
+    .sort((a, b) => byChance(a.marketEdge, b.marketEdge))
 
-  const hitRate = [...scored]
-    .sort((a, b) => {
-      const ra = a.marketEdge.hits / a.marketEdge.games
-      const rb = b.marketEdge.hits / b.marketEdge.games
-      if (rb !== ra) return rb - ra
-      if (b.marketEdge.games !== a.marketEdge.games) return b.marketEdge.games - a.marketEdge.games
-      return b.marketEdge.edge - a.marketEdge.edge
-    })
-    .slice(0, size)
+  const pick = (keep: (p: T & { marketEdge: MarketEdge }) => boolean) => {
+    const seen = new Set<string>()
+    const out: T[] = []
+    for (const p of scored) {
+      if (!keep(p)) continue
+      const who = (p.player ?? p.id).toLowerCase()
+      if (seen.has(who)) continue
+      seen.add(who)
+      out.push(p)
+      if (out.length >= size) break
+    }
+    return out
+  }
 
-  const byEdge = (side: "over" | "under") =>
-    scored
-      .filter((p) => p.marketEdge.side === side && p.marketEdge.edge > 0 && p.marketEdge.projectionAgrees)
-      .sort((a, b) => b.marketEdge.edge - a.marketEdge.edge)
-      .slice(0, size)
-
-  return { hitRate, overs: byEdge("over"), unders: byEdge("under") }
+  return {
+    top: pick(() => true),
+    overs: pick((p) => p.marketEdge.side === "over"),
+    unders: pick((p) => p.marketEdge.side === "under"),
+  }
 }

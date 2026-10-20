@@ -451,7 +451,7 @@ export const GET = withSecurity(async (request: Request) => {
     // a cached value" true as an invariant instead of an accident.
     let withHeadshots = limited
     let bestWithHeadshots = best
-    const bestProps = [...best.hitRate, ...best.overs, ...best.unders] as any[]
+    const bestProps = [...best.top, ...best.overs, ...best.unders] as any[]
     if (limited.length > 0 || bestProps.length > 0) {
       const headshots = await resolveNBAHeadshots(
         [...limited, ...bestProps].map((p: any) => ({ player: p.player as string, team: p.team as string | null }))
@@ -460,7 +460,7 @@ export const GET = withSecurity(async (request: Request) => {
         prop.headshotUrl ? prop : { ...prop, headshotUrl: headshots[prop.player] ?? null }
       withHeadshots = limited.map(attach)
       bestWithHeadshots = {
-        hitRate: best.hitRate.map(attach),
+        top: best.top.map(attach),
         overs: best.overs.map(attach),
         unders: best.unders.map(attach),
       }

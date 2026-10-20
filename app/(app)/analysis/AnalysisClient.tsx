@@ -193,6 +193,16 @@ export default function AnalysisClient({
       list = list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
     }
     switch (sortBy) {
+      case "chance":
+        // Props on a sportsbook line first, highest chance of success first.
+        return list.sort((a, b) => {
+          const ca = a.marketEdge?.modelProb ?? null
+          const cb = b.marketEdge?.modelProb ?? null
+          if (ca !== null && cb !== null) return cb - ca
+          if (ca !== null) return -1
+          if (cb !== null) return 1
+          return l10HitRateOf(b) - l10HitRateOf(a)
+        })
       case "edge":
         // Props on a sportsbook line first, biggest edge first; the rest keep hit-rate order.
         return list.sort((a, b) => {
@@ -228,7 +238,7 @@ export default function AnalysisClient({
     if (!selectedMatchup) return best
     const teams = new Set(selectedMatchup.toUpperCase().split("-"))
     const keep = (list: EnhancedPropCardData[]) => list.filter((p) => teams.has((p.team ?? "").toUpperCase()))
-    return { hitRate: keep(best.hitRate), overs: keep(best.overs), unders: keep(best.unders) }
+    return { top: keep(best.top), overs: keep(best.overs), unders: keep(best.unders) }
   }, [best, sport, selectedMatchup])
 
   // ─── Reset stat when sport changes ──────────────────────────────────────────
