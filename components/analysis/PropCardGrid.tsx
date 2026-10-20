@@ -15,6 +15,8 @@ interface PropCardGridProps {
   gameTimeByTeam?: Record<string, string>
   onAddToParlay?: (prop: EnhancedPropCardData, direction?: "over" | "under") => void
   onLogPick?: (prop: EnhancedPropCardData) => void
+  /** Prop ids the signed-in user has saved (bookmark filled). */
+  savedPropIds?: Set<string>
   onShare?: (prop: EnhancedPropCardData) => void
   onVote?: (propId: string, direction: "over" | "under") => void
   onAIExpand?: (propId: string) => void
@@ -35,6 +37,7 @@ export function PropCardGrid({
   gameTimeByTeam,
   onAddToParlay,
   onLogPick,
+  savedPropIds,
   onShare,
   onVote,
   onAIExpand,
@@ -84,6 +87,7 @@ export function PropCardGrid({
       {props.map((prop) => {
         const isInParlay = parlayPropIds?.has(prop.id) ?? false
         const parlayDisabled = isInParlay || (parlayFull ?? false)
+        const isSaved = savedPropIds?.has(prop.id) ?? false
 
         if (viewMode === "grid") {
           return (
@@ -93,6 +97,7 @@ export function PropCardGrid({
               gameTime={gameTimeByTeam?.[prop.team?.toUpperCase() ?? ""] ?? null}
               onAddToParlay={onAddToParlay}
               onLogPick={onLogPick}
+              isSaved={isSaved}
               onShare={onShare}
               parlayDisabled={parlayDisabled}
             />
@@ -105,6 +110,7 @@ export function PropCardGrid({
             prop={prop}
             onAddToParlay={onAddToParlay}
             onLogPick={onLogPick}
+            isSaved={isSaved}
             onShare={onShare}
             onVote={onVote}
             onAIExpand={onAIExpand}

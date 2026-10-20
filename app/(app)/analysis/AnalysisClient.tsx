@@ -30,6 +30,21 @@ function normalizeSport(value?: string): Sport {
   return match ?? "NBA"
 }
 
+/** Row shape from GET /api/bets used to rebuild the saved-pick set. */
+type SavedBetRow = {
+  id: string
+  player_name: string
+  sport: string
+  stat_category: string
+  prop_line: number
+  status: string
+}
+
+/** Identity of a saved pick: the same player, stat and line on the same sport. */
+function savedPickKey(player: string, sport: string, stat: string, line: number): string {
+  return `${player.toLowerCase()}|${sport.toUpperCase()}|${stat.toLowerCase()}|${Number(line)}`
+}
+
 /** L10 hit rate as a 0–100 number, falling back to the base hit rate. */
 function l10HitRateOf(prop: EnhancedPropCardData): number {
   const window = prop.hitRateWindows?.find((w) => w.window === "L10")
@@ -335,6 +350,44 @@ export default function AnalysisClient({
   }, [fetchProps])
 
   // ─── Parlay handlers ────────────────────────────────────────────────────────
+
+  // ─── Saved picks (bookmark) ─────────────────────────────────────────────────
+  // key (player|sport|stat|line) → bet_tracker id, for the user's pending saves.
+  // Loaded once so bookmarks render filled, and so a second tap can un-save.
+  const [savedPicks, setSavedPicks] = useState<Map<string, string>>(() => new Map())
+  const savingKeysRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let cancelled = false
+    fetch("/api/bets?limit=100")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { bets?: SavedBetRow[] } | null) => {
+        if (cancelled || !data?.bets) return
+        const map = new Map<string, string>()
+        for (const bet of data.bets) {
+          if (bet.status !== "pending") continue
+          map.set(savedPickKey(bet.player_name, bet.sport, bet.stat_category, bet.prop_line), bet.id)
+        }
+        setSavedPicks(map)
+      })
+      .catch(() => {
+        // Non-fatal: bookmarks just start unfilled.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated])
+
+  const savedPickIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const prop of props) {
+      if (savedPicks.has(savedPickKey(prop.player, prop.sport ?? sport, prop.statCategory, prop.propLine))) {
+        ids.add(prop.id)
+      }
+    }
+    return ids
+  }, [props, savedPicks, sport])
 
   // ─── Duplicate toast state (Task 8.2) ─────────────────────────────────────
   const [duplicateToast, setDuplicateToast] = useState<string | null>(null)
@@ -680,6 +733,34 @@ export default function AnalysisClient({
       return
     }
 
+    const key = savedPickKey(prop.player, prop.sport ?? sport, prop.statCategory, prop.propLine)
+    // A second tap while the first request is in flight used to save twice.
+    if (savingKeysRef.current.has(key)) return
+    savingKeysRef.current.add(key)
+
+    // Already saved → this tap un-saves it.
+    const existingId = savedPicks.get(key)
+    if (existingId) {
+      try {
+        const res = await fetch(`/api/bets/${existingId}`, { method: "DELETE" })
+        if (!res.ok && res.status !== 404) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || "Failed to remove pick")
+        }
+        setSavedPicks((prev) => {
+          const next = new Map(prev)
+          next.delete(key)
+          return next
+        })
+        setLogPickToast({ message: `Removed ${prop.player} from saved picks`, type: "success" })
+      } catch (err) {
+        setLogPickToast({ message: err instanceof Error ? err.message : "Failed to remove pick", type: "error" })
+      } finally {
+        savingKeysRef.current.delete(key)
+      }
+      return
+    }
+
     // Every sport the props page can render is loggable — the sport allowlist
     // lives in lib/props/statCatalog and is enforced by /api/bets. There used to
     // be a hardcoded ["NBA","Tennis"] check here that short-circuited before the
@@ -705,19 +786,27 @@ export default function AnalysisClient({
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || "Failed to log pick")
+        throw new Error(body.error || "Failed to save pick")
+      }
+
+      const created = (await res.json().catch(() => null)) as { id?: string } | null
+      if (created?.id) {
+        const id = created.id
+        setSavedPicks((prev) => new Map(prev).set(key, id))
       }
 
       const statLabel = STAT_LABELS[prop.statCategory] ?? prop.statCategory
       const direction = prop.direction ?? "over"
       setLogPickToast({
-        message: `Logged: ${prop.player} ${direction} ${prop.propLine} ${statLabel}`,
+        message: `Saved: ${prop.player} ${direction} ${prop.propLine} ${statLabel} · see Predictions`,
         type: "success",
       })
     } catch (err) {
-      setLogPickToast({ message: err instanceof Error ? err.message : "Failed to log pick", type: "error" })
+      setLogPickToast({ message: err instanceof Error ? err.message : "Failed to save pick", type: "error" })
+    } finally {
+      savingKeysRef.current.delete(key)
     }
-  }, [isAuthenticated, sport])
+  }, [isAuthenticated, sport, savedPicks])
 
   // ─── Share handler ──────────────────────────────────────────────────────────
 
@@ -864,6 +953,7 @@ export default function AnalysisClient({
           gameTimeByTeam={gameTimeByTeam}
           onAddToParlay={handleAddToParlay}
           onLogPick={handleLogPick}
+          savedPropIds={savedPickIds}
           onShare={handleShare}
           onVote={handleVote}
           onAIExpand={handleAIExpand}

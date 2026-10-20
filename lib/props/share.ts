@@ -4,8 +4,8 @@
  * This was written inline in PropCard and had three problems worth naming, since
  * they are the reason "Share doesn't work":
  *
- * 1. The shared link pointed at `/players/<slug>`, a route this app does not
- *    have. Every shared link 404'd. The real detail route is `/analysis/[playerId]`.
+ * 1. The shared link pointed at `/players/<slug>`, which 404s for any player
+ *    without prop_line_history rows. It now uses the card's detail route.
  * 2. The image was fetched with `await` *before* calling `navigator.share()`. The
  *    Web Share API requires transient user activation, and on iOS Safari an
  *    intervening await consumes it — so the share sheet never opened and the
@@ -21,7 +21,7 @@
 
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { STAT_LABELS } from "@/lib/props/constants"
-import { playerSlug, isTeamProp } from "@/components/analysis/playerHref"
+import { playerSlug, propDetailHref } from "@/components/analysis/playerHref"
 
 export type ShareOutcome =
   /** The native share sheet completed. */
@@ -52,20 +52,17 @@ export function overHitRatePct(prop: EnhancedPropCardData): number | null {
 }
 
 /**
- * Public, shareable URL for a prop.
+ * Shareable URL for a prop: the same detail page the card opens.
  *
- * Individual player pages live at /players/[playerSlug] — a public marketing
- * route with canonical + OpenGraph tags, built to be indexed and shared. The
- * in-app detail route (/analysis/[playerId]) is behind the auth guard and is
- * deliberately NOT used here: a recipient without an account would just be
- * bounced to /login.
- *
- * Team props have no player page, so they link to the public props landing page.
+ * This used to point at the public /players/[playerSlug] page, but that page
+ * only knows players present in prop_line_history, so most shared links 404'd
+ * (e.g. every 2026-27 NBA prop). The detail route works for every card and
+ * shows exactly the shared stat. It is behind the auth guard; the proxy keeps
+ * the full path + query in `?redirect=`, so a recipient who signs in or taps
+ * "Continue as guest" lands on the prop.
  */
 export function propShareUrl(prop: EnhancedPropCardData): string {
-  const origin = shareOrigin()
-  if (isTeamProp(prop)) return `${origin}/props/today`
-  return `${origin}/players/${playerSlug(prop.player)}`
+  return `${shareOrigin()}${propDetailHref(prop)}`
 }
 
 /** The 1080x1080 branded card for this prop. */

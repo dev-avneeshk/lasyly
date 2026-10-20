@@ -474,7 +474,10 @@ export async function proxy(request: NextRequest) {
       (needsRealAccount && !authenticatedUserId)
     ) {
       const loginUrl = new URL("/login", request.url)
-      loginUrl.searchParams.set("redirect", pathname)
+      // Keep the query: a shared prop link (/analysis/<player>?stat=…&sport=…)
+      // must land on that prop after sign-in, not on a bare page. The login
+      // page validates it with safeRedirectPath before navigating.
+      loginUrl.searchParams.set("redirect", pathname + request.nextUrl.search)
       const redirectResponse = NextResponse.redirect(loginUrl)
       // Forward any refreshed auth cookies
       response.cookies.getAll().forEach((cookie) => {

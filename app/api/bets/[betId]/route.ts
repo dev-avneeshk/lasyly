@@ -86,3 +86,47 @@ export const PATCH = withSecurity(async (
 
   return NextResponse.json(updated)
 }, { cacheControl: CACHE_CONTROL.SENSITIVE })
+
+// ─── DELETE /api/bets/[betId] ────────────────────────────────────────────────
+//
+// Un-saving a pick from a prop card's bookmark. Scoped to the caller twice:
+// the explicit user_id filter here and the bet_tracker_delete_own RLS policy.
+
+export const DELETE = withSecurity(async (
+  _request: Request,
+  context?: { params: Promise<Record<string, string>> }
+) => {
+  const { betId } = await context!.params
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "You must be logged in to remove a pick." },
+      { status: 401 }
+    )
+  }
+
+  if (!z.string().uuid().safeParse(betId).success) {
+    return NextResponse.json({ error: "Invalid pick id." }, { status: 400 })
+  }
+
+  const { data: deleted, error } = await supabase
+    .from("bet_tracker")
+    .delete()
+    .eq("id", betId)
+    .eq("user_id", user.id)
+    .select("id")
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to remove pick." }, { status: 500 })
+  }
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json({ error: "Pick not found." }, { status: 404 })
+  }
+
+  return NextResponse.json({ id: betId })
+}, { cacheControl: CACHE_CONTROL.SENSITIVE })

@@ -18,6 +18,8 @@ interface PropCardCompactProps {
   gameTime?: string | null
   onAddToParlay?: (prop: EnhancedPropCardData, direction?: "over" | "under") => void
   onLogPick?: (prop: EnhancedPropCardData) => void
+  /** Whether the signed-in user has saved this pick. */
+  isSaved?: boolean
   onShare?: (prop: EnhancedPropCardData) => void
   parlayDisabled?: boolean
 }
@@ -30,6 +32,7 @@ export function PropCardCompact({
   gameTime,
   onAddToParlay,
   onLogPick,
+  isSaved = false,
   onShare,
   parlayDisabled,
 }: PropCardCompactProps) {
@@ -117,11 +120,17 @@ export function PropCardCompact({
           <button
             type="button"
             onClick={() => onLogPick?.(prop)}
-            aria-label={`Log ${prop.player} ${statLabel} pick`}
-            title="Log this pick"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-lime)] hover:bg-white/5 transition-colors"
+            aria-label={`${isSaved ? "Unsave" : "Save"} ${prop.player} ${statLabel} pick`}
+            aria-pressed={isSaved}
+            title={isSaved ? "Saved — tap to remove" : "Save this pick"}
+            className={cn(
+              "w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors",
+              isSaved
+                ? "text-[var(--color-lime)]"
+                : "text-[var(--color-text-muted)] hover:text-[var(--color-lime)]"
+            )}
           >
-            <Bookmark className="w-4 h-4" />
+            <Bookmark className={cn("w-4 h-4", isSaved && "fill-current")} />
           </button>
           {/* Share was previously only on the list-view card, so it was invisible
               in the default grid layout. */}

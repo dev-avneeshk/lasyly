@@ -20,6 +20,8 @@ interface PropCardProps {
   prop: EnhancedPropCardData
   onAddToParlay?: (prop: EnhancedPropCardData, direction?: "over" | "under") => void
   onLogPick?: (prop: EnhancedPropCardData) => void
+  /** Whether the signed-in user has saved this pick. */
+  isSaved?: boolean
   onShare?: (prop: EnhancedPropCardData) => void
   onVote?: (propId: string, direction: "over" | "under") => void
   onAIExpand?: (propId: string) => void
@@ -35,6 +37,7 @@ export function PropCard({
   prop,
   onAddToParlay,
   onLogPick,
+  isSaved = false,
   onShare,
   onVote,
   onAIExpand,
@@ -196,11 +199,17 @@ export function PropCard({
         <button
           type="button"
           onClick={() => onLogPick?.(prop)}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/5 text-[var(--color-text-secondary)] hover:bg-white/10 border border-[var(--color-border)] transition-colors"
-          aria-label="Log Pick"
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors",
+            isSaved
+              ? "bg-[var(--color-lime)]/10 text-[var(--color-lime)] border-[var(--color-lime)]/30 hover:bg-[var(--color-lime)]/20"
+              : "bg-white/5 text-[var(--color-text-secondary)] hover:bg-white/10 border-[var(--color-border)]"
+          )}
+          aria-label={isSaved ? "Unsave pick" : "Save pick"}
+          aria-pressed={isSaved}
         >
-          <BookmarkPlus className="w-3.5 h-3.5" />
-          Log
+          <BookmarkPlus className={cn("w-3.5 h-3.5", isSaved && "fill-current")} />
+          {isSaved ? "Saved" : "Save"}
         </button>
         <button
           type="button"

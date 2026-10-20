@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import PredictionRow from "@/components/parlays/PredictionRow"
+import { SavedPicks } from "@/components/props/SavedPicks"
 import { computeParlayStats } from "@/lib/parlays/computations"
 import { cn } from "@/lib/utils"
 import type { ParlayWithLegs, ParlayStatus } from "@/lib/types/parlay"
@@ -203,6 +204,9 @@ export default function PredictionsPage() {
           <BarChart3 className="hidden h-9 w-9 text-[var(--color-lime)]/70 sm:block" />
         </div>
       </div>
+
+      {/* ─── Saved picks (bookmarked prop cards) ─────────────────────────── */}
+      <SavedPicks />
 
       {/* ─── Controls row ─────────────────────────────────────────────────── */}
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
