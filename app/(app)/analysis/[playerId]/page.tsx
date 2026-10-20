@@ -430,6 +430,15 @@ export default function PlayerDashboardPage() {
     const espnAbbr = NBA_ESPN_TEAM_MAP[teamAbbr] ?? teamAbbr
     setTeamLogo(`https://a.espncdn.com/i/teamlogos/nba/500/${espnAbbr}.png`)
 
+    // The props feed already resolves the self-hosted headshot. The name-based
+    // lookup API misses players whose `players` row doesn't match (e.g. Jaylen
+    // Brown), so only fall back to it when the feed has nothing.
+    const propHeadshot = (prop as { headshotUrl?: string | null }).headshotUrl
+    if (propHeadshot) {
+      setHeadshot(propHeadshot)
+      return
+    }
+
     // Use cachedFetch for headshot — persists across navigations (5 min cache)
     const headshotUrl = `/api/players/headshot?name=${encodeURIComponent(prop.player)}&team=${encodeURIComponent(prop.team)}&sport=${sportParam}`
     cachedFetch<{ success: boolean; headshot?: string }>(headshotUrl, 300_000)
@@ -692,186 +701,204 @@ export default function PlayerDashboardPage() {
         onBack={() => router.push("/analysis")}
       />
 
+      {/* Row 2: stat tabs + sample window + season */}
+      <PropControls
+        stats={statCategories.map((c) => ({ key: c.key, label: c.label }))}
+        activeStat={activeStat}
+        onStatChange={setActiveStat}
+        windows={["L5", "L10", "L15", "L30"]}
+        activeWindow={timeRange}
+        onWindowChange={setTimeRange}
+        seasons={sportParam === "NFL"
+          ? [
+              { value: "all", label: "All seasons" },
+              { value: "2025", label: "2025-26" },
+              { value: "2024", label: "2024-25" },
+            ]
+          : undefined}
+        activeSeason={sportParam === "NFL" ? nflSeason : undefined}
+        onSeasonChange={sportParam === "NFL"
+          ? (value) => setNflSeason(value as "all" | "2025" | "2024")
+          : undefined}
+      />
+
+      {/* Chart directly under the hero, with injuries + averages in the sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Performance chart + window metrics */}
+        <div className={cn((isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
+          <PerformanceCard
+            statLabel={statLabel}
+            games={filteredHistory}
+            threshold={threshold}
+            onThresholdChange={setThreshold}
+            onGameClick={isBoxscoreSport ? handleGameClick : undefined}
+            sampleLabel={`Last ${totalGames || timeRange.replace("L", "")} Games`}
+            emptyState={
+              <div className="flex flex-col items-center gap-1 text-center">
+                <span className="text-sm text-[var(--color-text-muted)]">
+                  No games in {nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}
+                </span>
+                {sportParam === "NFL" && nflSeason !== "all" && (
+                  <button onClick={() => setNflSeason("all")} className="text-xs text-[var(--color-lime)] hover:underline">
+                    Show all seasons
+                  </button>
+                )}
+              </div>
+            }
+          />
+        </div>
+
+        {/* Sidebar — injury report + filtered averages (NBA only) */}
+        {!isESPNSport && !isTennis && (
+        <aside className="lg:col-span-3 flex flex-col gap-4">
+          {/* Injury Report — REAL DATA from ESPN */}
+          <div className="flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
+            <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[var(--color-danger)]" />
+                <h2 className="font-semibold text-sm tracking-wide">Injury Report</h2>
+              </div>
+              <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-elevated)] px-2 py-1 rounded border border-[var(--color-border)]">
+                {prop.team}
+              </span>
+            </div>
+            <div className="flex-grow overflow-auto max-h-[200px]">
+              {injuries.length === 0 ? (
+                <div className="flex items-center justify-center p-6 h-full">
+                  <span className="text-[var(--color-text-muted)] text-sm italic">No injuries reported for {prop.team}</span>
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--color-border)]">
+                  {injuries.map((inj, i) => (
+                    <div key={i} className="px-4 py-3 flex items-start gap-3">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                        inj.status === "Out" ? "bg-[var(--color-danger)]" :
+                        inj.status === "Day-To-Day" ? "bg-[var(--color-warning)]" :
+                        "bg-[var(--color-text-muted)]"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white">{inj.name}</span>
+                          <span className="text-[9px] text-[var(--color-text-muted)] bg-white/5 px-1.5 py-0.5 rounded">{inj.position}</span>
+                          <span className={cn(
+                            "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                            inj.status === "Out" ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]" :
+                            inj.status === "Day-To-Day" ? "bg-[var(--color-warning)]/20 text-[var(--color-warning)]" :
+                            "bg-white/10 text-white/60"
+                          )}>{inj.status}</span>
+                        </div>
+                        {inj.comment && (
+                          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 line-clamp-2">{inj.comment}</p>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-[var(--color-text-muted)] shrink-0">{inj.date}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Filtered Averages — REAL DATA from stats-reference */}
+          <div className="flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
+            <h3 className="font-semibold text-base tracking-wide text-center border-b border-[var(--color-border)] pb-3 mb-2">Filtered Averages</h3>
+            <div className="flex-grow overflow-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                    <th className="py-2 font-medium">Metric</th>
+                    <th className="py-2 font-medium">L10</th>
+                    <th className="py-2 font-medium">L5</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  <tr>
+                    <td className="py-2 font-medium">{activeStat}</td>
+                    <td className="py-2 text-[var(--color-text-muted)]">
+                      {rollingAverages?.L10?.[activeStat] ?? prop.l10Avg}
+                    </td>
+                    <td className="py-2">
+                      {(() => {
+                        const l5 = Number(rollingAverages?.L5?.[activeStat] ?? prop.l5Avg)
+                        const l10 = Number(rollingAverages?.L10?.[activeStat] ?? prop.l10Avg)
+                        const diff = l10 !== 0 ? ((l5 - l10) / l10) * 100 : 0
+                        const isUp = l5 > l10
+                        const isDown = l5 < l10
+                        const color = isUp ? "text-[var(--color-success)]" : isDown ? "text-[var(--color-danger)]" : "text-white"
+                        return (
+                          <>
+                            <span className={cn("font-semibold", color)}>{l5}</span>
+                            {diff !== 0 && (
+                              <span className={cn("ml-1 text-[9px] font-medium", color)}>
+                                {isUp ? "↑" : "↓"}{Math.abs(diff).toFixed(0)}%
+                              </span>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </td>
+                  </tr>
+                  {["MIN", "FG%", "FG3%", "FT%", "OREB", "DREB", "TOUCHES", "PASSES"].map(metric => {
+                    // Map display metrics to rollingAverages keys
+                    const metricKeyMap: Record<string, string> = {
+                      "MIN": "MIN", "FG%": "FG%", "FG3%": "FG3%", "FT%": "FT%",
+                      "OREB": "OREB", "DREB": "DREB", "TOUCHES": "FGA", "PASSES": "FTA",
+                    }
+                    const raKey = metricKeyMap[metric] ?? metric
+                    const l10Val = rollingAverages?.L10?.[raKey] ?? null
+                    const l5Val = rollingAverages?.L5?.[raKey] ?? null
+                    return (
+                      <tr key={metric} className="hover:bg-white/5 transition-colors">
+                        <td className="py-2 font-medium text-[var(--color-text-muted)]">{metric}</td>
+                        <td className="py-2 text-[var(--color-text-muted)]">
+                          {l10Val !== null ? (metric.includes("%") ? `${l10Val}%` : l10Val) : <span className="italic">nil</span>}
+                        </td>
+                        <td className="py-2">
+                          {l5Val !== null && l10Val !== null ? (
+                            (() => {
+                              const l5Num = Number(l5Val)
+                              const l10Num = Number(l10Val)
+                              const diff = l10Num !== 0 ? ((l5Num - l10Num) / l10Num) * 100 : 0
+                              const isUp = l5Num > l10Num
+                              const isDown = l5Num < l10Num
+                              const color = isUp ? "text-[var(--color-success)]" : isDown ? "text-[var(--color-danger)]" : "text-white"
+                              return (
+                                <>
+                                  <span className={cn("font-semibold", color)}>
+                                    {metric.includes("%") ? `${l5Val}%` : l5Val}
+                                  </span>
+                                  {diff !== 0 && (
+                                    <span className={cn("ml-1 text-[9px] font-medium", color)}>
+                                      {isUp ? "↑" : "↓"}{Math.abs(diff).toFixed(0)}%
+                                    </span>
+                                  )}
+                                </>
+                              )
+                            })()
+                          ) : l5Val !== null ? (
+                            <span className="text-white font-semibold">
+                              {metric.includes("%") ? `${l5Val}%` : l5Val}
+                            </span>
+                          ) : <span className="text-[var(--color-text-muted)] italic">nil</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </aside>
+        )}
+      </div>
+
       {/* Upcoming fixture. Self-hides when we can't identify the opponent. */}
       <MatchupBanner
         team={teamMeta}
         opponent={opponentMeta}
         nextGame={profile?.nextGame ?? null}
       />
-
-      {/* Row 1: Injury Report | Season series + matchup grade.
-          The old profile card here was replaced by <PlayerHero /> above. */}
-      {!isESPNSport && (
-      <div className={cn("grid grid-cols-1 gap-4 lg:h-[280px]", isTennis ? "lg:grid-cols-1" : "lg:grid-cols-12")}>
-        {/* Injury Report — REAL DATA from ESPN (NBA only) */}
-        {!isESPNSport && !isTennis && (
-        <div className="lg:col-span-8 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
-          <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[var(--color-danger)]" />
-              <h2 className="font-semibold text-sm tracking-wide">Injury Report</h2>
-            </div>
-            <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-elevated)] px-2 py-1 rounded border border-[var(--color-border)]">
-              {prop.team}
-            </span>
-          </div>
-          <div className="flex-grow overflow-auto max-h-[200px]">
-            {injuries.length === 0 ? (
-              <div className="flex items-center justify-center p-6 h-full">
-                <span className="text-[var(--color-text-muted)] text-sm italic">No injuries reported for {prop.team}</span>
-              </div>
-            ) : (
-              <div className="divide-y divide-[var(--color-border)]">
-                {injuries.map((inj, i) => (
-                  <div key={i} className="px-4 py-3 flex items-start gap-3">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                      inj.status === "Out" ? "bg-[var(--color-danger)]" :
-                      inj.status === "Day-To-Day" ? "bg-[var(--color-warning)]" :
-                      "bg-[var(--color-text-muted)]"
-                    )} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">{inj.name}</span>
-                        <span className="text-[9px] text-[var(--color-text-muted)] bg-white/5 px-1.5 py-0.5 rounded">{inj.position}</span>
-                        <span className={cn(
-                          "text-[9px] font-bold px-1.5 py-0.5 rounded",
-                          inj.status === "Out" ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]" :
-                          inj.status === "Day-To-Day" ? "bg-[var(--color-warning)]/20 text-[var(--color-warning)]" :
-                          "bg-white/10 text-white/60"
-                        )}>{inj.status}</span>
-                      </div>
-                      {inj.comment && (
-                        <p className="text-[10px] text-[var(--color-text-muted)] mt-1 line-clamp-2">{inj.comment}</p>
-                      )}
-                    </div>
-                    <span className="text-[9px] text-[var(--color-text-muted)] shrink-0">{inj.date}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        )}
-
-        {/* Matchup Header — NBA and Tennis */}
-        {!isESPNSport && (
-        <div className={cn("bg-gradient-to-b from-[var(--color-primary)]/20 to-[var(--color-surface)] relative overflow-hidden flex flex-col justify-between p-4 border border-[var(--color-border)] rounded-md", isTennis ? "lg:col-span-1" : "lg:col-span-4")}>
-          <div className="relative z-10 text-center border-b border-white/10 pb-3 mb-3">
-            <h3 className="font-bold text-lg tracking-wide">Upcoming</h3>
-            <p className="text-[var(--color-lime)] text-sm font-medium">
-              {(() => {
-                const abbrToName: Record<string, string> = {
-                  ATL: "Atlanta Hawks", BOS: "Boston Celtics", BKN: "Brooklyn Nets",
-                  CHA: "Charlotte Hornets", CHI: "Chicago Bulls", CLE: "Cleveland Cavaliers",
-                  DAL: "Dallas Mavericks", DEN: "Denver Nuggets", DET: "Detroit Pistons",
-                  GSW: "Golden State Warriors", HOU: "Houston Rockets", IND: "Indiana Pacers",
-                  LAC: "LA Clippers", LAL: "LA Lakers", MEM: "Memphis Grizzlies",
-                  MIA: "Miami Heat", MIL: "Milwaukee Bucks", MIN: "Minnesota Timberwolves",
-                  NOP: "New Orleans Pelicans", NYK: "New York Knicks", OKC: "Oklahoma City Thunder",
-                  ORL: "Orlando Magic", PHI: "Philadelphia 76ers", PHX: "Phoenix Suns",
-                  POR: "Portland Trail Blazers", SAC: "Sacramento Kings", SAS: "San Antonio Spurs",
-                  TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards",
-                }
-                return abbrToName[prop.matchup] ?? prop.matchup ?? "nil"
-              })()}
-            </p>
-          </div>
-          <div className="relative z-10 flex justify-between items-center px-4 flex-grow">
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-16 h-16 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center overflow-hidden">
-                {teamLogo ? (
-                  <img src={teamLogo} alt={prop.team} className="w-12 h-12 object-contain" />
-                ) : (
-                  <span className="text-xs font-bold text-[var(--color-lime)]">{prop.team}</span>
-                )}
-              </div>
-              <span className="text-[10px] font-bold text-white tracking-wide">{prop.team}</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="text-[var(--color-text-muted)] text-[10px] font-medium uppercase tracking-wider">
-                {seriesRecord?.type === "playoff" ? "Playoff Series" : "Season Series"}
-              </div>
-              <div className="text-white text-lg font-black tracking-wide">
-                {seriesRecord ? `${seriesRecord.team} — ${seriesRecord.opponent}` : "— —"}
-              </div>
-              <div className="text-[var(--color-text-muted)] text-[10px] font-medium uppercase tracking-wider">VS</div>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-16 h-16 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center overflow-hidden">
-                {(() => {
-                  const oppTeam = prop.defensiveMatchup?.opponentTeam ?? prop.matchup?.split(" ").pop() ?? ""
-                  const teamNameToSlug: Record<string, string> = {
-                    timberwolves: "min", wolves: "min", min: "min",
-                    lakers: "lal", lal: "lal",
-                    celtics: "bos", bos: "bos",
-                    warriors: "gs", gsw: "gs", gs: "gs",
-                    nuggets: "den", den: "den",
-                    bucks: "mil", mil: "mil",
-                    heat: "mia", mia: "mia",
-                    suns: "phx", phx: "phx",
-                    cavaliers: "cle", cavs: "cle", cle: "cle",
-                    thunder: "okc", okc: "okc",
-                    mavericks: "dal", mavs: "dal", dal: "dal",
-                    grizzlies: "mem", mem: "mem",
-                    "76ers": "phi", sixers: "phi", phi: "phi",
-                    knicks: "ny", nyk: "ny", ny: "ny",
-                    nets: "bkn", bkn: "bkn",
-                    raptors: "tor", tor: "tor",
-                    bulls: "chi", chi: "chi",
-                    hawks: "atl", atl: "atl",
-                    pacers: "ind", ind: "ind",
-                    magic: "orl", orl: "orl",
-                    hornets: "cha", cha: "cha",
-                    pistons: "det", det: "det",
-                    rockets: "hou", hou: "hou",
-                    spurs: "sa", sas: "sa", sa: "sa",
-                    pelicans: "no", nop: "no", no: "no",
-                    kings: "sac", sac: "sac",
-                    clippers: "lac", lac: "lac",
-                    blazers: "por", por: "por",
-                    jazz: "utah", uta: "utah", utah: "utah",
-                    wizards: "wsh", was: "wsh", wsh: "wsh",
-                  }
-                  const oppLower = oppTeam.toLowerCase()
-                  const slug = teamNameToSlug[oppLower] ?? teamNameToSlug[oppLower.split(" ").pop() ?? ""] ?? ""
-                  if (slug) {
-                    return <img src={`https://a.espncdn.com/i/teamlogos/nba/500/${slug}.png`} alt={oppTeam} className="w-12 h-12 object-contain" />
-                  }
-                  return <span className="text-[9px] font-bold text-[var(--color-lime)]">{oppTeam.slice(0, 4)}</span>
-                })()}
-              </div>
-              <span className="text-[10px] font-bold text-white tracking-wide">{prop.matchup}</span>
-            </div>
-          </div>
-          <div className="relative z-10 text-center mt-3 border-t border-white/10 pt-3">
-            <div className="flex items-center justify-center gap-3">
-              {prop.defensiveMatchup ? (
-                <>
-                  <span className={cn(
-                    "text-xs font-bold px-2 py-0.5 rounded",
-                    prop.defensiveMatchup.grade === "A" || prop.defensiveMatchup.grade === "B"
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : prop.defensiveMatchup.grade === "C"
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "bg-red-500/20 text-red-400"
-                  )}>
-                    Grade {prop.defensiveMatchup.grade}
-                  </span>
-                  <span className="text-[var(--color-text-muted)] text-xs">•</span>
-                  <span className="text-xs text-[var(--color-text-muted)]">
-                    Pace: {prop.defensiveMatchup.paceRating}
-                  </span>
-                </>
-              ) : (
-                <span className="text-xs text-[var(--color-text-muted)] italic">Matchup details unavailable</span>
-              )}
-            </div>
-          </div>
-        </div>
-        )}
-      </div>
-      )}
 
       {/* Matchup grade strip. The teams themselves are in <MatchupBanner />, so
           this keeps only what the banner can't show: the engine's defensive
@@ -909,146 +936,6 @@ export default function PlayerDashboardPage() {
           </div>
         )
       })()}
-
-      {/* Row 2: stat tabs + sample window + season */}
-      <PropControls
-        stats={statCategories.map((c) => ({ key: c.key, label: c.label }))}
-        activeStat={activeStat}
-        onStatChange={setActiveStat}
-        windows={["L5", "L10", "L15", "L30"]}
-        activeWindow={timeRange}
-        onWindowChange={setTimeRange}
-        seasons={sportParam === "NFL"
-          ? [
-              { value: "all", label: "All seasons" },
-              { value: "2025", label: "2025-26" },
-              { value: "2024", label: "2024-25" },
-            ]
-          : undefined}
-        activeSeason={sportParam === "NFL" ? nflSeason : undefined}
-        onSeasonChange={sportParam === "NFL"
-          ? (value) => setNflSeason(value as "all" | "2025" | "2024")
-          : undefined}
-      />
-
-      {/* Row 3: Performance Chart | Filtered Averages — AT TOP */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Performance chart + window metrics */}
-        <div className={cn((isESPNSport || isTennis) ? "lg:col-span-12" : "lg:col-span-9")}>
-          <PerformanceCard
-            statLabel={statLabel}
-            games={filteredHistory}
-            threshold={threshold}
-            onThresholdChange={setThreshold}
-            onGameClick={isBoxscoreSport ? handleGameClick : undefined}
-            sampleLabel={`Last ${totalGames || timeRange.replace("L", "")} Games`}
-            emptyState={
-              <div className="flex flex-col items-center gap-1 text-center">
-                <span className="text-sm text-[var(--color-text-muted)]">
-                  No games in {nflSeason === "2025" ? "2025-26" : nflSeason === "2024" ? "2024-25" : "this range"}
-                </span>
-                {sportParam === "NFL" && nflSeason !== "all" && (
-                  <button onClick={() => setNflSeason("all")} className="text-xs text-[var(--color-lime)] hover:underline">
-                    Show all seasons
-                  </button>
-                )}
-              </div>
-            }
-          />
-        </div>
-
-        {/* Filtered Averages — REAL DATA from stats-reference (NBA only) */}
-        {!isESPNSport && !isTennis && (
-        <div className="lg:col-span-3 flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
-          <h3 className="font-semibold text-base tracking-wide text-center border-b border-[var(--color-border)] pb-3 mb-2">Filtered Averages</h3>
-          <div className="flex-grow overflow-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
-                  <th className="py-2 font-medium">Metric</th>
-                  <th className="py-2 font-medium">L10</th>
-                  <th className="py-2 font-medium">L5</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
-                <tr>
-                  <td className="py-2 font-medium">{activeStat}</td>
-                  <td className="py-2 text-[var(--color-text-muted)]">
-                    {rollingAverages?.L10?.[activeStat] ?? prop.l10Avg}
-                  </td>
-                  <td className="py-2">
-                    {(() => {
-                      const l5 = Number(rollingAverages?.L5?.[activeStat] ?? prop.l5Avg)
-                      const l10 = Number(rollingAverages?.L10?.[activeStat] ?? prop.l10Avg)
-                      const diff = l10 !== 0 ? ((l5 - l10) / l10) * 100 : 0
-                      const isUp = l5 > l10
-                      const isDown = l5 < l10
-                      const color = isUp ? "text-[var(--color-success)]" : isDown ? "text-[var(--color-danger)]" : "text-white"
-                      return (
-                        <>
-                          <span className={cn("font-semibold", color)}>{l5}</span>
-                          {diff !== 0 && (
-                            <span className={cn("ml-1 text-[9px] font-medium", color)}>
-                              {isUp ? "↑" : "↓"}{Math.abs(diff).toFixed(0)}%
-                            </span>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </td>
-                </tr>
-                {["MIN", "FG%", "FG3%", "FT%", "OREB", "DREB", "TOUCHES", "PASSES"].map(metric => {
-                  // Map display metrics to rollingAverages keys
-                  const metricKeyMap: Record<string, string> = {
-                    "MIN": "MIN", "FG%": "FG%", "FG3%": "FG3%", "FT%": "FT%",
-                    "OREB": "OREB", "DREB": "DREB", "TOUCHES": "FGA", "PASSES": "FTA",
-                  }
-                  const raKey = metricKeyMap[metric] ?? metric
-                  const l10Val = rollingAverages?.L10?.[raKey] ?? null
-                  const l5Val = rollingAverages?.L5?.[raKey] ?? null
-                  return (
-                    <tr key={metric} className="hover:bg-white/5 transition-colors">
-                      <td className="py-2 font-medium text-[var(--color-text-muted)]">{metric}</td>
-                      <td className="py-2 text-[var(--color-text-muted)]">
-                        {l10Val !== null ? (metric.includes("%") ? `${l10Val}%` : l10Val) : <span className="italic">nil</span>}
-                      </td>
-                      <td className="py-2">
-                        {l5Val !== null && l10Val !== null ? (
-                          (() => {
-                            const l5Num = Number(l5Val)
-                            const l10Num = Number(l10Val)
-                            const diff = l10Num !== 0 ? ((l5Num - l10Num) / l10Num) * 100 : 0
-                            const isUp = l5Num > l10Num
-                            const isDown = l5Num < l10Num
-                            const color = isUp ? "text-[var(--color-success)]" : isDown ? "text-[var(--color-danger)]" : "text-white"
-                            return (
-                              <>
-                                <span className={cn("font-semibold", color)}>
-                                  {metric.includes("%") ? `${l5Val}%` : l5Val}
-                                </span>
-                                {diff !== 0 && (
-                                  <span className={cn("ml-1 text-[9px] font-medium", color)}>
-                                    {isUp ? "↑" : "↓"}{Math.abs(diff).toFixed(0)}%
-                                  </span>
-                                )}
-                              </>
-                            )
-                          })()
-                        ) : l5Val !== null ? (
-                          <span className="text-white font-semibold">
-                            {metric.includes("%") ? `${l5Val}%` : l5Val}
-                          </span>
-                        ) : <span className="text-[var(--color-text-muted)] italic">nil</span>}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        )}
-      </div>
 
       {/* Splits Panel — Shooting / Points / Efficiency (NBA only) */}
       {!isESPNSport && !isTennis && rollingAverages && (
