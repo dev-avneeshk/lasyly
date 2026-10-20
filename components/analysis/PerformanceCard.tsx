@@ -46,6 +46,23 @@ interface PerformanceCardProps {
    * for sports whose boxscore can be resolved (NBA, NFL, Soccer).
    */
   onGameClick?: (game: PerformanceGame) => void
+  /** Controls rendered under the chart (sample window, filters). */
+  footer?: React.ReactNode
+}
+
+/**
+ * Hit-rate colour bands: under 50% red, 50% to 89% orange, 90% and up green.
+ */
+export function hitRateTone(pct: number): "red" | "orange" | "green" {
+  if (pct >= 90) return "green"
+  if (pct >= 50) return "orange"
+  return "red"
+}
+
+const TONE_CLASSES: Record<"red" | "orange" | "green", { box: string; text: string }> = {
+  red: { box: "border-red-500/35 bg-red-500/[0.10]", text: "text-red-400" },
+  orange: { box: "border-orange-500/35 bg-orange-500/[0.10]", text: "text-orange-400" },
+  green: { box: "border-emerald-500/35 bg-emerald-500/[0.10]", text: "text-emerald-400" },
 }
 
 /**
@@ -59,11 +76,14 @@ function DualTick({
   y,
   payload,
   dateByOpponentIndex,
+  compact,
 }: {
   x?: string | number
   y?: string | number
   payload?: { value?: string | number; index?: number }
   dateByOpponentIndex: string[]
+  /** Many bars: smaller opponent label, date only on every other tick. */
+  compact?: boolean
 }) {
   const index = payload?.index ?? 0
   const dateLabel = dateByOpponentIndex[index] ?? ""
@@ -75,14 +95,16 @@ function DualTick({
         dy={12}
         textAnchor="middle"
         fill="var(--color-text-muted)"
-        fontSize={10}
+        fontSize={compact ? 8 : 10}
         fontWeight={600}
       >
         {payload?.value ?? ""}
       </text>
-      <text x={0} y={0} dy={26} textAnchor="middle" fill="var(--color-text-muted)" fontSize={9} opacity={0.6}>
-        {dateLabel}
-      </text>
+      {(!compact || index % 2 === 0) && (
+        <text x={0} y={0} dy={compact ? 24 : 26} textAnchor="middle" fill="var(--color-text-muted)" fontSize={compact ? 8 : 9} opacity={0.6}>
+          {dateLabel}
+        </text>
+      )}
     </g>
   )
 }
@@ -90,25 +112,23 @@ function DualTick({
 function MetricTile({
   value,
   label,
-  accent,
+  tone,
 }: {
   value: string
   label: string
-  accent?: boolean
+  tone?: "red" | "orange" | "green"
 }) {
   return (
     <div
       className={cn(
         "flex flex-col items-center justify-center min-w-[74px] px-3 py-2 rounded-lg border",
-        accent
-          ? "border-[var(--color-lime)]/30 bg-[var(--color-lime)]/[0.08]"
-          : "border-[var(--color-border)] bg-[var(--color-surface-elevated)]/60"
+        tone ? TONE_CLASSES[tone].box : "border-[var(--color-border)] bg-[var(--color-surface-elevated)]/60"
       )}
     >
       <span
         className={cn(
           "text-[14px] font-black leading-none tabular-nums whitespace-nowrap",
-          accent ? "text-[var(--color-lime)]" : "text-white"
+          tone ? TONE_CLASSES[tone].text : "text-white"
         )}
       >
         {value}
@@ -128,6 +148,7 @@ export function PerformanceCard({
   sampleLabel,
   emptyState,
   onGameClick,
+  footer,
 }: PerformanceCardProps) {
   const chartData = useMemo(
     () =>
@@ -202,7 +223,7 @@ export function PerformanceCard({
           <MetricTile
             value={total > 0 ? `${overCount} / ${total}` : "—"}
             label={total > 0 ? `Over (${overPct}%)` : "Over"}
-            accent
+            tone={total > 0 ? hitRateTone(overPct) : undefined}
           />
         </div>
       </div>
@@ -225,7 +246,9 @@ export function PerformanceCard({
                   tickLine={false}
                   interval={0}
                   height={38}
-                  tick={(tickProps) => <DualTick {...tickProps} dateByOpponentIndex={dateLabels} />}
+                  tick={(tickProps) => (
+                    <DualTick {...tickProps} dateByOpponentIndex={dateLabels} compact={chartData.length > 18} />
+                  )}
                 />
                 <YAxis
                   tick={{ fill: "var(--color-text-muted)", fontSize: 10 }}
@@ -358,6 +381,10 @@ export function PerformanceCard({
           </div>
         )}
       </div>
+
+      {footer && (
+        <div className="border-t border-[var(--color-border)] px-4 py-3">{footer}</div>
+      )}
     </section>
   )
 }

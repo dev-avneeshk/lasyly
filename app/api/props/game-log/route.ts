@@ -22,7 +22,7 @@ import {
 
 /** 10 minutes — box scores only change when the scraper lands a new game. */
 const GAME_LOG_CACHE_TTL = 600_000
-const GAME_LOG_CACHE_VERSION = "v1"
+const GAME_LOG_CACHE_VERSION = "v2"
 const MAX_PLAYER_LENGTH = 100
 /** Roughly two full seasons including playoffs. */
 const MAX_GAMES = 180
@@ -38,6 +38,14 @@ interface PlayerStatRow {
   stl: number | null
   blk: number | null
   tp: number | null
+  tpa: number | null
+  fg: number | null
+  fga: number | null
+  ft: number | null
+  fta: number | null
+  orb: number | null
+  drb: number | null
+  tov: number | null
   nba_games: { game_date: string; season: string | null } | null
 }
 
@@ -80,6 +88,14 @@ async function fetchGameLog(player: string): Promise<NbaGameLogResponse | null> 
       stl,
       blk,
       tp,
+      tpa,
+      fg,
+      fga,
+      ft,
+      fta,
+      orb,
+      drb,
+      tov,
       nba_games!inner(game_date, season)
     `)
     .ilike("player_name", player)
@@ -133,6 +149,14 @@ async function fetchGameLog(player: string): Promise<NbaGameLogResponse | null> 
         stl: r.stl ?? 0,
         blk: r.blk ?? 0,
         tpm: r.tp ?? 0,
+        tpa: r.tpa ?? 0,
+        fgm: r.fg ?? 0,
+        fga: r.fga ?? 0,
+        ftm: r.ft ?? 0,
+        fta: r.fta ?? 0,
+        oreb: r.orb ?? 0,
+        dreb: r.drb ?? 0,
+        tov: r.tov ?? 0,
       }
     })
     // DNP rows (0 minutes) would plot as fake zeros.

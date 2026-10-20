@@ -25,6 +25,14 @@ export interface NbaGameLogEntry {
   stl: number
   blk: number
   tpm: number
+  tpa: number
+  fgm: number
+  fga: number
+  ftm: number
+  fta: number
+  oreb: number
+  dreb: number
+  tov: number
 }
 
 export interface NbaGameLogResponse {
@@ -39,7 +47,8 @@ export type SeasonTypeFilter = "all" | "regular" | "playoffs"
 export function nbaStatValue(game: NbaGameLogEntry, statKey: string): number | null {
   switch (statKey.toUpperCase()) {
     case "PTS": return game.pts
-    case "REB": return game.reb
+    case "REB":
+    case "TRB": return game.reb
     case "AST": return game.ast
     case "STL": return game.stl
     case "BLK": return game.blk

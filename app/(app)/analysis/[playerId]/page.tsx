@@ -17,7 +17,8 @@ import { PlayerDashboardSkeleton } from "@/components/analysis/PlayerDashboardSk
 import { NFLMatchupPanels } from "@/components/analysis/NFLMatchupPanels"
 import { PlayerHero } from "@/components/analysis/PlayerHero"
 import { MatchupBanner } from "@/components/analysis/MatchupBanner"
-import { PropControls } from "@/components/analysis/PropControls"
+import { StatTabs, SampleFilters } from "@/components/analysis/PropControls"
+import { FilteredAverages } from "@/components/analysis/FilteredAverages"
 import { PerformanceCard, type PerformanceGame } from "@/components/analysis/PerformanceCard"
 import { OpponentSummaryRow } from "@/components/analysis/OpponentSummaryRow"
 import MatchDetailModal from "@/components/scores/MatchDetailModal"
@@ -87,6 +88,23 @@ interface PropData {
   } | null
 }
 
+/**
+ * NBA stat tab key for a `?stat=` value. Prop cards link with the engine's
+ * column names (trb, tp, pra), but the tabs and the game-log chart use REB,
+ * 3PM and PTS+AST+REB. Upper-casing alone turned `trb` into "TRB", which
+ * matched no tab and charted every game as 0.
+ */
+function nbaTabKey(stat: string): string {
+  const key = stat.toUpperCase()
+  const aliases: Record<string, string> = {
+    TRB: "REB",
+    TP: "3PM",
+    FG3: "3PM",
+    PRA: "PTS+AST+REB",
+  }
+  return aliases[key] ?? key
+}
+
 export default function PlayerDashboardPage() {
   const params = useParams()
   const router = useRouter()
@@ -106,7 +124,7 @@ export default function PlayerDashboardPage() {
   const [activeStat, setActiveStat] = useState(
     sportParam === "Tennis" || sportParam === "Soccer" || sportParam === "NFL" || sportParam === "NHL"
       ? statParam
-      : statParam.toUpperCase()
+      : nbaTabKey(statParam)
   )
   const [timeRange, setTimeRange] = useState("L15")
   const [threshold, setThreshold] = useState(0)
@@ -167,6 +185,7 @@ export default function PlayerDashboardPage() {
     "PTS": "pts",
     "AST": "ast",
     "REB": "trb",
+    "3PM": "tp",
     "PTS+AST": "pts",
     "PTS+REB": "pts",
     "AST+REB": "ast",
@@ -186,6 +205,7 @@ export default function PlayerDashboardPage() {
     "PTS": "pts",
     "AST": "ast",
     "REB": "trb",
+    "3PM": "tp",
     "BLK": "blk",
     "STL": "stl",
     "PTS+AST+REB": "pra",
@@ -566,13 +586,21 @@ export default function PlayerDashboardPage() {
   // belongs to the active tab.
   const opponentFilterAbbr = sportParam === "NBA" && /^[A-Z]{2,4}$/.test(opponentAbbr) ? opponentAbbr : null
   const nbaChartFiltered = sportParam === "NBA" && (vsOpponentOnly || chartSeasonType !== "all")
+  // Shared by the chart and Filtered Averages so both follow the same filters.
+  const nbaFilteredGames = sportParam === "NBA" && gameLog
+    ? gameLog
+        .filter(g =>
+          chartSeasonType === "all" ? true : chartSeasonType === "playoffs" ? g.isPlayoff : !g.isPlayoff
+        )
+        .filter(g => !vsOpponentOnly || !opponentFilterAbbr || g.opponent === opponentFilterAbbr)
+    : null
+  const nbaFilterLabel = [
+    vsOpponentOnly && opponentFilterAbbr ? `vs ${opponentFilterAbbr}` : null,
+    chartSeasonType === "regular" ? "Regular season" : chartSeasonType === "playoffs" ? "Playoffs" : null,
+  ].filter(Boolean).join(" · ") || "All games"
   let gameHistory: PerformanceGame[]
-  if (sportParam === "NBA" && gameLog) {
-    gameHistory = gameLog
-      .filter(g =>
-        chartSeasonType === "all" ? true : chartSeasonType === "playoffs" ? g.isPlayoff : !g.isPlayoff
-      )
-      .filter(g => !vsOpponentOnly || !opponentFilterAbbr || g.opponent === opponentFilterAbbr)
+  if (nbaFilteredGames) {
+    gameHistory = nbaFilteredGames
       .map(g => ({
         value: nbaStatValue(g, activeStat) ?? 0,
         date: g.date,
@@ -755,8 +783,9 @@ export default function PlayerDashboardPage() {
         { key: "PTS+REB", label: "PTS+REB", propLine: null },
         { key: "AST+REB", label: "AST+REB", propLine: null },
         { key: "PTS+AST+REB", label: "PRA", propLine: null },
-        { key: "BLK", label: "BLK", propLine: null },
-        { key: "STL", label: "STL", propLine: null },
+        { key: "3PM", label: "3PM", propLine: activeStat === "3PM" ? prop.propLine : null },
+        { key: "BLK", label: "BLK", propLine: activeStat === "BLK" ? prop.propLine : null },
+        { key: "STL", label: "STL", propLine: activeStat === "STL" ? prop.propLine : null },
       ]
 
   // ─── Hero / banner inputs ──────────────────────────────────────────────────
@@ -817,40 +846,11 @@ export default function PlayerDashboardPage() {
         onBack={() => router.push("/analysis")}
       />
 
-      {/* Row 2: stat tabs + sample window + season */}
-      <PropControls
+      {/* Stat tabs; sample window and filters sit under the chart */}
+      <StatTabs
         stats={statCategories.map((c) => ({ key: c.key, label: c.label }))}
         activeStat={activeStat}
         onStatChange={setActiveStat}
-        windows={["L5", "L10", "L15", "L30"]}
-        activeWindow={timeRange}
-        onWindowChange={setTimeRange}
-        seasons={sportParam === "NFL"
-          ? [
-              { value: "all", label: "All seasons" },
-              { value: "2025", label: "2025-26" },
-              { value: "2024", label: "2024-25" },
-            ]
-          : sportParam === "NBA"
-          ? [
-              { value: "all", label: "All games" },
-              { value: "regular", label: "Regular season" },
-              { value: "playoffs", label: "Playoffs" },
-            ]
-          : undefined}
-        activeSeason={sportParam === "NFL" ? nflSeason : sportParam === "NBA" ? chartSeasonType : undefined}
-        onSeasonChange={sportParam === "NFL"
-          ? (value) => setNflSeason(value as "all" | "2025" | "2024")
-          : sportParam === "NBA"
-          ? (value) => setChartSeasonType(value as SeasonTypeFilter)
-          : undefined}
-        opponentFilter={opponentFilterAbbr
-          ? {
-              label: `vs ${opponentFilterAbbr}`,
-              active: vsOpponentOnly,
-              onToggle: () => setVsOpponentOnly((v) => !v),
-            }
-          : undefined}
       />
 
       {/* Chart directly under the hero, with injuries + averages in the sidebar */}
@@ -863,6 +863,39 @@ export default function PlayerDashboardPage() {
             threshold={threshold}
             onThresholdChange={setThreshold}
             onGameClick={isBoxscoreSport ? handleGameClick : undefined}
+            footer={
+              <SampleFilters
+                windows={["L5", "L10", "L15", "L30"]}
+                activeWindow={timeRange}
+                onWindowChange={setTimeRange}
+                seasons={sportParam === "NFL"
+                  ? [
+                      { value: "all", label: "All seasons" },
+                      { value: "2025", label: "2025-26" },
+                      { value: "2024", label: "2024-25" },
+                    ]
+                  : sportParam === "NBA"
+                  ? [
+                      { value: "all", label: "All games" },
+                      { value: "regular", label: "Regular season" },
+                      { value: "playoffs", label: "Playoffs" },
+                    ]
+                  : undefined}
+                activeSeason={sportParam === "NFL" ? nflSeason : sportParam === "NBA" ? chartSeasonType : undefined}
+                onSeasonChange={sportParam === "NFL"
+                  ? (value) => setNflSeason(value as "all" | "2025" | "2024")
+                  : sportParam === "NBA"
+                  ? (value) => setChartSeasonType(value as SeasonTypeFilter)
+                  : undefined}
+                opponentFilter={opponentFilterAbbr
+                  ? {
+                      label: `vs ${opponentFilterAbbr}`,
+                      active: vsOpponentOnly,
+                      onToggle: () => setVsOpponentOnly((v) => !v),
+                    }
+                  : undefined}
+              />
+            }
             sampleLabel={[
               `Last ${totalGames || timeRange.replace("L", "")} ${totalGames === 1 ? "Game" : "Games"}`,
               vsOpponentOnly && opponentFilterAbbr ? `vs ${opponentFilterAbbr}` : null,
@@ -948,95 +981,13 @@ export default function PlayerDashboardPage() {
             </div>
           </div>
 
-          {/* Filtered Averages — REAL DATA from stats-reference */}
-          <div className="flex flex-col p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md">
-            <h3 className="font-semibold text-base tracking-wide text-center border-b border-[var(--color-border)] pb-3 mb-2">Filtered Averages</h3>
-            <div className="flex-grow overflow-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
-                    <th className="py-2 font-medium">Metric</th>
-                    <th className="py-2 font-medium">L10</th>
-                    <th className="py-2 font-medium">L5</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-border)]">
-                  <tr>
-                    <td className="py-2 font-medium">{activeStat}</td>
-                    <td className="py-2 text-[var(--color-text-muted)]">
-                      {rollingAverages?.L10?.[activeStat] ?? prop.l10Avg}
-                    </td>
-                    <td className="py-2">
-                      {(() => {
-                        const l5 = Number(rollingAverages?.L5?.[activeStat] ?? prop.l5Avg)
-                        const l10 = Number(rollingAverages?.L10?.[activeStat] ?? prop.l10Avg)
-                        const diff = l10 !== 0 ? ((l5 - l10) / l10) * 100 : 0
-                        const isUp = l5 > l10
-                        const isDown = l5 < l10
-                        const color = isUp ? "text-[var(--color-success)]" : isDown ? "text-[var(--color-danger)]" : "text-white"
-                        return (
-                          <>
-                            <span className={cn("font-semibold", color)}>{l5}</span>
-                            {diff !== 0 && (
-                              <span className={cn("ml-1 text-[9px] font-medium", color)}>
-                                {isUp ? "↑" : "↓"}{Math.abs(diff).toFixed(0)}%
-                              </span>
-                            )}
-                          </>
-                        )
-                      })()}
-                    </td>
-                  </tr>
-                  {["MIN", "FG%", "FG3%", "FT%", "OREB", "DREB", "TOUCHES", "PASSES"].map(metric => {
-                    // Map display metrics to rollingAverages keys
-                    const metricKeyMap: Record<string, string> = {
-                      "MIN": "MIN", "FG%": "FG%", "FG3%": "FG3%", "FT%": "FT%",
-                      "OREB": "OREB", "DREB": "DREB", "TOUCHES": "FGA", "PASSES": "FTA",
-                    }
-                    const raKey = metricKeyMap[metric] ?? metric
-                    const l10Val = rollingAverages?.L10?.[raKey] ?? null
-                    const l5Val = rollingAverages?.L5?.[raKey] ?? null
-                    return (
-                      <tr key={metric} className="hover:bg-white/5 transition-colors">
-                        <td className="py-2 font-medium text-[var(--color-text-muted)]">{metric}</td>
-                        <td className="py-2 text-[var(--color-text-muted)]">
-                          {l10Val !== null ? (metric.includes("%") ? `${l10Val}%` : l10Val) : <span className="italic">nil</span>}
-                        </td>
-                        <td className="py-2">
-                          {l5Val !== null && l10Val !== null ? (
-                            (() => {
-                              const l5Num = Number(l5Val)
-                              const l10Num = Number(l10Val)
-                              const diff = l10Num !== 0 ? ((l5Num - l10Num) / l10Num) * 100 : 0
-                              const isUp = l5Num > l10Num
-                              const isDown = l5Num < l10Num
-                              const color = isUp ? "text-[var(--color-success)]" : isDown ? "text-[var(--color-danger)]" : "text-white"
-                              return (
-                                <>
-                                  <span className={cn("font-semibold", color)}>
-                                    {metric.includes("%") ? `${l5Val}%` : l5Val}
-                                  </span>
-                                  {diff !== 0 && (
-                                    <span className={cn("ml-1 text-[9px] font-medium", color)}>
-                                      {isUp ? "↑" : "↓"}{Math.abs(diff).toFixed(0)}%
-                                    </span>
-                                  )}
-                                </>
-                              )
-                            })()
-                          ) : l5Val !== null ? (
-                            <span className="text-white font-semibold">
-                              {metric.includes("%") ? `${l5Val}%` : l5Val}
-                            </span>
-                          ) : <span className="text-[var(--color-text-muted)] italic">nil</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Filtered Averages — same games as the chart (season type, vs opponent) */}
+          <FilteredAverages
+            games={nbaFilteredGames}
+            statKey={activeStat}
+            statLabel={statLabel}
+            filterLabel={nbaFilterLabel}
+          />
         </aside>
         )}
       </div>
