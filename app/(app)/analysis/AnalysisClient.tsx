@@ -119,8 +119,12 @@ export default function AnalysisClient({
       if (matchup) url.searchParams.set("game", matchup)
       else url.searchParams.delete("game")
       // replaceState (not router.replace): updates this history entry without
-      // a server round-trip, and Next keeps useSearchParams in sync.
-      window.history.replaceState(window.history.state, "", url.toString())
+      // a server round-trip. Pass `null`, not window.history.state: Next's
+      // patched replaceState treats a state carrying its own `__NA` marker as
+      // an internal call and skips syncing the URL into the router, so Back
+      // then restored the entry without `?game=`. With `null` Next copies its
+      // internals over and records the new URL (see Next docs: Native History API).
+      window.history.replaceState(null, "", url.toString())
     } catch {
       // URL APIs unavailable: the selection still works, it just won't persist.
     }
