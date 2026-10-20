@@ -327,12 +327,19 @@ def build_records(parsed_rows: list[dict], stat_type: str, is_playoff: bool, sea
 # Main
 # ============================================================
 
+def current_season(now: Optional[datetime] = None) -> str:
+    """Current NBA season as "YYYY-YY". July onward belongs to the next season."""
+    now = now or datetime.now(timezone.utc)
+    end_year = now.year + 1 if now.month >= 7 else now.year
+    return f"{end_year - 1}-{str(end_year)[-2:]}"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="NBA Player Season Stats Scraper (All Pages)")
     parser.add_argument("--delay", type=float, default=3.0,
                         help="Delay between page requests (default: 3, min: 3)")
-    parser.add_argument("--season", type=str, default="2025-26",
-                        help="Season identifier (default: 2025-26)")
+    parser.add_argument("--season", type=str, default=current_season(),
+                        help="Season identifier (default: current season, e.g. 2026-27)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print stats without writing to DB")
     parser.add_argument("--pages", type=str, default="all",

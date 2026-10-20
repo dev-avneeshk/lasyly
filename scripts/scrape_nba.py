@@ -49,7 +49,22 @@ from supabase import create_client, Client
 # ============================================================
 
 BASE_URL = "https://www.basketball-reference.com"
-SEASON = "2025-26"
+
+
+def current_season_end_year(now: Optional[datetime] = None) -> int:
+    """NBA season end year for a date (Basketball Reference names seasons by it).
+
+    A season tips off in October and the Finals end in June, so July onward
+    belongs to the next season: Oct 2026 -> 2027 ("2026-27"), Mar 2027 -> 2027.
+    This was hardcoded to 2026, so once 2025-26 ended the daily job kept
+    re-scraping last season and the new season's games never landed.
+    """
+    now = now or datetime.now(timezone.utc)
+    return now.year + 1 if now.month >= 7 else now.year
+
+
+SEASON_END_YEAR = current_season_end_year()
+SEASON = f"{SEASON_END_YEAR - 1}-{str(SEASON_END_YEAR)[-2:]}"
 SEASON_MONTHS = [
     "october", "november", "december",
     "january", "february", "march", "april", "may"
@@ -385,7 +400,7 @@ def scrape_schedule(months: list[str], delay: float, logger: logging.Logger) -> 
     all_games = []
 
     for month in months:
-        url = f"{BASE_URL}/leagues/NBA_2026_games-{month}.html"
+        url = f"{BASE_URL}/leagues/NBA_{SEASON_END_YEAR}_games-{month}.html"
         logger.info(f"Fetching schedule: {month.capitalize()}")
 
         retries = 0

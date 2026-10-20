@@ -249,6 +249,9 @@ const TEAM_NAME_TO_ABBR: Record<string, string> = {
   "Washington Wizards": "WAS",
 }
 
+/** Every NBA team abbreviation as stored in nba_player_stats.team. */
+const ALL_NBA_TEAMS = [...new Set(Object.values(TEAM_NAME_TO_ABBR))]
+
 /** Converts a team name to its abbreviation. If already an abbreviation, returns as-is. */
 function toTeamAbbr(name: string): string {
   // If it's already a 3-letter abbreviation, return it
@@ -413,6 +416,29 @@ function fetchSlateRows(teams: string[], cutoff: string): Promise<Record<string,
 }
 
 /**
+ * Lookback window for player game logs.
+ *
+ * In-season this is the last 90 days. That breaks at the start of a season:
+ * the previous season ended in June, so on opening night a 90-day window holds
+ * zero games, every player fails the "5 games / played in the last 14 days"
+ * gate, and the slate renders empty even with games scheduled. From July
+ * through November (offseason + the first ~6 weeks) the window instead reaches
+ * back to March 1 of the previous season and the 14-day recency rule is waived,
+ * so players carry last season's form until they have enough new games. By
+ * December everyone has ~20 games and the normal 90-day rule takes over.
+ */
+export function nbaStatsWindow(now: Date = new Date()): { cutoff: string; carryOver: boolean } {
+  const month = now.getUTCMonth() // 0 = Jan
+  const carryOver = month >= 6 && month <= 10 // Jul..Nov
+  if (carryOver) {
+    return { cutoff: `${now.getUTCFullYear()}-03-01`, carryOver }
+  }
+  const cutoffDate = new Date(now)
+  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 90)
+  return { cutoff: cutoffDate.toISOString().split("T")[0], carryOver }
+}
+
+/**
  * Fetches player stats for all players on the given teams for a specific stat.
  * Single batch query with `.in('team', teams)` filter.
  * Only includes players with at least 3 games of data.
@@ -425,11 +451,12 @@ export async function fetchBatchPlayerStats(
   // Unknown columns used to fail the query (no props); keep that, not zeros.
   if (!SLATE_STAT_COLUMNS.includes(column)) return new Map()
 
-  // Only fetch games from the last 90 days to get enough history for L30 charts
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - 90)
-  const cutoff = cutoffDate.toISOString().split("T")[0]
-  const data = await fetchSlateRows(teams, cutoff)
+  const window = nbaStatsWindow()
+  // Carry-over mode reads the whole league so each player's latest row shows
+  // his current team: a player who changed teams over the summer must drop off
+  // his old team's slate once he plays for the new one. Size is comparable to
+  // an in-season 90-day read (~10-17k rows), within fetchSlateRows' cap.
+  const data = await fetchSlateRows(window.carryOver ? ALL_NBA_TEAMS : teams, window.cutoff)
 
 
   if (data.length === 0) {
@@ -468,13 +495,18 @@ export async function fetchBatchPlayerStats(
 
   // Filter out players with insufficient recent activity.
   // Rules:
-  //   1. Must have at least 5 games with minutes > 0 in the 90-day window
-  //   2. Most recent game must be within 14 days
+  //   1. Must have at least 5 games with minutes > 0 in the lookback window
+  //   2. Most recent game must be within 14 days (waived early in the season,
+  //      when last season's games are all anyone has)
   //   3. Must have played meaningful minutes (>= 10 min) in at least 3 of last 5 games
   //      This excludes end-of-bench / garbage-time-only players (e.g. Topić, Biyombo)
+  //   4. Most recent game must be for a team on this slate (only bites in
+  //      carry-over mode, which reads league-wide), so a player who moved teams
+  //      over the summer is not listed under his old team
   const now = new Date()
   const recencyCutoffMs = 14 * 24 * 60 * 60 * 1000 // 14 days
   const MIN_MEANINGFUL_MINUTES = 10
+  const slateTeams = new Set(teams)
 
   for (const [playerName, games] of playerMap) {
     if (games.length < 5) {
@@ -482,8 +514,15 @@ export async function fetchBatchPlayerStats(
       continue
     }
     // games[0] is the most recent (sorted desc from DB)
+    if (!slateTeams.has(games[0].team)) {
+      playerMap.delete(playerName)
+      continue
+    }
     const mostRecentDate = new Date(games[0].gameDate)
-    if (now.getTime() - mostRecentDate.getTime() > recencyCutoffMs) {
+    if (
+      !window.carryOver &&
+      now.getTime() - mostRecentDate.getTime() > recencyCutoffMs
+    ) {
       playerMap.delete(playerName)
       continue
     }
@@ -851,9 +890,7 @@ async function computeMatchupScopedPropsUncached(
     if (withoutPlayerGameDates.size === 0) {
       try {
         const supabase = createAdminClient()
-        const cutoffDate = new Date()
-        cutoffDate.setDate(cutoffDate.getDate() - 90)
-        const cutoff = cutoffDate.toISOString().split("T")[0]
+        const { cutoff } = nbaStatsWindow()
         // Escape LIKE wildcards: an unescaped `%` here matched every row, which
         // turned an attacker-supplied filter into a full scan of the join.
         // The route caps the length; this bounds the pattern's selectivity.
