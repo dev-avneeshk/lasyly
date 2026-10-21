@@ -389,6 +389,12 @@ export interface NBATeamRankingRow {
 export interface RankingConfig {
   season: string                         // target season to rank ('2026-27')
   historical_season: string              // completed season to use as primary data ('2025-26')
+  /**
+   * Season whose final (historical) ranks feed previous_rank/rank_change.
+   * Defaults to historical_season. Live in-season runs rank the current season
+   * itself, so they point this at the last completed season instead.
+   */
+  prior_season?: string
   ranking_version: string                // version string ('2026-27-v1')
   ranking_mode: RankingMode
   algorithm_version: string              // 'nba-ranking-v1'

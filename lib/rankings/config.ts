@@ -297,9 +297,14 @@ export function resolveQualification(maxLeagueGames = 0): { games: number; minut
   if (!maxLeagueGames || maxLeagueGames >= MIN_GAMES_FOR_RANKING * 2) {
     return { games: MIN_GAMES_FOR_RANKING, minutes: MIN_MINUTES_FOR_RANKING }
   }
-  const games = Math.max(
-    EARLY_SEASON_GAMES_FLOOR,
-    Math.min(MIN_GAMES_FOR_RANKING, Math.round(maxLeagueGames * 0.5))
+  // Never demand more games than the league leader has played: on opening
+  // night (leader at 1-2 games) the floor alone would leave the live board empty.
+  const games = Math.min(
+    maxLeagueGames,
+    Math.max(
+      EARLY_SEASON_GAMES_FLOOR,
+      Math.min(MIN_GAMES_FOR_RANKING, Math.round(maxLeagueGames * 0.5))
+    )
   )
   return { games, minutes: games * MINUTES_PER_GAME_THRESHOLD }
 }

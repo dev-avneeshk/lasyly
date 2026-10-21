@@ -20,7 +20,11 @@ import type { RankingListItem, TeamRankingListItem, RankingType } from "@/lib/ra
 type ActiveCategory = RankingType | "teams"
 type Sport = "NBA" | "NFL"
 
+// LIVE = the in-progress season ranked off its real box scores (stored as
+// ranking_mode "historical" for 2026-27, regenerated daily); PROJECTED = the
+// multi-season preseason projection.
 const SEASON_OPTIONS = [
+  { season: "2026-27", mode: "historical", label: "2026-27 LIVE" },
   { season: "2026-27", mode: "projected", label: "2026-27 PROJECTED" },
   { season: "2025-26", mode: "historical", label: "2025-26 FINAL" },
 ]
@@ -34,11 +38,11 @@ export const DEFAULT_VIEW = {
   sport: "NBA" as Sport,
   category: "overall" as ActiveCategory,
   season: "2026-27",
-  mode: "projected",
+  mode: "historical",
 }
 
 interface RankingsClientProps {
-  /** Server-prefetched rankings for the default view (NBA · overall · projected).
+  /** Server-prefetched rankings for the default view (NBA · overall · live).
    *  When present, the initial client fetch is skipped so the list paints from
    *  the first HTML instead of after a post-hydration round trip. */
   initialData?: {
@@ -260,7 +264,7 @@ export default function RankingsClient({ initialData }: RankingsClientProps = {}
               <span className="text-[var(--color-lime)]">{labelAccent}</span>
             </h1>
             <p className="text-sm text-[var(--color-text-muted)] mt-2">
-              {sport === "NFL"
+              {sport === "NFL" || seasonLabel.endsWith("LIVE")
                 ? "Live player rankings, updated daily from game stats"
                 : "Algorithmic rankings across 8 dimensions"}
               {rankingVersion && rankingVersion !== "none" && (
@@ -289,7 +293,7 @@ export default function RankingsClient({ initialData }: RankingsClientProps = {}
                 {SEASON_OPTIONS.map((opt) => (
                   <button
                     key={`${opt.season}-${opt.mode}`}
-                    id={`rankings-season-${opt.season}`}
+                    id={`rankings-season-${opt.season}-${opt.mode}`}
                     onClick={() => { setSeason(opt.season); setMode(opt.mode); }}
                     className={cn(
                       "px-3 py-2 font-bold transition-colors whitespace-nowrap",

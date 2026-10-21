@@ -11,6 +11,9 @@ name: Generate NBA Rankings (Daily)
 # the pipeline (see resolveQualification), so the board is never empty in
 # October/November.
 #
+# include_live (default true) also writes the LIVE board: the in-progress season
+# ranked off its own box-score stats (version 2026-27-live, overwritten daily).
+#
 # include_historical is false: the completed 2025-26 season never changes, so it
 # is seeded once (manually or via a one-off dispatch), not regenerated daily.
 # The pipeline also refuses to overwrite a *published* historical version.
@@ -43,6 +46,7 @@ jobs:
               "version": "2026-27-v1",
               "is_projection": true,
               "include_historical": false,
+              "include_live": true,
               "dry_run": ${{ github.event.inputs.dry_run || 'false' }}
             }')
 

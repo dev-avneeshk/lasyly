@@ -12,7 +12,7 @@ export const revalidate = 300
 const DEFAULT_LIMIT = 100
 
 /**
- * Server-prefetch the default view (NBA · overall · projected) so the ranking
+ * Server-prefetch the default view (NBA · overall · live) so the ranking
  * list is present in the first HTML response instead of arriving after a
  * post-hydration client fetch. The client still refetches on any sport /
  * category / season change; this only seeds the initial paint.
@@ -24,7 +24,10 @@ const DEFAULT_LIMIT = 100
 async function getInitialRankings(): Promise<RankingListResponse | null> {
   try {
     const { season, mode, category } = DEFAULT_VIEW
-    const cacheKey = `rankings:${season}:${mode}:${category}:${DEFAULT_LIMIT}:0:true`
+    // Same view (and cache key) the client requests: published=false. Ranking
+    // rows are written unpublished, so a published-only prefetch was empty and
+    // the client then skipped its own fetch, leaving the board blank.
+    const cacheKey = `rankings:${season}:${mode}:${category}:${DEFAULT_LIMIT}:0:false`
     return await cached<RankingListResponse>(
       cacheKey,
       () =>
@@ -34,7 +37,7 @@ async function getInitialRankings(): Promise<RankingListResponse | null> {
           type: category as RankingType,
           limit: DEFAULT_LIMIT,
           offset: 0,
-          publishedOnly: true,
+          publishedOnly: false,
         }),
       300_000
     )

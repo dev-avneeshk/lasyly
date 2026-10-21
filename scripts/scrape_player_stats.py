@@ -143,6 +143,11 @@ def fetch_page(url: str, delay: float, logger: logging.Logger):
 # Table Parser
 # ============================================================
 
+def cell_text(cell) -> str:
+    """All descendant text of a cell (bbref bolds league leaders in <strong>)."""
+    return (cell.get_all_text() or "").strip()
+
+
 def parse_player_table(page, table_id: str, logger: logging.Logger) -> list[dict]:
     """
     Parse a player stats table. Dynamically reads all columns from the header.
@@ -200,23 +205,25 @@ def parse_player_table(page, table_id: str, logger: logging.Logger) -> list[dict
 
         # Position
         pos_cell = row.css('td[data-stat="pos"]')
-        position = pos_cell.first.text.strip() if len(pos_cell) else None
+        position = cell_text(pos_cell.first) if len(pos_cell) else None
 
         # Age
         age_cell = row.css('td[data-stat="age"]')
-        age = age_cell.first.text.strip() if len(age_cell) else None
+        age = cell_text(age_cell.first) if len(age_cell) else None
 
-        # Games
+        # Games. cell_text, not .text: the league leader's games/GS are bolded
+        # (<td><strong>1</strong>), and on opening week EVERYONE leads, so
+        # .text came back "" for every player and nobody had games played.
         games_cell = row.css('td[data-stat="games"]')
         if not len(games_cell):
             games_cell = row.css('td[data-stat="g"]')
-        games = games_cell.first.text.strip() if len(games_cell) else None
+        games = cell_text(games_cell.first) if len(games_cell) else None
 
         # Games started
         gs_cell = row.css('td[data-stat="games_started"]')
         if not len(gs_cell):
             gs_cell = row.css('td[data-stat="gs"]')
-        games_started = gs_cell.first.text.strip() if len(gs_cell) else None
+        games_started = cell_text(gs_cell.first) if len(gs_cell) else None
 
         # All other stats as JSONB
         stats = {}

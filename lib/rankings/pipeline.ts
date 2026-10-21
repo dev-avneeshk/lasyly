@@ -161,10 +161,14 @@ export async function runRankingPipeline(config: RankingConfig): Promise<Pipelin
     // ── Step 7.5: Validate Metric Ownership ───────────────────────────────────
     // ── Step 8: Load prior ranking for rank_change ────────────────────────────
     // Query the previous season's overall ranking for all players
+    // Only the prior season's final (historical) board: a live run ranks the
+    // current season, whose own projected/live rows must not count as "prior".
+    const priorSeason = config.prior_season ?? config.historical_season
     const { data: priorRankRows } = await supabase
       .from("nba_player_rankings")
       .select("player_name, rank")
-      .eq("season", config.historical_season)
+      .eq("season", priorSeason)
+      .eq("ranking_mode", "historical")
       .eq("ranking_type", "overall")
 
     const priorRankMap = new Map<string, number>()
@@ -204,6 +208,16 @@ export async function runRankingPipeline(config: RankingConfig): Promise<Pipelin
 
     // ── Step 11: Write player rankings to DB ──────────────────────────────────
     if (!config.dry_run) {
+      // Clear this version first. Upserts alone keep yesterday's rows for players
+      // who fell out of the top N, and those collide with the unique
+      // (season, mode, type, version, rank) index on daily in-season re-runs.
+      const { error: clearErr } = await supabase
+        .from("nba_player_rankings")
+        .delete()
+        .eq("season", config.season)
+        .eq("ranking_mode", config.ranking_mode)
+        .eq("ranking_version", config.ranking_version)
+      if (clearErr) throw new Error(`Failed to clear previous player rankings: ${clearErr.message}`)
       console.log(`[pipeline] Writing ${allPlayerRankingRows.length} player ranking rows...`)
       const BATCH_SIZE = 200
       for (let i = 0; i < allPlayerRankingRows.length; i += BATCH_SIZE) {
@@ -267,7 +281,8 @@ export async function runRankingPipeline(config: RankingConfig): Promise<Pipelin
         const { data: priorTeamRankRows } = await supabase
           .from("nba_team_rankings")
           .select("team, rank")
-          .eq("season", config.historical_season)
+          .eq("season", priorSeason)
+          .eq("ranking_mode", "historical")
           .eq("ranking_type", "power")
         const priorTeamRankMap = new Map<string, number>()
         for (const row of (priorTeamRankRows ?? []) as any[]) {
@@ -313,6 +328,13 @@ export async function runRankingPipeline(config: RankingConfig): Promise<Pipelin
         }
 
         if (!config.dry_run) {
+          // Same reason as the player rows: drop teams from the previous run.
+          await supabase
+            .from("nba_team_rankings")
+            .delete()
+            .eq("season", config.season)
+            .eq("ranking_mode", config.ranking_mode)
+            .eq("ranking_version", config.ranking_version)
           const { error: teamErr } = await supabase
             .from("nba_team_rankings")
             .upsert(teamRankingRows as any, {
@@ -492,5 +514,33 @@ export async function runHistoricalSeasonRankings(season = "2025-26", options?: 
     "historical",
     options?.dryRun ?? false
   )
+  return runRankingPipeline(config)
+}
+
+/** Ranking version the live in-season board is written under (one per season). */
+export function liveRankingVersion(season: string): string {
+  return `${season}-live`
+}
+
+/**
+ * Live in-season rankings: rank the CURRENT season's actual stats so far.
+ *
+ * Stored as ranking_mode "historical" for the in-progress season (the DB check
+ * constraint only allows historical/projected, and "historical" is exactly
+ * "ranked off that season's real box scores"). The version is overwritten on
+ * every daily run; rank_change compares against the prior season's final board.
+ */
+export async function runLiveSeasonRankings(season = "2026-27", priorSeason = "2025-26", options?: {
+  dryRun?: boolean
+  version?: string
+}): Promise<PipelineResult> {
+  const config = buildDefaultConfig(
+    season,
+    season,
+    options?.version ?? liveRankingVersion(season),
+    "historical",
+    options?.dryRun ?? false
+  )
+  config.prior_season = priorSeason
   return runRankingPipeline(config)
 }

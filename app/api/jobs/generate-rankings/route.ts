@@ -18,7 +18,9 @@
  *     "version": "2026-27-v1",       // auto-generated if omitted
  *     "is_projection": true,
  *     "dry_run": false,
- *     "include_historical": false     // if true, ALSO runs the historical pass first
+ *     "include_historical": false,    // if true, ALSO runs the historical pass first
+ *     "include_live": true            // default true: ALSO ranks the in-progress
+ *                                     // season off its real stats (live board)
  *   }
  *
  * GET /api/jobs/generate-rankings?season=2026-27
@@ -31,6 +33,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import {
   runRankingPipeline,
   runHistoricalSeasonRankings,
+  runLiveSeasonRankings,
 } from "@/lib/rankings/pipeline"
 import { buildDefaultConfig } from "@/lib/rankings/config"
 import { isAuthorizedCron } from "@/lib/security/cronAuth"
@@ -50,6 +53,7 @@ const bodySchema = z.object({
   is_projection: z.boolean().optional(),
   dry_run: z.boolean().optional(),
   include_historical: z.boolean().optional(),
+  include_live: z.boolean().optional(),
 })
 
 interface PipelineRunSummary {
@@ -74,6 +78,7 @@ export const POST = withSecurity(async (request: Request) => {
   const isProjection = body.is_projection !== false // default true
   const dryRun = body.dry_run === true
   const includeHistorical = body.include_historical === true
+  const includeLive = body.include_live !== false // default true
 
   const results: PipelineRunSummary[] = []
 
@@ -112,6 +117,14 @@ export const POST = withSecurity(async (request: Request) => {
     )
     const mainResult = await runRankingPipeline(config)
     results.push({ type: isProjection ? "projection" : "historical", ...mainResult })
+
+    // Step 3: Live board — the in-progress season ranked off its own stats.
+    // Runs after the projection so a live failure never blocks the projection.
+    if (includeLive) {
+      console.log(`[jobs/generate-rankings] Running live ranking for ${season}...`)
+      const liveResult = await runLiveSeasonRankings(season, historicalSeason, { dryRun })
+      results.push({ type: "live", ...liveResult })
+    }
 
     const hasErrors = results.some((r) => (r.errors?.length ?? 0) > 0)
     const allWarnings = results.flatMap((r) => r.warnings ?? [])

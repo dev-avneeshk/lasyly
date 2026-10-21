@@ -93,8 +93,13 @@ describe("LPI v2", () => {
     })
 
     it("never drops below the games floor in the first week", () => {
-      expect(resolveQualification(2).games).toBe(3)
+      expect(resolveQualification(3).games).toBe(3)
       expect(resolveQualification(4).games).toBe(3)
+    })
+
+    it("never demands more games than the league leader has played", () => {
+      expect(resolveQualification(1)).toEqual({ games: 1, minutes: 20 })
+      expect(resolveQualification(2)).toEqual({ games: 2, minutes: 40 })
     })
 
     it("isQualified honors a ramped threshold", () => {
