@@ -57,6 +57,12 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }))
 
+// Tip-off guard: covered in __tests__/props/game-lock-and-multiplier.test.ts.
+const started = vi.hoisted(() => ({ names: [] as string[] }))
+vi.mock("@/lib/props/game-clock", () => ({
+  startedNbaPlayers: async (names: string[]) => names.filter((n) => started.names.includes(n)),
+}))
+
 import { POST } from "@/app/api/parlays/route"
 import { PATCH } from "@/app/api/parlays/[id]/route"
 
@@ -80,10 +86,22 @@ const patch = (body: unknown) =>
   )
 
 beforeEach(() => {
+  started.names = []
   st.known = new Set()
   st.probes = []
   st.updates = []
   st.writers = []
+})
+
+describe("POST /api/parlays tip-off guard", () => {
+  it("rejects a leg whose game has started, before writing anything", async () => {
+    st.known = new Set(["A", "B"])
+    started.names = ["B"]
+    const res = await post([leg("A"), leg("B")])
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe("GAME_STARTED")
+    expect(st.writers).toEqual([])
+  })
 })
 
 describe("POST /api/parlays player validation", () => {

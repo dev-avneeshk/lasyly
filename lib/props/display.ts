@@ -76,6 +76,21 @@ export function sideRecord(prop: EnhancedPropCardData): { hits: number; games: n
   return { hits, games: total, pct: total > 0 ? Math.round((hits / total) * 100) : 0 }
 }
 
+/** How the displayed side did in the slate's own game, once played. */
+export function resultOutcome(prop: EnhancedPropCardData): "hit" | "miss" | "push" | null {
+  const value = prop.result?.value
+  if (value == null) return null
+  if (value === prop.propLine) return "push"
+  return (sideOf(prop) === "over" ? value > prop.propLine : value < prop.propLine) ? "hit" : "miss"
+}
+
+/** Text colour per {@link resultOutcome}. */
+export const RESULT_TONE: Record<"hit" | "miss" | "push", string> = {
+  hit: "text-[var(--color-lime)]",
+  miss: "text-[var(--color-danger)]",
+  push: "text-[var(--color-text-muted)]",
+}
+
 /** Expected value as a signed percent, e.g. "+18.2%". */
 export function formatValue(value: number | null | undefined): string {
   if (value == null) return "—"

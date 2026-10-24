@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { validateCreateParlay } from "@/lib/parlays/validation"
 import { withSecurity, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { rateLimited, RATE_LIMITS } from "@/lib/rateLimit"
+import { startedNbaPlayers } from "@/lib/props/game-clock"
 
 // ─── GET /api/parlays ────────────────────────────────────────────────────────
 
@@ -160,6 +161,20 @@ export const POST = withSecurity(async (request: Request) => {
         })),
       },
       { status: 400 }
+    )
+  }
+
+  // Predictions close at tip-off. Settlement would roll a late leg over to the
+  // player's next game; rejecting it here says so instead.
+  const started = await startedNbaPlayers(nbaPlayers)
+  if (started.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Predictions are closed for ${started.join(", ")}: the game has already started. Remove ${started.length === 1 ? "that pick" : "those picks"} to save.`,
+        code: "GAME_STARTED",
+        details: started.map((name) => ({ field: "legs.player_name", message: `${name}'s game has already started.` })),
+      },
+      { status: 409 }
     )
   }
 

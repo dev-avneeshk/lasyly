@@ -7,6 +7,7 @@ import { computeESPNProps, ESPNSport } from "@/lib/analytics/engine-espn"
 import { computeNFLProps } from "@/lib/analytics/engine-nfl"
 import { computeTeamProps, isTeamPropStat, TeamPropStat } from "@/lib/analytics/engine-team-props"
 import { getTodayET } from "@/lib/props/dates"
+import { getNbaSlateClock } from "@/lib/props/game-clock"
 import { getSoccerSlateTeams } from "@/lib/soccer/slate"
 import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filters"
 import { resolveNBAHeadshots } from "@/lib/analytics/nba-headshots"
@@ -69,6 +70,30 @@ const PROPS_TTL = {
  * 40 characters comfortably fits any real player name.
  */
 const MAX_FREE_TEXT_LENGTH = 40
+
+/**
+ * How far from today (ET) a `date` param may reach. Every distinct date is a
+ * cold engine run, so the range is bounded: a few weeks back for reviewing past
+ * slates, one week ahead for the published schedule.
+ */
+const MAX_PAST_DAYS = 30
+const MAX_FUTURE_DAYS = 7
+
+/** `YYYY-MM-DD` shifted by whole days (calendar math at noon UTC). */
+function shiftDay(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** A real calendar date within the allowed window, else null. */
+function parseSlateDate(raw: string | null, today: string): string | null {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
+  const d = new Date(`${raw}T12:00:00Z`)
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== raw) return null
+  if (raw < shiftDay(today, -MAX_PAST_DAYS) || raw > shiftDay(today, MAX_FUTURE_DAYS)) return null
+  return raw
+}
 
 /** Valid NBA team abbreviations */
 const TEAM_ABBREVIATIONS = new Set([
@@ -283,7 +308,20 @@ export const GET = withSecurity(async (request: Request) => {
 
   // ─── NBA Path: Use Engine V2 ───────────────────────────────────────────────
   if (sport === "NBA") {
-    const todayDate = getTodayET()
+    // `todayDate` is the slate date: today (ET) unless `date` picks another
+    // day. The engine computes any date as of that morning (history strictly
+    // before it), so a past slate shows the props it had, with results.
+    const etToday = getTodayET()
+    const rawDate = searchParams.get("date")
+    const slateDate = rawDate ? parseSlateDate(rawDate, etToday) : etToday
+    if (!slateDate) {
+      return NextResponse.json(
+        { error: `Invalid date "${rawDate}". Use YYYY-MM-DD within ${MAX_PAST_DAYS} days back or ${MAX_FUTURE_DAYS} ahead.` },
+        { status: 400 }
+      )
+    }
+    const todayDate = slateDate
+    const isCurrentSlate = todayDate === etToday
 
     // When stat=all, fetch top stat categories in parallel and merge
     const nbaStatsToFetch = stat === "all"
@@ -314,11 +352,13 @@ export const GET = withSecurity(async (request: Request) => {
     // line or L10 average). Versioned so stale route-level blobs are not
     // served; lib/novig/lines.ts invalidates `nba-props:v5:` after an ingest.
     // v4: lines come from several books (lineSource "market"). v5: regular season only.
-    const nbaCacheKey = `nba-props:v5:${stat}:${direction}:${engineMatchup ?? "all"}:${todayDate}:${filterKey}`
+    // v6: any slate date, computed as of that date, with results.
+    const nbaCacheKey = `nba-props:v6:${stat}:${direction}:${engineMatchup ?? "all"}:${todayDate}:${filterKey}`
 
-    // The precompute cron only covers the default slate (all stats, both
-    // directions, no filters/search/matchup). Bespoke views recompute live.
-    const nbaDefaultSlate = noBespokeFilters && !engineMatchup
+    // The precompute cron only covers today's default slate (all stats, both
+    // directions, no filters/search/matchup). Bespoke views and other dates
+    // recompute live.
+    const nbaDefaultSlate = noBespokeFilters && !engineMatchup && isCurrentSlate
 
     const results = await readOrComputeSlate(
       nbaDefaultSlate,
@@ -347,9 +387,19 @@ export const GET = withSecurity(async (request: Request) => {
       const matchupTeams = new Set(matchup.toUpperCase().split("-"))
       allProps = allProps.filter((p) => matchupTeams.has((p.team ?? "").toUpperCase()))
     }
-    const todayGames = results[0]?.todayGames ?? []
     const fallbackMode = results[0]?.fallbackMode ?? false
     const computeTimeMs = Math.max(...results.map((r) => r.computeTimeMs))
+
+    // Real tip-off times and live status, outside the cached slate so a game
+    // flips to live within a minute. nba_games alone only knows the date, and
+    // marks a game 'completed' when its box score is scraped.
+    const clock = await getNbaSlateClock(todayDate)
+    const todayGames = (results[0]?.todayGames ?? []).map((g) => {
+      const c = clock[g.homeTeam]
+      if (!c) return g
+      const status = g.status === "final" ? "final" : c.status
+      return { ...g, gameTime: c.startTime ?? g.gameTime, status }
+    })
 
     // If no games today (fallback mode), return empty props instead of showing
     // stale data from random recent games that aren't actually scheduled
@@ -366,6 +416,8 @@ export const GET = withSecurity(async (request: Request) => {
           computeTimeMs,
           gamesCount: 0,
           noGamesToday: true,
+          date: todayDate,
+          today: etToday,
         },
       })
     }
@@ -486,6 +538,9 @@ export const GET = withSecurity(async (request: Request) => {
         timestamp: new Date().toISOString(),
         computeTimeMs,
         gamesCount: todayGames.length,
+        /** Slate date and today's date (both ET), for the client's prediction lock. */
+        date: todayDate,
+        today: etToday,
       },
     })
   }

@@ -3,13 +3,14 @@
 import { useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowDown, ArrowUp, ArrowRight, Bookmark, Share2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowRight, Bookmark, Lock, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
 import { formatMultiplier } from "@/lib/props/prop-value"
 import { EnhancedPropCardData } from "@/lib/analytics/types"
 import { formatGameDayTime } from "@/lib/props/dates"
 import { resolveMatchup } from "@/lib/props/matchup"
+import { RESULT_TONE, resultOutcome } from "@/lib/props/display"
 import { PlayerPhoto } from "@/components/props/PlayerPhoto"
 import { isTeamProp, propDetailHref } from "./playerHref"
 
@@ -23,6 +24,8 @@ interface PropCardCompactProps {
   isSaved?: boolean
   onShare?: (prop: EnhancedPropCardData) => void
   parlayDisabled?: boolean
+  /** Closed to predictions: the game has started, or it is not today's slate. */
+  locked?: boolean
 }
 
 /** Number of recent games rendered in the sparkline. */
@@ -36,6 +39,7 @@ export function PropCardCompact({
   isSaved = false,
   onShare,
   parlayDisabled,
+  locked = false,
 }: PropCardCompactProps) {
   const router = useRouter()
   const href = propDetailHref(prop)
@@ -59,8 +63,10 @@ export function PropCardCompact({
 
   const goToDetail = () => router.push(href)
 
-  // Payout multiplier for the scored side, when the line is priced.
+  // Payout multiplier for the scored side: the book's price, else our estimate.
   const multiplier = prop.propValue?.multiplier ?? null
+  const estimated = prop.propValue?.multiplierSource === "model"
+  const result = prop.result ?? null
 
   return (
     <article
@@ -162,15 +168,40 @@ export function PropCardCompact({
             {prop.propLine}
             {multiplier !== null && (
               <span
-                className="rounded-md border border-[var(--color-lime)]/60 bg-[var(--color-lime)]/[0.08] px-1.5 py-0.5 text-[11px] font-bold tracking-normal text-[var(--color-lime)]"
-                title="Payout per unit if it hits"
+                className={cn(
+                  "rounded-md border px-1.5 py-0.5 text-[11px] font-bold tracking-normal",
+                  estimated
+                    ? "border-white/20 bg-white/[0.04] text-[var(--color-text-primary)]"
+                    : "border-[var(--color-lime)]/60 bg-[var(--color-lime)]/[0.08] text-[var(--color-lime)]"
+                )}
+                title={estimated ? "Estimated payout from our model's chance (no sportsbook price)" : "Payout per unit if it hits"}
               >
                 {formatMultiplier(multiplier)}
+                {estimated && <span className="ml-0.5 font-medium text-[var(--color-text-muted)]">est</span>}
               </span>
             )}
           </p>
         </div>
 
+        {locked ? (
+          <div className="shrink-0 text-right leading-tight">
+            {result ? (
+              <>
+                <p className={cn("text-[18px] font-extrabold tabular-nums", RESULT_TONE[resultOutcome(prop) ?? "push"])}>
+                  {result.value}
+                </p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                  {resultOutcome(prop) === "hit" ? "Hit" : resultOutcome(prop) === "miss" ? "Missed" : "Push"}
+                </p>
+              </>
+            ) : (
+              <p className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--color-text-muted)]">
+                <Lock className="w-3 h-3" aria-hidden />
+                Closed
+              </p>
+            )}
+          </div>
+        ) : (
         <div className="flex items-stretch gap-2 shrink-0">
           {(["over", "under"] as const).map((direction) => {
             const isRecommended = prop.direction === direction
@@ -199,6 +230,7 @@ export function PropCardCompact({
             )
           })}
         </div>
+        )}
       </div>
 
       {/* Recent-form sparkline */}

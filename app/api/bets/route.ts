@@ -8,6 +8,7 @@ import {
   STATS_BY_SPORT,
   isValidStatForSport,
 } from "@/lib/props/statCatalog"
+import { startedNbaPlayers } from "@/lib/props/game-clock"
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -145,6 +146,14 @@ export const POST = withSecurity(async (request: Request) => {
     return NextResponse.json(
       { error: `Invalid stat category "${data.statCategory}" for ${data.sport}. Allowed: ${allowed}.` },
       { status: 400 }
+    )
+  }
+
+  // Predictions close at tip-off (NBA, where tip-off times are known).
+  if (data.sport === "NBA" && (await startedNbaPlayers([data.playerName])).length > 0) {
+    return NextResponse.json(
+      { error: `Predictions are closed for ${data.playerName}: the game has already started.`, code: "GAME_STARTED" },
+      { status: 409 }
     )
   }
 
