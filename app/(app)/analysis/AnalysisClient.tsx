@@ -25,6 +25,11 @@ import { TodayGame } from "@/lib/analytics/engine-v2"
 import { cachedFetch, readCache } from "@/lib/clientCache"
 import { headshotOf, positionGroups, positionOf, projectionOf, sideOf, sideRecord } from "@/lib/props/display"
 import { getPredictorLegs, setPredictorLegs, OPEN_PREDICTOR_EVENT } from "@/lib/props/predictorStore"
+import { predictionLock, LOCK_LABEL, type LockReason } from "@/lib/props/game-lock"
+
+/** How often the page re-checks tip-off times to lock started games. */
+const LOCK_TICK_MS = 15_000
+
 
 const SPORTS = ["NBA", "Tennis", "Soccer", "NFL", "NHL"] as const
 type Sport = (typeof SPORTS)[number]
@@ -135,6 +140,19 @@ export default function AnalysisClient({
   const [todayGames, setTodayGames] = useState<TodayGame[]>(cachedProps?.todayGames ?? [])
   // NBA: top props scored against sportsbook lines (null until the API returns them).
   const [best, setBest] = useState<BestPropsData | null>(cachedProps?.best ?? null)
+
+  // ─── Prediction lock ────────────────────────────────────────────────────────
+  // The slate's date and today's date as the API reports them (US Eastern),
+  // so a viewer in another timezone locks the same games the server does.
+  // NBA is the sport whose props API takes a `date` and has per-game tip-offs.
+  const datedSport = sport === "NBA"
+  const [slateMeta, setSlateMeta] = useState<{ date: string; today: string } | null>(null)
+  // Ticks so a game locks at tip-off without a refetch.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), LOCK_TICK_MS)
+    return () => window.clearInterval(id)
+  }, [])
 
   // ─── Presentation state ─────────────────────────────────────────────────────
   const [sortBy, setSortBy] = useState<PropSortKey>("value")
@@ -315,6 +333,50 @@ export default function AnalysisClient({
     return map
   }, [todayGames])
 
+  /** Team abbreviation -> its game's tip-off and status on this slate. */
+  const gameClockByTeam = useMemo(() => {
+    const map: Record<string, { startTime: string | null; status: string }> = {}
+    for (const g of todayGames) {
+      const clock = { startTime: g.gameTime || null, status: g.status }
+      map[g.homeTeam.toUpperCase()] = clock
+      map[g.awayTeam.toUpperCase()] = clock
+    }
+    return map
+  }, [todayGames])
+
+  /**
+   * Why a prop is closed to predictions (null when open). NBA only: it is the
+   * sport with per-game tip-off times and a dated slate. Until the response
+   * says which slate it is, a non-today view stays locked.
+   */
+  const lockOf = useCallback(
+    (prop: EnhancedPropCardData): LockReason | null => {
+      if (!datedSport) return null
+      if (!slateMeta) return isToday ? null : selectedDate < todayIso ? "past" : "future"
+      return predictionLock(
+        gameClockByTeam[(prop.team ?? "").toUpperCase()],
+        slateMeta.date,
+        slateMeta.today,
+        nowMs
+      )
+    },
+    [datedSport, slateMeta, isToday, selectedDate, todayIso, gameClockByTeam, nowMs]
+  )
+
+  const lockedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const p of props) if (lockOf(p)) ids.add(p.id)
+    return ids
+  }, [props, lockOf])
+
+  // Ticked rows whose game has since tipped off can no longer be added.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (![...prev].some((id) => lockedIds.has(id))) return prev
+      return new Set([...prev].filter((id) => !lockedIds.has(id)))
+    })
+  }, [lockedIds])
+
   const teamOptions = useMemo(() => {
     const set = new Set<string>()
     for (const g of todayGames) {
@@ -426,6 +488,12 @@ export default function AnalysisClient({
       params.set("matchup", selectedMatchup)
     }
 
+    // Another day's slate. Today sends no date, so the server's own (ET) today
+    // and the precomputed slate apply.
+    if (datedSport && !isToday) {
+      params.set("date", selectedDate)
+    }
+
     // NBA advanced filters
     if (sport === "NBA") {
       if (debouncedNbaFilters.minMinutes > 0) {
@@ -443,13 +511,19 @@ export default function AnalysisClient({
       const url = `/api/props?${params.toString()}`
       // 2 minutes, matching the server-side props TTL. A shorter client TTL just
       // sends requests the server answers from its own cache anyway.
-      const data = await cachedFetch<{ props?: EnhancedPropCardData[]; best?: BestPropsData; todayGames?: (TodayGame & { gameDate?: string })[] }>(url, 120_000)
+      const data = await cachedFetch<{
+        props?: EnhancedPropCardData[]
+        best?: BestPropsData
+        todayGames?: (TodayGame & { gameDate?: string })[]
+        meta?: { date?: string; today?: string }
+      }>(url, 120_000)
 
       // A newer request has started — discard this result rather than clobbering it.
       if (requestId !== propsRequestIdRef.current) return
 
       setProps(data.props ?? [])
       setBest(data.best ?? null)
+      setSlateMeta(data.meta?.date && data.meta?.today ? { date: data.meta.date, today: data.meta.today } : null)
       // Extract todayGames for NBA + NFL (both drive the matchup filter).
       if ((sport === "NBA" || sport === "NFL") && data.todayGames) {
         // NFL engine returns { homeTeam, awayTeam, gameDate, status };
@@ -470,11 +544,29 @@ export default function AnalysisClient({
         setLoading(false)
       }
     }
-  }, [sport, stat, selectedMatchup, directionToggle, debouncedNbaFilters])
+  }, [sport, stat, selectedMatchup, directionToggle, debouncedNbaFilters, datedSport, isToday, selectedDate])
 
   useEffect(() => {
     fetchProps()
   }, [fetchProps])
+
+  // A new date is a different slate: drop the old one's game pick and ticked
+  // rows, and show the skeleton rather than the previous day's props.
+  const lastDateRef = useRef(selectedDate)
+  useEffect(() => {
+    if (lastDateRef.current === selectedDate) return
+    lastDateRef.current = selectedDate
+    if (!datedSport) return
+    selectMatchup(null)
+    setSelectedIds(new Set())
+    setTeamFilter("all")
+    setSlateMeta(null)
+    setProps([])
+    setBest(null)
+    setTodayGames([])
+    hasPropsRef.current = false
+    setLoading(true)
+  }, [selectedDate, datedSport, selectMatchup])
 
   // ─── Parlay handlers ────────────────────────────────────────────────────────
 
@@ -541,6 +633,11 @@ export default function AnalysisClient({
     // Auth gate — show popup for guests
     if (!isAuthenticated) {
       setShowAuthDialog(true)
+      return
+    }
+    const lock = lockOf(prop)
+    if (lock) {
+      setDuplicateToast(LOCK_LABEL[lock])
       return
     }
     // Enhanced validation with duplicate (player, stat) check (Task 8.2, Requirement 7.2)
@@ -611,7 +708,7 @@ export default function AnalysisClient({
         // Keep optimistic state
       }
     }
-  }, [parlayState.legs, isAuthenticated, sport])
+  }, [parlayState.legs, isAuthenticated, sport, lockOf])
 
   // ─── Parlay leg direction toggle handler (Task 8.3, Requirement 7.5, 7.6, 7.7) ────────
 
@@ -780,6 +877,10 @@ export default function AnalysisClient({
     let skipped = 0
     for (const prop of sortedProps) {
       if (!selectedIds.has(prop.id) || legs.some((l) => l.propId === prop.id)) continue
+      if (lockOf(prop)) {
+        skipped++
+        continue
+      }
       const check = canAddToParlay(legs, prop.id, prop.player, prop.statCategory)
       if (!check.canAdd) {
         skipped++
@@ -801,7 +902,7 @@ export default function AnalysisClient({
       ]
     }
     setSelectedIds(new Set())
-    if (skipped > 0) setDuplicateToast(`${skipped} prop${skipped === 1 ? "" : "s"} skipped (duplicate or limit reached)`)
+    if (skipped > 0) setDuplicateToast(`${skipped} prop${skipped === 1 ? "" : "s"} skipped (duplicate, game started or limit reached)`)
     setParlayState((prev) => ({ ...prev, legs, isVisible: legs.length > 0 }))
     if (legs.length < 2) return
     try {
@@ -826,7 +927,7 @@ export default function AnalysisClient({
     } catch {
       // Keep the optimistic legs.
     }
-  }, [isAuthenticated, parlayState.legs, sortedProps, selectedIds, sport])
+  }, [isAuthenticated, parlayState.legs, sortedProps, selectedIds, sport, lockOf])
 
   const toggleSelect = useCallback((propId: string) => {
     setSelectedIds((prev) => {
@@ -838,8 +939,9 @@ export default function AnalysisClient({
   }, [])
 
   const toggleSelectAll = useCallback(
-    (select: boolean) => setSelectedIds(select ? new Set(sortedProps.map((p) => p.id)) : new Set()),
-    [sortedProps]
+    (select: boolean) =>
+      setSelectedIds(select ? new Set(sortedProps.filter((p) => !lockedIds.has(p.id)).map((p) => p.id)) : new Set()),
+    [sortedProps, lockedIds]
   )
 
   const showAllByValue = useCallback(() => {
@@ -863,7 +965,7 @@ export default function AnalysisClient({
 
     // Find the prop to get its identifier
     const prop = props.find((p) => p.id === propId)
-    if (!prop) return
+    if (!prop || lockOf(prop)) return
 
     const propIdentifier = `${prop.player}-${prop.statCategory}`
 
@@ -897,7 +999,7 @@ export default function AnalysisClient({
     } catch {
       // Don't update state on error (Requirement 9.8)
     }
-  }, [isAuthenticated, props])
+  }, [isAuthenticated, props, lockOf])
 
   // ─── AI Writeup handlers ────────────────────────────────────────────────────
 
@@ -1001,6 +1103,14 @@ export default function AnalysisClient({
       return
     }
 
+    // Un-saving stays allowed after tip-off; a new save does not.
+    const lock = lockOf(prop)
+    if (lock) {
+      savingKeysRef.current.delete(key)
+      setLogPickToast({ message: LOCK_LABEL[lock], type: "error" })
+      return
+    }
+
     // Every sport the props page can render is loggable — the sport allowlist
     // lives in lib/props/statCatalog and is enforced by /api/bets. There used to
     // be a hardcoded ["NBA","Tennis"] check here that short-circuited before the
@@ -1046,7 +1156,7 @@ export default function AnalysisClient({
     } finally {
       savingKeysRef.current.delete(key)
     }
-  }, [isAuthenticated, sport, savedPicks])
+  }, [isAuthenticated, sport, savedPicks, lockOf])
 
   // ─── Share handler ──────────────────────────────────────────────────────────
 
@@ -1123,8 +1233,11 @@ export default function AnalysisClient({
         {!isToday && (
           <p className="flex items-start gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-3.5 py-2.5 text-xs text-[var(--color-text-muted)]">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--color-lime)]" />
-            You&apos;re viewing another day&apos;s schedule. Props below are always generated for
-            today&apos;s slate.
+            {datedSport
+              ? selectedDate < todayIso
+                ? "You're viewing a past slate: the props it had that morning, with each player's actual result. Predictions are closed."
+                : "You're viewing an upcoming slate. Predictions open on game day."
+              : "You're viewing another day's schedule. Props below are always generated for today's slate."}
           </p>
         )}
 
@@ -1200,6 +1313,7 @@ export default function AnalysisClient({
               addedIds={parlayPropIds}
               onAdd={handleTableAdd}
               addDisabled={parlayFull}
+              lockOf={lockOf}
               emptyMessage={emptyMessage}
             />
           ) : (
@@ -1220,6 +1334,7 @@ export default function AnalysisClient({
               isAuthenticated={isAuthenticated}
               parlayPropIds={parlayPropIds}
               parlayFull={parlayFull}
+              lockedPropIds={lockedIds}
               aiWriteups={aiWriteups}
               emptyMessage={emptyMessage}
             />

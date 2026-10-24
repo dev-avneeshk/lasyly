@@ -31,6 +31,8 @@ export interface PropCardData {
   propValue?: PropValue | null
   /** Recent games vs tonight's opponent in this stat, oldest first (NBA). */
   h2h?: { date: string; value: number }[]
+  /** Actual stat in the slate's own game once it has been played (NBA). */
+  result?: { value: number; minutes: number } | null
 }
 
 export interface GameResult {

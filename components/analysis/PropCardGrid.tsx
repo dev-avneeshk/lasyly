@@ -26,6 +26,8 @@ interface PropCardGridProps {
   isAuthenticated: boolean
   parlayPropIds?: Set<string>
   parlayFull?: boolean
+  /** Props closed to predictions (game started, or not today's slate). */
+  lockedPropIds?: Set<string>
   aiWriteups?: Record<string, { writeup: string | null; loading: boolean; error: boolean; retryCount: number }>
   emptyMessage?: string
 }
@@ -47,6 +49,7 @@ export function PropCardGrid({
   isAuthenticated,
   parlayPropIds,
   parlayFull,
+  lockedPropIds,
   aiWriteups,
   emptyMessage,
 }: PropCardGridProps) {
@@ -86,7 +89,8 @@ export function PropCardGrid({
     <div className={gridClass}>
       {props.map((prop) => {
         const isInParlay = parlayPropIds?.has(prop.id) ?? false
-        const parlayDisabled = isInParlay || (parlayFull ?? false)
+        const locked = lockedPropIds?.has(prop.id) ?? false
+        const parlayDisabled = isInParlay || locked || (parlayFull ?? false)
         const isSaved = savedPropIds?.has(prop.id) ?? false
 
         if (viewMode === "grid") {
@@ -100,6 +104,7 @@ export function PropCardGrid({
               isSaved={isSaved}
               onShare={onShare}
               parlayDisabled={parlayDisabled}
+              locked={locked}
             />
           )
         }

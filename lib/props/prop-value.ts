@@ -18,6 +18,11 @@
  * (+108 -> 2.08x, -120 -> 1.83x). Value is the expected return per unit staked,
  * chance x multiplier - 1, and is what "best props" are ranked by.
  *
+ * Unpriced lines get a model multiplier instead: the fair payout for the
+ * blended chance, less a standard two-way margin (a 50% chance prices at
+ * 1.91x, the same as -110). It carries no edge by construction, so `value`
+ * stays null for those and they never enter the "best" lists.
+ *
  * Pure module: no I/O, safe on server and client.
  */
 
@@ -42,9 +47,11 @@ export interface PropValue {
   side: Side
   /** Blended chance the side hits, 0-1. */
   chance: number
-  /** Decimal payout for the side (e.g. 2.08), or null without a priced line. */
+  /** Decimal payout for the side (e.g. 2.08): the book's price, else the model's. */
   multiplier: number | null
-  /** Expected return per unit, chance x multiplier - 1; null without a multiplier. */
+  /** "market" when a sportsbook priced the line, "model" when estimated from `chance`. */
+  multiplierSource: "market" | "model" | null
+  /** Expected return per unit, chance x multiplier - 1; null unless market-priced. */
   value: number | null
   /** L10 games that went the side on this line. */
   hits: number
@@ -87,6 +94,21 @@ const MAX_CHANCE = 0.97
 export function americanToMultiplier(american: number): number | null {
   if (!Number.isFinite(american) || american === 0) return null
   const m = american > 0 ? 1 + american / 100 : 1 + 100 / -american
+  return Math.round(m * 100) / 100
+}
+
+/** Two-way margin baked into model multipliers (-110 / -110 is ~4.5%). */
+export const MODEL_MARGIN = 0.045
+const MIN_MODEL_MULTIPLIER = 1.01
+const MAX_MODEL_MULTIPLIER = 10
+
+/**
+ * Model payout for a side with the given chance of hitting: fair odds
+ * (1 / chance) less {@link MODEL_MARGIN}, e.g. 0.5 -> 1.91x, 0.7 -> 1.36x.
+ */
+export function modelMultiplier(chance: number): number | null {
+  if (!Number.isFinite(chance) || chance <= 0 || chance >= 1) return null
+  const m = clamp((1 - MODEL_MARGIN) / chance, MIN_MODEL_MULTIPLIER, MAX_MODEL_MULTIPLIER)
   return Math.round(m * 100) / 100
 }
 
@@ -190,16 +212,19 @@ function scoreSide(input: PropValueInput, side: Side): PropValue {
       : WEIGHTS.form * form + WEIGHTS.projection * projection + WEIGHTS.market * market
   const chance = clamp(blend + matchup + minutes, MIN_CHANCE, MAX_CHANCE)
 
-  const multiplier = priced
+  const marketMultiplier = priced
     ? americanToMultiplier(side === "over" ? priced.overPrice : priced.underPrice)
     : null
+  const multiplier = marketMultiplier ?? modelMultiplier(round3(chance))
+  const multiplierSource = marketMultiplier !== null ? "market" : multiplier !== null ? "model" : null
   const l10 = windowRecord(values, line, side, 10)
 
   return {
     side,
     chance: round3(chance),
     multiplier,
-    value: multiplier === null ? null : round3(chance * multiplier - 1),
+    multiplierSource,
+    value: marketMultiplier === null ? null : round3(chance * marketMultiplier - 1),
     hits: l10.hits,
     games: l10.games,
     factors: {
@@ -227,7 +252,7 @@ export const BEST_LIST_SIZE = 10
 
 /** A best prop must be priced, likelier than not, and positive expected value. */
 export function qualifiesForValue(v: PropValue | null | undefined): v is PropValue & { value: number; multiplier: number } {
-  return !!v && v.multiplier !== null && v.value !== null && v.games >= MIN_GAMES_FOR_BEST && v.chance >= 0.5 && v.value > 0
+  return !!v && v.multiplierSource === "market" && v.multiplier !== null && v.value !== null && v.games >= MIN_GAMES_FOR_BEST && v.chance >= 0.5 && v.value > 0
 }
 
 export interface ValueLists<T> {

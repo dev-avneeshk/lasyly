@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Check, Plus } from "lucide-react"
+import { Check, Lock, Plus } from "lucide-react"
+import { LOCK_LABEL, type LockReason } from "@/lib/props/game-lock"
 import { cn } from "@/lib/utils"
 import { STAT_LABELS } from "@/lib/props/constants"
 import { formatGameTime } from "@/lib/props/dates"
@@ -12,6 +13,8 @@ import {
   hitRateToneClass,
   positionOf,
   projectionOf,
+  RESULT_TONE,
+  resultOutcome,
   sideOf,
   sideRecord,
 } from "@/lib/props/display"
@@ -38,6 +41,8 @@ interface PropsTableProps {
   addedIds: Set<string>
   onAdd: (prop: EnhancedPropCardData, direction: "over" | "under") => void
   addDisabled?: boolean
+  /** Why a prop is closed to predictions, or null when it is open. */
+  lockOf?: (prop: EnhancedPropCardData) => LockReason | null
   emptyMessage: string
 }
 
@@ -105,10 +110,13 @@ export function PropsTable({
   addedIds,
   onAdd,
   addDisabled,
+  lockOf,
   emptyMessage,
 }: PropsTableProps) {
   const router = useRouter()
-  const allSelected = props.length > 0 && props.every((p) => selectedIds.has(p.id))
+  const selectable = props.filter((p) => !lockOf?.(p))
+  const allSelected = selectable.length > 0 && selectable.every((p) => selectedIds.has(p.id))
+  const showResult = props.some((p) => p.result != null)
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 overflow-hidden">
@@ -121,6 +129,7 @@ export function PropsTable({
                   type="checkbox"
                   aria-label="Select all props"
                   checked={allSelected}
+                  disabled={selectable.length === 0}
                   onChange={(e) => onToggleSelectAll(e.target.checked)}
                   className="h-4 w-4 rounded border-[var(--color-border)] bg-transparent accent-[var(--color-lime)] cursor-pointer"
                 />
@@ -133,6 +142,7 @@ export function PropsTable({
               <th className="px-3 py-3">L10</th>
               <th className="px-3 py-3">H2H</th>
               <th className="px-3 py-3 text-center">Multiplier</th>
+              {showResult && <th className="px-3 py-3 text-center">Result</th>}
               <th className="px-3 py-3 text-center">Add</th>
             </tr>
           </thead>
@@ -141,7 +151,7 @@ export function PropsTable({
               Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
             ) : props.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-12 text-center text-sm text-[var(--color-text-muted)]">
+                <td colSpan={showResult ? 11 : 10} className="px-3 py-12 text-center text-sm text-[var(--color-text-muted)]">
                   {emptyMessage}
                 </td>
               </tr>
@@ -154,7 +164,10 @@ export function PropsTable({
                 const position = positionOf(prop)
                 const game = gameByTeam[(prop.team ?? "").toUpperCase()]
                 const multiplier = prop.propValue?.multiplier ?? null
+                const estimated = prop.propValue?.multiplierSource === "model"
                 const strongMultiplier = multiplier !== null && multiplier >= 2
+                const lock = lockOf?.(prop) ?? null
+                const outcome = resultOutcome(prop)
                 const l10 = [...(prop.lastGames ?? [])]
                   .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
                   .slice(-L10_GAMES)
@@ -183,8 +196,10 @@ export function PropsTable({
                         type="checkbox"
                         aria-label={`Select ${prop.player} ${statLabel}`}
                         checked={selected}
+                        disabled={!!lock}
+                        title={lock ? LOCK_LABEL[lock] : undefined}
                         onChange={() => onToggleSelect(prop.id)}
-                        className="h-4 w-4 rounded border-[var(--color-border)] bg-transparent accent-[var(--color-lime)] cursor-pointer"
+                        className="h-4 w-4 rounded border-[var(--color-border)] bg-transparent accent-[var(--color-lime)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
                       />
                     </td>
 
@@ -279,17 +294,53 @@ export function PropsTable({
                           "inline-flex min-w-[52px] justify-center rounded-md border px-2 py-1 text-[12px] font-bold tabular-nums",
                           multiplier === null
                             ? "border-[var(--color-border)] text-[var(--color-text-muted)]"
-                            : strongMultiplier
-                              ? "border-[var(--color-lime)]/60 bg-[var(--color-lime)]/[0.08] text-[var(--color-lime)]"
-                              : "border-white/20 bg-white/[0.04] text-[var(--color-text-primary)]"
+                            : estimated
+                              ? "border-dashed border-white/20 text-[var(--color-text-primary)]"
+                              : strongMultiplier
+                                ? "border-[var(--color-lime)]/60 bg-[var(--color-lime)]/[0.08] text-[var(--color-lime)]"
+                                : "border-white/20 bg-white/[0.04] text-[var(--color-text-primary)]"
                         )}
-                        title={multiplier === null ? "No priced line for this prop" : "Payout per unit if it hits"}
+                        title={
+                          multiplier === null
+                            ? "No multiplier for this prop"
+                            : estimated
+                              ? "Estimated payout from our model's chance (no sportsbook price)"
+                              : "Payout per unit if it hits"
+                        }
                       >
                         {formatMultiplier(multiplier)}
+                        {estimated && <span className="ml-0.5 text-[10px] font-medium text-[var(--color-text-muted)]">est</span>}
                       </span>
                     </td>
 
+                    {showResult && (
+                      <td className="px-3 py-2.5 text-center">
+                        {prop.result && outcome ? (
+                          <span className="leading-tight">
+                            <span className={cn("block text-[13px] font-extrabold tabular-nums", RESULT_TONE[outcome])}>
+                              {prop.result.value}
+                            </span>
+                            <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                              {outcome === "hit" ? "Hit" : outcome === "miss" ? "Miss" : "Push"}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[var(--color-text-muted)]">—</span>
+                        )}
+                      </td>
+                    )}
+
                     <td className="px-3 py-2.5 text-center">
+                      {lock && !added ? (
+                        <span
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)]"
+                          title={LOCK_LABEL[lock]}
+                          aria-label={`${prop.player} ${statLabel}: ${LOCK_LABEL[lock]}`}
+                          role="img"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                        </span>
+                      ) : (
                       <button
                         type="button"
                         disabled={addDisabled && !added}
@@ -307,6 +358,7 @@ export function PropsTable({
                       >
                         {added ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                       </button>
+                      )}
                     </td>
                   </tr>
                 )

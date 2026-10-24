@@ -195,8 +195,8 @@ export function resolvePropLine(
 export async function invalidateNovigReadCaches(date: string): Promise<void> {
   await Promise.all([
     invalidateCache(novigLinesCacheKey(date)),
-    invalidateCachePrefix("matchup-props:v6:NBA:"),
-    invalidateCachePrefix("nba-props:v5:"),
+    invalidateCachePrefix("matchup-props:v7:NBA:"),
+    invalidateCachePrefix("nba-props:v6:"),
     invalidateCache(`precomputed-slate:NBA:all:all:${date}`),
   ])
 }

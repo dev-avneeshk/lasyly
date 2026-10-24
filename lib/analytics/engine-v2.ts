@@ -102,6 +102,11 @@ export interface MatchupScopedProp extends PropCardData {
   defensiveMatchup: DefensiveMatchupInfo | null
   /** Projection output from the 3-layer formula */
   projection: ProjectionOutput | null
+  /**
+   * The player's actual line in the slate's own game, once it has been played
+   * (past dates, or today's finished games). Never part of the history above.
+   */
+  result?: { value: number; minutes: number } | null
 }
 
 // ─── Internal Helper Types ──────────────────────────────────────────────────
@@ -273,29 +278,51 @@ function parseMinutes(raw: any): number {
 }
 
 /**
- * Fetches today's NBA games for a given date.
- * Returns games where game_date = date AND status IN ('scheduled', 'in_progress').
+ * Fetches the NBA games on a given date.
+ *
+ * By default only games still to be played or in progress (status
+ * 'scheduled' / 'in_progress'), which is what the Novig ingest wants. The props
+ * slate passes `includeFinished` so a past date (every game 'completed') still
+ * has a slate, and today's finished games stay listed (locked) instead of
+ * vanishing. The scraper can leave a game 'scheduled' twice (once before and
+ * once after its box score lands), so rows are de-duplicated by matchup with
+ * the most advanced status winning.
  */
-export async function fetchTodayGames(date: string): Promise<TodayGame[]> {
+export async function fetchTodayGames(
+  date: string,
+  options: { includeFinished?: boolean } = {}
+): Promise<TodayGame[]> {
   const supabase = createAdminClient()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("nba_games")
     .select("home_team, away_team, game_date, status")
     .eq("game_date", date)
-    .in("status", ["scheduled", "in_progress"])
+  if (!options.includeFinished) query = query.in("status", ["scheduled", "in_progress"])
+
+  const { data, error } = await query
 
   if (error || !data) {
     console.error("[engine-v2] Failed to fetch today's games:", error?.message)
     return []
   }
 
-  return data.map((row: any) => ({
-    homeTeam: toTeamAbbr(row.home_team),
-    awayTeam: toTeamAbbr(row.away_team),
-    gameTime: row.game_date,
-    status: row.status === "in_progress" ? "live" : "scheduled",
-  }))
+  const rank: Record<TodayGame["status"], number> = { scheduled: 0, live: 1, final: 2 }
+  const byMatchup = new Map<string, TodayGame>()
+  for (const row of data as any[]) {
+    const status: TodayGame["status"] =
+      row.status === "in_progress" ? "live" : row.status === "completed" ? "final" : "scheduled"
+    const game: TodayGame = {
+      homeTeam: toTeamAbbr(row.home_team),
+      awayTeam: toTeamAbbr(row.away_team),
+      gameTime: row.game_date,
+      status,
+    }
+    const key = `${game.awayTeam}@${game.homeTeam}`
+    const prev = byMatchup.get(key)
+    if (!prev || rank[status] > rank[prev.status]) byMatchup.set(key, game)
+  }
+  return [...byMatchup.values()]
 }
 
 /** All 30 NBA teams; the point at which scanning further rows cannot help. */
@@ -506,13 +533,26 @@ export function nbaStatsWindow(now: Date = new Date()): { cutoff: string; carryO
  */
 export async function fetchBatchPlayerStats(
   teams: string[],
-  stat: string
+  stat: string,
+  options: {
+    /**
+     * Slate date (YYYY-MM-DD). Only games BEFORE it form the history, so a
+     * past slate is computed exactly as it would have been that morning, and
+     * the recency rules are measured from it rather than from now.
+     */
+    asOf?: string
+    /** Filled with each player's row ON `asOf` (the game the prop is about). */
+    results?: Map<string, BatchPlayerGameRow>
+  } = {}
 ): Promise<Map<string, BatchPlayerGameRow[]>> {
   const column = NBA_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
   // Unknown columns used to fail the query (no props); keep that, not zeros.
   if (!SLATE_STAT_COLUMNS.includes(column)) return new Map()
 
-  const window = nbaStatsWindow()
+  const { asOf, results } = options
+  // Noon UTC keeps the calendar date stable in every timezone.
+  const reference = asOf ? new Date(`${asOf}T12:00:00Z`) : new Date()
+  const window = nbaStatsWindow(reference)
   // Carry-over mode reads the whole league so each player's latest row shows
   // his current team: a player who changed teams over the summer must drop off
   // his old team's slate once he plays for the new one. Size is comparable to
@@ -552,6 +592,15 @@ export async function fetchBatchPlayerStats(
       gameId: row.game_id ?? undefined,
     }
 
+    if (asOf && entry.gameDate >= asOf) {
+      // The slate's own game is the outcome, never the input; later games
+      // did not exist yet as of the slate date.
+      if (entry.gameDate === asOf && results && (entry.minutes > 0 || entry.statValue > 0)) {
+        results.set(playerName, entry)
+      }
+      continue
+    }
+
     if (!playerMap.has(playerName)) {
       playerMap.set(playerName, [])
     }
@@ -571,7 +620,7 @@ export async function fetchBatchPlayerStats(
   //   4. Most recent game must be for a team on this slate (only bites in
   //      carry-over mode, which reads league-wide), so a player who moved teams
   //      over the summer is not listed under his old team
-  const now = new Date()
+  const now = reference
   const recencyCutoffMs = 14 * 24 * 60 * 60 * 1000 // 14 days
   const MIN_MEANINGFUL_MINUTES = 10
   const slateTeams = new Set(teams)
@@ -852,9 +901,11 @@ export async function computeMatchupScopedProps(
   // v4: NBA props use the stored Novig main line when present and carry
   // lineSource/averageLine/marketLine. Bumped so stale blobs without them are
   // not served. v5: lines can come from any stored book (marketLine.book,
-  // lineSource "market"). v6: playoff games excluded. lib/novig/lines.ts invalidates `matchup-props:v6:NBA:` after an
-  // ingest stores new lines; keep the two in sync.
-  const cacheKey = `matchup-props:v6:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
+  // lineSource "market"). v6: playoff games excluded. v7: computed as of the
+  // slate date (history strictly before it, finished games kept, `result`
+  // attached), so any date works. lib/novig/lines.ts invalidates
+  // `matchup-props:v7:NBA:` after an ingest stores new lines; keep the two in sync.
+  const cacheKey = `matchup-props:v7:${sport}:${stat}:${today}${matchupSuffix}${filterSuffix}`
 
   // 3 minutes, matching PROPS_TTL.nba in /api/props.
   //
@@ -894,8 +945,9 @@ async function computeMatchupScopedPropsUncached(
     }
   }
 
-  // Step 1: Fetch today's games
-  const todayGames = await fetchTodayGames(today)
+  // Step 1: Fetch the slate's games, finished ones included (a past date has
+  // nothing else; today's finished games stay listed, locked by the UI).
+  const todayGames = await fetchTodayGames(today, { includeFinished: true })
 
   // Stored Novig main lines for today's slate (NBA only; cached, [] on any
   // error). Players without one keep the L10-average line below.
@@ -933,7 +985,10 @@ async function computeMatchupScopedPropsUncached(
   // Step 3: Fetch player stats directly (simplified from Promise.allSettled)
   const statColumn = NBA_STAT_COLUMNS[stat.toLowerCase()] ?? stat.toLowerCase()
 
-  const playerStatsMap = await fetchBatchPlayerStats(teams, stat)
+  // History strictly before the slate date; each player's row on it (if the
+  // game has been played) is kept aside as the prop's result.
+  const resultRows = new Map<string, BatchPlayerGameRow>()
+  const playerStatsMap = await fetchBatchPlayerStats(teams, stat, { asOf: today, results: resultRows })
 
   // If player stats query failed, we can't compute any props
   if (playerStatsMap.size === 0) {
@@ -1374,6 +1429,9 @@ async function computeMatchupScopedPropsUncached(
       graphData,
       defensiveMatchup,
       projection: projectionResult,
+      result: resultRows.has(playerName)
+        ? { value: resultRows.get(playerName)!.statValue, minutes: resultRows.get(playerName)!.minutes }
+        : null,
     }
 
     props.push(prop)
