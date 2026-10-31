@@ -79,8 +79,8 @@ describe("cached() read coalescing", () => {
     // 50 concurrent readers, memo bypassed by using a key we then invalidate
     // from memory only — so this measures the coalescing path specifically.
     await invalidateCache(key)
-    store.set(`cache:${key}`, { value: 42 })
-    store.set(`cache_ts:${key}`, Date.now())
+    store.set(`cache2:${key}`, { value: 42 })
+    store.set(`cache2_ts:${key}`, Date.now())
 
     const results = await Promise.all(
       Array.from({ length: 50 }, () => cached(key, fetcher, 60_000))
@@ -153,8 +153,8 @@ describe("cached() local memo", () => {
     // A read that started before the invalidation must not resolve afterwards
     // and write the stale value back into the local memo.
     const key = `inflight-invalidate-${Math.random()}`
-    store.set(`cache:${key}`, { v: "old" })
-    store.set(`cache_ts:${key}`, Date.now())
+    store.set(`cache2:${key}`, { v: "old" })
+    store.set(`cache2_ts:${key}`, Date.now())
 
     const inFlight = cached(key, async () => ({ v: "fetched" }), 60_000)
     await invalidateCache(key) // lands while the read above is still pending

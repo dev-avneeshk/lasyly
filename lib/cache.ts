@@ -21,6 +21,8 @@
  * - Works across serverless instances (Redis is shared state)
  */
 
+import { promisify } from "node:util"
+import { brotliCompress, brotliDecompress, constants as zlibConstants } from "node:zlib"
 import { getRedisClient } from "./redis"
 import { redisCoolingDown, reportRedisFailure } from "./redisHealth"
 
@@ -56,19 +58,77 @@ if (typeof setInterval !== "undefined") {
   }, 30_000).unref?.() // don't keep a Node process (scripts, tests) alive
 }
 
+// ─── Compression for large values ────────────────────────────────────────────
+
+/**
+ * Upstash bills bandwidth, and on 2026-10-30 the Fixed plan's 50 GB/month cap
+ * was reached, after which Upstash rejected every command (lib/redisHealth.ts).
+ * The bulk of that traffic was whole prop slates read in full by every request
+ * once the local memo lapsed: precomputed-slate:NBA was ~4 MB of JSON (~5.4 MB
+ * on the wire, because Upstash base64-encodes responses) and keep-warm alone
+ * read ~7 MB every 15 minutes.
+ *
+ * Values whose JSON is at least COMPRESS_MIN_CHARS long are stored as
+ * COMPRESSED_MARKER + base64(brotli(JSON)). Measured on the live slates,
+ * quality 4-6 cut the bytes on the wire by 89-96% for 15-70 ms of async
+ * compression on write and under 10 ms to decompress on read. Smaller values
+ * are stored exactly as before.
+ */
+const COMPRESS_MIN_CHARS = 16 * 1024
+const BROTLI_QUALITY = 5
+const COMPRESSED_MARKER = "br1:"
+
+const brotliCompressAsync = promisify(brotliCompress)
+const brotliDecompressAsync = promisify(brotliDecompress)
+
+async function encodeForRedis<T>(data: T): Promise<T | string> {
+  const json = JSON.stringify(data)
+  if (json === undefined || json.length < COMPRESS_MIN_CHARS) return data
+  const packed = await brotliCompressAsync(json, {
+    params: {
+      [zlibConstants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY,
+      [zlibConstants.BROTLI_PARAM_SIZE_HINT]: json.length,
+    },
+  })
+  return COMPRESSED_MARKER + packed.toString("base64")
+}
+
+async function decodeFromRedis<T>(value: unknown): Promise<T> {
+  if (typeof value !== "string" || !value.startsWith(COMPRESSED_MARKER)) return value as T
+  const packed = Buffer.from(value.slice(COMPRESSED_MARKER.length), "base64")
+  return JSON.parse((await brotliDecompressAsync(packed)).toString("utf8")) as T
+}
+
 // ─── Redis Cache Helpers ─────────────────────────────────────────────────────
 
-const CACHE_PREFIX = "cache:"
+// v2 namespace ("cache2:" / "cache2_ts:", was "cache:" / "cache_ts:"): values
+// may now be compressed. A new prefix rather than an in-place format change,
+// so a still-running older deployment never reads a value it can't decode. The
+// old keys expire on their own TTLs.
+const CACHE_PREFIX = "cache2:"
 
 async function redisGet<T>(key: string): Promise<T | null> {
   const redis = getRedisClient()
   if (!redis) return null
 
+  let value: unknown
   try {
-    const value = await redis.get<T>(`${CACHE_PREFIX}${key}`)
-    return value
+    value = await redis.get(`${CACHE_PREFIX}${key}`)
   } catch (error) {
     reportRedisFailure(`cache GET "${key}"`, error)
+    return null
+  }
+  if (value === null || value === undefined) return null
+
+  try {
+    return await decodeFromRedis<T>(value)
+  } catch (error) {
+    // Corrupt or truncated entry: a miss, so the caller recomputes and
+    // overwrites it. Redis itself is fine, so no cool-down.
+    console.warn(
+      `[cache] could not decode "${key}", treating as a miss:`,
+      error instanceof Error ? error.message : error
+    )
     return null
   }
 }
@@ -77,9 +137,22 @@ async function redisSet<T>(key: string, data: T, ttlMs: number): Promise<boolean
   const redis = getRedisClient()
   if (!redis) return false
 
+  let stored: T | string
+  try {
+    stored = await encodeForRedis(data)
+  } catch (error) {
+    // Not JSON-serializable (e.g. a BigInt): keep it out of Redis. Not an
+    // outage, so no cool-down.
+    console.warn(
+      `[cache] could not encode "${key}", not caching it in Redis:`,
+      error instanceof Error ? error.message : error
+    )
+    return false
+  }
+
   try {
     // px = milliseconds TTL; store with 2x TTL for stale-while-revalidate window
-    await redis.set(`${CACHE_PREFIX}${key}`, data, { px: ttlMs * 2 })
+    await redis.set(`${CACHE_PREFIX}${key}`, stored, { px: ttlMs * 2 })
     return true
   } catch (error) {
     // The error message embeds the whole command, i.e. the cached payload;
@@ -102,7 +175,7 @@ async function redisDel(key: string): Promise<void> {
 
 // ─── Timestamp tracking (for stale-while-revalidate in Redis) ────────────────
 
-const TIMESTAMP_PREFIX = "cache_ts:"
+const TIMESTAMP_PREFIX = "cache2_ts:"
 
 async function redisGetTimestamp(key: string): Promise<number | null> {
   const redis = getRedisClient()

@@ -29,16 +29,29 @@ export function redisCoolingDown(now: number = Date.now()): boolean {
   return now < downUntil
 }
 
+/**
+ * Rejections of one oversized command ("ERR max request size exceeded", "ERR
+ * max single record size exceeded"). Redis is still serving everything else,
+ * so these must not switch the whole instance to its fallbacks.
+ */
+const PER_COMMAND_REJECTION = /max (single )?(request|record) size/i
+
 /** Record a failed Redis call and start (or extend) the cool-down. */
 export function reportRedisFailure(source: string, error: unknown, now: number = Date.now()): void {
+  // Upstash errors end with ", command was: [...]", which carries the full
+  // command: client IPs for rate-limit keys, whole cached payloads for SETs.
+  // Log only the reason.
+  const raw = error instanceof Error ? error.message : String(error)
+  const reason = raw.split(", command was:")[0].slice(0, 200)
+
+  if (PER_COMMAND_REJECTION.test(reason)) {
+    console.warn(`[redis] ${source} rejected: ${reason}`)
+    return
+  }
+
   downUntil = now + COOL_DOWN_MS
   if (now - lastLoggedAt >= COOL_DOWN_MS) {
     lastLoggedAt = now
-    // Upstash errors end with ", command was: [...]", which carries the full
-    // command: client IPs for rate-limit keys, whole cached payloads for SETs.
-    // Log only the reason.
-    const raw = error instanceof Error ? error.message : String(error)
-    const reason = raw.split(", command was:")[0].slice(0, 200)
     console.error(
       `[redis] ${source} failed; using in-memory fallbacks for ${COOL_DOWN_MS / 1000}s: ${reason}`
     )
