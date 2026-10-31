@@ -121,6 +121,10 @@ export default function PlayerDashboardPage() {
 
   const [prop, setProp] = useState<PropData | null>(null)
   const [loading, setLoading] = useState(true)
+  // A failed props request (500/429/network) must not read as "this player has
+  // no data": that is what users saw during the Oct 2026 Redis outage.
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const [activeStat, setActiveStat] = useState(
     sportParam === "Tennis" || sportParam === "Soccer" || sportParam === "NFL" || sportParam === "NHL"
       ? statParam
@@ -252,6 +256,7 @@ export default function PlayerDashboardPage() {
     }
 
     setLoading(true)
+    setLoadFailed(false)
     // Include search param to find the specific player/team
     const url = `/api/props?sport=${sportParam}&stat=${propFetchStat ?? "all"}&search=${encodeURIComponent(playerSearch)}`
     // Cache for 30 seconds — same data as the analysis page
@@ -289,13 +294,14 @@ export default function PlayerDashboardPage() {
               }
               setLoading(false)
             })
-            .catch(() => { if (!ignore) setLoading(false) })
+            .catch(() => { if (!ignore) { setLoadFailed(true); setLoading(false) } })
         }
       })
-      .catch(() => { if (!ignore) setLoading(false) })
+      .catch(() => { if (!ignore) { setLoadFailed(true); setLoading(false) } })
     return () => { ignore = true }
     // propFetchStat is derived from activeStat; a switch only refetches the line.
-  }, [playerId, propFetchStat, sportParam])
+    // retryCount re-runs the load from the error state's Retry button.
+  }, [playerId, propFetchStat, sportParam, retryCount])
 
   // NBA game log: every stat per game, loaded once per player so stat tabs,
   // combos and the vs-opponent / season-type filters switch instantly.
@@ -569,8 +575,30 @@ export default function PlayerDashboardPage() {
 
   if (!prop) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)] text-[var(--color-text-muted)]">
-        <p>No data available for this player.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--color-background)] text-[var(--color-text-muted)]">
+        <p>
+          {loadFailed
+            ? "Couldn't load this player's props. Please try again."
+            : "No data available for this player."}
+        </p>
+        <div className="flex items-center gap-2">
+          {loadFailed && (
+            <button
+              type="button"
+              onClick={() => setRetryCount((n) => n + 1)}
+              className="rounded-lg bg-[var(--color-lime)] px-4 py-2 text-sm font-semibold text-black"
+            >
+              Retry
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => router.push(`/analysis?sport=${encodeURIComponent(sportParam)}`)}
+            className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-primary)]"
+          >
+            Back to props
+          </button>
+        </div>
       </div>
     )
   }
