@@ -98,7 +98,9 @@ async function fetchGameLog(player: string): Promise<NbaGameLogResponse | null> 
       tov,
       nba_games!inner(game_date, season)
     `)
-    .ilike("player_name", player)
+    // Literal, not a pattern: `player=%` (or `a%`) would otherwise merge every
+    // matching player's games into one log under rows[0]'s name.
+    .ilike("player_name", player.replace(/[\\%_]/g, "\\$&"))
     .order("nba_games(game_date)", { ascending: false })
     .limit(MAX_GAMES)
 

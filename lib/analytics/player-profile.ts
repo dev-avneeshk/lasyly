@@ -236,7 +236,7 @@ async function loadEspnBio(
     .from("espn_players")
     .select("name, jersey_number, position, height, weight, age")
     .eq("league", league)
-    .ilike("name", playerName)
+    .ilike("name", playerName.replace(/[\\%_]/g, "\\$&")) // literal, not a pattern
     .limit(1)
 
   const row = (data ?? [])[0] as Record<string, unknown> | undefined
@@ -257,7 +257,7 @@ async function loadNbaBio(
   const { data } = await supabase
     .from("nba_players")
     .select("player_name, position, height, weight, birth_date")
-    .ilike("player_name", playerName)
+    .ilike("player_name", playerName.replace(/[\\%_]/g, "\\$&")) // literal, not a pattern
     .limit(1)
 
   const row = (data ?? [])[0] as Record<string, unknown> | undefined

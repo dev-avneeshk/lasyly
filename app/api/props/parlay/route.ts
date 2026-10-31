@@ -149,7 +149,7 @@ export const POST = withSecurity(async (request: Request) => {
       const { data: tennisData } = await supabase
         .from("tennis_serve_stats")
         .select("stat_year, aces_per_match, first_serve_pct")
-        .ilike("player_name", playerName)
+        .ilike("player_name", playerName.replace(/[\\%_]/g, "\\$&")) // literal, not a pattern
         .order("stat_year", { ascending: false })
         .limit(20)
 

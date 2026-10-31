@@ -69,7 +69,7 @@ async function fetchNflPlayerStats(player: string) {
     .select(
       "player_name, team, opponent, position, game_date, pass_yds, pass_td, pass_int, pass_att, pass_c, rush_att, rush_yds, rush_td, rec, rec_yds, rec_td, targets, tackles_total, sacks, def_int"
     )
-    .ilike("player_name", player)
+    .ilike("player_name", player.replace(/[\\%_]/g, "\\$&")) // literal, not a pattern
     .gte("game_date", cutoffStr)
     .order("game_date", { ascending: false })
     .limit(40)

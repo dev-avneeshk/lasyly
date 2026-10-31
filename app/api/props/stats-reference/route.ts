@@ -204,6 +204,9 @@ export const GET = withSecurity(async (request: Request) => {
 
 async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: boolean = false) {
   const supabase = createAdminClient()
+  // Exact (case-insensitive) name match: escape LIKE wildcards so `%`/`_` in
+  // the query string can't widen it to other players.
+  const playerLiteral = player.replace(/[\\%_]/g, "\\$&")
 
   // 1. Query last 20 games from nba_player_stats ordered by game date descending
   const { data: playerGames, error: playerError } = await supabase
@@ -232,7 +235,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
       drb,
       nba_games!inner(game_date, home_team, away_team)
     `)
-    .ilike("player_name", player)
+    .ilike("player_name", playerLiteral)
     .order("nba_games(game_date)", { ascending: false })
     .limit(30)
 
@@ -262,7 +265,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
   const { data: advancedStats } = await supabase
     .from("nba_player_advanced_stats")
     .select("*")
-    .ilike("player_name", player)
+    .ilike("player_name", playerLiteral)
     .order("season", { ascending: false })
     .limit(1)
 
@@ -270,7 +273,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
   const { data: shootingStats } = await supabase
     .from("nba_player_season_stats")
     .select("stats")
-    .ilike("player_name", player)
+    .ilike("player_name", playerLiteral)
     .eq("stat_type", "shooting")
     .eq("is_playoff", isPlayoff)
     .order("season", { ascending: false })
@@ -282,7 +285,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
   const { data: perGameStats } = await supabase
     .from("nba_player_season_stats")
     .select("season, stats")
-    .ilike("player_name", player)
+    .ilike("player_name", playerLiteral)
     .eq("stat_type", "per_game")
     .eq("is_playoff", isPlayoff)
     .order("season", { ascending: false })
@@ -291,7 +294,7 @@ async function fetchStatsReferenceData(player: string, stat: string, isPlayoff: 
   const { data: advancedSeasonStats } = await supabase
     .from("nba_player_season_stats")
     .select("season, stats")
-    .ilike("player_name", player)
+    .ilike("player_name", playerLiteral)
     .eq("stat_type", "advanced")
     .eq("is_playoff", isPlayoff)
     .order("season", { ascending: false })
