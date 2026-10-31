@@ -12,6 +12,7 @@ import { applyAdvancedFilters, getActiveFilterCount } from "@/lib/analytics/filt
 import { resolveNBAHeadshots } from "@/lib/analytics/nba-headshots"
 import { computePropValue, rankByValue, type PropValue } from "@/lib/props/prop-value"
 import { attachNbaH2H } from "@/lib/props/nba-h2h"
+import { playerNameMatches } from "@/lib/props/playerSearch"
 import { AdvancedFilterState } from "@/lib/analytics/types"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rateLimit"
@@ -426,7 +427,7 @@ export const GET = withSecurity(async (request: Request) => {
       const q = search.toLowerCase()
       filtered = filtered.filter(
         (p: any) =>
-          p.player.toLowerCase().includes(q) ||
+          playerNameMatches(p.player, search) ||
           p.team.toLowerCase().includes(q) ||
           (p.matchup && p.matchup.toLowerCase().includes(q))
       )
@@ -770,7 +771,7 @@ export const GET = withSecurity(async (request: Request) => {
     const q = search.toLowerCase()
     filtered = filtered.filter(
       (p) =>
-        p.player.toLowerCase().includes(q) ||
+        playerNameMatches(p.player, search) ||
         p.team.toLowerCase().includes(q) ||
         (p.matchup && p.matchup.toLowerCase().includes(q))
     )

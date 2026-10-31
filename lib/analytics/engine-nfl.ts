@@ -21,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { cached } from "@/lib/cache"
 import { fetchPagedParallel } from "@/lib/supabase/paged"
 import { espnHeadshotUrl, getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
+import { playerNameMatches } from "@/lib/props/playerSearch"
 import { PropCardData, GameResult } from "@/lib/props/types"
 import {
   getNFLDefenseLeagueTable,
@@ -919,7 +920,7 @@ export async function computeNFLProps(
       (rawRows.find((r) => r.athlete_id)?.athlete_id as string | number | undefined) ?? null
     if (search.length >= 2) {
       const q = search.toLowerCase()
-      if (!playerName.toLowerCase().includes(q) && !team.toLowerCase().includes(q)) continue
+      if (!playerNameMatches(playerName, search) && !team.toLowerCase().includes(q)) continue
     }
 
     // Resolve this stat's per-game values (most recent first — rows are desc)

@@ -20,6 +20,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getStoredHeadshotIds, resolveHeadshotUrl } from "@/lib/data/headshot-storage"
 import { cached } from "@/lib/cache"
+import { playerNameMatches } from "@/lib/props/playerSearch"
 import { PropCardData, GameResult } from "@/lib/props/types"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -328,7 +329,7 @@ async function computeESPNPropsUncached(
     // Apply search filter early
     if (search.length >= 2) {
       const q = search.toLowerCase()
-      if (!playerName.toLowerCase().includes(q) && !team.toLowerCase().includes(q)) {
+      if (!playerNameMatches(playerName, search) && !team.toLowerCase().includes(q)) {
         continue
       }
     }
