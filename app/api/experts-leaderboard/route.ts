@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getExpertsLeaderboard } from "@/lib/data/expertsLeaderboard"
 import { withSecurity, checkQueryParams, CACHE_CONTROL } from "@/lib/security/routeHelpers"
-import { SPORT_FILTERS } from "@/app/(app)/marketplace/TipstersClient"
+import { SPORT_FILTERS } from "@/lib/data/expertCategories"
 
 // Allowed categories mirror the marketplace sport chips. An enum, so arbitrary
 // values can't mint new cache keys.

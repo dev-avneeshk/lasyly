@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Trophy, BadgeCheck, User, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SPORT_FILTERS } from "./TipstersClient"
+import { SPORT_FILTERS } from "@/lib/data/expertCategories"
 import type { ExpertsLeaderboardEntry } from "@/lib/data/expertsLeaderboard"
 
 export default function LeaderboardTable() {

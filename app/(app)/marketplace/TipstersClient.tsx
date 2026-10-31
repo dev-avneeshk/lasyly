@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { User, Trophy, Target, Users, BadgeCheck, Search, SlidersHorizontal } from "lucide-react"
+import { SPORT_FILTERS } from "@/lib/data/expertCategories"
 
 type Tipster = {
   id: string
@@ -24,8 +25,6 @@ const SORT_OPTIONS = [
   { value: "win_rate", label: "Win Rate" },
   { value: "total_picks", label: "Total Picks" },
 ] as const
-
-export const SPORT_FILTERS = ["All", "Football", "Basketball", "Tennis", "Cricket", "NFL", "Formula 1", "Esports", "MMA", "Boxing", "Golf"]
 
 export default function TipstersClient() {
   const [tipsters, setTipsters] = useState<Tipster[]>([])
