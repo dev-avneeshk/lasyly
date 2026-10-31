@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, Dices } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TOP_BAR_SPORTS } from "@/components/layout/TopBarSportTabs"
 import { buildDayWindow, getSeasonInfo, parseLocalIso, shiftIso } from "@/lib/props/dates"
@@ -88,6 +88,16 @@ export function PropsHeader({ sport, selectedDate, todayIso, onDateChange, games
               AI projections, matchup analytics and data-driven props.
             </p>
           </div>
+          {/* Game simulations corner (NBA only for now) */}
+          {sport.toUpperCase() === "NBA" && (
+            <Link
+              href="/analysis/simulations"
+              className="ml-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-lime)]/40 bg-[var(--color-lime)]/10 px-3 text-[12px] font-bold text-[var(--color-lime)] transition-colors hover:bg-[var(--color-lime)]/20"
+            >
+              <Dices aria-hidden className="h-3.5 w-3.5" />
+              Game Sims
+            </Link>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-1 items-center gap-3 xl:justify-end">
