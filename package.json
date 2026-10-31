@@ -39,7 +39,7 @@
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
     "@radix-ui/react-slot": "1.2.4",
-    "@sentry/nextjs": "10.53.1",
+    "@sentry/nextjs": "10.78.0",
     "@supabase/ssr": "0.10.2",
     "@supabase/supabase-js": "2.105.1",
     "@upstash/ratelimit": "2.0.5",
@@ -50,13 +50,13 @@
     "date-fns": "4.1.0",
     "framer-motion": "12.38.0",
     "lucide-react": "1.14.0",
-    "next": "16.3.8",
+    "next": "16.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "3.8.1",
     "stripe": "22.1.0",
     "tailwind-merge": "3.5.0",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -65,12 +65,12 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.3",
     "fast-check": "^4.8.0",
     "sharp": "0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "@opentelemetry/instrumentation-http": {
