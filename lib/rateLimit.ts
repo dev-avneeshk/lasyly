@@ -11,6 +11,7 @@
  */
 import { NextResponse } from "next/server"
 import { getRedisClient } from "./redis"
+import { redisCoolingDown, reportRedisFailure } from "./redisHealth"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -42,11 +43,11 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const redis = getRedisClient()
 
-  if (redis) {
+  if (redis && !redisCoolingDown()) {
     return checkRateLimitRedis(key, config)
   }
 
-  // Fallback: in-memory for local development only
+  // Fallback: in-memory when Redis is not configured (local dev) or is failing.
   return checkRateLimitMemory(key, config)
 }
 
@@ -126,6 +127,7 @@ export async function checkRateLimitBatch(
 
     return null
   } catch (error) {
+    reportRedisFailure("rate limiter batch", error)
     if (opts.failClosed) {
       console.error("[rateLimit] Redis batch check failed, failing CLOSED:", error)
       // Block the request; index 0 is a reasonable "primary limit" attribution.
@@ -198,11 +200,11 @@ async function checkRateLimitRedis(
       retryAfterMs: 0,
     }
   } catch (error) {
-    // Redis failure: fail-open for non-critical routes.
-    // The proxy-level Redis rate limiter is the primary protection;
-    // this is a secondary business-logic limiter.
-    console.warn("[rateLimit] Redis rate limit check failed, allowing request:", error)
-    return { allowed: true, remaining: config.maxRequests, retryAfterMs: 0 }
+    // Redis failure: keep the route available but still limited, using the
+    // per-instance store. (This used to fail fully open, which removed the
+    // per-user caps on wallet/bets/arena writes for as long as Redis was down.)
+    reportRedisFailure("business rate limiter", error)
+    return checkRateLimitMemory(key, config)
   }
 }
 

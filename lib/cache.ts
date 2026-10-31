@@ -22,6 +22,7 @@
  */
 
 import { getRedisClient } from "./redis"
+import { redisCoolingDown, reportRedisFailure } from "./redisHealth"
 
 // ─── In-Memory Fallback Store ────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ async function redisGet<T>(key: string): Promise<T | null> {
     const value = await redis.get<T>(`${CACHE_PREFIX}${key}`)
     return value
   } catch (error) {
-    console.warn(`[cache] Redis GET failed for key "${key}":`, error)
+    reportRedisFailure(`cache GET "${key}"`, error)
     return null
   }
 }
@@ -81,7 +82,9 @@ async function redisSet<T>(key: string, data: T, ttlMs: number): Promise<boolean
     await redis.set(`${CACHE_PREFIX}${key}`, data, { px: ttlMs * 2 })
     return true
   } catch (error) {
-    console.warn(`[cache] Redis SET failed for key "${key}":`, error)
+    // The error message embeds the whole command, i.e. the cached payload;
+    // reportRedisFailure logs only the reason.
+    reportRedisFailure(`cache SET "${key}"`, error)
     return false
   }
 }
@@ -108,7 +111,8 @@ async function redisGetTimestamp(key: string): Promise<number | null> {
   try {
     const ts = await redis.get<number>(`${TIMESTAMP_PREFIX}${key}`)
     return ts
-  } catch {
+  } catch (error) {
+    reportRedisFailure(`cache GET timestamp "${key}"`, error)
     return null
   }
 }
@@ -119,8 +123,9 @@ async function redisSetTimestamp(key: string, ttlMs: number): Promise<void> {
 
   try {
     await redis.set(`${TIMESTAMP_PREFIX}${key}`, Date.now(), { px: ttlMs * 2 })
-  } catch {
+  } catch (error) {
     // Best-effort
+    reportRedisFailure(`cache SET timestamp "${key}"`, error)
   }
 }
 
@@ -235,7 +240,8 @@ async function acquireRefreshLease(key: string): Promise<(() => Promise<void>) |
         // Expires on its own.
       }
     }
-  } catch {
+  } catch (error) {
+    reportRedisFailure(`cache lease "${key}"`, error)
     return async () => {}
   }
 }
@@ -259,7 +265,11 @@ export async function cached<T>(
   fetcher: () => Promise<T>,
   ttlMs: number
 ): Promise<T> {
-  const redis = getRedisClient()
+  // While Redis is failing (outage, plan limit), use the in-memory path below
+  // with the caller's full TTL. Staying on the Redis path would pay a failed
+  // round trip per read and keep values only for the ≤10 s memo window, so
+  // every instance would recompute every slate every few seconds.
+  const redis = redisCoolingDown() ? null : getRedisClient()
 
   // ── Redis path ──────────────────────────────────────────────────────────────
   if (redis) {
@@ -389,7 +399,7 @@ export async function cached<T>(
       }
     } catch (error) {
       // Redis failed entirely — fall through to in-memory
-      console.warn("[cache] Redis path failed, falling back to memory:", error)
+      reportRedisFailure("cache", error)
     }
   }
 

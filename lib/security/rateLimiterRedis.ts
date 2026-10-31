@@ -24,6 +24,7 @@ import {
   checkRateLimit as checkRateLimitMemory,
   applyRateLimitHeaders,
 } from "./rateLimiter"
+import { redisCoolingDown, reportRedisFailure } from "../redisHealth"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -107,10 +108,20 @@ export async function checkRateLimitDistributed(
   identifier: string,
   tier: RateLimitTier = "standard"
 ): Promise<RateLimitResult> {
-  const limiter = (await initRedis()) ? _limiters[tier] : undefined
+  const limiter = (await initRedis()) && !redisCoolingDown() ? _limiters[tier] : undefined
   if (!limiter) return checkRateLimitMemory(identifier, TIERS[tier].config)
 
-  const result = await limiter.limit(identifier)
+  let result: Awaited<ReturnType<RedisRateLimiter["limit"]>>
+  try {
+    result = await limiter.limit(identifier)
+  } catch (error) {
+    // proxy.ts runs this for every /api request, so a throw here is a 500 on
+    // every API route (the 2026-10-30 Upstash plan-limit outage). Degrade to
+    // the per-instance limiter: weaker than the shared one, but still a limit,
+    // and the app stays up.
+    reportRedisFailure("rate limiter", error)
+    return checkRateLimitMemory(identifier, TIERS[tier].config)
+  }
   const resetAtSeconds = Math.ceil((result.reset - Date.now()) / 1000)
 
   return {
