@@ -138,7 +138,7 @@ export default async function SimulationGamePage({ params }: Params) {
         </div>
 
         <p className="text-[11px] text-[var(--color-text-muted)]">
-          Model {slate.models.featured}
+          Model {game.model ?? slate.models.featured}
           {game.minutesBeforeTip !== null ? `, run ${game.minutesBeforeTip.toLocaleString("en-US")} minutes before tip-off` : ""}. The
           previous version ({slate.models.baseline}) gave {game.home.abbr} {pct(game.baseline.pHome)} and a{" "}
           {game.baseline.away.toFixed(0)}–{game.baseline.home.toFixed(0)} average score. No injury news is used.

@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ChevronLeft, Dices } from "lucide-react"
 import { listSlates, slateDateLabel, slateRecord } from "@/lib/simulations"
+import type { SimSlate } from "@/lib/simulations"
 import { SimGameCard } from "@/components/simulations/SimGameCard"
 
 export const metadata: Metadata = {
@@ -13,6 +14,18 @@ export const metadata: Metadata = {
 
 // The slates are static JSON shipped with the build.
 export const dynamic = "force-static"
+
+/** "model tier2-0.9.0", or "models tier2-0.10.0 (3 games), tier2-0.9.0 (12 games)" for a slate re-run part-way. */
+function slateModelsText(slate: SimSlate): string {
+  const counts = new Map<string, number>()
+  for (const g of slate.games) {
+    const m = g.model ?? slate.models.featured
+    counts.set(m, (counts.get(m) ?? 0) + 1)
+  }
+  if (counts.size <= 1) return `model ${[...counts.keys()][0] ?? slate.models.featured}`
+  const parts = [...counts].map(([m, n]) => `${m} (${n} ${n === 1 ? "game" : "games"})`)
+  return `models ${parts.join(", ")}`
+}
 
 export default function SimulationsPage() {
   const slates = listSlates()
@@ -68,7 +81,7 @@ export default function SimulationsPage() {
                     ·{" "}
                   </>
                 ) : null}
-                model {slate.models.featured} · {slate.sims.toLocaleString("en-US")} sims per game
+                {slateModelsText(slate)} · {slate.sims.toLocaleString("en-US")} sims per game
               </p>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

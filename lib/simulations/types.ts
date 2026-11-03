@@ -115,6 +115,11 @@ export interface SimGame {
   minutesBeforeTip: number | null
   /** The real final score, when the game had been played at export time. */
   final: { home: number; away: number } | null
+  /**
+   * This game's featured model when it differs from the slate's (a slate re-run part-way with a newer model;
+   * games that had already tipped off keep the older one). Absent means `SimSlate.models.featured`.
+   */
+  model?: string
 }
 
 export interface SimSlate {
